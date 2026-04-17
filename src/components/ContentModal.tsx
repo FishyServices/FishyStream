@@ -6,7 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
 import { useIsInWatchlist, useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 
@@ -37,7 +37,7 @@ function EpisodePill({
     overview?: string;
     stillUrl?: string;
     runtime?: number;
-    voteAverage: number;
+    voteAverage?: number;
   };
   selected: boolean;
   onClick: () => void;
@@ -97,6 +97,30 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     content && content.type === "tv" && content._id ? { contentId: content._id } : "skip"
   );
 
+  const syncSeasons = useAction(api.tmdb.syncSeasons);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
+    if (allSeasons === undefined) return;
+    if (allSeasons.length > 0) return;
+
+    const run = async () => {
+      setIsSyncing(true);
+      try {
+        await syncSeasons({
+          tmdbId: content.tmdbId!,
+          contentId: content._id,
+          totalSeasons: content.seasons ?? 1
+        });
+      } catch {
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+    run();
+  }, [content, allSeasons, syncSeasons]);
+
   useEffect(() => {
     if (!content) return;
     if (content.type === "tv") {
@@ -111,23 +135,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const totalSeasons = content.seasons ?? 1;
   const hasSeasonData = dbSeason && dbSeason.episodes.length > 0;
   const episodes = hasSeasonData ? dbSeason.episodes : [];
-
-  const episodeCount = hasSeasonData
-    ? dbSeason.episodeCount
-    : (allSeasons?.find((s) => s.seasonNumber === selectedSeason)?.episodeCount ?? 24);
-
-  const fallbackEpisodes = !hasSeasonData
-    ? Array.from({ length: Math.min(episodeCount, 30) }, (_, i) => ({
-        episodeNumber: i + 1,
-        name: `Episode ${i + 1}`,
-        overview: undefined,
-        stillUrl: undefined,
-        runtime: undefined,
-        voteAverage: 0
-      }))
-    : [];
-
-  const displayEpisodes = hasSeasonData ? episodes : fallbackEpisodes;
 
   const handleWatchlist = async () => {
     if (!isSignedIn) {
@@ -376,28 +383,27 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                 )}
 
                 {/* Episode list */}
-                <div className="space-y-1">
-                  {displayEpisodes.map((ep) => (
-                    <EpisodePill
-                      key={ep.episodeNumber}
-                      ep={{
-                        ...ep,
-                        voteAverage: ep.voteAverage ?? 0
-                      }}
-                      selected={
-                        ep.episodeNumber === selectedEpisode && selectedSeason === selectedSeason
-                      }
-                      onClick={() => {
-                        setSelectedEpisode(ep.episodeNumber);
-                        handlePlay(ep.episodeNumber);
-                      }}
-                    />
-                  ))}
-                </div>
-
-                {!hasSeasonData && (
-                  <p className="text-xs text-white/30 text-center mt-3">
-                    Sync seasons for detailed episode info
+                {isSyncing ? (
+                  <p className="text-xs text-white/30 text-center py-8">Loading episodes...</p>
+                ) : hasSeasonData ? (
+                  <div className="space-y-1">
+                    {episodes.map((ep) => (
+                      <EpisodePill
+                        key={ep.episodeNumber}
+                        ep={ep}
+                        selected={
+                          ep.episodeNumber === selectedEpisode && selectedSeason === selectedSeason
+                        }
+                        onClick={() => {
+                          setSelectedEpisode(ep.episodeNumber);
+                          handlePlay(ep.episodeNumber);
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-white/30 text-center py-8">
+                    No episode data available.
                   </p>
                 )}
               </div>
