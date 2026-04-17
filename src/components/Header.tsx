@@ -18,8 +18,9 @@ const navLinks = [
   { label: "Home", href: "/" },
   { label: "TV Shows", href: "/tv-shows" },
   { label: "Movies", href: "/movies" },
-  { label: "New Releases", href: "/new-releases" },
+  { label: "New", href: "/new-releases" },
   { label: "Popular", href: "/popular" },
+  { label: "My List", href: "/my-list" },
 ];
 
 export function Header({ onSearch }: HeaderProps) {

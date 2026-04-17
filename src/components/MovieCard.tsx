@@ -1,7 +1,11 @@
-import { Play, Plus, ThumbsUp, ChevronDown } from "lucide-react";
+import { Play, Plus, ThumbsUp, ChevronDown, Check } from "lucide-react";
 import { useState } from "react";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import { useIsInWatchlist, useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
+import { ContentModal } from "./ContentModal";
+import { toast } from "sonner";
+import { useUser } from "@clerk/react";
 
 interface MovieCardProps {
   content: Doc<"content">;
@@ -10,14 +14,52 @@ interface MovieCardProps {
 
 export function MovieCard({ content, onPlay }: MovieCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const { isSignedIn } = useUser();
+  
+  const isInWatchlist = useIsInWatchlist(content._id);
+  const addToWatchlist = useAddToWatchlist();
+  const removeFromWatchlist = useRemoveFromWatchlist();
+
+  const handleSave = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isSignedIn) {
+      toast.error("Please sign in to save to watchlist");
+      return;
+    }
+
+    try {
+      if (isInWatchlist) {
+        await removeFromWatchlist(content._id);
+        toast.success("Removed from My List");
+      } else {
+        await addToWatchlist(content._id);
+        toast.success("Added to My List");
+      }
+    } catch (e) {
+      toast.error("Failed to update watchlist");
+    }
+  };
+
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (content.tmdbId) {
+      onPlay?.(content.tmdbId);
+    }
+  };
+
+  const handleMoreInfo = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowModal(true);
+  };
 
   return (
-    <div
-      className="relative flex-shrink-0 w-[160px] sm:w-[200px] lg:w-[240px] cursor-pointer"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={() => content.tmdbId && onPlay?.(content.tmdbId)}
-    >
+    <>
+      <div
+        className="relative flex-shrink-0 w-[160px] sm:w-[200px] lg:w-[240px] cursor-pointer"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
       <div
         className={`relative aspect-[2/3] rounded-lg overflow-hidden transition-all duration-300 ${
           isHovered ? "scale-105 z-10 shadow-2xl" : ""
@@ -36,6 +78,7 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
                 <Button
                   size="icon"
                   className="w-8 h-8 rounded-full bg-white text-black hover:bg-white/90"
+                  onClick={handlePlay}
                 >
                   <Play className="w-4 h-4 fill-black" />
                 </Button>
@@ -43,8 +86,13 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
                   size="icon"
                   variant="secondary"
                   className="w-8 h-8 rounded-full bg-white/20 text-white hover:bg-white/30 border border-white/30"
+                  onClick={handleSave}
                 >
-                  <Plus className="w-4 h-4" />
+                  {isInWatchlist ? (
+                    <Check className="w-4 h-4" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
                 </Button>
                 <Button
                   size="icon"
@@ -57,6 +105,7 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
                   size="icon"
                   variant="secondary"
                   className="w-8 h-8 rounded-full bg-white/20 text-white hover:bg-white/30 border border-white/30 ml-auto"
+                  onClick={handleMoreInfo}
                 >
                   <ChevronDown className="w-4 h-4" />
                 </Button>
@@ -94,6 +143,14 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
           </div>
         )}
       </div>
-    </div>
+      </div>
+
+      <ContentModal
+        content={content}
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onPlay={onPlay || (() => {})}
+      />
+    </>
   );
 }

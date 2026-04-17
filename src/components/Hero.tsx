@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useState } from "react";
+import { ContentModal } from "./ContentModal";
 
 interface HeroProps {
   content: Doc<"content">;
@@ -11,6 +12,7 @@ interface HeroProps {
 
 export function Hero({ content, onPlay }: HeroProps) {
   const [isMuted, setIsMuted] = useState(true);
+  const [showModal, setShowModal] = useState(false);
 
   return (
     <div className="relative w-full h-[85vh] min-h-[600px]">
@@ -87,6 +89,7 @@ export function Hero({ content, onPlay }: HeroProps) {
               size="lg"
               variant="secondary"
               className="bg-white/20 text-white hover:bg-white/30 font-semibold px-8"
+              onClick={() => setShowModal(true)}
             >
               <Info className="w-5 h-5 mr-2" />
               More Info
@@ -102,6 +105,13 @@ export function Hero({ content, onPlay }: HeroProps) {
           </div>
         </div>
       </div>
+
+      <ContentModal
+        content={content}
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onPlay={onPlay || (() => {})}
+      />
     </div>
   );
 }
