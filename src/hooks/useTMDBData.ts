@@ -202,10 +202,7 @@ export function useLazyTMDBData(
         setIsLoading(false);
         return results;
       } catch (error) {
-        console.error(
-          `Error fetching ${mediaType} for ${isGenre ? "genre" : "category"}:`,
-          error
-        );
+        console.error(`Error fetching ${mediaType} for ${isGenre ? "genre" : "category"}:`, error);
         setIsLoading(false);
         return [];
       }
@@ -233,7 +230,6 @@ export function useRelatedContent(
 ) {
   const [related, setRelated] = useState<TMDBMediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
   const getRelated = useAction(api.tmdb.getRelated);
 
   useEffect(() => {
@@ -242,35 +238,34 @@ export function useRelatedContent(
       return;
     }
 
-    const fetchRelated = async () => {
-      setIsLoading(true);
+    let cancelled = false;
+    setIsLoading(true);
+
+    const fetch = async () => {
       try {
         const results = await getRelated({ tmdbId, type, limit });
-        setRelated(results as TMDBMediaItem[]);
-      } catch (error) {
-        console.error("Error fetching related content:", error);
-      } finally {
-        setIsLoading(false);
-      }
+        if (!cancelled) setRelated(results as TMDBMediaItem[]);
+      } catch {}
+      if (!cancelled) setIsLoading(false);
     };
 
-    fetchRelated();
+    const timeout = setTimeout(fetch, 100);
+    return () => {
+      clearTimeout(timeout);
+      cancelled = true;
+    };
   }, [tmdbId, type, limit, getRelated]);
 
   return { related, isLoading };
 }
 
-export function useContentCredits(
-  tmdbId: number | undefined,
-  type: MediaType | undefined
-) {
+export function useContentCredits(tmdbId: number | undefined, type: MediaType | undefined) {
   const [credits, setCredits] = useState<{
     cast: Array<{ id: number; name: string; character: string; profileUrl?: string; order: number }>;
     directors: string[];
     writers: string[];
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
   const getCredits = useAction(api.tmdb.getCredits);
 
   useEffect(() => {
@@ -279,31 +274,30 @@ export function useContentCredits(
       return;
     }
 
-    const fetchCredits = async () => {
-      setIsLoading(true);
+    let cancelled = false;
+    setIsLoading(true);
+
+    const fetch = async () => {
       try {
         const results = await getCredits({ tmdbId, type });
-        setCredits(results);
-      } catch (error) {
-        console.error("Error fetching credits:", error);
-      } finally {
-        setIsLoading(false);
-      }
+        if (!cancelled) setCredits(results);
+      } catch {}
+      if (!cancelled) setIsLoading(false);
     };
 
-    fetchCredits();
+    const timeout = setTimeout(fetch, 150);
+    return () => {
+      clearTimeout(timeout);
+      cancelled = true;
+    };
   }, [tmdbId, type, getCredits]);
 
   return { credits, isLoading };
 }
 
-export function useContentVideos(
-  tmdbId: number | undefined,
-  type: MediaType | undefined
-) {
+export function useContentVideos(tmdbId: number | undefined, type: MediaType | undefined) {
   const [videos, setVideos] = useState<Array<{ key: string; name: string; type: string; official: boolean }>>([]);
   const [isLoading, setIsLoading] = useState(false);
-
   const getVideos = useAction(api.tmdb.getVideos);
 
   useEffect(() => {
@@ -312,19 +306,22 @@ export function useContentVideos(
       return;
     }
 
-    const fetchVideos = async () => {
-      setIsLoading(true);
+    let cancelled = false;
+    setIsLoading(true);
+
+    const fetch = async () => {
       try {
         const results = await getVideos({ tmdbId, type });
-        setVideos(results);
-      } catch (error) {
-        console.error("Error fetching videos:", error);
-      } finally {
-        setIsLoading(false);
-      }
+        if (!cancelled) setVideos(results);
+      } catch {}
+      if (!cancelled) setIsLoading(false);
     };
 
-    fetchVideos();
+    const timeout = setTimeout(fetch, 200);
+    return () => {
+      clearTimeout(timeout);
+      cancelled = true;
+    };
   }, [tmdbId, type, getVideos]);
 
   return { videos, isLoading };

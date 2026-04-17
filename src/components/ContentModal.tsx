@@ -1,15 +1,34 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Plus, Check, Star, Calendar, Clock, X, ChevronDown, Tv, Film, User, Video, Users } from "lucide-react";
+import {
+  Play,
+  Plus,
+  Check,
+  Star,
+  Calendar,
+  Clock,
+  X,
+  ChevronDown,
+  Tv,
+  Film,
+  User,
+  Video,
+  Users
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
 import { useIsInWatchlist, useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
-import { useContentCredits, useContentVideos, useRelatedContent, type TMDBMediaItem } from "@/hooks/useContent";
+import {
+  useContentCredits,
+  useContentVideos,
+  useRelatedContent,
+  type TMDBMediaItem
+} from "@/hooks/useContent";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -101,8 +120,13 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const syncSeasons = useAction(api.tmdb.syncSeasons);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const tmdbIdNum = content?.tmdbId ? parseInt(content.tmdbId) : undefined;
+  const tmdbIdNum = content?.tmdbId
+    ? typeof content.tmdbId === "number"
+      ? content.tmdbId
+      : parseInt(content.tmdbId, 10) || undefined
+    : undefined;
   const contentType = content?.type;
+
   const { credits, isLoading: creditsLoading } = useContentCredits(tmdbIdNum, contentType);
   const { videos, isLoading: videosLoading } = useContentVideos(tmdbIdNum, contentType);
   const { related, isLoading: relatedLoading } = useRelatedContent(tmdbIdNum, contentType, 8);
@@ -175,6 +199,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl p-0 overflow-hidden bg-[hsl(220,20%,5%)] border-white/10 max-h-[90vh] flex flex-col">
+        <DialogTitle className="sr-only">{content?.title || "Content Details"}</DialogTitle>
         {/* Hero section */}
         <div className="relative h-[280px] sm:h-[340px] flex-shrink-0">
           <img
@@ -438,7 +463,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                           <User className="w-6 h-6 text-white/30" />
                         </div>
                       )}
-                      <p className="text-[10px] text-white font-medium line-clamp-2">{actor.name}</p>
+                      <p className="text-[10px] text-white font-medium line-clamp-2">
+                        {actor.name}
+                      </p>
                       <p className="text-[9px] text-white/50 line-clamp-1">{actor.character}</p>
                     </div>
                   ))}

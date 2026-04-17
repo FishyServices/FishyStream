@@ -13,7 +13,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { useUser } from "@clerk/react";
-import { useWatchProgress } from "@/hooks/useWatchHistory";
+import { useGetWatchProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
 
 interface VideoPlayerProps {
   content: Doc<"content">;
@@ -99,8 +99,8 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const { user, isSignedIn } = useUser();
   const getMovieSources = useAction(api.providers.getMovieSources);
   const getTVSources = useAction(api.providers.getTVSources);
-  const updateProgress = useMutation(api.watchHistory.updateProgress);
-  const watchState = useWatchProgress(content._id);
+  const updateProgress = useUpdateProgress();
+  const watchState = useGetWatchProgress(content._id);
 
   const [sources, setSources] = useState<StreamSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<string>("");
@@ -288,21 +288,20 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
         Math.round((next / 100) * estimatedDurationSeconds)
       );
       syncInFlight = true;
-      void updateProgress({
-        clerkUserId: user.id,
-        contentId: content._id,
-        progress: next,
-        completed: next >= 95,
-        positionSeconds: estimatedPos,
-        durationSeconds: estimatedDurationSeconds,
-        seasonNumber: content.type === "tv" ? currentTvTargetRef.current.season : undefined,
-        episodeNumber: content.type === "tv" ? currentTvTargetRef.current.episode : undefined
-      })
+      void updateProgress(
+        content._id,
+        next,
+        next >= 95,
+        estimatedPos,
+        estimatedDurationSeconds,
+        content.type === "tv" ? currentTvTargetRef.current.season : undefined,
+        content.type === "tv" ? currentTvTargetRef.current.episode : undefined
+      )
         .then(() => {
           lastSyncedProgressRef.current = next;
           lastSyncedPositionRef.current = estimatedPos;
         })
-        .catch((err) => console.error("Fallback progress sync failed:", err))
+        .catch((err: Error) => console.error("Fallback progress sync failed:", err))
         .finally(() => {
           syncInFlight = false;
         });
@@ -384,22 +383,21 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
       realtimeEventsDetectedRef.current = true;
       syncInFlight = true;
-      void updateProgress({
-        clerkUserId: user.id,
-        contentId: content._id,
-        progress: next,
-        completed: data.event === "ended" || next >= 95,
-        positionSeconds: nextPos,
-        durationSeconds: nextDur,
-        seasonNumber: nextSeason,
-        episodeNumber: nextEpisode
-      })
+      void updateProgress(
+        content._id,
+        next,
+        data.event === "ended" || next >= 95,
+        nextPos,
+        nextDur,
+        nextSeason,
+        nextEpisode
+      )
         .then(() => {
           lastSyncedProgressRef.current = next;
           lastSyncedPositionRef.current = nextPos;
           lastRealtimeSyncAtRef.current = Date.now();
         })
-        .catch((err) => console.error("Realtime progress sync failed:", err))
+        .catch((err: Error) => console.error("Realtime progress sync failed:", err))
         .finally(() => {
           syncInFlight = false;
         });

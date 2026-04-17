@@ -281,6 +281,6 @@ export const getAllTmdbIds = internalQuery({
   args: {},
   handler: async (ctx) => {
     const content = await ctx.db.query("content").take(5000);
-    return content.map(c => ({ tmdbId: c.tmdbId, type: c.type }));
+    return content.map((c) => ({ tmdbId: c.tmdbId, type: c.type }));
   }
 });

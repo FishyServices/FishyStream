@@ -1,6 +1,6 @@
 "use node";
 import { v } from "convex/values";
-import { action, internalAction } from "./_generated/server";
+import { action, query, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 
 const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
@@ -53,8 +53,8 @@ interface TMDBCacheKey {
   language: string;
 }
 
-const tmdbCache = new SimpleCache<TMDBCacheKey, any>((key) =>
-  `${key.url}|${JSON.stringify(key.params)}|${key.language}`
+const tmdbCache = new SimpleCache<TMDBCacheKey, any>(
+  (key) => `${key.url}|${JSON.stringify(key.params)}|${key.language}`
 );
 
 let proxyRotationIndex = 0;
@@ -236,8 +236,7 @@ async function get<T>(
       if (res.ok) {
         result = (await res.json()) as T;
       }
-    } catch {
-    }
+    } catch {}
   }
 
   if (!result) {
@@ -249,8 +248,7 @@ async function get<T>(
       if (res.ok) {
         result = (await res.json()) as T;
       }
-    } catch {
-    }
+    } catch {}
   }
 
   if (!result) {
@@ -415,10 +413,9 @@ export const searchMovies = action({
 export const searchTVShows = action({
   args: { query: v.string() },
   handler: async (_ctx, { query }) => {
-    const data = await get<{ results: (TMDBTVListItem & { popularity: number })[] }>(
-      `/search/tv`,
-      { query: encodeURIComponent(query) }
-    );
+    const data = await get<{ results: (TMDBTVListItem & { popularity: number })[] }>(`/search/tv`, {
+      query: encodeURIComponent(query)
+    });
     if (!data?.results) return [];
     const sorted = data.results.sort((a, b) => b.popularity - a.popularity).slice(0, 20);
     return await mapInBatches(sorted, 5, async (show) => {
@@ -646,7 +643,9 @@ export const syncContent = action({
     const flagMap = await collectFlagMap(type, flagPages);
 
     const existingContent = await ctx.runQuery(internal.content.getAllTmdbIds, {});
-    const existingTmdbIds = new Set(existingContent.map((c: { tmdbId?: string }) => c.tmdbId).filter(Boolean));
+    const existingTmdbIds = new Set(
+      existingContent.map((c: { tmdbId?: string }) => c.tmdbId).filter(Boolean)
+    );
 
     const seeds: Array<{
       id: number;
@@ -851,7 +850,7 @@ const userAgents = [
 ];
 
 function getRandomUserAgent(): string {
-  return userAgents[Math.floor(Math.random() * userAgents.length)];
+  return userAgents[Math.floor(Math.random() * userAgents.length)] ?? userAgents[0]!;
 }
 
 async function fetchWithTimeout(
@@ -882,8 +881,7 @@ export const getIMDbMetadata = action({
           return { trailer_url: trailerData.trailer.embed_url };
         }
       }
-    } catch {
-    }
+    } catch {}
 
     try {
       const delay = Math.floor(Math.random() * (197 - 69) + 69);
@@ -907,15 +905,13 @@ export const getIMDbMetadata = action({
       const html = await res.text();
 
       const jsonLdMatch = html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/);
-      if (jsonLdMatch) {
+      if (jsonLdMatch?.[1]) {
         try {
           const jsonLd = JSON.parse(jsonLdMatch[1]);
           return {
             title: jsonLd.name,
             year: jsonLd.datePublished ? parseInt(jsonLd.datePublished.split("-")[0]) : null,
-            runtime: jsonLd.duration
-              ? parseInt(jsonLd.duration.replace(/[^0-9]/g, ""))
-              : null,
+            runtime: jsonLd.duration ? parseInt(jsonLd.duration.replace(/[^0-9]/g, "")) : null,
             age_rating: jsonLd.contentRating,
             imdb_rating: jsonLd.aggregateRating?.ratingValue
               ? parseFloat(jsonLd.aggregateRating.ratingValue)
@@ -925,12 +921,15 @@ export const getIMDbMetadata = action({
               : null,
             plot: jsonLd.description,
             poster_url: jsonLd.image,
-            genre: jsonLd.genre ? (Array.isArray(jsonLd.genre) ? jsonLd.genre : [jsonLd.genre]) : [],
+            genre: jsonLd.genre
+              ? Array.isArray(jsonLd.genre)
+                ? jsonLd.genre
+                : [jsonLd.genre]
+              : [],
             cast: jsonLd.actor?.map((a: any) => a.name).slice(0, 10),
             directors: jsonLd.director?.map((d: any) => d.name)
           };
-        } catch {
-        }
+        } catch {}
       }
 
       return null;
@@ -968,7 +967,9 @@ export const getCredits = action({
         order: c.order
       })),
       directors: data.crew.filter((c) => c.job === "Director").map((c) => c.name),
-      writers: data.crew.filter((c) => c.job === "Writer" || c.job === "Screenplay").map((c) => c.name)
+      writers: data.crew
+        .filter((c) => c.job === "Writer" || c.job === "Screenplay")
+        .map((c) => c.name)
     };
   }
 });
@@ -999,7 +1000,8 @@ export const getRelated = action({
     limit: v.optional(v.number())
   },
   handler: async (_ctx, { tmdbId, type, limit = 10 }) => {
-    const endpoint = type === "movie" ? `/movie/${tmdbId}/recommendations` : `/tv/${tmdbId}/recommendations`;
+    const endpoint =
+      type === "movie" ? `/movie/${tmdbId}/recommendations` : `/tv/${tmdbId}/recommendations`;
     const data = await get<{ results: TMDBListItem[] }>(endpoint);
 
     if (!data?.results) return [];
