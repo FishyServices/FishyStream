@@ -9,6 +9,8 @@ type WatchHistoryContent = Doc<"content"> & {
   watchedAt: number;
   positionSeconds?: number;
   durationSeconds?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
 };
 
 async function getUserByClerkIdQuery(
@@ -72,7 +74,9 @@ export const getMyWatchHistory = query({
           completed: item.completed,
           watchedAt: item.watchedAt,
           positionSeconds: item.positionSeconds,
-          durationSeconds: item.durationSeconds
+          durationSeconds: item.durationSeconds,
+          seasonNumber: item.seasonNumber,
+          episodeNumber: item.episodeNumber
         });
       }
     }
@@ -82,7 +86,22 @@ export const getMyWatchHistory = query({
 
 export const getContinueWatching = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<Array<Doc<"content"> & { progress: number }>> => {
+  handler: async (
+    ctx,
+    { clerkUserId }
+  ): Promise<
+    Array<
+      Doc<"content"> & {
+        progress: number;
+        completed: boolean;
+        watchedAt: number;
+        positionSeconds?: number;
+        durationSeconds?: number;
+        seasonNumber?: number;
+        episodeNumber?: number;
+      }
+    >
+  > => {
     const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -94,13 +113,29 @@ export const getContinueWatching = query({
       .order("desc")
       .take(10);
 
-    const result: Array<Doc<"content"> & { progress: number }> = [];
+    const result: Array<
+      Doc<"content"> & {
+        progress: number;
+        completed: boolean;
+        watchedAt: number;
+        positionSeconds?: number;
+        durationSeconds?: number;
+        seasonNumber?: number;
+        episodeNumber?: number;
+      }
+    > = [];
     for (const item of historyItems) {
       const content = await ctx.db.get(item.contentId);
       if (content) {
         result.push({
           ...content,
-          progress: item.progress
+          progress: item.progress,
+          completed: item.completed,
+          watchedAt: item.watchedAt,
+          positionSeconds: item.positionSeconds,
+          durationSeconds: item.durationSeconds,
+          seasonNumber: item.seasonNumber,
+          episodeNumber: item.episodeNumber
         });
       }
     }
@@ -118,6 +153,8 @@ export const getWatchProgress = query({
     positionSeconds: number;
     durationSeconds: number;
     completed: boolean;
+    seasonNumber: number | null;
+    episodeNumber: number | null;
   }> => {
     const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) {
@@ -125,7 +162,9 @@ export const getWatchProgress = query({
         progress: 0,
         positionSeconds: 0,
         durationSeconds: 0,
-        completed: false
+        completed: false,
+        seasonNumber: null,
+        episodeNumber: null
       };
     }
 
@@ -138,7 +177,9 @@ export const getWatchProgress = query({
       progress: historyItem?.progress || 0,
       positionSeconds: historyItem?.positionSeconds || 0,
       durationSeconds: historyItem?.durationSeconds || 0,
-      completed: historyItem?.completed || false
+      completed: historyItem?.completed || false,
+      seasonNumber: historyItem?.seasonNumber ?? null,
+      episodeNumber: historyItem?.episodeNumber ?? null
     };
   }
 });
@@ -150,11 +191,22 @@ export const updateProgress = mutation({
     progress: v.number(),
     completed: v.optional(v.boolean()),
     positionSeconds: v.optional(v.number()),
-    durationSeconds: v.optional(v.number())
+    durationSeconds: v.optional(v.number()),
+    seasonNumber: v.optional(v.number()),
+    episodeNumber: v.optional(v.number())
   },
   handler: async (
     ctx,
-    { clerkUserId, contentId, progress, completed, positionSeconds, durationSeconds }
+    {
+      clerkUserId,
+      contentId,
+      progress,
+      completed,
+      positionSeconds,
+      durationSeconds,
+      seasonNumber,
+      episodeNumber
+    }
   ): Promise<void> => {
     const userId = await getUserByClerkId(ctx, clerkUserId);
     if (!userId) throw new Error("User not found");
@@ -167,6 +219,14 @@ export const updateProgress = mutation({
       durationSeconds !== undefined && Number.isFinite(durationSeconds)
         ? Math.max(0, durationSeconds)
         : undefined;
+    const normalizedSeasonNumber =
+      seasonNumber !== undefined && Number.isFinite(seasonNumber)
+        ? Math.max(1, Math.floor(seasonNumber))
+        : undefined;
+    const normalizedEpisodeNumber =
+      episodeNumber !== undefined && Number.isFinite(episodeNumber)
+        ? Math.max(1, Math.floor(episodeNumber))
+        : undefined;
 
     const existing = await ctx.db
       .query("watchHistory")
@@ -178,8 +238,10 @@ export const updateProgress = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         progress: normalizedProgress,
-        positionSeconds: normalizedPositionSeconds,
-        durationSeconds: normalizedDurationSeconds,
+        positionSeconds: normalizedPositionSeconds ?? existing.positionSeconds,
+        durationSeconds: normalizedDurationSeconds ?? existing.durationSeconds,
+        seasonNumber: normalizedSeasonNumber ?? existing.seasonNumber,
+        episodeNumber: normalizedEpisodeNumber ?? existing.episodeNumber,
         completed: isCompleted,
         watchedAt: Date.now()
       });
@@ -190,6 +252,8 @@ export const updateProgress = mutation({
         progress: normalizedProgress,
         positionSeconds: normalizedPositionSeconds,
         durationSeconds: normalizedDurationSeconds,
+        seasonNumber: normalizedSeasonNumber,
+        episodeNumber: normalizedEpisodeNumber,
         completed: isCompleted,
         watchedAt: Date.now()
       });

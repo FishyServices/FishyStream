@@ -53,6 +53,8 @@ export default defineSchema({
     progress: v.number(),
     positionSeconds: v.optional(v.number()),
     durationSeconds: v.optional(v.number()),
+    seasonNumber: v.optional(v.number()),
+    episodeNumber: v.optional(v.number()),
     completed: v.boolean(),
     watchedAt: v.number()
   })

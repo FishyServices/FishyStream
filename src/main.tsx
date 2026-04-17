@@ -15,6 +15,7 @@ import { NewReleasesPage } from "./pages/NewReleasesPage";
 import { PopularPage } from "./pages/PopularPage";
 import { MyListPage } from "./pages/MyListPage";
 import { WatchHistoryPage } from "./pages/WatchHistoryPage";
+import { MigrationPage } from "./pages/MigrationPage";
 import "./index.css";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
@@ -45,6 +46,7 @@ createRoot(elem).render(
             <Route path="/popular" element={<PopularPage />} />
             <Route path="/my-list" element={<MyListPage />} />
             <Route path="/history" element={<WatchHistoryPage />} />
+            <Route path="/migration" element={<MigrationPage />} />
             <Route path="/" element={<App />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

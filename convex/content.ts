@@ -2,6 +2,27 @@ import { v } from "convex/values";
 import { query, mutation, internalMutation, internalAction } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
+const tmdbContentValidator = v.object({
+  title: v.string(),
+  description: v.string(),
+  type: v.union(v.literal("movie"), v.literal("tv")),
+  genre: v.array(v.string()),
+  year: v.number(),
+  rating: v.string(),
+  duration: v.optional(v.string()),
+  seasons: v.optional(v.number()),
+  posterUrl: v.string(),
+  backdropUrl: v.string(),
+  tmdbId: v.optional(v.string()),
+  imdbId: v.optional(v.string()),
+  trending: v.boolean(),
+  popular: v.boolean(),
+  featured: v.boolean(),
+  new: v.boolean(),
+  createdAt: v.number(),
+  updatedAt: v.number()
+});
+
 export const getFeatured = query({
   handler: async (ctx): Promise<Doc<"content"> | null> => {
     const featured = await ctx.db
@@ -161,30 +182,11 @@ export const remove = mutation({
 });
 
 export const createFromTMDB = internalMutation({
-  args: {
-    title: v.string(),
-    description: v.string(),
-    type: v.union(v.literal("movie"), v.literal("tv")),
-    genre: v.array(v.string()),
-    year: v.number(),
-    rating: v.string(),
-    duration: v.optional(v.string()),
-    seasons: v.optional(v.number()),
-    posterUrl: v.string(),
-    backdropUrl: v.string(),
-    tmdbId: v.optional(v.string()),
-    imdbId: v.optional(v.string()),
-    trending: v.boolean(),
-    popular: v.boolean(),
-    featured: v.boolean(),
-    new: v.boolean(),
-    createdAt: v.number(),
-    updatedAt: v.number()
-  },
+  args: tmdbContentValidator,
   handler: async (ctx, args): Promise<void> => {
     const existing = await ctx.db
       .query("content")
-      .filter((q) => q.eq(q.field("tmdbId"), args.tmdbId))
+      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", args.tmdbId))
       .first();
 
     if (existing) {
@@ -195,6 +197,35 @@ export const createFromTMDB = internalMutation({
     } else {
       await ctx.db.insert("content", args);
     }
+  }
+});
+
+export const upsertBatchFromTMDB = internalMutation({
+  args: {
+    items: v.array(tmdbContentValidator)
+  },
+  handler: async (ctx, { items }): Promise<number> => {
+    let syncedCount = 0;
+
+    for (const item of items) {
+      const existing = await ctx.db
+        .query("content")
+        .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", item.tmdbId))
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          ...item,
+          updatedAt: Date.now()
+        });
+      } else {
+        await ctx.db.insert("content", item);
+      }
+
+      syncedCount += 1;
+    }
+
+    return syncedCount;
   }
 });
 

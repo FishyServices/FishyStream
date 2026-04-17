@@ -21,7 +21,8 @@ const navLinks = [
   { label: "New", href: "/new-releases" },
   { label: "Popular", href: "/popular" },
   { label: "My List", href: "/my-list" },
-  { label: "History", href: "/history" }
+  { label: "History", href: "/history" },
+  { label: "Import", href: "/migration" }
 ];
 
 export function Header({ onSearch }: HeaderProps) {

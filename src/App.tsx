@@ -145,8 +145,8 @@ export function App() {
   const handleSyncMovies = async () => {
     setIsSyncing(true);
     try {
-      const count = await syncTMDB({ type: "movies", count: 50 });
-      toast.success(`Synced ${count} movies from TMDB`);
+      const count = await syncTMDB({ type: "movies", count: 1000 });
+      toast.success(`Synced ${count} movies from the TMDB catalog`);
     } catch (e) {
       toast.error("Failed to sync movies");
     } finally {
@@ -157,8 +157,8 @@ export function App() {
   const handleSyncTV = async () => {
     setIsSyncing(true);
     try {
-      const count = await syncTMDB({ type: "tv", count: 50 });
-      toast.success(`Synced ${count} TV shows from TMDB`);
+      const count = await syncTMDB({ type: "tv", count: 1000 });
+      toast.success(`Synced ${count} TV shows from the TMDB catalog`);
     } catch (e) {
       toast.error("Failed to sync TV shows");
     } finally {
@@ -191,7 +191,9 @@ export function App() {
             <Film className="w-10 h-10 text-primary" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Welcome to FishyStream</h1>
-          <p className="text-white/60 mb-6">No content available. Sync from TMDB to get started.</p>
+          <p className="text-white/60 mb-6">
+            No content available. Pull a TMDB catalog batch to get started.
+          </p>
           <Button onClick={handleSyncMovies} disabled={isSyncing} size="lg">
             {isSyncing ? (
               <>
@@ -230,9 +232,9 @@ export function App() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Sync from TMDB</DialogTitle>
+                  <DialogTitle>Sync TMDB catalog</DialogTitle>
                   <DialogDescription>
-                    Fetch real movie and TV show data from The Movie Database API.
+                    Pull larger discover-based TMDB batches like p-stream instead of a tiny sample.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -242,7 +244,7 @@ export function App() {
                     ) : (
                       <Sparkles className="w-4 h-4" />
                     )}
-                    Sync Trending Movies
+                    Sync Movie Catalog
                   </Button>
                   <Button
                     onClick={handleSyncTV}
@@ -255,7 +257,7 @@ export function App() {
                     ) : (
                       <RefreshCw className="w-4 h-4" />
                     )}
-                    Sync Popular TV Shows
+                    Sync TV Catalog
                   </Button>
                 </div>
               </DialogContent>

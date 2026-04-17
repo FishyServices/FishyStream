@@ -9,6 +9,8 @@ export interface WatchHistoryItem extends Doc<"content"> {
   watchedAt: number;
   positionSeconds?: number;
   durationSeconds?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
 }
 
 export interface WatchProgressState {
@@ -16,6 +18,8 @@ export interface WatchProgressState {
   positionSeconds: number;
   durationSeconds: number;
   completed: boolean;
+  seasonNumber: number | null;
+  episodeNumber: number | null;
 }
 
 export function useMyWatchHistory(): WatchHistoryItem[] | undefined {
@@ -23,7 +27,19 @@ export function useMyWatchHistory(): WatchHistoryItem[] | undefined {
   return useQuery(api.watchHistory.getMyWatchHistory, user ? { clerkUserId: user.id } : "skip");
 }
 
-export function useContinueWatching(): Array<Doc<"content"> & { progress: number }> | undefined {
+export function useContinueWatching():
+  | Array<
+      Doc<"content"> & {
+        progress: number;
+        completed: boolean;
+        watchedAt: number;
+        positionSeconds?: number;
+        durationSeconds?: number;
+        seasonNumber?: number;
+        episodeNumber?: number;
+      }
+    >
+  | undefined {
   const { user } = useUser();
   return useQuery(api.watchHistory.getContinueWatching, user ? { clerkUserId: user.id } : "skip");
 }
@@ -47,7 +63,9 @@ export function useUpdateProgress() {
     progress: number,
     completed?: boolean,
     positionSeconds?: number,
-    durationSeconds?: number
+    durationSeconds?: number,
+    seasonNumber?: number,
+    episodeNumber?: number
   ) => {
     if (!user) throw new Error("Not signed in");
     return mutation({
@@ -56,7 +74,9 @@ export function useUpdateProgress() {
       progress,
       completed,
       positionSeconds,
-      durationSeconds
+      durationSeconds,
+      seasonNumber,
+      episodeNumber
     });
   };
 }

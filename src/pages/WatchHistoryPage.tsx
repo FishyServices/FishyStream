@@ -94,6 +94,11 @@ export function WatchHistoryPage() {
                   <p className="text-xs text-white/70 mt-1">
                     {item.completed ? "Completed" : `${Math.round(item.progress)}% watched`}
                   </p>
+                  {item.type === "tv" && item.seasonNumber && item.episodeNumber && (
+                    <p className="text-[11px] text-white/50 mt-0.5">
+                      S{item.seasonNumber} E{item.episodeNumber}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}

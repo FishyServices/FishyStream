@@ -46,6 +46,11 @@ function clampProgress(progress: number): number {
   return Math.max(0, Math.min(progress, 100));
 }
 
+function normalizeEpisodeNumber(value: number | null | undefined): number {
+  if (value === null || value === undefined || !Number.isFinite(value)) return 1;
+  return Math.max(1, Math.floor(value));
+}
+
 function getEstimatedDurationSeconds(content: Doc<"content">): number {
   const durationText = content.duration?.toLowerCase() ?? "";
   const hours = Number(durationText.match(/(\d+)h/)?.[1] ?? 0);
@@ -120,6 +125,7 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
     completed: false,
     durationSeconds: 0
   });
+  const [tvTarget, setTvTarget] = useState({ season: 1, episode: 1 });
   const historyInitializedRef = useRef(false);
   const realtimeEventsDetectedRef = useRef(false);
   const activeSegmentStartedAtRef = useRef<number | null>(null);
@@ -128,6 +134,8 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
   const lastSyncedProgressRef = useRef(0);
   const lastSyncedPositionRef = useRef(0);
   const lastRealtimeSyncAtRef = useRef(0);
+  const currentTvTargetRef = useRef({ season: 1, episode: 1 });
+  const loadedTvTargetRef = useRef({ season: 1, episode: 1 });
   const estimatedDurationSeconds = getEstimatedDurationSeconds(content);
   const selectedSourceConfig = sources.find((source) => source.url === selectedSource);
   const embedUrl = buildEmbedUrl(
@@ -181,10 +189,14 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
     lastSyncedProgressRef.current = 0;
     lastSyncedPositionRef.current = 0;
     lastRealtimeSyncAtRef.current = 0;
+    currentTvTargetRef.current = { season: 1, episode: 1 };
+    loadedTvTargetRef.current = { season: 1, episode: 1 };
+    setTvTarget({ season: 1, episode: 1 });
   }, [content._id]);
 
   useEffect(() => {
     if (sources.length > 0 || error) return;
+    if (content.type === "tv" && isSignedIn && !historyReady) return;
 
     const loadSources = async () => {
       if (!content.imdbId && !content.tmdbId) {
@@ -195,13 +207,17 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
 
       try {
         setLoading(true);
+        const targetSeason =
+          content.type === "tv" ? currentTvTargetRef.current.season : 1;
+        const targetEpisode =
+          content.type === "tv" ? currentTvTargetRef.current.episode : 1;
         const fetchedSources =
           content.type === "tv"
             ? await getTVSources({
                 imdbId: content.imdbId || undefined,
                 tmdbId: content.tmdbId || undefined,
-                season: 1,
-                episode: 1
+                season: targetSeason,
+                episode: targetEpisode
               })
             : await getMovieSources({
                 imdbId: content.imdbId || undefined,
@@ -218,6 +234,12 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
 
         const defaultSource =
           safeSources.find((source) => source.supportsProgressEvents) ?? safeSources[0]!;
+        if (content.type === "tv") {
+          loadedTvTargetRef.current = {
+            season: targetSeason,
+            episode: targetEpisode
+          };
+        }
         setSelectedSource(defaultSource.url);
       } catch (loadError) {
         console.error("Error loading sources:", loadError);
@@ -232,7 +254,17 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
     };
 
     void loadSources();
-  }, [content.imdbId, content.tmdbId, content.type, error, getMovieSources, getTVSources, sources.length]);
+  }, [
+    content.imdbId,
+    content.tmdbId,
+    content.type,
+    error,
+    getMovieSources,
+    getTVSources,
+    isSignedIn,
+    historyReady,
+    sources.length,
+  ]);
 
   useEffect(() => {
     if (!isSignedIn || !user || !content._id) return;
@@ -242,6 +274,16 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
     startingProgressRef.current = clampProgress(watchState.progress);
     lastSyncedProgressRef.current = clampProgress(watchState.progress);
     lastSyncedPositionRef.current = Math.max(0, watchState.positionSeconds);
+    const restoredSeason = normalizeEpisodeNumber(watchState.seasonNumber);
+    const restoredEpisode = normalizeEpisodeNumber(watchState.episodeNumber);
+    currentTvTargetRef.current = {
+      season: restoredSeason,
+      episode: restoredEpisode
+    };
+    setTvTarget({
+      season: restoredSeason,
+      episode: restoredEpisode
+    });
     setHistoryReady(true);
     setResumeSeed({
       positionSeconds: Math.max(0, watchState.positionSeconds),
@@ -255,7 +297,9 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
       progress: clampProgress(watchState.progress),
       completed: watchState.completed,
       positionSeconds: Math.max(0, watchState.positionSeconds),
-      durationSeconds: Math.max(0, watchState.durationSeconds)
+      durationSeconds: Math.max(0, watchState.durationSeconds),
+      seasonNumber: content.type === "tv" ? restoredSeason : undefined,
+      episodeNumber: content.type === "tv" ? restoredEpisode : undefined
     }).catch((progressError) => {
       console.error("Failed to initialize watch history:", progressError);
     });
@@ -295,7 +339,9 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
         progress: nextProgress,
         completed: nextProgress >= 95,
         positionSeconds: estimatedPositionSeconds,
-        durationSeconds: estimatedDurationSeconds
+        durationSeconds: estimatedDurationSeconds,
+        seasonNumber: content.type === "tv" ? currentTvTargetRef.current.season : undefined,
+        episodeNumber: content.type === "tv" ? currentTvTargetRef.current.episode : undefined
       })
         .then(() => {
           lastSyncedProgressRef.current = nextProgress;
@@ -363,6 +409,10 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
       const nextProgress = clampProgress(payload.progress);
       const nextPositionSeconds = Math.max(0, payload.currentTime || 0);
       const nextDurationSeconds = Math.max(0, payload.duration || 0);
+      const nextSeasonNumber =
+        content.type === "tv" ? normalizeEpisodeNumber(payload.season) : undefined;
+      const nextEpisodeNumber =
+        content.type === "tv" ? normalizeEpisodeNumber(payload.episode) : undefined;
       const isForcedEvent = payload.event !== "timeupdate";
       const isMeaningfulDelta =
         Math.abs(nextPositionSeconds - lastSyncedPositionRef.current) >= 5 ||
@@ -370,6 +420,23 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
         Date.now() - lastRealtimeSyncAtRef.current >= 15000;
 
       if (!isForcedEvent && !isMeaningfulDelta) return;
+
+      if (
+        content.type === "tv" &&
+        nextSeasonNumber !== undefined &&
+        nextEpisodeNumber !== undefined &&
+        (currentTvTargetRef.current.season !== nextSeasonNumber ||
+          currentTvTargetRef.current.episode !== nextEpisodeNumber)
+      ) {
+        currentTvTargetRef.current = {
+          season: nextSeasonNumber,
+          episode: nextEpisodeNumber
+        };
+        setTvTarget({
+          season: nextSeasonNumber,
+          episode: nextEpisodeNumber
+        });
+      }
 
       syncInFlight = true;
       realtimeEventsDetectedRef.current = true;
@@ -379,7 +446,9 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
         progress: nextProgress,
         completed: payload.event === "ended" || nextProgress >= 95,
         positionSeconds: nextPositionSeconds,
-        durationSeconds: nextDurationSeconds
+        durationSeconds: nextDurationSeconds,
+        seasonNumber: nextSeasonNumber,
+        episodeNumber: nextEpisodeNumber
       })
         .then(() => {
           lastSyncedProgressRef.current = nextProgress;
@@ -414,7 +483,7 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
     };
   }, [content._id, content.tmdbId, content.type, embedUrl, historyReady, isSignedIn, selectedSourceConfig, updateProgress, user]);
 
-  const handleSourceChange = (nextSource: string) => {
+  const handleSourceChange = async (nextSource: string) => {
     realtimeEventsDetectedRef.current = false;
     setResumeSeed({
       positionSeconds: lastSyncedPositionRef.current,
@@ -424,7 +493,50 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
           ? watchState.durationSeconds
           : estimatedDurationSeconds
     });
-    setSelectedSource(nextSource);
+
+    const selectedProvider = sources.find((source) => source.url === nextSource)?.name;
+    const needsEpisodeReload =
+      content.type === "tv" &&
+      (currentTvTargetRef.current.season !== loadedTvTargetRef.current.season ||
+        currentTvTargetRef.current.episode !== loadedTvTargetRef.current.episode);
+
+    if (!needsEpisodeReload) {
+      setSelectedSource(nextSource);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const refreshedSources = await getTVSources({
+        imdbId: content.imdbId || undefined,
+        tmdbId: content.tmdbId || undefined,
+        season: currentTvTargetRef.current.season,
+        episode: currentTvTargetRef.current.episode
+      });
+
+      const safeSources = refreshedSources ?? [];
+      if (safeSources.length === 0) {
+        setError("No streaming sources found for this episode");
+        return;
+      }
+
+      loadedTvTargetRef.current = { ...currentTvTargetRef.current };
+      setSources(safeSources);
+      const nextMatch =
+        safeSources.find((source) => source.name === selectedProvider) ??
+        safeSources.find((source) => source.supportsProgressEvents) ??
+        safeSources[0]!;
+      setSelectedSource(nextMatch.url);
+    } catch (switchError) {
+      console.error("Error switching sources:", switchError);
+      setError(
+        `Failed to switch episode sources: ${
+          switchError instanceof Error ? switchError.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading || (isSignedIn && watchState === undefined)) {
@@ -473,7 +585,9 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
           <div>
             <h1 className="text-lg font-semibold text-white">{content.title}</h1>
             <p className="text-sm text-white/60">
-              {content.type === "movie" ? "Movie" : "TV Series"} • {content.year}
+              {content.type === "movie"
+                ? `Movie • ${content.year}`
+                : `TV Series • ${content.year} • S${tvTarget.season} E${tvTarget.episode}`}
             </p>
           </div>
         </div>

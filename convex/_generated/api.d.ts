@@ -9,6 +9,7 @@
  */
 
 import type * as content from "../content.js";
+import type * as migration from "../migration.js";
 import type * as providers from "../providers.js";
 import type * as tmdb from "../tmdb.js";
 import type * as users from "../users.js";
@@ -23,6 +24,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   content: typeof content;
+  migration: typeof migration;
   providers: typeof providers;
   tmdb: typeof tmdb;
   users: typeof users;

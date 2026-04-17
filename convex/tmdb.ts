@@ -6,38 +6,78 @@ const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 
-interface TMDBMovie {
+interface TMDBGenre {
+  id: number;
+  name: string;
+}
+
+interface TMDBMovieListItem {
   id: number;
   title: string;
   overview: string;
   poster_path: string | null;
   backdrop_path: string | null;
-  release_date: string;
-  genre_ids: number[];
+  release_date?: string;
+  genre_ids?: number[];
   vote_average: number;
-  runtime?: number;
-  imdb_id?: string;
 }
 
-interface TMDBTVShow {
+interface TMDBTVListItem {
   id: number;
   name: string;
   overview: string;
   poster_path: string | null;
   backdrop_path: string | null;
-  first_air_date: string;
-  genre_ids: number[];
+  first_air_date?: string;
+  genre_ids?: number[];
   vote_average: number;
+}
+
+interface TMDBMovieDetails extends TMDBMovieListItem {
+  genres?: TMDBGenre[];
+  runtime?: number;
+  imdb_id?: string;
+}
+
+interface TMDBTVDetails extends TMDBTVListItem {
+  genres?: TMDBGenre[];
   number_of_seasons?: number;
+  episode_run_time?: number[];
   external_ids?: {
     imdb_id?: string;
   };
 }
 
-interface TMDBGenre {
-  id: number;
-  name: string;
+type SyncType = "movies" | "tv";
+type TMDBListItem = TMDBMovieListItem | TMDBTVListItem;
+
+interface TMDBListResponse<T> {
+  page: number;
+  total_pages: number;
+  results: T[];
 }
+
+type SyncFlags = {
+  trending: boolean;
+  popular: boolean;
+  new: boolean;
+  featured: boolean;
+};
+
+type SyncSeed = {
+  id: number;
+  type: "movie" | "tv";
+  title: string;
+  flags: SyncFlags;
+  order: number;
+  overview: string;
+  posterPath: string | null;
+  backdropPath: string | null;
+  releaseDate?: string;
+  firstAirDate?: string;
+  voteAverage: number;
+  genreIds: number[];
+};
 
 async function fetchTMDB<T>(endpoint: string): Promise<T | null> {
   try {
@@ -71,7 +111,7 @@ function getBackdropUrl(path: string | null): string {
   return `${TMDB_IMAGE_BASE}/original${path}`;
 }
 
-function getGenres(genreIds: number[]): string[] {
+function getGenresByIds(genreIds: number[]): string[] {
   const genreMap: Record<number, string> = {
     28: "Action",
     12: "Adventure",
@@ -102,7 +142,19 @@ function getGenres(genreIds: number[]): string[] {
     10768: "War & Politics"
   };
 
-  return genreIds.map((id) => genreMap[id] || "Unknown").filter((g) => g !== "Unknown");
+  return genreIds
+    .map((id) => genreMap[id] || "Unknown")
+    .filter((genre) => genre !== "Unknown");
+}
+
+function extractGenres(
+  item: { genres?: TMDBGenre[]; genre_ids?: number[] } | undefined
+): string[] {
+  if (!item) return [];
+  if (item.genres && item.genres.length > 0) {
+    return item.genres.map((genre) => genre.name).filter(Boolean);
+  }
+  return getGenresByIds(item.genre_ids || []);
 }
 
 function getRating(voteAverage: number): string {
@@ -110,6 +162,145 @@ function getRating(voteAverage: number): string {
   if (voteAverage >= 6) return "PG-13";
   if (voteAverage >= 4) return "PG";
   return "G";
+}
+
+function getYear(date?: string): number {
+  const parsedYear = date?.split("-")[0];
+  return Number(parsedYear || "2024");
+}
+
+function formatRuntime(minutes?: number): string | undefined {
+  if (!minutes || minutes <= 0) return undefined;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+function mergeFlags(current: SyncFlags, incoming: Partial<SyncFlags>): SyncFlags {
+  return {
+    trending: current.trending || !!incoming.trending,
+    popular: current.popular || !!incoming.popular,
+    new: current.new || !!incoming.new,
+    featured: current.featured || !!incoming.featured
+  };
+}
+
+function getEmptyFlags(): SyncFlags {
+  return {
+    trending: false,
+    popular: false,
+    new: false,
+    featured: false
+  };
+}
+
+function getFlagSources(type: SyncType): Array<{
+  endpoint: string;
+  flags: Partial<SyncFlags>;
+}> {
+  if (type === "movies") {
+    return [
+      { endpoint: "/trending/movie/week", flags: { trending: true, featured: true } },
+      { endpoint: "/movie/popular", flags: { popular: true } },
+      { endpoint: "/movie/now_playing", flags: { new: true } },
+      { endpoint: "/movie/top_rated", flags: {} }
+    ];
+  }
+
+  return [
+    { endpoint: "/trending/tv/week", flags: { trending: true, featured: true } },
+    { endpoint: "/tv/popular", flags: { popular: true } },
+    { endpoint: "/tv/on_the_air", flags: { new: true } },
+    { endpoint: "/tv/top_rated", flags: {} }
+  ];
+}
+
+function getCatalogEndpoint(type: SyncType, page: number): string {
+  const baseParams = `page=${page}&include_adult=false&sort_by=popularity.desc&vote_count.gte=25`;
+  return type === "movies"
+    ? `/discover/movie?${baseParams}&include_video=false`
+    : `/discover/tv?${baseParams}`;
+}
+
+function seedFromListItem(
+  type: SyncType,
+  item: TMDBListItem,
+  order: number,
+  flags: SyncFlags
+): SyncSeed {
+  return {
+    id: item.id,
+    type: type === "movies" ? "movie" : "tv",
+    title: "title" in item ? item.title : item.name,
+    flags,
+    order,
+    overview: item.overview,
+    posterPath: item.poster_path,
+    backdropPath: item.backdrop_path,
+    releaseDate: "release_date" in item ? item.release_date : undefined,
+    firstAirDate: "first_air_date" in item ? item.first_air_date : undefined,
+    voteAverage: item.vote_average,
+    genreIds: item.genre_ids || []
+  };
+}
+
+async function collectFlagMap(type: SyncType, pageCount: number): Promise<Map<number, SyncFlags>> {
+  const merged = new Map<number, SyncFlags>();
+
+  for (const source of getFlagSources(type)) {
+    for (let page = 1; page <= pageCount; page += 1) {
+      const data = await fetchTMDB<TMDBListResponse<TMDBListItem>>(
+        `${source.endpoint}?page=${page}`
+      );
+
+      if (!data?.results?.length) break;
+
+      for (const item of data.results) {
+        merged.set(item.id, mergeFlags(merged.get(item.id) || getEmptyFlags(), source.flags));
+      }
+    }
+  }
+
+  return merged;
+}
+
+async function getSyncSeeds(type: SyncType, count: number): Promise<SyncSeed[]> {
+  const normalizedCount = Math.max(1, Math.min(count, 10000));
+  const requiredPages = Math.max(1, Math.ceil(normalizedCount / 20));
+  const flagPages = Math.max(3, Math.min(10, Math.ceil(requiredPages / 4)));
+  const flagMap = await collectFlagMap(type, flagPages);
+  const seeds: SyncSeed[] = [];
+  let order = 0;
+
+  for (let page = 1; page <= requiredPages && seeds.length < normalizedCount; page += 1) {
+    const data = await fetchTMDB<TMDBListResponse<TMDBListItem>>(getCatalogEndpoint(type, page));
+    if (!data?.results?.length) break;
+
+    for (const item of data.results) {
+      seeds.push(seedFromListItem(type, item, order, flagMap.get(item.id) || getEmptyFlags()));
+      order += 1;
+
+      if (seeds.length >= normalizedCount) {
+        break;
+      }
+    }
+  }
+
+  return seeds;
+}
+
+async function mapInBatches<T, R>(
+  items: T[],
+  batchSize: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const output: R[] = [];
+
+  for (let index = 0; index < items.length; index += batchSize) {
+    const batch = items.slice(index, index + batchSize);
+    const results = await Promise.all(batch.map((item, batchIndex) => fn(item, index + batchIndex)));
+    output.push(...results);
+  }
+
+  return output;
 }
 
 export const searchMovies = action({
@@ -130,7 +321,7 @@ export const searchMovies = action({
       imdbId?: string;
     }>
   > => {
-    const data = await fetchTMDB<{ results: TMDBMovie[] }>(
+    const data = await fetchTMDB<{ results: TMDBMovieListItem[] }>(
       `/search/movie?query=${encodeURIComponent(query)}`
     );
 
@@ -142,8 +333,8 @@ export const searchMovies = action({
       description: movie.overview || "No description available",
       posterUrl: getPosterUrl(movie.poster_path),
       backdropUrl: getBackdropUrl(movie.backdrop_path),
-      year: parseInt(movie.release_date?.split("-")[0] || "2024"),
-      genre: getGenres(movie.genre_ids),
+      year: getYear(movie.release_date),
+      genre: extractGenres(movie),
       rating: getRating(movie.vote_average)
     }));
   }
@@ -166,15 +357,9 @@ export const getMovieDetails = action({
     rating: string;
     duration?: string;
   } | null> => {
-    const movie = await fetchTMDB<TMDBMovie & { runtime?: number; imdb_id?: string }>(
-      `/movie/${tmdbId}?append_to_response=external_ids`
-    );
+    const movie = await fetchTMDB<TMDBMovieDetails>(`/movie/${tmdbId}?append_to_response=external_ids`);
 
     if (!movie) return null;
-
-    const duration = movie.runtime
-      ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m`
-      : undefined;
 
     return {
       tmdbId: movie.id,
@@ -183,10 +368,10 @@ export const getMovieDetails = action({
       description: movie.overview || "No description available",
       posterUrl: getPosterUrl(movie.poster_path),
       backdropUrl: getBackdropUrl(movie.backdrop_path),
-      year: parseInt(movie.release_date?.split("-")[0] || "2024"),
-      genre: getGenres(movie.genre_ids),
+      year: getYear(movie.release_date),
+      genre: extractGenres(movie),
       rating: getRating(movie.vote_average),
-      duration
+      duration: formatRuntime(movie.runtime)
     };
   }
 });
@@ -208,7 +393,7 @@ export const getTrendingMovies = action({
       rating: string;
     }>
   > => {
-    const data = await fetchTMDB<{ results: TMDBMovie[] }>(`/trending/movie/week?page=${page}`);
+    const data = await fetchTMDB<{ results: TMDBMovieListItem[] }>(`/trending/movie/week?page=${page}`);
 
     if (!data?.results) return [];
 
@@ -218,8 +403,8 @@ export const getTrendingMovies = action({
       description: movie.overview || "No description available",
       posterUrl: getPosterUrl(movie.poster_path),
       backdropUrl: getBackdropUrl(movie.backdrop_path),
-      year: parseInt(movie.release_date?.split("-")[0] || "2024"),
-      genre: getGenres(movie.genre_ids),
+      year: getYear(movie.release_date),
+      genre: extractGenres(movie),
       rating: getRating(movie.vote_average)
     }));
   }
@@ -244,30 +429,26 @@ export const getPopularTVShows = action({
       imdbId?: string;
     }>
   > => {
-    const data = await fetchTMDB<{ results: TMDBTVShow[] }>(`/tv/popular?page=${page}`);
+    const data = await fetchTMDB<{ results: TMDBTVListItem[] }>(`/tv/popular?page=${page}`);
 
     if (!data?.results) return [];
 
-    const showsWithDetails = await Promise.all(
-      data.results.slice(0, 10).map(async (show) => {
-        const details = await fetchTMDB<TMDBTVShow & { external_ids?: { imdb_id?: string } }>(
-          `/tv/${show.id}?append_to_response=external_ids`
-        );
+    const showsWithDetails = await mapInBatches(data.results.slice(0, 10), 4, async (show) => {
+      const details = await fetchTMDB<TMDBTVDetails>(`/tv/${show.id}?append_to_response=external_ids`);
 
-        return {
-          tmdbId: show.id,
-          title: show.name,
-          description: show.overview || "No description available",
-          posterUrl: getPosterUrl(show.poster_path),
-          backdropUrl: getBackdropUrl(show.backdrop_path),
-          year: parseInt(show.first_air_date?.split("-")[0] || "2024"),
-          genre: getGenres(show.genre_ids),
-          rating: getRating(show.vote_average),
-          seasons: details?.number_of_seasons,
-          imdbId: details?.external_ids?.imdb_id
-        };
-      })
-    );
+      return {
+        tmdbId: show.id,
+        title: show.name,
+        description: details?.overview || show.overview || "No description available",
+        posterUrl: getPosterUrl(details?.poster_path ?? show.poster_path),
+        backdropUrl: getBackdropUrl(details?.backdrop_path ?? show.backdrop_path),
+        year: getYear(details?.first_air_date ?? show.first_air_date),
+        genre: extractGenres(details || show),
+        rating: getRating(details?.vote_average ?? show.vote_average),
+        seasons: details?.number_of_seasons,
+        imdbId: details?.external_ids?.imdb_id
+      };
+    });
 
     return showsWithDetails;
   }
@@ -279,70 +460,80 @@ export const syncContent = action({
     count: v.optional(v.number())
   },
   handler: async (ctx, { type, count = 10 }): Promise<number> => {
-    let items: Array<any> = [];
+    const seeds = await getSyncSeeds(type, count);
+    const now = Date.now();
+    const detailSeedLimit = Math.min(Math.max(40, Math.ceil(seeds.length * 0.15)), 120);
 
-    if (type === "movies") {
-      items = await fetchTMDB<{ results: TMDBMovie[] }>(`/trending/movie/week`).then(
-        (d) => d?.results?.slice(0, count) || []
-      );
-    } else {
-      items = await fetchTMDB<{ results: TMDBTVShow[] }>(`/tv/popular`).then(
-        (d) => d?.results?.slice(0, count) || []
-      );
-    }
+    const payloads = await mapInBatches(seeds, 5, async (seed, index) => {
+      const shouldFetchDetails =
+        index < detailSeedLimit || seed.flags.trending || seed.flags.popular || seed.flags.new;
+      const details =
+        shouldFetchDetails
+          ? seed.type === "movie"
+            ? await fetchTMDB<TMDBMovieDetails>(`/movie/${seed.id}?append_to_response=external_ids`)
+            : await fetchTMDB<TMDBTVDetails>(`/tv/${seed.id}?append_to_response=external_ids`)
+          : null;
+
+      const isMovie = seed.type === "movie";
+      const runtime =
+        details && isMovie
+          ? formatRuntime((details as TMDBMovieDetails).runtime)
+          : details
+            ? formatRuntime((details as TMDBTVDetails).episode_run_time?.[0])
+            : undefined;
+      const hasBackdrop = Boolean(details?.backdrop_path || seed.backdropPath);
+
+      return {
+        title:
+          (isMovie
+            ? (details as TMDBMovieDetails | null)?.title
+            : (details as TMDBTVDetails | null)?.name) ||
+          seed.title ||
+          (isMovie ? `Movie ${seed.id}` : `Show ${seed.id}`),
+        description: details?.overview || seed.overview || "No description available",
+        type: isMovie ? ("movie" as const) : ("tv" as const),
+        genre: extractGenres(details || { genre_ids: seed.genreIds }),
+        year: getYear(
+          isMovie
+            ? (details as TMDBMovieDetails | null)?.release_date || seed.releaseDate
+            : (details as TMDBTVDetails | null)?.first_air_date || seed.firstAirDate
+        ),
+        rating: getRating(details?.vote_average || seed.voteAverage),
+        posterUrl: getPosterUrl(details?.poster_path || seed.posterPath),
+        backdropUrl: getBackdropUrl(details?.backdrop_path || seed.backdropPath),
+        tmdbId: String(seed.id),
+        imdbId: isMovie
+          ? (details as TMDBMovieDetails | null)?.imdb_id
+          : (details as TMDBTVDetails | null)?.external_ids?.imdb_id,
+        duration: runtime,
+        seasons: !isMovie ? (details as TMDBTVDetails | null)?.number_of_seasons : undefined,
+        trending: seed.flags.trending,
+        popular: seed.flags.popular || seed.order < 40,
+        featured: false,
+        new: seed.flags.new,
+        createdAt: now,
+        updatedAt: now,
+        order: seed.order,
+        hasBackdrop,
+        flagPriority:
+          Number(seed.flags.featured) + Number(seed.flags.trending) + Number(seed.flags.popular)
+      };
+    });
+
+    const featuredIndex = payloads.findIndex(
+      (item) => item.hasBackdrop && (item.flagPriority > 0 || item.order === 0)
+    );
+
+    const items = payloads.map(({ order, flagPriority, hasBackdrop, ...item }, index) => ({
+      ...item,
+      featured: index === featuredIndex
+    }));
 
     let syncedCount = 0;
-    const now = Date.now();
-
-    for (const item of items) {
-      const details =
-        type === "movies"
-          ? await fetchTMDB<TMDBMovie & { runtime?: number; imdb_id?: string }>(
-              `/movie/${item.id}?append_to_response=external_ids`
-            )
-          : await fetchTMDB<TMDBTVShow & { external_ids?: { imdb_id?: string } }>(
-              `/tv/${item.id}?append_to_response=external_ids`
-            );
-
-      if (!details) continue;
-
-      const isMovie = type === "movies";
-      const contentData = {
-        title: isMovie ? (details as TMDBMovie).title : (details as TMDBTVShow).name,
-        description: details.overview || "No description available",
-        type: isMovie ? ("movie" as const) : ("tv" as const),
-        genre: getGenres(details.genre_ids || []),
-        year: parseInt(
-          isMovie
-            ? (details as TMDBMovie).release_date?.split("-")[0] || "2024"
-            : (details as TMDBTVShow).first_air_date?.split("-")[0] || "2024"
-        ),
-        rating: getRating(details.vote_average),
-        posterUrl: getPosterUrl(details.poster_path),
-        backdropUrl: getBackdropUrl(details.backdrop_path),
-        tmdbId: String(details.id),
-        imdbId: isMovie
-          ? (details as TMDBMovie).imdb_id
-          : (details as TMDBTVShow).external_ids?.imdb_id,
-        duration:
-          isMovie && (details as TMDBMovie).runtime
-            ? `${Math.floor((details as TMDBMovie).runtime! / 60)}h ${(details as TMDBMovie).runtime! % 60}m`
-            : undefined,
-        seasons: !isMovie ? (details as TMDBTVShow).number_of_seasons : undefined,
-        trending: true,
-        popular: true,
-        featured: syncedCount === 0,
-        new: true,
-        createdAt: now,
-        updatedAt: now
-      };
-
-      try {
-        await ctx.runMutation(internal.content.createFromTMDB, contentData);
-        syncedCount++;
-      } catch (e) {
-        console.log("Content may already exist");
-      }
+    for (let index = 0; index < items.length; index += 100) {
+      syncedCount += await ctx.runMutation(internal.content.upsertBatchFromTMDB, {
+        items: items.slice(index, index + 100)
+      });
     }
 
     return syncedCount;
