@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { App } from "./App";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
+import { WatchPage } from "./pages/WatchPage";
 import "./index.css";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
@@ -31,6 +32,7 @@ createRoot(elem).render(
           <Routes>
             <Route path="/sign-in/*" element={<SignInPage />} />
             <Route path="/sign-up/*" element={<SignUpPage />} />
+            <Route path="/watch/:id" element={<WatchPage />} />
             <Route path="/" element={<App />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

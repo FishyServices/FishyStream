@@ -1,9 +1,75 @@
 import { useUser } from "@clerk/react";
-import { Button } from "@/components/ui/button";
-import { Toaster, toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { Toaster } from "sonner";
+import { Header } from "@/components/Header";
+import { Hero } from "@/components/Hero";
+import { ContentRow } from "@/components/ContentRow";
+import { useFeaturedContent, useAllCategories } from "@/hooks/useContent";
+import type { Doc } from "../convex/_generated/dataModel";
+
+function Footer() {
+  return (
+    <footer className="bg-background border-t border-white/10 py-12 px-4 sm:px-6 lg:px-12 mt-12">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+          <div>
+            <h3 className="text-sm font-semibold text-white mb-4">Browse</h3>
+            <ul className="space-y-2 text-sm text-white/60">
+              <li><a href="#" className="hover:text-white">Movies</a></li>
+              <li><a href="#" className="hover:text-white">TV Shows</a></li>
+              <li><a href="#" className="hover:text-white">New Releases</a></li>
+              <li><a href="#" className="hover:text-white">Popular</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white mb-4">Support</h3>
+            <ul className="space-y-2 text-sm text-white/60">
+              <li><a href="#" className="hover:text-white">Help Center</a></li>
+              <li><a href="#" className="hover:text-white">Account</a></li>
+              <li><a href="#" className="hover:text-white">Contact Us</a></li>
+              <li><a href="#" className="hover:text-white">FAQ</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white mb-4">Legal</h3>
+            <ul className="space-y-2 text-sm text-white/60">
+              <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
+              <li><a href="#" className="hover:text-white">Terms of Service</a></li>
+              <li><a href="#" className="hover:text-white">Cookie Policy</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white mb-4">Connect</h3>
+            <ul className="space-y-2 text-sm text-white/60">
+              <li><a href="#" className="hover:text-white">Twitter</a></li>
+              <li><a href="#" className="hover:text-white">Instagram</a></li>
+              <li><a href="#" className="hover:text-white">Facebook</a></li>
+            </ul>
+          </div>
+        </div>
+        <div className="flex items-center justify-between pt-8 border-t border-white/10">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-primary-foreground font-bold">F</span>
+            </div>
+            <span className="font-bold">FishyStream</span>
+          </div>
+          <p className="text-sm text-white/40">© 2024 FishyStream. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+  );
+}
 
 export function App() {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { isLoaded } = useUser();
+  const navigate = useNavigate();
+  const categories = useAllCategories();
+  const featuredContent = useFeaturedContent();
+
+  const handlePlay = (content: Doc<"content">) => {
+    navigate(`/watch/${content._id}`);
+  };
 
   if (!isLoaded) {
     return (
@@ -13,104 +79,27 @@ export function App() {
     );
   }
 
-  if (!isSignedIn || !user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="max-w-sm w-full space-y-4 text-center">
-          <h1 className="text-2xl font-bold text-foreground">Welcome</h1>
-          <p className="text-muted-foreground">Please sign in to continue</p>
-          <Button
-            onClick={() => {
-              window.location.href = "/sign-in";
-            }}
-            className="w-full"
-          >
-            Sign In
-          </Button>
-        </div>
-        <Toaster position="top-right" richColors />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground">
       <Toaster position="top-right" richColors />
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Hello, {user.firstName || user.username}!</h1>
-            <p className="text-muted-foreground mt-1">
-              Your app is ready with React, Vite, Tailwind, Clerk, and Convex.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              window.location.href = "/sign-out";
-            }}
-          >
-            Sign Out
-          </Button>
+      <Header />
+
+      <main>
+        {featuredContent && <Hero content={featuredContent} onPlay={handlePlay} />}
+
+        <div className="relative -mt-24 z-10 space-y-2 pb-8">
+          {categories.map((category) => (
+            <ContentRow
+              key={category.id}
+              title={category.title}
+              content={category.content}
+              onPlay={handlePlay}
+            />
+          ))}
         </div>
+      </main>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-6 rounded-lg border bg-card">
-            <h2 className="font-semibold mb-2">Authentication</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Powered by Clerk with dark theme integration.
-            </p>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => toast.success("Clerk is working!")}
-            >
-              Test Toast
-            </Button>
-          </div>
-
-          <div className="p-6 rounded-lg border bg-card">
-            <h2 className="font-semibold mb-2">Backend</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Convex real-time database ready to use.
-            </p>
-            <Button variant="secondary" size="sm" onClick={() => {}}>
-              View Schema
-            </Button>
-          </div>
-
-          <div className="p-6 rounded-lg border bg-card">
-            <h2 className="font-semibold mb-2">UI Components</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Radix UI primitives with Tailwind styling.
-            </p>
-            <div className="flex gap-2">
-              <Button variant="default" size="sm">
-                Default
-              </Button>
-              <Button variant="outline" size="sm">
-                Outline
-              </Button>
-              <Button variant="ghost" size="sm">
-                Ghost
-              </Button>
-            </div>
-          </div>
-
-          <div className="p-6 rounded-lg border bg-card">
-            <h2 className="font-semibold mb-2">Styling</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              TailwindCSS v4 with custom theme configuration.
-            </p>
-            <div className="flex gap-2">
-              <div className="w-6 h-6 rounded bg-primary" title="primary" />
-              <div className="w-6 h-6 rounded bg-secondary" title="secondary" />
-              <div className="w-6 h-6 rounded bg-destructive" title="destructive" />
-              <div className="w-6 h-6 rounded bg-accent" title="accent" />
-            </div>
-          </div>
-        </div>
-      </div>
+      <Footer />
     </div>
   );
 }
