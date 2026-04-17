@@ -217,8 +217,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
         };
         setSources(safeSources);
 
-        const defaultSource =
-          safeSources.find((s) => s.supportsProgressEvents) ?? safeSources[0]!;
+        const defaultSource = safeSources.find((s) => s.supportsProgressEvents) ?? safeSources[0]!;
         setSelectedSource(defaultSource.url);
       } catch (err) {
         console.error("Error loading sources:", err);
@@ -335,7 +334,15 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       stopSegment();
       syncProgress(true);
     };
-  }, [content._id, content.type, estimatedDurationSeconds, isSignedIn, selectedSourceConfig, updateProgress, user]);
+  }, [
+    content._id,
+    content.type,
+    estimatedDurationSeconds,
+    isSignedIn,
+    selectedSourceConfig,
+    updateProgress,
+    user
+  ]);
 
   useEffect(() => {
     if (!isSignedIn || !user || !content._id || !selectedSourceConfig || !embedUrl) return;
@@ -412,7 +419,16 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [content._id, content.tmdbId, content.type, embedUrl, isSignedIn, selectedSourceConfig, updateProgress, user]);
+  }, [
+    content._id,
+    content.tmdbId,
+    content.type,
+    embedUrl,
+    isSignedIn,
+    selectedSourceConfig,
+    updateProgress,
+    user
+  ]);
 
   const handleSourceChange = async (nextSourceUrl: string) => {
     const selectedName = sources.find((s) => s.url === nextSourceUrl)?.name;
@@ -520,7 +536,9 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="min-w-0">
-            <h1 className="text-base font-semibold text-white truncate">{content.title}</h1>
+            <h1 className="text-base font-semibold text-white truncate" title={content.title}>
+              {content.title}
+            </h1>
             <p className="text-xs text-white/50 truncate">
               {content.type === "movie"
                 ? `Movie · ${content.year}`

@@ -21,8 +21,10 @@ export function WatchHistoryPage() {
     try {
       await removeFromHistory(contentId as any);
       toast.success("Removed from history");
-    } catch (e) {
-      toast.error("Failed to remove");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to remove";
+      toast.error(message);
+      console.error("Remove from history error:", err);
     }
   };
 
@@ -74,8 +76,8 @@ export function WatchHistoryPage() {
                 <MovieCard content={item} onPlay={handlePlay} />
                 <div className="absolute top-2 right-2 z-20 flex gap-1">
                   {item.completed && (
-                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-white" />
+                    <div className="w-6 h-6 bg-success rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-success-foreground" />
                     </div>
                   )}
                   <Button

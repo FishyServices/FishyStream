@@ -35,7 +35,10 @@ export function ContentRow({ title, content, onPlay }: ContentRowProps) {
 
   return (
     <div className="relative group py-4">
-      <h2 className="text-lg sm:text-xl font-semibold text-white mb-4 px-4 sm:px-6 lg:px-12">
+      <h2
+        className="text-lg sm:text-xl font-semibold text-white mb-4 px-4 sm:px-6 lg:px-12 truncate"
+        title={title}
+      >
         {title}
       </h2>
 
@@ -45,6 +48,7 @@ export function ContentRow({ title, content, onPlay }: ContentRowProps) {
           size="icon"
           className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-full bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-none"
           onClick={() => scroll("left")}
+          aria-label={`Scroll ${title} left`}
         >
           <ChevronLeft className="w-8 h-8" />
         </Button>
@@ -54,6 +58,7 @@ export function ContentRow({ title, content, onPlay }: ContentRowProps) {
           size="icon"
           className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-full bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-none"
           onClick={() => scroll("right")}
+          aria-label={`Scroll ${title} right`}
         >
           <ChevronRight className="w-8 h-8" />
         </Button>

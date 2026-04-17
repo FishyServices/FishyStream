@@ -12,10 +12,8 @@ import { WatchPage } from "./pages/WatchPage";
 import { MoviesPage } from "./pages/MoviesPage";
 import { TVShowsPage } from "./pages/TVShowsPage";
 import { NewReleasesPage } from "./pages/NewReleasesPage";
-import { PopularPage } from "./pages/PopularPage";
 import { MyListPage } from "./pages/MyListPage";
 import { WatchHistoryPage } from "./pages/WatchHistoryPage";
-import { MigrationPage } from "./pages/MigrationPage";
 import { SearchPage } from "./pages/SearchPage";
 import "./index.css";
 
@@ -30,7 +28,7 @@ createRoot(elem).render(
       appearance={{
         baseTheme: dark,
         variables: {
-          colorPrimary: "#e50914",
+          colorPrimary: "hsl(2 71% 56%)",
           colorText: "white"
         }
       }}
@@ -44,10 +42,8 @@ createRoot(elem).render(
             <Route path="/movies" element={<MoviesPage />} />
             <Route path="/tv-shows" element={<TVShowsPage />} />
             <Route path="/new-releases" element={<NewReleasesPage />} />
-            <Route path="/popular" element={<PopularPage />} />
             <Route path="/my-list" element={<MyListPage />} />
             <Route path="/history" element={<WatchHistoryPage />} />
-            <Route path="/migration" element={<MigrationPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/" element={<App />} />
             <Route path="*" element={<Navigate to="/" replace />} />

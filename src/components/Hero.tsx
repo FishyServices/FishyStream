@@ -17,7 +17,18 @@ export function Hero({ content, onPlay }: HeroProps) {
   return (
     <div className="relative w-full h-[85vh] min-h-[600px]">
       <div className="absolute inset-0">
-        <img src={content.backdropUrl} alt={content.title} className="w-full h-full object-cover" />
+        <img
+          src={content.backdropUrl}
+          alt={`${content.title} backdrop`}
+          className="w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.onerror = null;
+            target.style.display = "none";
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
       </div>
@@ -29,17 +40,14 @@ export function Hero({ content, onPlay }: HeroProps) {
               {content.type === "movie" ? "Movie" : "TV Series"}
             </Badge>
             {content.new && (
-              <Badge
-                variant="secondary"
-                className="bg-green-500/20 text-green-400 border-green-500/30"
-              >
+              <Badge variant="secondary" className="bg-success-soft text-success border-success/30">
                 New Release
               </Badge>
             )}
             {content.trending && (
               <Badge
                 variant="secondary"
-                className="bg-orange-500/20 text-orange-400 border-orange-500/30"
+                className="bg-warning-soft text-warning-foreground border-warning/30"
               >
                 Trending #1
               </Badge>
@@ -51,7 +59,7 @@ export function Hero({ content, onPlay }: HeroProps) {
           </h1>
 
           <div className="flex items-center gap-4 text-sm text-white/80 flex-wrap">
-            <span className="text-green-400 font-semibold">{content.rating}</span>
+            <span className="text-success font-semibold">{content.rating}</span>
             <span>{content.year}</span>
             {content.duration && <span>{content.duration}</span>}
             {content.seasons && (

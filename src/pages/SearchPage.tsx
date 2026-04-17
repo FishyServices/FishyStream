@@ -1,17 +1,72 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Loader2, Search, X } from "lucide-react";
+import { Loader2, Search, X, Tv, Film } from "lucide-react";
 import { Header } from "@/components/Header";
-import { MovieCard } from "@/components/MovieCard";
-import { useSearchContent } from "@/hooks/useContent";
+import { useSearchAll, type SearchResult } from "@/hooks/useContent";
+import { Badge } from "@/components/ui/badge";
+
+function SearchResultCard({
+  result,
+  onClick
+}: {
+  result: SearchResult;
+  onClick: (id: number) => void;
+}) {
+  return (
+    <div
+      className="relative flex-shrink-0 cursor-pointer group/card"
+      onClick={() => onClick(result.tmdbId)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick(result.tmdbId);
+        }
+      }}
+      aria-label={`${result.title} - ${result.year}`}
+    >
+      <div className="relative aspect-[2/3] rounded-lg overflow-hidden transition-all duration-300 group-hover/card:scale-105 group-hover/card:z-20 group-hover/card:shadow-2xl group-hover/card:shadow-black/60">
+        <img
+          src={result.posterUrl}
+          alt={`${result.title} poster`}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.onerror = null;
+            target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(result.title.slice(0, 2))}&size=500&background=1a1a2e&color=666`;
+          }}
+        />
+        <div className="absolute top-2 right-2">
+          <Badge
+            className={result.type === "movie" ? "bg-primary" : "bg-accent text-accent-foreground"}
+          >
+            {result.type === "movie" ? <Film className="w-3 h-3" /> : <Tv className="w-3 h-3" />}
+          </Badge>
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity">
+          <div className="absolute bottom-0 left-0 right-0 p-3">
+            <h3 className="text-sm font-semibold text-white truncate">{result.title}</h3>
+            <div className="flex items-center gap-2 text-xs text-white/60 mt-1">
+              <span className="text-success font-medium">{result.rating}</span>
+              <span>{result.year}</span>
+              {result.seasons && <span>{result.seasons} Seasons</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const query = searchParams.get("q") ?? "";
   const [inputValue, setInputValue] = useState(query);
-
-  const results = useSearchContent(query);
+  const { results, loading, error } = useSearchAll(query);
 
   useEffect(() => {
     setInputValue(query);
@@ -25,12 +80,8 @@ export function SearchPage() {
     }
   };
 
-  const handlePlay = (tmdbId: string, season?: number, episode?: number) => {
-    const params = new URLSearchParams();
-    if (season !== undefined) params.set("season", String(season));
-    if (episode !== undefined) params.set("episode", String(episode));
-    const qs = params.toString();
-    navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
+  const handlePlay = (tmdbId: number) => {
+    navigate(`/watch/${tmdbId}`);
   };
 
   const handleClear = () => {
@@ -50,7 +101,7 @@ export function SearchPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
               type="text"
-              placeholder="Search titles, genres..."
+              placeholder="Search movies and TV shows..."
               value={inputValue}
               autoFocus
               onChange={(e) => {
@@ -78,27 +129,42 @@ export function SearchPage() {
           </div>
         )}
 
-        {query && results === undefined && (
+        {loading && (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-10 h-10 animate-spin text-primary" />
           </div>
         )}
 
-        {query && results !== undefined && results.length === 0 && (
+        {error && (
+          <div className="text-center py-20">
+            <p className="text-destructive text-lg mb-2">Error: {error}</p>
+            <p className="text-white/40 text-sm">Please try again</p>
+          </div>
+        )}
+
+        {!loading && query && results.length === 0 && (
           <div className="text-center py-20">
             <p className="text-white/60 text-lg mb-2">No results for "{query}"</p>
             <p className="text-white/40 text-sm">Try a different search term</p>
           </div>
         )}
 
-        {query && results && results.length > 0 && (
+        {!loading && results.length > 0 && (
           <>
             <p className="text-white/50 text-sm mb-6">
               {results.length} result{results.length !== 1 ? "s" : ""} for "{query}"
+              <span className="ml-2 text-white/30">
+                ({results.filter((r) => r.type === "movie").length} movies,{" "}
+                {results.filter((r) => r.type === "tv").length} TV shows)
+              </span>
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {results.map((item) => (
-                <MovieCard key={item._id} content={item} onPlay={handlePlay} />
+                <SearchResultCard
+                  key={`${item.type}-${item.tmdbId}`}
+                  result={item}
+                  onClick={handlePlay}
+                />
               ))}
             </div>
           </>

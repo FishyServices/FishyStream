@@ -15,11 +15,8 @@ const navLinks = [
   { label: "Home", href: "/" },
   { label: "TV Shows", href: "/tv-shows" },
   { label: "Movies", href: "/movies" },
-  { label: "New", href: "/new-releases" },
-  { label: "Popular", href: "/popular" },
   { label: "My List", href: "/my-list" },
-  { label: "History", href: "/history" },
-  { label: "Import", href: "/migration" }
+  { label: "History", href: "/history" }
 ];
 
 export function Header() {
@@ -158,20 +155,26 @@ export function Header() {
           {isSignedIn ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex items-center gap-2 hover:bg-white/10 px-2"
-                >
+                <Button variant="ghost" className="flex items-center gap-2 hover:bg-white/10 px-2">
                   <img
-                    src={user?.imageUrl || "https://ui-avatars.com/api/?background=random"}
-                    alt={user?.firstName ?? "Profile"}
+                    src={
+                      user?.imageUrl ||
+                      "https://ui-avatars.com/api/?name=U&background=e50914&color=fff"
+                    }
+                    alt={`${user?.firstName ?? "User"} profile`}
                     className="w-8 h-8 rounded-full object-cover ring-2 ring-white/20"
+                    loading="lazy"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.firstName ?? "U")}&background=e50914&color=fff`;
+                      const target = e.target as HTMLImageElement;
+                      target.onerror = null;
+                      const initial = encodeURIComponent((user?.firstName ?? "U").charAt(0));
+                      target.src = `https://ui-avatars.com/api/?name=${initial}&background=e50914&color=fff`;
                     }}
                   />
-                  <span className="hidden sm:block text-sm max-w-[120px] truncate">
+                  <span
+                    className="hidden sm:block text-sm max-w-[120px] truncate"
+                    title={user?.firstName || user?.username || "Account"}
+                  >
                     {user?.firstName || user?.username || "Account"}
                   </span>
                 </Button>

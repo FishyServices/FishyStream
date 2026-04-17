@@ -28,25 +28,57 @@ function Footer() {
           <div>
             <h3 className="text-sm font-semibold text-white mb-4">Browse</h3>
             <ul className="space-y-2 text-sm text-white/60">
-              <li><a href="/movies" className="hover:text-white transition-colors">Movies</a></li>
-              <li><a href="/tv-shows" className="hover:text-white transition-colors">TV Shows</a></li>
-              <li><a href="/new-releases" className="hover:text-white transition-colors">New Releases</a></li>
-              <li><a href="/popular" className="hover:text-white transition-colors">Popular</a></li>
+              <li>
+                <a href="/movies" className="hover:text-white transition-colors">
+                  Movies
+                </a>
+              </li>
+              <li>
+                <a href="/tv-shows" className="hover:text-white transition-colors">
+                  TV Shows
+                </a>
+              </li>
+              <li>
+                <a href="/new-releases" className="hover:text-white transition-colors">
+                  New Releases
+                </a>
+              </li>
+              <li>
+                <a href="/popular" className="hover:text-white transition-colors">
+                  Popular
+                </a>
+              </li>
             </ul>
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white mb-4">Account</h3>
             <ul className="space-y-2 text-sm text-white/60">
-              <li><a href="/my-list" className="hover:text-white transition-colors">My List</a></li>
-              <li><a href="/history" className="hover:text-white transition-colors">Watch History</a></li>
-              <li><a href="/migration" className="hover:text-white transition-colors">Import Data</a></li>
+              <li>
+                <a href="/my-list" className="hover:text-white transition-colors">
+                  My List
+                </a>
+              </li>
+              <li>
+                <a href="/history" className="hover:text-white transition-colors">
+                  Watch History
+                </a>
+              </li>
+              <li>
+                <a href="/migration" className="hover:text-white transition-colors">
+                  Import Data
+                </a>
+              </li>
             </ul>
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white mb-4">Info</h3>
             <ul className="space-y-2 text-sm text-white/60">
-              <li><span className="text-white/30 cursor-default">Privacy Policy</span></li>
-              <li><span className="text-white/30 cursor-default">Terms of Service</span></li>
+              <li>
+                <span className="text-white/30 cursor-default">Privacy Policy</span>
+              </li>
+              <li>
+                <span className="text-white/30 cursor-default">Terms of Service</span>
+              </li>
             </ul>
           </div>
           <div>
@@ -87,8 +119,10 @@ export function App() {
       const count = await syncTMDB({ type: "movies", count: 1000 });
       toast.success(`Synced ${count} movies from TMDB`);
       setSyncDialogOpen(false);
-    } catch {
-      toast.error("Failed to sync movies");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to sync movies";
+      toast.error(message);
+      console.error("Sync movies error:", err);
     } finally {
       setIsSyncing(false);
     }
@@ -100,8 +134,10 @@ export function App() {
       const count = await syncTMDB({ type: "tv", count: 1000 });
       toast.success(`Synced ${count} TV shows from TMDB`);
       setSyncDialogOpen(false);
-    } catch {
-      toast.error("Failed to sync TV shows");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to sync TV shows";
+      toast.error(message);
+      console.error("Sync TV error:", err);
     } finally {
       setIsSyncing(false);
     }
@@ -139,19 +175,31 @@ export function App() {
           <p className="text-white/50 mb-6 text-sm">
             No content yet. Pull a TMDB catalog batch to get started.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center min-w-0">
             <Button onClick={handleSyncMovies} disabled={isSyncing} size="lg">
               {isSyncing ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</>
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
               ) : (
-                <><Sparkles className="w-4 h-4 mr-2" />Sync Movies</>
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Sync Movies
+                </>
               )}
             </Button>
             <Button onClick={handleSyncTV} disabled={isSyncing} size="lg" variant="secondary">
               {isSyncing ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</>
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
               ) : (
-                <><RefreshCw className="w-4 h-4 mr-2" />Sync TV Shows</>
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Sync TV Shows
+                </>
               )}
             </Button>
           </div>
@@ -173,7 +221,11 @@ export function App() {
           <div className="px-4 sm:px-6 lg:px-12 py-2">
             <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 text-white/70 border-white/20 hover:border-white/40">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-white/70 border-white/20 hover:border-white/40"
+                >
                   <Database className="w-3.5 h-3.5" />
                   Sync Content
                 </Button>
@@ -185,13 +237,26 @@ export function App() {
                     Pull up to 1,000 titles from TMDB's discover API.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-3 py-2">
+                <div className="grid gap-3 py-2 min-w-0">
                   <Button onClick={handleSyncMovies} disabled={isSyncing} className="gap-2">
-                    {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {isSyncing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
                     Sync Movie Catalog
                   </Button>
-                  <Button onClick={handleSyncTV} disabled={isSyncing} variant="secondary" className="gap-2">
-                    {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  <Button
+                    onClick={handleSyncTV}
+                    disabled={isSyncing}
+                    variant="secondary"
+                    className="gap-2"
+                  >
+                    {isSyncing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4" />
+                    )}
                     Sync TV Catalog
                   </Button>
                 </div>
@@ -200,11 +265,7 @@ export function App() {
           </div>
 
           {isSignedIn && continueWatching.length > 0 && (
-            <ContentRow
-              title="Continue Watching"
-              content={continueWatching}
-              onPlay={handlePlay}
-            />
+            <ContentRow title="Continue Watching" content={continueWatching} onPlay={handlePlay} />
           )}
 
           {categories.map((category) => (

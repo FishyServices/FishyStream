@@ -142,14 +142,10 @@ function getGenresByIds(genreIds: number[]): string[] {
     10768: "War & Politics"
   };
 
-  return genreIds
-    .map((id) => genreMap[id] || "Unknown")
-    .filter((genre) => genre !== "Unknown");
+  return genreIds.map((id) => genreMap[id] || "Unknown").filter((genre) => genre !== "Unknown");
 }
 
-function extractGenres(
-  item: { genres?: TMDBGenre[]; genre_ids?: number[] } | undefined
-): string[] {
+function extractGenres(item: { genres?: TMDBGenre[]; genre_ids?: number[] } | undefined): string[] {
   if (!item) return [];
   if (item.genres && item.genres.length > 0) {
     return item.genres.map((genre) => genre.name).filter(Boolean);
@@ -296,7 +292,9 @@ async function mapInBatches<T, R>(
 
   for (let index = 0; index < items.length; index += batchSize) {
     const batch = items.slice(index, index + batchSize);
-    const results = await Promise.all(batch.map((item, batchIndex) => fn(item, index + batchIndex)));
+    const results = await Promise.all(
+      batch.map((item, batchIndex) => fn(item, index + batchIndex))
+    );
     output.push(...results);
   }
 
@@ -319,24 +317,81 @@ export const searchMovies = action({
       genre: string[];
       rating: string;
       imdbId?: string;
+      popularity: number;
     }>
   > => {
-    const data = await fetchTMDB<{ results: TMDBMovieListItem[] }>(
-      `/search/movie?query=${encodeURIComponent(query)}`
+    const data = await fetchTMDB<{ results: (TMDBMovieListItem & { popularity: number })[] }>(
+      `/search/movie?query=${encodeURIComponent(query)}&sort_by=popularity.desc`
     );
 
     if (!data?.results) return [];
 
-    return data.results.slice(0, 10).map((movie) => ({
-      tmdbId: movie.id,
-      title: movie.title,
-      description: movie.overview || "No description available",
-      posterUrl: getPosterUrl(movie.poster_path),
-      backdropUrl: getBackdropUrl(movie.backdrop_path),
-      year: getYear(movie.release_date),
-      genre: extractGenres(movie),
-      rating: getRating(movie.vote_average)
-    }));
+    return data.results
+      .sort((a, b) => b.popularity - a.popularity)
+      .slice(0, 10)
+      .map((movie) => ({
+        tmdbId: movie.id,
+        title: movie.title,
+        description: movie.overview || "No description available",
+        posterUrl: getPosterUrl(movie.poster_path),
+        backdropUrl: getBackdropUrl(movie.backdrop_path),
+        year: getYear(movie.release_date),
+        genre: extractGenres(movie),
+        rating: getRating(movie.vote_average),
+        popularity: movie.popularity
+      }));
+  }
+});
+
+export const searchTVShows = action({
+  args: { query: v.string() },
+  handler: async (
+    _ctx,
+    { query }
+  ): Promise<
+    Array<{
+      tmdbId: number;
+      title: string;
+      description: string;
+      posterUrl: string;
+      backdropUrl: string;
+      year: number;
+      genre: string[];
+      rating: string;
+      seasons?: number;
+      imdbId?: string;
+      popularity: number;
+    }>
+  > => {
+    const data = await fetchTMDB<{ results: (TMDBTVListItem & { popularity: number })[] }>(
+      `/search/tv?query=${encodeURIComponent(query)}&sort_by=popularity.desc`
+    );
+
+    if (!data?.results) return [];
+
+    const sortedResults = data.results.sort((a, b) => b.popularity - a.popularity).slice(0, 10);
+
+    const showsWithDetails = await mapInBatches(sortedResults, 4, async (show) => {
+      const details = await fetchTMDB<TMDBTVDetails>(
+        `/tv/${show.id}?append_to_response=external_ids`
+      );
+
+      return {
+        tmdbId: show.id,
+        title: show.name,
+        description: details?.overview || show.overview || "No description available",
+        posterUrl: getPosterUrl(details?.poster_path ?? show.poster_path),
+        backdropUrl: getBackdropUrl(details?.backdrop_path ?? show.backdrop_path),
+        year: getYear(details?.first_air_date ?? show.first_air_date),
+        genre: extractGenres(details || show),
+        rating: getRating(details?.vote_average ?? show.vote_average),
+        seasons: details?.number_of_seasons,
+        imdbId: details?.external_ids?.imdb_id,
+        popularity: show.popularity
+      };
+    });
+
+    return showsWithDetails.sort((a, b) => b.popularity - a.popularity);
   }
 });
 
@@ -357,7 +412,9 @@ export const getMovieDetails = action({
     rating: string;
     duration?: string;
   } | null> => {
-    const movie = await fetchTMDB<TMDBMovieDetails>(`/movie/${tmdbId}?append_to_response=external_ids`);
+    const movie = await fetchTMDB<TMDBMovieDetails>(
+      `/movie/${tmdbId}?append_to_response=external_ids`
+    );
 
     if (!movie) return null;
 
@@ -393,7 +450,9 @@ export const getTrendingMovies = action({
       rating: string;
     }>
   > => {
-    const data = await fetchTMDB<{ results: TMDBMovieListItem[] }>(`/trending/movie/week?page=${page}`);
+    const data = await fetchTMDB<{ results: TMDBMovieListItem[] }>(
+      `/trending/movie/week?page=${page}`
+    );
 
     if (!data?.results) return [];
 
@@ -434,7 +493,9 @@ export const getPopularTVShows = action({
     if (!data?.results) return [];
 
     const showsWithDetails = await mapInBatches(data.results.slice(0, 10), 4, async (show) => {
-      const details = await fetchTMDB<TMDBTVDetails>(`/tv/${show.id}?append_to_response=external_ids`);
+      const details = await fetchTMDB<TMDBTVDetails>(
+        `/tv/${show.id}?append_to_response=external_ids`
+      );
 
       return {
         tmdbId: show.id,
@@ -467,12 +528,11 @@ export const syncContent = action({
     const payloads = await mapInBatches(seeds, 5, async (seed, index) => {
       const shouldFetchDetails =
         index < detailSeedLimit || seed.flags.trending || seed.flags.popular || seed.flags.new;
-      const details =
-        shouldFetchDetails
-          ? seed.type === "movie"
-            ? await fetchTMDB<TMDBMovieDetails>(`/movie/${seed.id}?append_to_response=external_ids`)
-            : await fetchTMDB<TMDBTVDetails>(`/tv/${seed.id}?append_to_response=external_ids`)
-          : null;
+      const details = shouldFetchDetails
+        ? seed.type === "movie"
+          ? await fetchTMDB<TMDBMovieDetails>(`/movie/${seed.id}?append_to_response=external_ids`)
+          : await fetchTMDB<TMDBTVDetails>(`/tv/${seed.id}?append_to_response=external_ids`)
+        : null;
 
       const isMovie = seed.type === "movie";
       const runtime =

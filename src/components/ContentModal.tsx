@@ -93,8 +93,15 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
         <div className="relative h-[400px]">
           <img
             src={content.backdropUrl}
-            alt={content.title}
+            alt={`${content.title} backdrop`}
             className="w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.onerror = null;
+              target.style.display = "none";
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
 
@@ -106,26 +113,26 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
               </Badge>
               {/* Current Season/Episode Badge for Continue Watching */}
               {isTV && (
-                <Badge className="bg-blue-500 text-white font-semibold">
+                <Badge className="bg-primary text-primary-foreground font-semibold">
                   S{selectedSeason} E{selectedEpisode}
                 </Badge>
               )}
               {content.new && (
-                <Badge variant="secondary" className="bg-green-500/20 text-green-400">
+                <Badge variant="secondary" className="bg-success-soft text-success">
                   New
                 </Badge>
               )}
               {content.trending && (
-                <Badge variant="secondary" className="bg-orange-500/20 text-orange-400">
+                <Badge variant="secondary" className="bg-warning-soft text-warning-foreground">
                   Trending
                 </Badge>
               )}
             </div>
 
-            <h2 className="text-4xl font-bold text-white mb-4">{content.title}</h2>
+            <h2 className="text-4xl font-bold text-white mb-4 line-clamp-2">{content.title}</h2>
 
             <div className="flex items-center gap-4 text-sm text-white/80 mb-6">
-              <span className="text-green-400 font-semibold">{content.rating}</span>
+              <span className="text-success font-semibold">{content.rating}</span>
               <span>{content.year}</span>
               {content.duration && (
                 <span className="flex items-center gap-1">

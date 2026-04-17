@@ -8,7 +8,7 @@ export function SignUpPage() {
         appearance={{
           baseTheme: dark,
           variables: {
-            colorPrimary: "#2563eb",
+            colorPrimary: "hsl(2 71% 56%)",
             colorText: "white"
           }
         }}

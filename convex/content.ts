@@ -98,13 +98,16 @@ export const getByTmdbId = query({
 export const search = query({
   args: { query: v.string() },
   handler: async (ctx, { query }): Promise<Doc<"content">[]> => {
-    const allContent = await ctx.db.query("content").take(100);
-    const lowerQuery = query.toLowerCase();
+    const allContent = await ctx.db.query("content").take(1000);
+    const lowerQuery = query.toLowerCase().trim();
+    if (!lowerQuery) return [];
+
     return allContent.filter(
       (c) =>
         c.title.toLowerCase().includes(lowerQuery) ||
         c.description.toLowerCase().includes(lowerQuery) ||
-        c.genre.some((g) => g.toLowerCase().includes(lowerQuery))
+        c.genre.some((g) => g.toLowerCase().includes(lowerQuery)) ||
+        c.type.toLowerCase() === lowerQuery
     );
   }
 });

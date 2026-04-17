@@ -88,25 +88,27 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
       >
         <div
           className={`relative aspect-[2/3] rounded-lg overflow-hidden transition-all duration-300 ${
-            isHovered ? "scale-105 z-10 shadow-2xl shadow-black/60" : ""
+            isHovered ? "scale-105 z-20 shadow-2xl shadow-black/60" : ""
           }`}
         >
           {/* Poster */}
           <img
             src={content.posterUrl}
-            alt={content.title}
+            alt={`${content.title} poster`}
             className="w-full h-full object-cover"
             loading="lazy"
+            decoding="async"
             onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(content.title)}&size=500&background=1a1a2e&color=666`;
+              const target = e.target as HTMLImageElement;
+              target.onerror = null;
+              target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(content.title.slice(0, 2))}&size=500&background=1a1a2e&color=666`;
             }}
           />
 
           {/* New badge */}
           {!isHovered && content.new && (
             <div className="absolute top-2 right-2">
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-green-500 text-white rounded">
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-success text-success-foreground rounded">
                 NEW
               </span>
             </div>
@@ -177,7 +179,7 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
                     </p>
                   )}
                   <div className="flex items-center gap-1.5 text-xs text-white/60 mt-0.5 flex-wrap">
-                    <span className="text-green-400 font-medium">{content.rating}</span>
+                    <span className="text-success font-medium">{content.rating}</span>
                     <span>{content.year}</span>
                     {content.seasons ? (
                       <span>{content.seasons}S</span>
