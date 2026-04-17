@@ -72,14 +72,9 @@ export function WatchHistoryPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {history.map((item) => (
-              <div key={item._id} className="relative group">
+              <div key={item._id} className="relative group w-fit">
                 <MovieCard content={item} onPlay={handlePlay} />
-                <div className="absolute top-2 right-2 z-20 flex gap-1">
-                  {item.completed && (
-                    <div className="w-6 h-6 bg-success rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-success-foreground" />
-                    </div>
-                  )}
+                <div className="absolute top-2 right-2 z-20">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -88,19 +83,6 @@ export function WatchHistoryPage() {
                   >
                     <Trash2 className="w-3 h-3" />
                   </Button>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-2">
-                  <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary" style={{ width: `${item.progress}%` }} />
-                  </div>
-                  <p className="text-xs text-white/70 mt-1">
-                    {item.completed ? "Completed" : `${Math.round(item.progress)}% watched`}
-                  </p>
-                  {item.type === "tv" && item.seasonNumber && item.episodeNumber && (
-                    <p className="text-[11px] text-white/50 mt-0.5">
-                      S{item.seasonNumber} E{item.episodeNumber}
-                    </p>
-                  )}
                 </div>
               </div>
             ))}

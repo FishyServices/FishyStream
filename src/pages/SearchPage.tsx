@@ -1,72 +1,15 @@
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate, Link } from "react-router-dom";
-import { Loader2, Search, X, Tv, Film, Star } from "lucide-react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { Loader2, Search, X, Tv, Film } from "lucide-react";
 import { Header } from "@/components/Header";
-import { useSearchAll, type SearchResult } from "@/hooks/useContent";
-import { ContentModal } from "@/components/ContentModal";
-
-function ResultCard({ result, onClick }: { result: SearchResult; onClick: () => void }) {
-  const [imgError, setImgError] = useState(false);
-
-  return (
-    <div
-      className="group cursor-pointer"
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") onClick();
-      }}
-    >
-      <div className="relative aspect-[2/3] rounded-lg overflow-hidden mb-2 card-lift">
-        <img
-          src={
-            imgError
-              ? `https://placehold.co/300x450/1a1a2e/555?text=${encodeURIComponent(result.title.slice(0, 8))}`
-              : result.posterUrl
-          }
-          alt={result.title}
-          className="w-full h-full object-cover"
-          loading="lazy"
-          onError={() => setImgError(true)}
-        />
-        {/* Type badge */}
-        <div className="absolute top-2 left-2">
-          <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 bg-black/70 backdrop-blur rounded text-white/80">
-            {result.type === "movie" ? <Film className="w-3 h-3" /> : <Tv className="w-3 h-3" />}
-            {result.type === "movie" ? "Movie" : "TV"}
-          </span>
-        </div>
-        {/* Hover play */}
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center">
-            <Film className="w-5 h-5 text-black" />
-          </div>
-        </div>
-      </div>
-      <h3 className="text-sm font-display font-semibold text-white truncate group-hover:text-primary transition-colors">
-        {result.title}
-      </h3>
-      <div className="flex items-center gap-2 mt-0.5 text-xs text-white/50">
-        <span>{result.year}</span>
-        {result.seasons && <span>{result.seasons} Seasons</span>}
-        {result.voteAverage && result.voteAverage > 0 && (
-          <span className="flex items-center gap-0.5 text-yellow-400">
-            <Star className="w-2.5 h-2.5 fill-yellow-400" />
-            {result.voteAverage.toFixed(1)}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
+import { useSearchAll } from "@/hooks/useContent";
+import { MovieCard } from "@/components/MovieCard";
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const query = searchParams.get("q") ?? "";
   const [input, setInput] = useState(query);
-  const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
   const { results, loading, error } = useSearchAll(query);
 
   useEffect(() => {
@@ -151,11 +94,11 @@ export function SearchPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 stagger-children">
               {results.map((item) => (
-                <div key={`${item.type}-${item.tmdbId}`} className="animate-fade-in-up">
-                  <ResultCard
-                    result={item}
-                    onClick={() => {
-                      navigate(`/watch/${item.tmdbId}`);
+                <div key={`${item.type}-${item.tmdbId}`} className="animate-fade-in-up w-fit">
+                  <MovieCard
+                    content={item as any}
+                    onPlay={(tmdbId) => {
+                      navigate(`/watch/${tmdbId}`);
                     }}
                   />
                 </div>
