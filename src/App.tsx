@@ -67,7 +67,7 @@ function Footer() {
             </div>
             <span className="font-bold">FishyStream</span>
           </div>
-          <p className="text-sm text-white/40">© 2024 FishyStream. All rights reserved.</p>
+          <p className="text-sm text-white/40">© 2026 FishyStream. All rights reserved.</p>
         </div>
       </div>
     </footer>

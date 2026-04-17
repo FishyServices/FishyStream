@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useAction } from "convex/react";
+import { useEffect, useState, useRef } from "react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { ArrowLeft, Loader2, AlertCircle, MonitorPlay } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useUser } from "@clerk/react";
 
 interface VideoPlayerProps {
   content: Doc<"content">;
@@ -25,14 +26,19 @@ interface StreamSource {
 
 export function VideoPlayer({ content }: VideoPlayerProps) {
   const navigate = useNavigate();
+  const { user, isSignedIn } = useUser();
   const getMovieSources = useAction(api.providers.getMovieSources);
   const getTVSources = useAction(api.providers.getTVSources);
+  const updateProgress = useMutation(api.watchHistory.updateProgress);
   const [sources, setSources] = useState<StreamSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const savedToHistory = useRef(false);
 
   useEffect(() => {
+    if (sources.length > 0 || error || savedToHistory.current) return;
+
     const loadSources = async () => {
       if (!content.imdbId && !content.tmdbId) {
         setError("No video ID available for this content");
@@ -43,36 +49,55 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
       try {
         setLoading(true);
         let fetchedSources;
-        
+
         if (content.type === "tv") {
-          fetchedSources = await getTVSources({ 
+          fetchedSources = await getTVSources({
             imdbId: content.imdbId || undefined,
             tmdbId: content.tmdbId || undefined,
             season: 1,
             episode: 1
           });
         } else {
-          fetchedSources = await getMovieSources({ 
+          fetchedSources = await getMovieSources({
             imdbId: content.imdbId || undefined,
-            tmdbId: content.tmdbId || undefined 
+            tmdbId: content.tmdbId || undefined
           });
         }
-        
+
         const safeSources = fetchedSources ?? [];
         setSources(safeSources);
-        const firstSource = safeSources[0];
-        if (firstSource) {
+
+        if (safeSources.length === 0) {
+          setError("No streaming sources found for this content");
+        } else {
+          const firstSource = safeSources[0]!;
           setSelectedSource(firstSource.url);
         }
+
+        if (isSignedIn && user && content._id && !savedToHistory.current) {
+          try {
+            await updateProgress({
+              clerkUserId: user.id,
+              contentId: content._id,
+              progress: 0,
+              completed: false
+            });
+            savedToHistory.current = true;
+            console.log("Saved to watch history");
+          } catch (e) {
+            console.log("Failed to save to history:", e);
+          }
+        }
       } catch (e) {
-        setError("Failed to load streaming sources");
+        console.error("Error loading sources:", e);
+        setError(`Failed to load streaming sources: ${e instanceof Error ? e.message : 'Unknown error'}`);
       } finally {
         setLoading(false);
       }
     };
 
     loadSources();
-  }, [content.imdbId, content.tmdbId, content.type, getMovieSources, getTVSources]);
+  }, [content.imdbId, content.tmdbId, content.type, content._id, isSignedIn, user, updateProgress]);
 
   if (loading) {
     return (
@@ -124,23 +149,25 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
           </div>
         </div>
         
-        <Select value={selectedSource} onValueChange={setSelectedSource}>
-          <SelectTrigger className="w-[200px] bg-white/10 border-white/20 text-white">
-            <MonitorPlay className="w-4 h-4 mr-2" />
-            <SelectValue placeholder="Select source" />
-          </SelectTrigger>
-          <SelectContent className="z-50 bg-black border-white/20">
-            {sources.map((source) => (
-              <SelectItem 
-                key={source.url} 
-                value={source.url}
-                className="text-white focus:bg-white/10 focus:text-white"
-              >
-                {source.name} ({source.quality})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={selectedSource} onValueChange={setSelectedSource}>
+            <SelectTrigger className="w-[200px] bg-white/10 border-white/20 text-white">
+              <MonitorPlay className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Select source" />
+            </SelectTrigger>
+            <SelectContent className="z-50 bg-black border-white/20">
+              {sources.map((source) => (
+                <SelectItem 
+                  key={source.url} 
+                  value={source.url}
+                  className="text-white focus:bg-white/10 focus:text-white"
+                >
+                  {source.name} ({source.quality})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Video Player */}
@@ -148,7 +175,6 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
         <iframe
           src={selectedSource}
           className="absolute inset-0 w-full h-full border-0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           title="Video Player"
         />

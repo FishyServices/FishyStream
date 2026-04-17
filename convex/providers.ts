@@ -11,35 +11,35 @@ const PROVIDERS = {
   vidsrc: {
     name: "VidSrc",
     getMovieUrl: (id: string) => `https://vidsrc.icu/embed/movie/${id}`,
-    getTVUrl: (id: string, season: number, episode: number) => 
+    getTVUrl: (id: string, season: number, episode: number) =>
       `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`,
   },
-  
+
   twoEmbed: {
     name: "2Embed",
     getMovieUrl: (imdbId: string) => `https://www.2embed.cc/embed/${imdbId}`,
-    getTVUrl: (imdbId: string, season: number, episode: number) => 
+    getTVUrl: (imdbId: string, season: number, episode: number) =>
       `https://www.2embed.cc/embed/${imdbId}/${season}/${episode}`,
   },
-  
+
   autoembed: {
     name: "AutoEmbed",
     getMovieUrl: (tmdbId: string) => `https://player.autoembed.cc/embed/movie/${tmdbId}`,
-    getTVUrl: (tmdbId: string, season: number, episode: number) => 
+    getTVUrl: (tmdbId: string, season: number, episode: number) =>
       `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}`,
   },
-  
+
   superEmbed: {
     name: "SuperEmbed",
     getMovieUrl: (tmdbId: string) => `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
-    getTVUrl: (tmdbId: string, season: number, episode: number) => 
+    getTVUrl: (tmdbId: string, season: number, episode: number) =>
       `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1&season=${season}&episode=${episode}`,
   },
-  
+
   vidking: {
     name: "VidKing",
     getMovieUrl: (tmdbId: string) => `https://www.vidking.net/embed/movie/${tmdbId}`,
-    getTVUrl: (tmdbId: string, season: number, episode: number) => 
+    getTVUrl: (tmdbId: string, season: number, episode: number) =>
       `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}`,
   },
 };
@@ -60,7 +60,7 @@ export const getMovieSources = action({
         quality: "1080p",
       });
     }
-    
+
     if (tmdbId) {
       sources.push({
         name: "AutoEmbed",
@@ -115,7 +115,7 @@ export const getTVSources = action({
         quality: "1080p",
       });
     }
-    
+
     if (tmdbId) {
       sources.push({
         name: "AutoEmbed",
