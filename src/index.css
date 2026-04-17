@@ -1,0 +1,104 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  --color-primary-faint: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  --color-success-soft: color-mix(in srgb, var(--color-success) 8%, transparent);
+  --color-warning-soft: color-mix(in srgb, var(--color-warning) 8%, transparent);
+  --color-destructive-soft: color-mix(in srgb, var(--color-destructive) 8%, transparent);
+  --color-muted-soft: color-mix(in srgb, var(--color-muted) 40%, transparent);
+
+  --color-border-faint: color-mix(in srgb, var(--color-border) 40%, transparent);
+  --color-border-soft: color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 36 20% 94%;
+    --card: 0 0% 8%;
+    --card-foreground: 36 20% 94%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 36 20% 94%;
+    --primary: 2 71% 56%;
+    --primary-foreground: 36 20% 96%;
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 36 12% 84%;
+    --muted: 0 0% 9%;
+    --muted-foreground: 24 8% 62%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 36 20% 94%;
+    --destructive: 0 78% 58%;
+    --destructive-foreground: 36 20% 96%;
+    --success: 147 62% 40%;
+    --success-foreground: 140 40% 96%;
+    --warning: 38 92% 52%;
+    --warning-foreground: 30 22% 12%;
+    --border: 0 0% 16%;
+    --input: 0 0% 12%;
+    --ring: 2 71% 56%;
+    --radius: 0.625rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased font-sans selection:bg-primary/30 selection:text-primary-foreground;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image:
+      radial-gradient(circle at top, rgba(174, 63, 56, 0.2), transparent 30%),
+      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size:
+      auto,
+      24px 24px,
+      24px 24px;
+  }
+}
