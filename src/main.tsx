@@ -16,6 +16,7 @@ import { PopularPage } from "./pages/PopularPage";
 import { MyListPage } from "./pages/MyListPage";
 import { WatchHistoryPage } from "./pages/WatchHistoryPage";
 import { MigrationPage } from "./pages/MigrationPage";
+import { SearchPage } from "./pages/SearchPage";
 import "./index.css";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
@@ -29,7 +30,7 @@ createRoot(elem).render(
       appearance={{
         baseTheme: dark,
         variables: {
-          colorPrimary: "#2563eb",
+          colorPrimary: "#e50914",
           colorText: "white"
         }
       }}
@@ -47,8 +48,9 @@ createRoot(elem).render(
             <Route path="/my-list" element={<MyListPage />} />
             <Route path="/history" element={<WatchHistoryPage />} />
             <Route path="/migration" element={<MigrationPage />} />
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/" element={<App />} />
-            <Route path="*" element={<Navigate to="/" />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </ConvexProviderWithClerk>

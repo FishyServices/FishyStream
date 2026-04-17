@@ -1,18 +1,15 @@
-import { useState, useEffect } from "react";
-import { useUser } from "@clerk/react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useUser, useClerk } from "@clerk/react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Search, Bell, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
-
-interface HeaderProps {
-  onSearch?: (query: string) => void;
-}
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -25,23 +22,52 @@ const navLinks = [
   { label: "Import", href: "/migration" }
 ];
 
-export function Header({ onSearch }: HeaderProps) {
+export function Header() {
   const { user, isSignedIn } = useUser();
+  const { signOut } = useClerk();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-    window.addEventListener("scroll", handleScroll);
+    const handleScroll = () => setIsScrolled(window.scrollY > 50);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (isSearchOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [isSearchOpen]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch?.(searchQuery);
+    const q = searchQuery.trim();
+    if (q) {
+      navigate(`/search?q=${encodeURIComponent(q)}`);
+      setIsSearchOpen(false);
+      setSearchQuery("");
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setIsSearchOpen(false);
+      setSearchQuery("");
+    }
+  };
+
+  const handleSignOut = () => {
+    void signOut(() => navigate("/"));
   };
 
   return (
@@ -53,8 +79,9 @@ export function Header({ onSearch }: HeaderProps) {
       }`}
     >
       <div className="flex items-center justify-between px-4 sm:px-6 lg:px-12 py-4">
-        <div className="flex items-center gap-8">
-          <Link to="/" className="flex items-center gap-2">
+        {/* Logo + Nav */}
+        <div className="flex items-center gap-8 min-w-0">
+          <Link to="/" className="flex items-center gap-2 shrink-0">
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-lg">F</span>
             </div>
@@ -66,7 +93,11 @@ export function Header({ onSearch }: HeaderProps) {
               <Link
                 key={link.label}
                 to={link.href}
-                className="text-sm text-white/80 hover:text-white transition-colors"
+                className={`text-sm transition-colors ${
+                  location.pathname === link.href
+                    ? "text-white font-semibold"
+                    : "text-white/70 hover:text-white"
+                }`}
               >
                 {link.label}
               </Link>
@@ -74,52 +105,86 @@ export function Header({ onSearch }: HeaderProps) {
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
-          <form onSubmit={handleSearch} className="hidden md:flex items-center">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Titles, people, genres"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-0 focus:w-64 bg-black/50 border border-white/20 rounded-full py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/50 transition-all duration-300 focus:outline-none focus:border-white/50"
-              />
-            </div>
-          </form>
+        {/* Right actions */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Desktop search */}
+          {isSearchOpen ? (
+            <form onSubmit={handleSearch} className="flex items-center">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Titles, genres..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  className="w-48 sm:w-64 bg-black/60 border border-white/30 rounded-full py-1.5 pl-9 pr-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/60 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSearchOpen(false);
+                    setSearchQuery("");
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </form>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/10"
+              onClick={() => setIsSearchOpen(true)}
+              aria-label="Search"
+            >
+              <Search className="w-5 h-5" />
+            </Button>
+          )}
 
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/10 relative"
+            aria-label="Notifications"
+          >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-primary rounded-full" />
           </Button>
 
           {isSignedIn ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 hover:bg-white/10">
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 hover:bg-white/10 px-2"
+                >
                   <img
-                    src={user?.imageUrl || "https://via.placeholder.com/32"}
-                    alt="Profile"
-                    className="w-8 h-8 rounded-full object-cover"
+                    src={user?.imageUrl || "https://ui-avatars.com/api/?background=random"}
+                    alt={user?.firstName ?? "Profile"}
+                    className="w-8 h-8 rounded-full object-cover ring-2 ring-white/20"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.firstName ?? "U")}&background=e50914&color=fff`;
+                    }}
                   />
-                  <span className="hidden sm:block text-sm">
-                    {user?.firstName || user?.username}
+                  <span className="hidden sm:block text-sm max-w-[120px] truncate">
+                    {user?.firstName || user?.username || "Account"}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => (window.location.href = "/profile")}>
-                  Profile
+                <DropdownMenuItem onClick={() => navigate("/my-list")}>My List</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/history")}>
+                  Watch History
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => (window.location.href = "/account")}>
-                  Account
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => (window.location.href = "/help")}>
-                  Help Center
-                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => (window.location.href = "/sign-out")}
-                  className="text-destructive"
+                  onClick={handleSignOut}
+                  className="text-destructive focus:text-destructive"
                 >
                   Sign Out
                 </DropdownMenuItem>
@@ -127,9 +192,10 @@ export function Header({ onSearch }: HeaderProps) {
             </DropdownMenu>
           ) : (
             <Button
-              variant="ghost"
-              onClick={() => (window.location.href = "/sign-in")}
-              className="text-white hover:bg-white/10"
+              variant="default"
+              size="sm"
+              onClick={() => navigate("/sign-in")}
+              className="hidden sm:inline-flex"
             >
               Sign In
             </Button>
@@ -140,25 +206,38 @@ export function Header({ onSearch }: HeaderProps) {
             size="icon"
             className="lg:hidden text-white hover:bg-white/10"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >
             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </Button>
         </div>
       </div>
 
+      {/* Mobile menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-background/95 backdrop-blur-md border-t border-white/10">
-          <nav className="flex flex-col p-4 gap-2">
+        <div className="lg:hidden bg-background/98 backdrop-blur-md border-t border-white/10">
+          <nav className="flex flex-col p-4 gap-1">
             {navLinks.map((link) => (
               <Link
                 key={link.label}
                 to={link.href}
-                className="py-2 px-4 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
+                className={`py-2.5 px-4 rounded-lg transition-colors text-sm font-medium ${
+                  location.pathname === link.href
+                    ? "bg-white/10 text-white"
+                    : "text-white/70 hover:text-white hover:bg-white/5"
+                }`}
               >
                 {link.label}
               </Link>
             ))}
+            {!isSignedIn && (
+              <Link
+                to="/sign-in"
+                className="mt-2 py-2.5 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold text-center"
+              >
+                Sign In
+              </Link>
+            )}
           </nav>
         </div>
       )}

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { ArrowLeft, Loader2, AlertCircle, MonitorPlay } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, MonitorPlay, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import {
@@ -58,51 +58,35 @@ function getEstimatedDurationSeconds(content: Doc<"content">): number {
   const hours = Number(durationText.match(/(\d+)h/)?.[1] ?? 0);
   const minutes = Number(durationText.match(/(\d+)m/)?.[1] ?? 0);
   const parsedSeconds = hours * 3600 + minutes * 60;
-
   if (parsedSeconds > 0) return parsedSeconds;
-
   return content.type === "tv" ? 45 * 60 : 2 * 60 * 60;
 }
 
-function buildEmbedUrl(
-  source: StreamSource | undefined,
-  resumePositionSeconds: number,
-  completed: boolean,
-  durationSeconds: number,
-  contentType: Doc<"content">["type"]
-): string {
+function buildEmbedUrl(source: StreamSource | undefined): string {
   if (!source) return "";
-
-  const url = new URL(source.url);
-  if (!source.supportsProgressEvents) {
+  try {
+    const url = new URL(source.url);
+    if (source.supportsProgressEvents) {
+      url.searchParams.set("color", "e50914");
+    }
     return url.toString();
+  } catch {
+    return source.url;
   }
-
-  url.searchParams.set("color", "e50914");
-
-  if (contentType === "tv") {
-    url.searchParams.set("nextEpisode", "true");
-    url.searchParams.set("episodeSelector", "true");
-  }
-
-  return url.toString();
 }
 
 function parsePlayerMessage(rawData: unknown): PlayerEventPayload | null {
   try {
-    const parsed =
-      typeof rawData === "string" ? (JSON.parse(rawData) as unknown) : rawData;
-
+    const parsed = typeof rawData === "string" ? (JSON.parse(rawData) as unknown) : rawData;
     if (
       !parsed ||
       typeof parsed !== "object" ||
       !("type" in parsed) ||
       !("data" in parsed) ||
-      parsed.type !== "PLAYER_EVENT"
+      (parsed as Record<string, unknown>).type !== "PLAYER_EVENT"
     ) {
       return null;
     }
-
     return parsed as PlayerEventPayload;
   } catch {
     return null;
@@ -117,17 +101,12 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const getTVSources = useAction(api.providers.getTVSources);
   const updateProgress = useMutation(api.watchHistory.updateProgress);
   const watchState = useWatchProgress(content._id);
+
   const [sources, setSources] = useState<StreamSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [historyReady, setHistoryReady] = useState(false);
-  const [resumeSeed, setResumeSeed] = useState({
-    positionSeconds: 0,
-    completed: false,
-    durationSeconds: 0
-  });
-  const [tvTarget, setTvTarget] = useState({ season: 1, episode: 1 });
+
   const historyInitializedRef = useRef(false);
   const realtimeEventsDetectedRef = useRef(false);
   const activeSegmentStartedAtRef = useRef<number | null>(null);
@@ -136,53 +115,26 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const lastSyncedProgressRef = useRef(0);
   const lastSyncedPositionRef = useRef(0);
   const lastRealtimeSyncAtRef = useRef(0);
-  const currentTvTargetRef = useRef({ season: 1, episode: 1 });
+  const currentTvTargetRef = useRef({
+    season: initialSeason ?? 1,
+    episode: initialEpisode ?? 1
+  });
   const loadedTvTargetRef = useRef({ season: 1, episode: 1 });
+
+  const [tvTarget, setTvTarget] = useState({
+    season: initialSeason ?? 1,
+    episode: initialEpisode ?? 1
+  });
+
   const estimatedDurationSeconds = getEstimatedDurationSeconds(content);
-  const selectedSourceConfig = sources.find((source) => source.url === selectedSource);
-  const embedUrl = buildEmbedUrl(
-    selectedSourceConfig,
-    resumeSeed.positionSeconds,
-    resumeSeed.completed,
-    resumeSeed.durationSeconds,
-    content.type
-  );
-
-  const stopActiveSegment = () => {
-    if (activeSegmentStartedAtRef.current === null) return;
-
-    accumulatedWatchMsRef.current += Date.now() - activeSegmentStartedAtRef.current;
-    activeSegmentStartedAtRef.current = null;
-  };
-
-  const startActiveSegment = () => {
-    if (activeSegmentStartedAtRef.current !== null || document.hidden) return;
-    activeSegmentStartedAtRef.current = Date.now();
-  };
-
-  const getComputedProgress = () => {
-    const activeSegmentMs =
-      activeSegmentStartedAtRef.current === null
-        ? 0
-        : Date.now() - activeSegmentStartedAtRef.current;
-    const watchedSeconds = (accumulatedWatchMsRef.current + activeSegmentMs) / 1000;
-
-    return clampProgress(
-      startingProgressRef.current + (watchedSeconds / estimatedDurationSeconds) * 100
-    );
-  };
+  const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
+  const embedUrl = buildEmbedUrl(selectedSourceConfig);
 
   useEffect(() => {
     setSources([]);
     setSelectedSource("");
     setLoading(true);
     setError(null);
-    setHistoryReady(false);
-    setResumeSeed({
-      positionSeconds: 0,
-      completed: false,
-      durationSeconds: 0
-    });
     historyInitializedRef.current = false;
     realtimeEventsDetectedRef.current = false;
     activeSegmentStartedAtRef.current = null;
@@ -191,14 +143,41 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     lastSyncedProgressRef.current = 0;
     lastSyncedPositionRef.current = 0;
     lastRealtimeSyncAtRef.current = 0;
-    currentTvTargetRef.current = { season: 1, episode: 1 };
-    loadedTvTargetRef.current = { season: 1, episode: 1 };
-    setTvTarget({ season: 1, episode: 1 });
-  }, [content._id]);
+    const initSeason = initialSeason ?? 1;
+    const initEpisode = initialEpisode ?? 1;
+    currentTvTargetRef.current = { season: initSeason, episode: initEpisode };
+    loadedTvTargetRef.current = { season: initSeason, episode: initEpisode };
+    setTvTarget({ season: initSeason, episode: initEpisode });
+  }, [content._id, initialSeason, initialEpisode]);
+
+  useEffect(() => {
+    if (!isSignedIn || !user || !content._id) return;
+    if (watchState === undefined) return;
+    if (historyInitializedRef.current) return;
+
+    historyInitializedRef.current = true;
+    startingProgressRef.current = clampProgress(watchState.progress);
+    lastSyncedProgressRef.current = clampProgress(watchState.progress);
+    lastSyncedPositionRef.current = Math.max(0, watchState.positionSeconds);
+
+    if (content.type === "tv") {
+      const restoredSeason =
+        initialSeason !== undefined
+          ? normalizeEpisodeNumber(initialSeason)
+          : normalizeEpisodeNumber(watchState.seasonNumber);
+      const restoredEpisode =
+        initialEpisode !== undefined
+          ? normalizeEpisodeNumber(initialEpisode)
+          : normalizeEpisodeNumber(watchState.episodeNumber);
+      currentTvTargetRef.current = { season: restoredSeason, episode: restoredEpisode };
+      setTvTarget({ season: restoredSeason, episode: restoredEpisode });
+    }
+  }, [content._id, content.type, isSignedIn, user, watchState, initialSeason, initialEpisode]);
 
   useEffect(() => {
     if (sources.length > 0 || error) return;
-    if (content.type === "tv" && isSignedIn && !historyReady) return;
+
+    if (isSignedIn && content.type === "tv" && watchState === undefined) return;
 
     const loadSources = async () => {
       if (!content.imdbId && !content.tmdbId) {
@@ -209,46 +188,42 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
       try {
         setLoading(true);
-        const targetSeason =
-          content.type === "tv" ? currentTvTargetRef.current.season : 1;
-        const targetEpisode =
-          content.type === "tv" ? currentTvTargetRef.current.episode : 1;
+        const targetSeason = currentTvTargetRef.current.season;
+        const targetEpisode = currentTvTargetRef.current.episode;
+
         const fetchedSources =
           content.type === "tv"
             ? await getTVSources({
-                imdbId: content.imdbId || undefined,
-                tmdbId: content.tmdbId || undefined,
+                imdbId: content.imdbId ?? undefined,
+                tmdbId: content.tmdbId ?? undefined,
                 season: targetSeason,
                 episode: targetEpisode
               })
             : await getMovieSources({
-                imdbId: content.imdbId || undefined,
-                tmdbId: content.tmdbId || undefined
+                imdbId: content.imdbId ?? undefined,
+                tmdbId: content.tmdbId ?? undefined
               });
 
         const safeSources = fetchedSources ?? [];
-        setSources(safeSources);
-
         if (safeSources.length === 0) {
           setError("No streaming sources found for this content");
+          setLoading(false);
           return;
         }
 
+        loadedTvTargetRef.current = {
+          season: targetSeason,
+          episode: targetEpisode
+        };
+        setSources(safeSources);
+
         const defaultSource =
-          safeSources.find((source) => source.supportsProgressEvents) ?? safeSources[0]!;
-        if (content.type === "tv") {
-          loadedTvTargetRef.current = {
-            season: targetSeason,
-            episode: targetEpisode
-          };
-        }
+          safeSources.find((s) => s.supportsProgressEvents) ?? safeSources[0]!;
         setSelectedSource(defaultSource.url);
-      } catch (loadError) {
-        console.error("Error loading sources:", loadError);
+      } catch (err) {
+        console.error("Error loading sources:", err);
         setError(
-          `Failed to load streaming sources: ${
-            loadError instanceof Error ? loadError.message : "Unknown error"
-          }`
+          `Failed to load streaming sources: ${err instanceof Error ? err.message : "Unknown error"}`
         );
       } finally {
         setLoading(false);
@@ -264,59 +239,15 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     getMovieSources,
     getTVSources,
     isSignedIn,
-    historyReady,
-    sources.length,
+    watchState,
+    sources.length
   ]);
-
-  useEffect(() => {
-    if (!isSignedIn || !user || !content._id) return;
-    if (watchState === undefined || historyInitializedRef.current) return;
-
-    historyInitializedRef.current = true;
-    startingProgressRef.current = clampProgress(watchState.progress);
-    lastSyncedProgressRef.current = clampProgress(watchState.progress);
-    lastSyncedPositionRef.current = Math.max(0, watchState.positionSeconds);
-    const restoredSeason = initialSeason !== undefined
-      ? normalizeEpisodeNumber(initialSeason)
-      : normalizeEpisodeNumber(watchState.seasonNumber);
-    const restoredEpisode = initialEpisode !== undefined
-      ? normalizeEpisodeNumber(initialEpisode)
-      : normalizeEpisodeNumber(watchState.episodeNumber);
-    currentTvTargetRef.current = {
-      season: restoredSeason,
-      episode: restoredEpisode
-    };
-    setTvTarget({
-      season: restoredSeason,
-      episode: restoredEpisode
-    });
-    setHistoryReady(true);
-    setResumeSeed({
-      positionSeconds: Math.max(0, watchState.positionSeconds),
-      completed: watchState.completed,
-      durationSeconds: Math.max(0, watchState.durationSeconds)
-    });
-
-    void updateProgress({
-      clerkUserId: user.id,
-      contentId: content._id,
-      progress: clampProgress(watchState.progress),
-      completed: watchState.completed,
-      positionSeconds: Math.max(0, watchState.positionSeconds),
-      durationSeconds: Math.max(0, watchState.durationSeconds),
-      seasonNumber: content.type === "tv" ? restoredSeason : undefined,
-      episodeNumber: content.type === "tv" ? restoredEpisode : undefined
-    }).catch((progressError) => {
-      console.error("Failed to initialize watch history:", progressError);
-    });
-  }, [content._id, isSignedIn, updateProgress, user, watchState, initialSeason, initialEpisode]);
 
   useEffect(() => {
     if (
       !isSignedIn ||
       !user ||
       !content._id ||
-      !historyReady ||
       !selectedSourceConfig ||
       selectedSourceConfig.supportsProgressEvents
     ) {
@@ -325,145 +256,143 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
     let syncInFlight = false;
 
-    const syncProgress = (force = false) => {
-      if (realtimeEventsDetectedRef.current) return;
-      if (syncInFlight) return;
-
-      const nextProgress = getComputedProgress();
-      if (!force && nextProgress - lastSyncedProgressRef.current < 1) return;
-      if (nextProgress < lastSyncedProgressRef.current) return;
-
-      const estimatedPositionSeconds = Math.max(
-        lastSyncedPositionRef.current,
-        Math.round((nextProgress / 100) * estimatedDurationSeconds)
+    const getComputedProgress = () => {
+      const activeMs =
+        activeSegmentStartedAtRef.current === null
+          ? 0
+          : Date.now() - activeSegmentStartedAtRef.current;
+      const watchedSeconds = (accumulatedWatchMsRef.current + activeMs) / 1000;
+      return clampProgress(
+        startingProgressRef.current + (watchedSeconds / estimatedDurationSeconds) * 100
       );
+    };
 
+    const stopSegment = () => {
+      if (activeSegmentStartedAtRef.current === null) return;
+      accumulatedWatchMsRef.current += Date.now() - activeSegmentStartedAtRef.current;
+      activeSegmentStartedAtRef.current = null;
+    };
+
+    const startSegment = () => {
+      if (activeSegmentStartedAtRef.current !== null || document.hidden) return;
+      activeSegmentStartedAtRef.current = Date.now();
+    };
+
+    const syncProgress = (force = false) => {
+      if (realtimeEventsDetectedRef.current || syncInFlight) return;
+      const next = getComputedProgress();
+      if (!force && next - lastSyncedProgressRef.current < 1) return;
+      if (next < lastSyncedProgressRef.current) return;
+
+      const estimatedPos = Math.max(
+        lastSyncedPositionRef.current,
+        Math.round((next / 100) * estimatedDurationSeconds)
+      );
       syncInFlight = true;
       void updateProgress({
         clerkUserId: user.id,
         contentId: content._id,
-        progress: nextProgress,
-        completed: nextProgress >= 95,
-        positionSeconds: estimatedPositionSeconds,
+        progress: next,
+        completed: next >= 95,
+        positionSeconds: estimatedPos,
         durationSeconds: estimatedDurationSeconds,
         seasonNumber: content.type === "tv" ? currentTvTargetRef.current.season : undefined,
         episodeNumber: content.type === "tv" ? currentTvTargetRef.current.episode : undefined
       })
         .then(() => {
-          lastSyncedProgressRef.current = nextProgress;
-          lastSyncedPositionRef.current = estimatedPositionSeconds;
+          lastSyncedProgressRef.current = next;
+          lastSyncedPositionRef.current = estimatedPos;
         })
-        .catch((progressError) => {
-          console.error("Failed to sync fallback watch progress:", progressError);
-        })
+        .catch((err) => console.error("Fallback progress sync failed:", err))
         .finally(() => {
           syncInFlight = false;
         });
     };
 
-    const handleVisibilityChange = () => {
+    const handleVisibility = () => {
       if (document.hidden) {
-        stopActiveSegment();
+        stopSegment();
         syncProgress(true);
-        return;
+      } else {
+        startSegment();
       }
-
-      startActiveSegment();
     };
 
     const handlePageHide = () => {
-      stopActiveSegment();
+      stopSegment();
       syncProgress(true);
     };
 
-    startActiveSegment();
-
-    const intervalId = window.setInterval(() => {
-      syncProgress();
-    }, 15000);
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    startSegment();
+    const intervalId = window.setInterval(() => syncProgress(), 15_000);
+    document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("pagehide", handlePageHide);
 
     return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("pagehide", handlePageHide);
-      stopActiveSegment();
+      stopSegment();
       syncProgress(true);
     };
-  }, [content._id, estimatedDurationSeconds, historyReady, isSignedIn, selectedSourceConfig, updateProgress, user]);
+  }, [content._id, content.type, estimatedDurationSeconds, isSignedIn, selectedSourceConfig, updateProgress, user]);
 
   useEffect(() => {
-    if (
-      !isSignedIn ||
-      !user ||
-      !content._id ||
-      !historyReady ||
-      !selectedSourceConfig ||
-      !embedUrl
-    ) {
+    if (!isSignedIn || !user || !content._id || !selectedSourceConfig || !embedUrl) return;
+
+    let sourceOrigin: string;
+    try {
+      sourceOrigin = new URL(embedUrl).origin;
+    } catch {
       return;
     }
 
-    const sourceOrigin = new URL(embedUrl).origin;
     let syncInFlight = false;
 
-    const syncRealtimeProgress = (payload: PlayerEventPayload["data"]) => {
+    const syncRealtimeProgress = (data: PlayerEventPayload["data"]) => {
       if (syncInFlight) return;
+      const next = clampProgress(data.progress);
+      const nextPos = Math.max(0, data.currentTime || 0);
+      const nextDur = Math.max(0, data.duration || 0);
+      const nextSeason = content.type === "tv" ? normalizeEpisodeNumber(data.season) : undefined;
+      const nextEpisode = content.type === "tv" ? normalizeEpisodeNumber(data.episode) : undefined;
+      const isForced = data.event !== "timeupdate";
+      const isMeaningful =
+        Math.abs(nextPos - lastSyncedPositionRef.current) >= 5 ||
+        Math.abs(next - lastSyncedProgressRef.current) >= 1 ||
+        Date.now() - lastRealtimeSyncAtRef.current >= 15_000;
 
-      const nextProgress = clampProgress(payload.progress);
-      const nextPositionSeconds = Math.max(0, payload.currentTime || 0);
-      const nextDurationSeconds = Math.max(0, payload.duration || 0);
-      const nextSeasonNumber =
-        content.type === "tv" ? normalizeEpisodeNumber(payload.season) : undefined;
-      const nextEpisodeNumber =
-        content.type === "tv" ? normalizeEpisodeNumber(payload.episode) : undefined;
-      const isForcedEvent = payload.event !== "timeupdate";
-      const isMeaningfulDelta =
-        Math.abs(nextPositionSeconds - lastSyncedPositionRef.current) >= 5 ||
-        Math.abs(nextProgress - lastSyncedProgressRef.current) >= 1 ||
-        Date.now() - lastRealtimeSyncAtRef.current >= 15000;
-
-      if (!isForcedEvent && !isMeaningfulDelta) return;
+      if (!isForced && !isMeaningful) return;
 
       if (
         content.type === "tv" &&
-        nextSeasonNumber !== undefined &&
-        nextEpisodeNumber !== undefined &&
-        (currentTvTargetRef.current.season !== nextSeasonNumber ||
-          currentTvTargetRef.current.episode !== nextEpisodeNumber)
+        nextSeason !== undefined &&
+        nextEpisode !== undefined &&
+        (currentTvTargetRef.current.season !== nextSeason ||
+          currentTvTargetRef.current.episode !== nextEpisode)
       ) {
-        currentTvTargetRef.current = {
-          season: nextSeasonNumber,
-          episode: nextEpisodeNumber
-        };
-        setTvTarget({
-          season: nextSeasonNumber,
-          episode: nextEpisodeNumber
-        });
+        currentTvTargetRef.current = { season: nextSeason, episode: nextEpisode };
+        setTvTarget({ season: nextSeason, episode: nextEpisode });
       }
 
-      syncInFlight = true;
       realtimeEventsDetectedRef.current = true;
+      syncInFlight = true;
       void updateProgress({
         clerkUserId: user.id,
         contentId: content._id,
-        progress: nextProgress,
-        completed: payload.event === "ended" || nextProgress >= 95,
-        positionSeconds: nextPositionSeconds,
-        durationSeconds: nextDurationSeconds,
-        seasonNumber: nextSeasonNumber,
-        episodeNumber: nextEpisodeNumber
+        progress: next,
+        completed: data.event === "ended" || next >= 95,
+        positionSeconds: nextPos,
+        durationSeconds: nextDur,
+        seasonNumber: nextSeason,
+        episodeNumber: nextEpisode
       })
         .then(() => {
-          lastSyncedProgressRef.current = nextProgress;
-          lastSyncedPositionRef.current = nextPositionSeconds;
+          lastSyncedProgressRef.current = next;
+          lastSyncedPositionRef.current = nextPos;
           lastRealtimeSyncAtRef.current = Date.now();
         })
-        .catch((progressError) => {
-          console.error("Failed to sync VidKing progress:", progressError);
-        })
+        .catch((err) => console.error("Realtime progress sync failed:", err))
         .finally(() => {
           syncInFlight = false;
         });
@@ -474,83 +403,71 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow) {
         return;
       }
-
       const payload = parsePlayerMessage(event.data);
       if (!payload) return;
       if (payload.data.id !== content.tmdbId) return;
       if (payload.data.mediaType !== content.type) return;
-
       syncRealtimeProgress(payload.data);
     };
 
     window.addEventListener("message", handleMessage);
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, [content._id, content.tmdbId, content.type, embedUrl, historyReady, isSignedIn, selectedSourceConfig, updateProgress, user]);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [content._id, content.tmdbId, content.type, embedUrl, isSignedIn, selectedSourceConfig, updateProgress, user]);
 
-  const handleSourceChange = async (nextSource: string) => {
-    realtimeEventsDetectedRef.current = false;
-    setResumeSeed({
-      positionSeconds: lastSyncedPositionRef.current,
-      completed: lastSyncedProgressRef.current >= 95,
-      durationSeconds:
-        watchState?.durationSeconds && watchState.durationSeconds > 0
-          ? watchState.durationSeconds
-          : estimatedDurationSeconds
-    });
-
-    const selectedProvider = sources.find((source) => source.url === nextSource)?.name;
+  const handleSourceChange = async (nextSourceUrl: string) => {
+    const selectedName = sources.find((s) => s.url === nextSourceUrl)?.name;
     const needsEpisodeReload =
       content.type === "tv" &&
       (currentTvTargetRef.current.season !== loadedTvTargetRef.current.season ||
         currentTvTargetRef.current.episode !== loadedTvTargetRef.current.episode);
 
+    realtimeEventsDetectedRef.current = false;
+
     if (!needsEpisodeReload) {
-      setSelectedSource(nextSource);
+      setSelectedSource(nextSourceUrl);
       return;
     }
 
     try {
       setLoading(true);
-      const refreshedSources = await getTVSources({
-        imdbId: content.imdbId || undefined,
-        tmdbId: content.tmdbId || undefined,
+      const refreshed = await getTVSources({
+        imdbId: content.imdbId ?? undefined,
+        tmdbId: content.tmdbId ?? undefined,
         season: currentTvTargetRef.current.season,
         episode: currentTvTargetRef.current.episode
       });
 
-      const safeSources = refreshedSources ?? [];
-      if (safeSources.length === 0) {
-        setError("No streaming sources found for this episode");
+      const safe = refreshed ?? [];
+      if (safe.length === 0) {
+        setError("No sources for this episode");
         return;
       }
 
       loadedTvTargetRef.current = { ...currentTvTargetRef.current };
-      setSources(safeSources);
-      const nextMatch =
-        safeSources.find((source) => source.name === selectedProvider) ??
-        safeSources.find((source) => source.supportsProgressEvents) ??
-        safeSources[0]!;
-      setSelectedSource(nextMatch.url);
-    } catch (switchError) {
-      console.error("Error switching sources:", switchError);
-      setError(
-        `Failed to switch episode sources: ${
-          switchError instanceof Error ? switchError.message : "Unknown error"
-        }`
-      );
+      setSources(safe);
+      const next =
+        safe.find((s) => s.name === selectedName) ??
+        safe.find((s) => s.supportsProgressEvents) ??
+        safe[0]!;
+      setSelectedSource(next.url);
+    } catch (err) {
+      console.error("Error switching episode sources:", err);
+      setError(`Failed to switch sources: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading || (isSignedIn && watchState === undefined)) {
+  const isWaitingForHistory = isSignedIn && watchState === undefined;
+
+  if (loading || isWaitingForHistory) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-white/80">Finding best streaming source...</p>
+          <p className="text-white/70 text-sm">
+            {isWaitingForHistory ? "Loading your watch history..." : "Finding streaming sources..."}
+          </p>
         </div>
       </div>
     );
@@ -559,18 +476,30 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   if (error || sources.length === 0 || !selectedSourceConfig) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center max-w-md px-4">
+        <div className="text-center max-w-md px-6">
           <div className="w-16 h-16 bg-destructive/20 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-destructive" />
           </div>
           <h2 className="text-xl font-semibold text-white mb-2">No Sources Available</h2>
-          <p className="text-white/60 mb-6">
-            {error || "Could not find any streaming sources for this content."}
+          <p className="text-white/50 mb-6 text-sm">
+            {error ?? "Could not find any streaming sources for this content."}
           </p>
-          <Button onClick={() => navigate(-1)} variant="outline">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Go Back
-          </Button>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => navigate(-1)} variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Go Back
+            </Button>
+            <Button
+              onClick={() => {
+                setError(null);
+                setSources([]);
+              }}
+              variant="secondary"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -578,31 +507,33 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
   return (
     <div className="h-screen w-screen bg-black flex flex-col overflow-hidden">
-      <div className="flex-none flex items-center justify-between p-4 bg-black/90 backdrop-blur-sm border-b border-white/10 z-10">
-        <div className="flex items-center gap-4">
+      {/* Header bar */}
+      <div className="flex-none flex items-center justify-between px-4 py-3 bg-black/90 backdrop-blur-sm border-b border-white/10 z-10">
+        <div className="flex items-center gap-3 min-w-0">
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/10"
+            className="text-white hover:bg-white/10 shrink-0"
             onClick={() => navigate(-1)}
+            aria-label="Go back"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div>
-            <h1 className="text-lg font-semibold text-white">{content.title}</h1>
-            <p className="text-sm text-white/60">
+          <div className="min-w-0">
+            <h1 className="text-base font-semibold text-white truncate">{content.title}</h1>
+            <p className="text-xs text-white/50 truncate">
               {content.type === "movie"
-                ? `Movie • ${content.year}`
-                : `TV Series • ${content.year} • S${tvTarget.season} E${tvTarget.episode}`}
+                ? `Movie · ${content.year}`
+                : `TV Series · ${content.year} · S${tvTarget.season} E${tvTarget.episode}`}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Select value={selectedSource} onValueChange={handleSourceChange}>
-            <SelectTrigger className="w-[220px] bg-white/10 border-white/20 text-white">
-              <MonitorPlay className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Select source" />
+            <SelectTrigger className="w-[160px] sm:w-[220px] bg-white/10 border-white/20 text-white text-sm">
+              <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
+              <SelectValue placeholder="Source" />
             </SelectTrigger>
             <SelectContent className="z-50 bg-black border-white/20">
               {sources.map((source) => (
@@ -612,7 +543,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
                   className="text-white focus:bg-white/10 focus:text-white"
                 >
                   {source.name}
-                  {source.supportsProgressEvents ? " • Live Progress" : ""} ({source.quality})
+                  {source.supportsProgressEvents ? " ✓" : ""} ({source.quality})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -620,13 +551,17 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
         </div>
       </div>
 
+      {/* Player */}
       <div className="flex-1 relative bg-black">
         <iframe
           ref={iframeRef}
+          key={embedUrl}
           src={embedUrl}
           className="absolute inset-0 w-full h-full border-0"
           allowFullScreen
-          title="Video Player"
+          allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+          title={`Playing ${content.title}`}
+          referrerPolicy="no-referrer-when-downgrade"
         />
       </div>
     </div>
