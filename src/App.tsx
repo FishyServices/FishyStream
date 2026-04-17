@@ -166,8 +166,12 @@ export function App() {
     }
   };
 
-  const handlePlay = (tmdbId: string) => {
-    navigate(`/watch/${tmdbId}`);
+  const handlePlay = (tmdbId: string, season?: number, episode?: number) => {
+    const params = new URLSearchParams();
+    if (season !== undefined) params.set("season", String(season));
+    if (episode !== undefined) params.set("episode", String(episode));
+    const query = params.toString();
+    navigate(`/watch/${tmdbId}${query ? `?${query}` : ""}`);
   };
 
   if (!isLoaded) {

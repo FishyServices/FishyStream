@@ -4,10 +4,18 @@ import { Button } from "@/components/ui/button";
 import { MovieCard } from "./MovieCard";
 import type { Doc } from "../../convex/_generated/dataModel";
 
+interface WatchHistoryFields {
+  progress?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  completed?: boolean;
+  watchedAt?: number;
+}
+
 interface ContentRowProps {
   title: string;
-  content: Doc<"content">[];
-  onPlay?: (tmdbId: string) => void;
+  content: Array<Doc<"content"> & WatchHistoryFields>;
+  onPlay?: (tmdbId: string, season?: number, episode?: number) => void;
 }
 
 export function ContentRow({ title, content, onPlay }: ContentRowProps) {

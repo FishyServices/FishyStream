@@ -503,8 +503,8 @@ export const syncContent = action({
         backdropUrl: getBackdropUrl(details?.backdrop_path || seed.backdropPath),
         tmdbId: String(seed.id),
         imdbId: isMovie
-          ? (details as TMDBMovieDetails | null)?.imdb_id
-          : (details as TMDBTVDetails | null)?.external_ids?.imdb_id,
+          ? (details as TMDBMovieDetails | null)?.imdb_id || undefined
+          : (details as TMDBTVDetails | null)?.external_ids?.imdb_id || undefined,
         duration: runtime,
         seasons: !isMovie ? (details as TMDBTVDetails | null)?.number_of_seasons : undefined,
         trending: seed.flags.trending,

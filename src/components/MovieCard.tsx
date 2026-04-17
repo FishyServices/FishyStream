@@ -7,9 +7,16 @@ import { ContentModal } from "./ContentModal";
 import { toast } from "sonner";
 import { useUser } from "@clerk/react";
 
+interface WatchHistoryFields {
+  progress?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  completed?: boolean;
+}
+
 interface MovieCardProps {
-  content: Doc<"content">;
-  onPlay?: (tmdbId: string) => void;
+  content: Doc<"content"> & WatchHistoryFields;
+  onPlay?: (tmdbId: string, season?: number, episode?: number) => void;
 }
 
 export function MovieCard({ content, onPlay }: MovieCardProps) {
@@ -41,11 +48,15 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
     }
   };
 
-  const handlePlay = (e: React.MouseEvent) => {
+  const handlePlay = (e: React.MouseEvent, season?: number, episode?: number) => {
     e.stopPropagation();
     if (content.tmdbId) {
-      onPlay?.(content.tmdbId);
+      onPlay?.(content.tmdbId, season, episode);
     }
+  };
+
+  const handleModalPlay = (tmdbId: string, season?: number, episode?: number) => {
+    onPlay?.(tmdbId, season, episode);
   };
 
   const handleMoreInfo = (e: React.MouseEvent) => {
@@ -74,7 +85,7 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
                   <Button
                     size="icon"
                     className="w-8 h-8 rounded-full bg-white text-black hover:bg-white/90"
-                    onClick={handlePlay}
+                    onClick={(e) => handlePlay(e, content.seasonNumber, content.episodeNumber)}
                   >
                     <Play className="w-4 h-4 fill-black" />
                   </Button>
@@ -105,6 +116,12 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
 
                 <div>
                   <h3 className="text-sm font-semibold text-white line-clamp-1">{content.title}</h3>
+                  {/* Season/Episode info for TV in Continue Watching */}
+                  {content.type === "tv" && content.seasonNumber && content.episodeNumber && (
+                    <p className="text-[11px] text-primary font-medium mt-0.5">
+                      S{content.seasonNumber} E{content.episodeNumber}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 text-xs text-white/70 mt-1">
                     <span className="text-green-400">{content.rating}</span>
                     <span>{content.year}</span>
@@ -134,6 +151,20 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
               </span>
             </div>
           )}
+
+          {/* Watch Progress Badge for Continue Watching */}
+          {!isHovered && content.progress !== undefined && content.progress > 0 && (
+            <div className="absolute top-2 left-2 right-2 flex flex-col gap-1">
+              {/* Season/Episode Badge for TV Shows */}
+              {content.type === "tv" && content.seasonNumber && content.episodeNumber && (
+                <div className="self-start">
+                  <span className="px-2 py-1 text-[10px] font-semibold bg-primary text-white rounded">
+                    S{content.seasonNumber} E{content.episodeNumber}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -141,7 +172,7 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
         content={content}
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        onPlay={onPlay || (() => {})}
+        onPlay={handleModalPlay}
       />
     </>
   );

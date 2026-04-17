@@ -17,6 +17,8 @@ import { useWatchProgress } from "@/hooks/useWatchHistory";
 
 interface VideoPlayerProps {
   content: Doc<"content">;
+  initialSeason?: number;
+  initialEpisode?: number;
 }
 
 interface StreamSource {
@@ -107,7 +109,7 @@ function parsePlayerMessage(rawData: unknown): PlayerEventPayload | null {
   }
 }
 
-export function VideoPlayer({ content }: VideoPlayerProps) {
+export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPlayerProps) {
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { user, isSignedIn } = useUser();
@@ -274,8 +276,12 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
     startingProgressRef.current = clampProgress(watchState.progress);
     lastSyncedProgressRef.current = clampProgress(watchState.progress);
     lastSyncedPositionRef.current = Math.max(0, watchState.positionSeconds);
-    const restoredSeason = normalizeEpisodeNumber(watchState.seasonNumber);
-    const restoredEpisode = normalizeEpisodeNumber(watchState.episodeNumber);
+    const restoredSeason = initialSeason !== undefined
+      ? normalizeEpisodeNumber(initialSeason)
+      : normalizeEpisodeNumber(watchState.seasonNumber);
+    const restoredEpisode = initialEpisode !== undefined
+      ? normalizeEpisodeNumber(initialEpisode)
+      : normalizeEpisodeNumber(watchState.episodeNumber);
     currentTvTargetRef.current = {
       season: restoredSeason,
       episode: restoredEpisode
@@ -303,7 +309,7 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
     }).catch((progressError) => {
       console.error("Failed to initialize watch history:", progressError);
     });
-  }, [content._id, isSignedIn, updateProgress, user, watchState]);
+  }, [content._id, isSignedIn, updateProgress, user, watchState, initialSeason, initialEpisode]);
 
   useEffect(() => {
     if (

@@ -1,11 +1,17 @@
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { useContentByTmdbId } from "@/hooks/useContent";
 
 export function WatchPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const content = useContentByTmdbId(id);
+
+  const initialSeason = searchParams.get("season");
+  const initialEpisode = searchParams.get("episode");
+  const seasonOverride = initialSeason ? Number(initialSeason) : undefined;
+  const episodeOverride = initialEpisode ? Number(initialEpisode) : undefined;
 
   if (content === undefined) {
     return (
@@ -29,5 +35,11 @@ export function WatchPage() {
     );
   }
 
-  return <VideoPlayer content={content} />;
+  return (
+    <VideoPlayer
+      content={content}
+      initialSeason={seasonOverride}
+      initialEpisode={episodeOverride}
+    />
+  );
 }
