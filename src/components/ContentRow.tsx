@@ -7,7 +7,7 @@ import type { Doc } from "../../convex/_generated/dataModel";
 interface ContentRowProps {
   title: string;
   content: Doc<"content">[];
-  onPlay?: (content: Doc<"content">) => void;
+  onPlay?: (tmdbId: string) => void;
 }
 
 export function ContentRow({ title, content, onPlay }: ContentRowProps) {

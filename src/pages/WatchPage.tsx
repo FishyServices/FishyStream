@@ -1,11 +1,11 @@
 import { useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { VidKingPlayer } from "@/components/VidKingPlayer";
-import { useContentById } from "@/hooks/useContent";
+import { VideoPlayer } from "@/components/VideoPlayer";
+import { useContentByTmdbId } from "@/hooks/useContent";
 
 export function WatchPage() {
   const { id } = useParams<{ id: string }>();
-  const content = useContentById(id);
+  const content = useContentByTmdbId(id);
 
   if (content === undefined) {
     return (
@@ -29,11 +29,5 @@ export function WatchPage() {
     );
   }
 
-  return (
-    <VidKingPlayer
-      vidkingUrl={content.vidkingUrl || undefined}
-      imdbId={content.imdbId || undefined}
-      type={content.type}
-    />
-  );
+  return <VideoPlayer content={content} />;
 }

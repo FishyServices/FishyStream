@@ -30,6 +30,10 @@ export function useContentById(id: string | undefined): Doc<"content"> | null | 
   return useQuery(api.content.getById, id ? { id: id as Doc<"content">["_id"] } : "skip");
 }
 
+export function useContentByTmdbId(tmdbId: string | undefined): Doc<"content"> | null | undefined {
+  return useQuery(api.content.getByTmdbId, tmdbId ? { tmdbId } : "skip");
+}
+
 export function useSearchContent(query: string): Doc<"content">[] | undefined {
   return useQuery(api.content.search, query ? { query } : "skip");
 }

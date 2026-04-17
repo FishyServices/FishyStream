@@ -35,7 +35,9 @@ export default defineSchema({
     .index("by_popular", ["popular"])
     .index("by_featured", ["featured"])
     .index("by_new", ["new"])
-    .index("by_genre", ["genre"]),
+    .index("by_genre", ["genre"])
+    .index("by_imdb_id", ["imdbId"])
+    .index("by_tmdb_id", ["tmdbId"]),
 
   watchlist: defineTable({
     userId: v.id("users"),

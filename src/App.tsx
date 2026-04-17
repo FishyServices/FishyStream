@@ -1,11 +1,24 @@
+import { useState } from "react";
 import { useUser } from "@clerk/react";
 import { useNavigate } from "react-router-dom";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
+import { useAction } from "convex/react";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { ContentRow } from "@/components/ContentRow";
 import { useFeaturedContent, useAllCategories } from "@/hooks/useContent";
+import { api } from "../convex/_generated/api";
 import type { Doc } from "../convex/_generated/dataModel";
+import { Film, Loader2, RefreshCw, Database, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 function Footer() {
   return (
@@ -66,15 +79,77 @@ export function App() {
   const navigate = useNavigate();
   const categories = useAllCategories();
   const featuredContent = useFeaturedContent();
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  const handlePlay = (content: Doc<"content">) => {
-    navigate(`/watch/${content._id}`);
+  // TMDB Sync
+  const syncTMDB = useAction(api.tmdb.syncContent);
+
+  const handleSyncMovies = async () => {
+    setIsSyncing(true);
+    try {
+      const count = await syncTMDB({ type: "movies", count: 20 });
+      toast.success(`Synced ${count} movies from TMDB`);
+    } catch (e) {
+      toast.error("Failed to sync movies");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSyncTV = async () => {
+    setIsSyncing(true);
+    try {
+      const count = await syncTMDB({ type: "tv", count: 20 });
+      toast.success(`Synced ${count} TV shows from TMDB`);
+    } catch (e) {
+      toast.error("Failed to sync TV shows");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handlePlay = (tmdbId: string) => {
+    navigate(`/watch/${tmdbId}`);
   };
 
   if (!isLoaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-white/60">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const hasContent = featuredContent || categories.some(c => c.content.length > 0);
+
+  if (!hasContent) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Film className="w-10 h-10 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">Welcome to FishyStream</h1>
+          <p className="text-white/60 mb-6">
+            No content available. Sync from TMDB to get started.
+          </p>
+          <Button onClick={handleSyncMovies} disabled={isSyncing} size="lg">
+            {isSyncing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Sync Movies from TMDB
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -88,6 +163,53 @@ export function App() {
         {featuredContent && <Hero content={featuredContent} onPlay={handlePlay} />}
 
         <div className="relative -mt-24 z-10 space-y-2 pb-8">
+          {/* Developer Sync Controls */}
+          <div className="px-4 sm:px-6 lg:px-12 py-4">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Database className="w-4 h-4" />
+                  Sync Content
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Sync from TMDB</DialogTitle>
+                  <DialogDescription>
+                    Fetch real movie and TV show data from The Movie Database API.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <Button 
+                    onClick={handleSyncMovies} 
+                    disabled={isSyncing}
+                    className="gap-2"
+                  >
+                    {isSyncing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    Sync Trending Movies
+                  </Button>
+                  <Button 
+                    onClick={handleSyncTV} 
+                    disabled={isSyncing}
+                    variant="secondary"
+                    className="gap-2"
+                  >
+                    {isSyncing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4" />
+                    )}
+                    Sync Popular TV Shows
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
           {categories.map((category) => (
             <ContentRow
               key={category.id}

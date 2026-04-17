@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 interface MovieCardProps {
   content: Doc<"content">;
-  onPlay?: (content: Doc<"content">) => void;
+  onPlay?: (tmdbId: string) => void;
 }
 
 export function MovieCard({ content, onPlay }: MovieCardProps) {
@@ -16,7 +16,7 @@ export function MovieCard({ content, onPlay }: MovieCardProps) {
       className="relative flex-shrink-0 w-[160px] sm:w-[200px] lg:w-[240px] cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => onPlay?.(content)}
+      onClick={() => content.tmdbId && onPlay?.(content.tmdbId)}
     >
       <div
         className={`relative aspect-[2/3] rounded-lg overflow-hidden transition-all duration-300 ${

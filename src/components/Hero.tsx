@@ -6,7 +6,7 @@ import { useState } from "react";
 
 interface HeroProps {
   content: Doc<"content">;
-  onPlay?: (content: Doc<"content">) => void;
+  onPlay?: (tmdbId: string) => void;
 }
 
 export function Hero({ content, onPlay }: HeroProps) {
@@ -78,7 +78,7 @@ export function Hero({ content, onPlay }: HeroProps) {
             <Button
               size="lg"
               className="bg-white text-black hover:bg-white/90 font-semibold px-8"
-              onClick={() => onPlay?.(content)}
+              onClick={() => content.tmdbId && onPlay?.(content.tmdbId)}
             >
               <Play className="w-5 h-5 mr-2 fill-black" />
               Play
