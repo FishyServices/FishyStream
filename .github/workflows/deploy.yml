@@ -20,11 +20,9 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        working-directory: website
         run: bun install
 
       - name: Build
-        working-directory: website
         env:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
           VITE_CONVEX_URL: ${{ secrets.VITE_CONVEX_URL }}
@@ -36,5 +34,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=fishystream --branch=main
-          workingDirectory: website
+          command: pages deploy dist --project-name=fishystream --branch=master

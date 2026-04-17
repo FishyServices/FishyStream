@@ -25,7 +25,8 @@ interface StreamSource {
 
 export function VideoPlayer({ content }: VideoPlayerProps) {
   const navigate = useNavigate();
-  const getSources = useAction(api.providers.getMovieSources);
+  const getMovieSources = useAction(api.providers.getMovieSources);
+  const getTVSources = useAction(api.providers.getTVSources);
   const [sources, setSources] = useState<StreamSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -33,19 +34,31 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
 
   useEffect(() => {
     const loadSources = async () => {
-      if (!content.imdbId) {
-        setError("No IMDB ID available for this content");
+      if (!content.imdbId && !content.tmdbId) {
+        setError("No video ID available for this content");
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        const movieSources = await getSources({ 
-          imdbId: content.imdbId,
-          tmdbId: content.tmdbId || undefined 
-        });
-        const safeSources = movieSources ?? [];
+        let fetchedSources;
+        
+        if (content.type === "tv") {
+          fetchedSources = await getTVSources({ 
+            imdbId: content.imdbId || undefined,
+            tmdbId: content.tmdbId || undefined,
+            season: 1,
+            episode: 1
+          });
+        } else {
+          fetchedSources = await getMovieSources({ 
+            imdbId: content.imdbId || undefined,
+            tmdbId: content.tmdbId || undefined 
+          });
+        }
+        
+        const safeSources = fetchedSources ?? [];
         setSources(safeSources);
         const firstSource = safeSources[0];
         if (firstSource) {
@@ -59,7 +72,7 @@ export function VideoPlayer({ content }: VideoPlayerProps) {
     };
 
     loadSources();
-  }, [content.imdbId, content.tmdbId, getSources]);
+  }, [content.imdbId, content.tmdbId, content.type, getMovieSources, getTVSources]);
 
   if (loading) {
     return (

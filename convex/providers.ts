@@ -8,23 +8,13 @@ interface StreamSource {
 }
 
 const PROVIDERS = {
-  // VidKing provider
-  vidking: {
-    name: "VidKing",
-    getMovieUrl: (imdbId: string) => `https://www.vidking.net/embed/movie/${imdbId}`,
-    getTVUrl: (imdbId: string, season: number, episode: number) => 
-      `https://www.vidking.net/embed/tv/${imdbId}/${season}/${episode}`,
-  },
-  
-  // VidSrc provider
   vidsrc: {
     name: "VidSrc",
-    getMovieUrl: (imdbId: string) => `https://vidsrc.to/embed/movie/${imdbId}`,
-    getTVUrl: (imdbId: string, season: number, episode: number) => 
-      `https://vidsrc.to/embed/tv/${imdbId}/${season}-${episode}`,
+    getMovieUrl: (id: string) => `https://vidsrc.icu/embed/movie/${id}`,
+    getTVUrl: (id: string, season: number, episode: number) => 
+      `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`,
   },
   
-  // 2Embed provider
   twoEmbed: {
     name: "2Embed",
     getMovieUrl: (imdbId: string) => `https://www.2embed.cc/embed/${imdbId}`,
@@ -32,46 +22,76 @@ const PROVIDERS = {
       `https://www.2embed.cc/embed/${imdbId}/${season}/${episode}`,
   },
   
-  // SuperEmbed provider
+  autoembed: {
+    name: "AutoEmbed",
+    getMovieUrl: (tmdbId: string) => `https://player.autoembed.cc/embed/movie/${tmdbId}`,
+    getTVUrl: (tmdbId: string, season: number, episode: number) => 
+      `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}`,
+  },
+  
   superEmbed: {
     name: "SuperEmbed",
-    getMovieUrl: (imdbId: string) => `https://www.multiembed.mov/?video_id=${imdbId}`,
-    getTVUrl: (imdbId: string, season: number, episode: number) => 
-      `https://www.multiembed.mov/?video_id=${imdbId}&tmdb=1&season=${season}&episode=${episode}`,
+    getMovieUrl: (tmdbId: string) => `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
+    getTVUrl: (tmdbId: string, season: number, episode: number) => 
+      `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1&season=${season}&episode=${episode}`,
+  },
+  
+  vidking: {
+    name: "VidKing",
+    getMovieUrl: (tmdbId: string) => `https://www.vidking.net/embed/movie/${tmdbId}`,
+    getTVUrl: (tmdbId: string, season: number, episode: number) => 
+      `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}`,
   },
 };
 
 export const getMovieSources = action({
   args: { 
-    imdbId: v.string(),
+    imdbId: v.optional(v.string()),
     tmdbId: v.optional(v.string()) 
   },
-  handler: async (_ctx, { imdbId }): Promise<StreamSource[]> => {
+  handler: async (_ctx, { imdbId, tmdbId }): Promise<StreamSource[]> => {
     const sources: StreamSource[] = [];
     
-    sources.push({
-      name: "VidKing",
-      url: PROVIDERS.vidking.getMovieUrl(imdbId),
-      quality: "1080p",
-    });
+    const vidsrcId = imdbId || tmdbId;
+    if (vidsrcId) {
+      sources.push({
+        name: "VidSrc",
+        url: PROVIDERS.vidsrc.getMovieUrl(vidsrcId),
+        quality: "1080p",
+      });
+    }
     
-    sources.push({
-      name: "VidSrc",
-      url: PROVIDERS.vidsrc.getMovieUrl(imdbId),
-      quality: "1080p",
-    });
+    if (tmdbId) {
+      sources.push({
+        name: "AutoEmbed",
+        url: PROVIDERS.autoembed.getMovieUrl(tmdbId),
+        quality: "1080p",
+      });
+    }
     
-    sources.push({
-      name: "2Embed",
-      url: PROVIDERS.twoEmbed.getMovieUrl(imdbId),
-      quality: "720p",
-    });
+    if (imdbId && imdbId.startsWith("tt")) {
+      sources.push({
+        name: "2Embed",
+        url: PROVIDERS.twoEmbed.getMovieUrl(imdbId),
+        quality: "720p",
+      });
+    }
     
-    sources.push({
-      name: "SuperEmbed",
-      url: PROVIDERS.superEmbed.getMovieUrl(imdbId),
-      quality: "1080p",
-    });
+    if (tmdbId) {
+      sources.push({
+        name: "SuperEmbed",
+        url: PROVIDERS.superEmbed.getMovieUrl(tmdbId),
+        quality: "1080p",
+      });
+    }
+    
+    if (tmdbId) {
+      sources.push({
+        name: "VidKing",
+        url: PROVIDERS.vidking.getMovieUrl(tmdbId),
+        quality: "1080p",
+      });
+    }
     
     return sources;
   },
@@ -79,37 +99,54 @@ export const getMovieSources = action({
 
 export const getTVSources = action({
   args: { 
-    imdbId: v.string(),
+    imdbId: v.optional(v.string()),
     season: v.number(),
     episode: v.number(),
     tmdbId: v.optional(v.string()) 
   },
-  handler: async (_ctx, { imdbId, season, episode }): Promise<StreamSource[]> => {
+  handler: async (_ctx, { imdbId, tmdbId, season, episode }): Promise<StreamSource[]> => {
     const sources: StreamSource[] = [];
     
-    sources.push({
-      name: "VidKing",
-      url: PROVIDERS.vidking.getTVUrl(imdbId, season, episode),
-      quality: "1080p",
-    });
+    const vidsrcId = imdbId || tmdbId;
+    if (vidsrcId) {
+      sources.push({
+        name: "VidSrc",
+        url: PROVIDERS.vidsrc.getTVUrl(vidsrcId, season, episode),
+        quality: "1080p",
+      });
+    }
     
-    sources.push({
-      name: "VidSrc",
-      url: PROVIDERS.vidsrc.getTVUrl(imdbId, season, episode),
-      quality: "1080p",
-    });
+    if (tmdbId) {
+      sources.push({
+        name: "AutoEmbed",
+        url: PROVIDERS.autoembed.getTVUrl(tmdbId, season, episode),
+        quality: "1080p",
+      });
+    }
     
-    sources.push({
-      name: "2Embed",
-      url: PROVIDERS.twoEmbed.getTVUrl(imdbId, season, episode),
-      quality: "720p",
-    });
+    if (imdbId && imdbId.startsWith("tt")) {
+      sources.push({
+        name: "2Embed",
+        url: PROVIDERS.twoEmbed.getTVUrl(imdbId, season, episode),
+        quality: "720p",
+      });
+    }
     
-    sources.push({
-      name: "SuperEmbed",
-      url: PROVIDERS.superEmbed.getTVUrl(imdbId, season, episode),
-      quality: "1080p",
-    });
+    if (tmdbId) {
+      sources.push({
+        name: "SuperEmbed",
+        url: PROVIDERS.superEmbed.getTVUrl(tmdbId, season, episode),
+        quality: "1080p",
+      });
+    }
+    
+    if (tmdbId) {
+      sources.push({
+        name: "VidKing",
+        url: PROVIDERS.vidking.getTVUrl(tmdbId, season, episode),
+        quality: "1080p",
+      });
+    }
     
     return sources;
   },
@@ -133,7 +170,7 @@ export const checkSource = action({
       clearTimeout(timeout);
       
       return { 
-        available: response.ok || response.status === 405, // 405 means HEAD not allowed but endpoint exists
+        available: response.ok || response.status === 405,
         url 
       };
     } catch (error) {
