@@ -4,7 +4,10 @@ import { ClerkProvider, useAuth } from "@clerk/react";
 import { dark } from "@clerk/themes";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { App } from "./App";
+import { SignInPage } from "./pages/SignInPage";
+import { SignUpPage } from "./pages/SignUpPage";
 import "./index.css";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
@@ -24,7 +27,14 @@ createRoot(elem).render(
       }}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <App />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/sign-in/*" element={<SignInPage />} />
+            <Route path="/sign-up/*" element={<SignUpPage />} />
+            <Route path="/" element={<App />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </BrowserRouter>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   </StrictMode>
