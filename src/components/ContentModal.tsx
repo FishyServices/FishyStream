@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Plus, Check, Star, Calendar, Clock, X, ChevronDown, Tv, Film } from "lucide-react";
+import { Play, Plus, Check, Star, Calendar, Clock, X, ChevronDown, Tv, Film, User, Video, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -9,6 +9,7 @@ import { useIsInWatchlist, useAddToWatchlist, useRemoveFromWatchlist } from "@/h
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
+import { useContentCredits, useContentVideos, useRelatedContent, type TMDBMediaItem } from "@/hooks/useContent";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -99,6 +100,12 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
   const syncSeasons = useAction(api.tmdb.syncSeasons);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const tmdbIdNum = content?.tmdbId ? parseInt(content.tmdbId) : undefined;
+  const contentType = content?.type;
+  const { credits, isLoading: creditsLoading } = useContentCredits(tmdbIdNum, contentType);
+  const { videos, isLoading: videosLoading } = useContentVideos(tmdbIdNum, contentType);
+  const { related, isLoading: relatedLoading } = useRelatedContent(tmdbIdNum, contentType, 8);
 
   useEffect(() => {
     if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
@@ -406,6 +413,117 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                     No episode data available.
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Cast */}
+            {credits && credits.cast.length > 0 && (
+              <div>
+                <h3 className="font-display font-bold text-white mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Cast
+                </h3>
+                <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
+                  {credits.cast.slice(0, 10).map((actor) => (
+                    <div key={actor.id} className="flex-shrink-0 w-16 text-center">
+                      {actor.profileUrl ? (
+                        <img
+                          src={actor.profileUrl}
+                          alt={actor.name}
+                          className="w-16 h-16 object-cover rounded-full bg-white/5 mb-1"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-1">
+                          <User className="w-6 h-6 text-white/30" />
+                        </div>
+                      )}
+                      <p className="text-[10px] text-white font-medium line-clamp-2">{actor.name}</p>
+                      <p className="text-[9px] text-white/50 line-clamp-1">{actor.character}</p>
+                    </div>
+                  ))}
+                </div>
+                {credits.directors.length > 0 && (
+                  <p className="text-xs text-white/50 mt-2">
+                    <span className="text-white/30">Directed by:</span>{" "}
+                    {credits.directors.slice(0, 3).join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Videos */}
+            {videos.length > 0 && (
+              <div>
+                <h3 className="font-display font-bold text-white mb-3 flex items-center gap-2">
+                  <Video className="w-4 h-4" />
+                  Trailers & More
+                </h3>
+                <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
+                  {videos.slice(0, 5).map((video) => (
+                    <a
+                      key={video.key}
+                      href={`https://youtube.com/watch?v=${video.key}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0 w-40 group"
+                    >
+                      <div className="relative aspect-video bg-white/5 rounded-lg overflow-hidden mb-1">
+                        <img
+                          src={`https://img.youtube.com/vi/${video.key}/mqdefault.jpg`}
+                          alt={video.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
+                          <Play className="w-8 h-8 text-white fill-white drop-shadow-lg" />
+                        </div>
+                        {video.official && (
+                          <span className="absolute top-1 left-1 bg-primary/90 text-[9px] font-bold px-1.5 py-0.5 rounded text-white">
+                            OFFICIAL
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-white font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                        {video.name}
+                      </p>
+                      <p className="text-[10px] text-white/40">{video.type}</p>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Related Content */}
+            {related.length > 0 && (
+              <div>
+                <h3 className="font-display font-bold text-white mb-3">More Like This</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {related.map((item) => (
+                    <div
+                      key={item.tmdbId}
+                      className="group cursor-pointer"
+                      onClick={() => {
+                        toast.info(`Navigate to ${item.title}`);
+                      }}
+                    >
+                      <div className="aspect-[2/3] bg-white/5 rounded-lg overflow-hidden mb-1.5">
+                        <img
+                          src={item.posterUrl}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          loading="lazy"
+                        />
+                      </div>
+                      <p className="text-xs text-white font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                        {item.title}
+                      </p>
+                      <p className="text-[10px] text-white/40">
+                        {item.year} • {item.voteAverage?.toFixed(1)} ★
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

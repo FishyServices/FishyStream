@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
 const tmdbContentValidator = v.object({
@@ -28,6 +28,10 @@ const tmdbContentValidator = v.object({
   status: v.optional(v.string()),
   tagline: v.optional(v.string()),
   originalLanguage: v.optional(v.string()),
+  productionCountries: v.optional(v.array(v.string())),
+  spokenLanguages: v.optional(v.array(v.string())),
+  budget: v.optional(v.number()),
+  revenue: v.optional(v.number()),
   createdAt: v.number(),
   updatedAt: v.number()
 });
@@ -270,5 +274,13 @@ export const upsertBatchFromTMDB = internalMutation({
       count++;
     }
     return count;
+  }
+});
+
+export const getAllTmdbIds = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const content = await ctx.db.query("content").take(5000);
+    return content.map(c => ({ tmdbId: c.tmdbId, type: c.type }));
   }
 });

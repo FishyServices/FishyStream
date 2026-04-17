@@ -3,6 +3,22 @@ import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useState, useEffect } from "react";
 
+export {
+  useTMDBData,
+  useLazyTMDBData,
+  useRelatedContent,
+  useContentCredits,
+  useContentVideos,
+  useIMDbMetadata,
+  MOVIE_GENRES,
+  TV_GENRES,
+  MOVIE_CATEGORIES,
+  TV_CATEGORIES,
+  type Genre,
+  type Category,
+  type TMDBMediaItem
+} from "./useTMDBData";
+
 export function useFeaturedContent(): Doc<"content"> | null | undefined {
   return useQuery(api.content.getFeatured);
 }
@@ -75,7 +91,6 @@ export function useSearchAll(query: string): {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Also search local DB
   const localResults = useSearchContent(query);
 
   const searchMovies = useAction(api.tmdb.searchMovies);

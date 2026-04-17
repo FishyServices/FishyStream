@@ -5,7 +5,65 @@ import { internal } from "./_generated/api";
 
 const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_BASE_URL_2 = "https://api.tmdb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
+
+// ─── Cache Implementation ─────────────────────────────────────────────────────
+
+interface CacheEntry<T> {
+  value: T;
+  expiry: number;
+}
+
+class SimpleCache<K, V> {
+  private store = new Map<string, CacheEntry<V>>();
+  private keySerializer: (key: K) => string;
+
+  constructor(keySerializer?: (key: K) => string) {
+    this.keySerializer = keySerializer || ((k) => JSON.stringify(k));
+  }
+
+  get(key: K): V | undefined {
+    const serialized = this.keySerializer(key);
+    const entry = this.store.get(serialized);
+    if (!entry) return undefined;
+    if (Date.now() > entry.expiry) {
+      this.store.delete(serialized);
+      return undefined;
+    }
+    return entry.value;
+  }
+
+  set(key: K, value: V, ttlSeconds: number): void {
+    const serialized = this.keySerializer(key);
+    this.store.set(serialized, {
+      value,
+      expiry: Date.now() + ttlSeconds * 1000
+    });
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+}
+
+interface TMDBCacheKey {
+  url: string;
+  params: Record<string, string>;
+  language: string;
+}
+
+const tmdbCache = new SimpleCache<TMDBCacheKey, any>((key) =>
+  `${key.url}|${JSON.stringify(key.params)}|${key.language}`
+);
+
+let proxyRotationIndex = 0;
+function getNextProxy(proxyUrls: string[]): string | undefined {
+  if (!proxyUrls.length) return undefined;
+  const proxy = proxyUrls[proxyRotationIndex % proxyUrls.length];
+  proxyRotationIndex += 1;
+  return proxy;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,6 +81,7 @@ interface TMDBSpokenLanguage {
 }
 interface TMDBVideo {
   key: string;
+  name: string;
   site: string;
   type: string;
   official: boolean;
@@ -125,28 +184,101 @@ interface TMDBListResponse<T> {
   results: T[];
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Core API Client  ──────────────────────────────────────────
+
+function isV4Token(key: string): boolean {
+  return key.split(".").length === 3;
+}
+
+async function get<T>(
+  endpoint: string,
+  params: Record<string, string> = {},
+  proxyUrls: string[] = []
+): Promise<T | null> {
+  const language = params.language || "en-US";
+
+  const cacheKey: TMDBCacheKey = { url: endpoint, params, language };
+  const cached = tmdbCache.get(cacheKey);
+  if (cached) return cached as T;
+
+  const apiKey = TMDB_API_KEY;
+  const headers: Record<string, string> = { accept: "application/json" };
+  if (isV4Token(apiKey)) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
+  const allParams = {
+    ...params,
+    language,
+    ...(!isV4Token(apiKey) ? { api_key: apiKey } : {})
+  };
+
+  const buildUrl = (base: string) => {
+    const url = new URL(base + endpoint);
+    Object.entries(allParams).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        url.searchParams.append(key, String(value));
+      }
+    });
+    return url.toString();
+  };
+
+  let result: T | null = null;
+  const proxy = getNextProxy(proxyUrls);
+
+  if (proxy) {
+    try {
+      const proxyUrl = `${proxy}/?destination=${encodeURIComponent(buildUrl(TMDB_BASE_URL))}`;
+      const res = await fetch(proxyUrl, {
+        headers,
+        signal: AbortSignal.timeout(5000)
+      });
+      if (res.ok) {
+        result = (await res.json()) as T;
+      }
+    } catch {
+    }
+  }
+
+  if (!result) {
+    try {
+      const res = await fetch(buildUrl(TMDB_BASE_URL), {
+        headers,
+        signal: AbortSignal.timeout(5000)
+      });
+      if (res.ok) {
+        result = (await res.json()) as T;
+      }
+    } catch {
+    }
+  }
+
+  if (!result) {
+    try {
+      const res = await fetch(buildUrl(TMDB_BASE_URL_2), {
+        headers,
+        signal: AbortSignal.timeout(30000)
+      });
+      if (res.ok) {
+        result = (await res.json()) as T;
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  if (result) {
+    tmdbCache.set(cacheKey, result, 3600);
+  }
+
+  return result;
+}
 
 async function fetchTMDB<T>(
   endpoint: string,
   extraParams: Record<string, string> = {}
 ): Promise<T | null> {
-  try {
-    const params = new URLSearchParams({
-      api_key: TMDB_API_KEY,
-      language: "en-US",
-      ...extraParams
-    });
-    const sep = endpoint.includes("?") ? "&" : "?";
-    const url = `${TMDB_BASE_URL}${endpoint}${sep}${params}`;
-    const res = await fetch(url, {
-      headers: { Accept: "application/json" }
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
+  return get<T>(endpoint, extraParams);
 }
 
 function getPosterUrl(path: string | null, size = "w500"): string {
@@ -257,7 +389,7 @@ async function mapInBatches<T, R>(
 export const searchMovies = action({
   args: { query: v.string() },
   handler: async (_ctx, { query }) => {
-    const data = await fetchTMDB<{ results: (TMDBMovieListItem & { popularity: number })[] }>(
+    const data = await get<{ results: (TMDBMovieListItem & { popularity: number })[] }>(
       `/search/movie`,
       { query: encodeURIComponent(query), sort_by: "popularity.desc" }
     );
@@ -283,14 +415,14 @@ export const searchMovies = action({
 export const searchTVShows = action({
   args: { query: v.string() },
   handler: async (_ctx, { query }) => {
-    const data = await fetchTMDB<{ results: (TMDBTVListItem & { popularity: number })[] }>(
+    const data = await get<{ results: (TMDBTVListItem & { popularity: number })[] }>(
       `/search/tv`,
       { query: encodeURIComponent(query) }
     );
     if (!data?.results) return [];
     const sorted = data.results.sort((a, b) => b.popularity - a.popularity).slice(0, 20);
     return await mapInBatches(sorted, 5, async (show) => {
-      const details = await fetchTMDB<TMDBTVDetails>(`/tv/${show.id}`, {
+      const details = await get<TMDBTVDetails>(`/tv/${show.id}`, {
         append_to_response: "external_ids"
       });
       return {
@@ -314,7 +446,7 @@ export const searchTVShows = action({
 export const getMovieDetails = action({
   args: { tmdbId: v.number() },
   handler: async (_ctx, { tmdbId }) => {
-    const movie = await fetchTMDB<TMDBMovieDetails>(`/movie/${tmdbId}`, {
+    const movie = await get<TMDBMovieDetails>(`/movie/${tmdbId}`, {
       append_to_response: "external_ids,videos,images"
     });
     if (!movie) return null;
@@ -343,7 +475,7 @@ export const getMovieDetails = action({
 export const getTVDetails = action({
   args: { tmdbId: v.number() },
   handler: async (_ctx, { tmdbId }) => {
-    const show = await fetchTMDB<TMDBTVDetails>(`/tv/${tmdbId}`, {
+    const show = await get<TMDBTVDetails>(`/tv/${tmdbId}`, {
       append_to_response: "external_ids,videos,images"
     });
     if (!show) return null;
@@ -371,7 +503,7 @@ export const getTVDetails = action({
 export const getSeasonDetails = action({
   args: { tmdbId: v.string(), seasonNumber: v.number() },
   handler: async (_ctx, { tmdbId, seasonNumber }) => {
-    const data = await fetchTMDB<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
+    const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
     if (!data) return null;
     return {
       seasonNumber: data.season_number,
@@ -395,7 +527,7 @@ export const getSeasonDetails = action({
 export const getTrendingMovies = action({
   args: { page: v.optional(v.number()) },
   handler: async (_ctx, { page = 1 }) => {
-    const data = await fetchTMDB<{ results: TMDBMovieListItem[] }>(`/trending/movie/week`, {
+    const data = await get<{ results: TMDBMovieListItem[] }>(`/trending/movie/week`, {
       page: String(page)
     });
     if (!data?.results) return [];
@@ -416,13 +548,13 @@ export const getTrendingMovies = action({
 export const getPopularTVShows = action({
   args: { page: v.optional(v.number()) },
   handler: async (_ctx, { page = 1 }) => {
-    const data = await fetchTMDB<{ results: TMDBTVListItem[] }>(`/tv/popular`, {
+    const data = await get<{ results: TMDBTVListItem[] }>(`/tv/popular`, {
       page: String(page)
     });
     if (!data?.results) return [];
     const top = data.results.slice(0, 20);
     return await mapInBatches(top, 5, async (show) => {
-      const details = await fetchTMDB<TMDBTVDetails>(`/tv/${show.id}`, {
+      const details = await get<TMDBTVDetails>(`/tv/${show.id}`, {
         append_to_response: "external_ids"
       });
       return {
@@ -485,7 +617,7 @@ async function collectFlagMap(type: SyncType, pages: number): Promise<Map<number
 
   for (const src of sources) {
     for (let p = 1; p <= pages; p++) {
-      const data = await fetchTMDB<TMDBListResponse<TMDBListItem>>(`${src.ep}`, {
+      const data = await get<TMDBListResponse<TMDBListItem>>(`${src.ep}`, {
         page: String(p)
       });
       if (!data?.results?.length) break;
@@ -513,6 +645,9 @@ export const syncContent = action({
     const flagPages = Math.min(10, Math.ceil(requiredPages / 4) + 2);
     const flagMap = await collectFlagMap(type, flagPages);
 
+    const existingContent = await ctx.runQuery(internal.content.getAllTmdbIds, {});
+    const existingTmdbIds = new Set(existingContent.map((c: { tmdbId?: string }) => c.tmdbId).filter(Boolean));
+
     const seeds: Array<{
       id: number;
       type: "movie" | "tv";
@@ -531,10 +666,16 @@ export const syncContent = action({
       order: number;
     }> = [];
 
-    for (let page = 1; page <= requiredPages && seeds.length < normalizedCount; page++) {
-      const data = await fetchTMDB<TMDBListResponse<TMDBListItem>>(getCatalogEndpoint(type, page));
+    let page = 1;
+    const maxPages = Math.max(requiredPages, 50);
+
+    while (seeds.length < normalizedCount && page <= maxPages) {
+      const data = await get<TMDBListResponse<TMDBListItem>>(getCatalogEndpoint(type, page));
       if (!data?.results?.length) break;
+
       for (const item of data.results) {
+        if (existingTmdbIds.has(String(item.id))) continue;
+
         const isMovie = "title" in item;
         seeds.push({
           id: item.id,
@@ -553,8 +694,13 @@ export const syncContent = action({
           flags: flagMap.get(item.id) ?? getEmptyFlags(),
           order: seeds.length
         });
+
         if (seeds.length >= normalizedCount) break;
       }
+
+      page++;
+
+      if (page > maxPages && seeds.length === 0) break;
     }
 
     const now = Date.now();
@@ -566,7 +712,7 @@ export const syncContent = action({
 
       let details: TMDBMovieDetails | TMDBTVDetails | null = null;
       if (wantsDetails) {
-        details = await fetchTMDB<TMDBMovieDetails | TMDBTVDetails>(
+        details = await get<TMDBMovieDetails | TMDBTVDetails>(
           seed.type === "movie" ? `/movie/${seed.id}` : `/tv/${seed.id}`,
           { append_to_response: "external_ids,videos,images" }
         );
@@ -610,6 +756,10 @@ export const syncContent = action({
         status: seed.type === "movie" ? md?.status : td?.status,
         tagline: seed.type === "movie" ? md?.tagline || undefined : td?.tagline || undefined,
         originalLanguage: seed.originalLanguage,
+        productionCountries: details?.production_countries?.map((c) => c.name),
+        spokenLanguages: details?.spoken_languages?.map((l) => l.name),
+        budget: seed.type === "movie" ? md?.budget : undefined,
+        revenue: seed.type === "movie" ? md?.revenue : undefined,
         trending: seed.flags.trending,
         popular: seed.flags.popular || seed.order < 60,
         new: seed.flags.new,
@@ -648,7 +798,7 @@ export const syncSeasons = action({
   handler: async (ctx, { tmdbId, contentId, totalSeasons }) => {
     let synced = 0;
     for (let s = 1; s <= Math.min(totalSeasons, 20); s++) {
-      const data = await fetchTMDB<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${s}`);
+      const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${s}`);
       if (!data) continue;
 
       await ctx.runMutation(internal.seasons.upsertSeason, {
@@ -673,5 +823,236 @@ export const syncSeasons = action({
       synced++;
     }
     return synced;
+  }
+});
+
+// ─── IMDb Scraper ────────────────────────────────────────────
+
+interface IMDbMetadata {
+  title?: string;
+  year?: number | null;
+  runtime?: number | null;
+  age_rating?: string;
+  imdb_rating?: number | null;
+  votes?: number | null;
+  plot?: string;
+  poster_url?: string;
+  trailer_url?: string;
+  genre?: string[];
+  cast?: string[];
+  directors?: string[];
+}
+
+const userAgents = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15"
+];
+
+function getRandomUserAgent(): string {
+  return userAgents[Math.floor(Math.random() * userAgents.length)];
+}
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export const getIMDbMetadata = action({
+  args: { imdbId: v.string(), type: v.optional(v.union(v.literal("movie"), v.literal("tv"))) },
+  handler: async (_ctx, { imdbId, type }): Promise<IMDbMetadata | null> => {
+    try {
+      const trailerResponse = await fetch(
+        `https://fed-trailers.pstream.mov/${type === "movie" ? "movie" : "tv"}/${imdbId}`
+      );
+      if (trailerResponse.ok) {
+        const trailerData = await trailerResponse.json();
+        if (trailerData.trailer?.embed_url) {
+          return { trailer_url: trailerData.trailer.embed_url };
+        }
+      }
+    } catch {
+    }
+
+    try {
+      const delay = Math.floor(Math.random() * (197 - 69) + 69);
+      await new Promise((r) => setTimeout(r, delay));
+
+      const url = `https://www.imdb.com/title/${imdbId}/`;
+      const res = await fetchWithTimeout(
+        url,
+        {
+          headers: {
+            "User-Agent": getRandomUserAgent(),
+            Accept: "text/html",
+            "Accept-Language": "en-US,en;q=0.9"
+          }
+        },
+        10000
+      );
+
+      if (!res.ok) return null;
+
+      const html = await res.text();
+
+      const jsonLdMatch = html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/);
+      if (jsonLdMatch) {
+        try {
+          const jsonLd = JSON.parse(jsonLdMatch[1]);
+          return {
+            title: jsonLd.name,
+            year: jsonLd.datePublished ? parseInt(jsonLd.datePublished.split("-")[0]) : null,
+            runtime: jsonLd.duration
+              ? parseInt(jsonLd.duration.replace(/[^0-9]/g, ""))
+              : null,
+            age_rating: jsonLd.contentRating,
+            imdb_rating: jsonLd.aggregateRating?.ratingValue
+              ? parseFloat(jsonLd.aggregateRating.ratingValue)
+              : null,
+            votes: jsonLd.aggregateRating?.reviewCount
+              ? parseInt(jsonLd.aggregateRating.reviewCount.replace(/,/g, ""))
+              : null,
+            plot: jsonLd.description,
+            poster_url: jsonLd.image,
+            genre: jsonLd.genre ? (Array.isArray(jsonLd.genre) ? jsonLd.genre : [jsonLd.genre]) : [],
+            cast: jsonLd.actor?.map((a: any) => a.name).slice(0, 10),
+            directors: jsonLd.director?.map((d: any) => d.name)
+          };
+        } catch {
+        }
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+});
+
+// ─── Additional TMDB Features  ────────────────────────────────
+
+export const getCredits = action({
+  args: { tmdbId: v.number(), type: v.union(v.literal("movie"), v.literal("tv")) },
+  handler: async (_ctx, { tmdbId, type }) => {
+    const endpoint = type === "movie" ? `/movie/${tmdbId}/credits` : `/tv/${tmdbId}/credits`;
+    const data = await get<{
+      cast: Array<{
+        id: number;
+        name: string;
+        character: string;
+        profile_path: string | null;
+        order: number;
+      }>;
+      crew: Array<{ id: number; name: string; job: string; department: string }>;
+    }>(endpoint);
+
+    if (!data) return null;
+
+    return {
+      cast: data.cast.slice(0, 20).map((c) => ({
+        id: c.id,
+        name: c.name,
+        character: c.character,
+        profileUrl: c.profile_path ? `${TMDB_IMAGE_BASE}/w185${c.profile_path}` : undefined,
+        order: c.order
+      })),
+      directors: data.crew.filter((c) => c.job === "Director").map((c) => c.name),
+      writers: data.crew.filter((c) => c.job === "Writer" || c.job === "Screenplay").map((c) => c.name)
+    };
+  }
+});
+
+export const getVideos = action({
+  args: { tmdbId: v.number(), type: v.union(v.literal("movie"), v.literal("tv")) },
+  handler: async (_ctx, { tmdbId, type }) => {
+    const endpoint = type === "movie" ? `/movie/${tmdbId}/videos` : `/tv/${tmdbId}/videos`;
+    const data = await get<{ results: TMDBVideo[] }>(endpoint);
+
+    if (!data?.results) return [];
+
+    return data.results
+      .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
+      .map((v) => ({
+        key: v.key,
+        name: v.name,
+        type: v.type,
+        official: v.official
+      }));
+  }
+});
+
+export const getRelated = action({
+  args: {
+    tmdbId: v.number(),
+    type: v.union(v.literal("movie"), v.literal("tv")),
+    limit: v.optional(v.number())
+  },
+  handler: async (_ctx, { tmdbId, type, limit = 10 }) => {
+    const endpoint = type === "movie" ? `/movie/${tmdbId}/recommendations` : `/tv/${tmdbId}/recommendations`;
+    const data = await get<{ results: TMDBListItem[] }>(endpoint);
+
+    if (!data?.results) return [];
+
+    return data.results.slice(0, limit).map((item) => {
+      const isMovie = "title" in item;
+      return {
+        tmdbId: item.id,
+        title: isMovie ? item.title : item.name,
+        type: isMovie ? "movie" : "tv",
+        posterUrl: getPosterUrl(item.poster_path),
+        backdropUrl: getBackdropUrl(item.backdrop_path),
+        year: getYear(isMovie ? item.release_date : item.first_air_date),
+        voteAverage: item.vote_average
+      };
+    });
+  }
+});
+
+export const findByExternalId = action({
+  args: { imdbId: v.string() },
+  handler: async (_ctx, { imdbId }) => {
+    const data = await get<{
+      movie_results: Array<{ id: number; title: string }>;
+      tv_results: Array<{ id: number; name: string }>;
+    }>(`/find/${imdbId}`, { external_source: "imdb_id" });
+
+    if (data?.movie_results?.[0]) {
+      return { type: "movie" as const, tmdbId: data.movie_results[0].id };
+    }
+    if (data?.tv_results?.[0]) {
+      return { type: "tv" as const, tmdbId: data.tv_results[0].id };
+    }
+    return null;
+  }
+});
+
+export const getLogo = action({
+  args: { tmdbId: v.number(), type: v.union(v.literal("movie"), v.literal("tv")) },
+  handler: async (_ctx, { tmdbId, type }) => {
+    const endpoint = type === "movie" ? `/movie/${tmdbId}/images` : `/tv/${tmdbId}/images`;
+    const data = await get<{ logos?: TMDBLogo[] }>(endpoint, {
+      include_image_language: "en,null"
+    });
+
+    if (!data?.logos?.length) return undefined;
+
+    const enLogo = data.logos
+      .filter((l) => l.iso_639_1 === "en")
+      .sort((a, b) => b.vote_average - a.vote_average)[0];
+
+    const bestLogo = enLogo || data.logos.sort((a, b) => b.vote_average - a.vote_average)[0];
+
+    return bestLogo ? `${TMDB_IMAGE_BASE}/original${bestLogo.file_path}` : undefined;
   }
 });
