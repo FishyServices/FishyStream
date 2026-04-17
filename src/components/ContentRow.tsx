@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MovieCard } from "./MovieCard";
@@ -16,9 +17,11 @@ interface ContentRowProps {
   title: string;
   content: Array<Doc<"content"> & WatchHistoryFields>;
   onPlay?: (tmdbId: string, season?: number, episode?: number) => void;
+  viewAllHref?: string;
 }
 
-export function ContentRow({ title, content, onPlay }: ContentRowProps) {
+export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowProps) {
+  const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: "left" | "right") => {
@@ -35,12 +38,19 @@ export function ContentRow({ title, content, onPlay }: ContentRowProps) {
 
   return (
     <div className="relative group py-4">
-      <h2
-        className="text-lg sm:text-xl font-semibold text-white mb-4 px-4 sm:px-6 lg:px-12 truncate"
-        title={title}
-      >
-        {title}
-      </h2>
+      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-12 mb-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-white truncate" title={title}>
+          {title}
+        </h2>
+        {viewAllHref && (
+          <button
+            onClick={() => navigate(viewAllHref)}
+            className="text-sm text-white/60 hover:text-white transition-colors whitespace-nowrap ml-4"
+          >
+            View All →
+          </button>
+        )}
+      </div>
 
       <div className="relative">
         <Button

@@ -19,12 +19,12 @@ export function useNewReleases(): Doc<"content">[] | undefined {
   return useQuery(api.content.getNewReleases);
 }
 
-export function useMovies(): Doc<"content">[] | undefined {
-  return useQuery(api.content.getMovies);
+export function useMovies(limit?: number): Doc<"content">[] | undefined {
+  return useQuery(api.content.getMovies, { limit });
 }
 
-export function useTVShows(): Doc<"content">[] | undefined {
-  return useQuery(api.content.getTVShows);
+export function useTVShows(limit?: number): Doc<"content">[] | undefined {
+  return useQuery(api.content.getTVShows, { limit });
 }
 
 export function useContentById(id: string | undefined): Doc<"content"> | null | undefined {
@@ -36,7 +36,18 @@ export function useContentByTmdbId(tmdbId: string | undefined): Doc<"content"> |
 }
 
 export function useSearchContent(query: string): Doc<"content">[] | undefined {
-  return useQuery(api.content.search, query ? { query } : "skip");
+  return useQuery(api.content.search, query.trim() ? { query } : "skip");
+}
+
+export function useSimilarContent(contentId: string | undefined): Doc<"content">[] | undefined {
+  return useQuery(
+    api.content.getSimilar,
+    contentId ? { contentId: contentId as Doc<"content">["_id"], limit: 12 } : "skip"
+  );
+}
+
+export function useContentByGenre(genre: string, limit?: number): Doc<"content">[] | undefined {
+  return useQuery(api.content.getByGenre, genre ? { genre, limit } : "skip");
 }
 
 export interface SearchResult {
@@ -48,6 +59,7 @@ export interface SearchResult {
   year: number;
   genre: string[];
   rating: string;
+  voteAverage?: number;
   seasons?: number;
   imdbId?: string;
   type: "movie" | "tv";
@@ -62,6 +74,10 @@ export function useSearchAll(query: string): {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Also search local DB
+  const localResults = useSearchContent(query);
+
   const searchMovies = useAction(api.tmdb.searchMovies);
   const searchTVShows = useAction(api.tmdb.searchTVShows);
 
@@ -76,7 +92,7 @@ export function useSearchAll(query: string): {
     setLoading(true);
     setError(null);
 
-    const search = async () => {
+    const run = async () => {
       try {
         const [movies, shows] = await Promise.all([
           searchMovies({ query }),
@@ -85,28 +101,22 @@ export function useSearchAll(query: string): {
 
         const movieResults: SearchResult[] = movies.map((m) => ({ ...m, type: "movie" as const }));
         const showResults: SearchResult[] = shows.map((s) => ({ ...s, type: "tv" as const }));
-
-        const combined = [...movieResults, ...showResults];
-        combined.sort((a, b) => b.popularity - a.popularity);
-
+        const combined = [...movieResults, ...showResults].sort(
+          (a, b) => b.popularity - a.popularity
+        );
         setResults(combined);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Search failed");
-        console.error("Search error:", err);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Search failed");
       } finally {
         setLoading(false);
       }
     };
 
-    const timeoutId = setTimeout(search, 300);
-    return () => clearTimeout(timeoutId);
-  }, [query, searchMovies, searchTVShows]);
+    const id = setTimeout(run, 350);
+    return () => clearTimeout(id);
+  }, [query]);
 
   return { results, loading, error };
-}
-
-export function useContentByGenre(genre: string): Doc<"content">[] | undefined {
-  return useQuery(api.content.getByGenre, genre ? { genre } : "skip");
 }
 
 export interface ContentCategory {
@@ -119,14 +129,14 @@ export function useAllCategories(): ContentCategory[] {
   const trending = useTrendingContent() ?? [];
   const popular = usePopularContent() ?? [];
   const newReleases = useNewReleases() ?? [];
-  const movies = useMovies() ?? [];
-  const tvShows = useTVShows() ?? [];
+  const movies = useMovies(24) ?? [];
+  const tvShows = useTVShows(24) ?? [];
 
   return [
-    { id: "trending", title: "Trending Now", content: trending },
+    { id: "trending", title: "Trending Now 🔥", content: trending },
     { id: "popular", title: "Popular on FishyStream", content: popular },
     { id: "new", title: "New Releases", content: newReleases },
     { id: "movies", title: "Movies", content: movies },
     { id: "tvshows", title: "TV Shows", content: tvShows }
-  ].filter((cat) => cat.content.length > 0);
+  ].filter((c) => c.content.length > 0);
 }

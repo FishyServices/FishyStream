@@ -1,42 +1,133 @@
-import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Loader2, Tv2, Filter, ChevronDown } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
-import { useTVShows } from "@/hooks/useContent";
+import { useTVShows, useContentByGenre } from "@/hooks/useContent";
+
+const GENRES = [
+  "All",
+  "Drama",
+  "Action & Adventure",
+  "Comedy",
+  "Sci-Fi & Fantasy",
+  "Animation",
+  "Crime",
+  "Documentary",
+  "Reality",
+  "Kids"
+];
+const SORTS = [
+  { label: "Popular", value: "popular" },
+  { label: "Now Airing", value: "new" },
+  { label: "Top Rated", value: "rating" },
+  { label: "Year", value: "year" }
+];
 
 export function TVShowsPage() {
   const navigate = useNavigate();
-  const tvShows = useTVShows();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [sortOpen, setSortOpen] = useState(false);
 
-  const handlePlay = (tmdbId: string) => {
-    navigate(`/watch/${tmdbId}`);
+  const genre = searchParams.get("genre") ?? "All";
+  const sort = (searchParams.get("sort") ?? "popular") as "popular" | "new" | "rating" | "year";
+
+  const allShows = useTVShows(120);
+  const genreShows = useContentByGenre(genre !== "All" ? genre : "");
+  const rawShows = genre !== "All" ? genreShows : allShows;
+
+  const sorted = rawShows
+    ? [...rawShows].sort((a, b) => {
+        if (sort === "rating") return (b.voteAverage ?? 0) - (a.voteAverage ?? 0);
+        if (sort === "year") return b.year - a.year;
+        if (sort === "new") return (b.new ? 1 : 0) - (a.new ? 1 : 0);
+        return (b.popular ? 1 : 0) - (a.popular ? 1 : 0);
+      })
+    : undefined;
+
+  const currentSort = SORTS.find((s) => s.value === sort) ?? SORTS[0]!;
+  const handlePlay = (tmdbId: string, season?: number, episode?: number) => {
+    const p = new URLSearchParams();
+    if (season) p.set("season", String(season));
+    if (episode) p.set("episode", String(episode));
+    navigate(`/watch/${tmdbId}${p.toString() ? "?" + p : ""}`);
   };
-
-  if (tvShows === undefined) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="pt-24 flex items-center justify-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      <main className="pt-24 px-6 sm:px-10 pb-16">
+        <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
+          <div>
+            <h1 className="font-display text-3xl font-black text-white">TV Shows</h1>
+            {sorted && <p className="text-white/40 text-sm mt-1">{sorted.length} titles</p>}
+          </div>
+          <div className="relative">
+            <button
+              className="flex items-center gap-2 px-3 py-2 glass rounded-lg border border-white/15 text-sm text-white/70 hover:text-white transition-colors"
+              onClick={() => setSortOpen(!sortOpen)}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              {currentSort.label}
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform ${sortOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {sortOpen && (
+              <div className="absolute right-0 top-full mt-1 w-40 bg-[hsl(220,16%,8%)] border border-white/15 rounded-lg shadow-2xl py-1 z-20">
+                {SORTS.map((s) => (
+                  <button
+                    key={s.value}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-white/8 transition-colors ${s.value === sort ? "text-primary font-semibold" : "text-white/70"}`}
+                    onClick={() => {
+                      setSearchParams((p) => {
+                        p.set("sort", s.value);
+                        return p;
+                      });
+                      setSortOpen(false);
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-      <main className="pt-24 px-4 sm:px-6 lg:px-12">
-        <h1 className="text-3xl font-bold text-white mb-8">TV Shows</h1>
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-4 mb-6 -mx-6 sm:-mx-10 px-6 sm:px-10">
+          {GENRES.map((g) => (
+            <button
+              key={g}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                genre === g
+                  ? "bg-primary text-white"
+                  : "glass border border-white/15 text-white/60 hover:text-white hover:border-white/30"
+              }`}
+              onClick={() =>
+                setSearchParams((p) => {
+                  g === "All" ? p.delete("genre") : p.set("genre", g);
+                  return p;
+                })
+              }
+            >
+              {g}
+            </button>
+          ))}
+        </div>
 
-        {tvShows.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-white/60">No TV shows available. Sync from TMDB to get started.</p>
+        {sorted === undefined ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : sorted.length === 0 ? (
+          <div className="text-center py-16">
+            <Tv2 className="w-10 h-10 text-white/15 mx-auto mb-3" />
+            <p className="text-white/40">No shows found</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {tvShows.map((show) => (
+            {sorted.map((show) => (
               <MovieCard key={show._id} content={show} onPlay={handlePlay} />
             ))}
           </div>

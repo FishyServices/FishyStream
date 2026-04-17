@@ -1,114 +1,225 @@
-import { Play, Info, Volume2, VolumeX } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Play, Info, Plus, Check, Volume2, VolumeX, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { useState } from "react";
 import { ContentModal } from "./ContentModal";
+import { useIsInWatchlist, useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
+import { useUser } from "@clerk/react";
+import { toast } from "sonner";
 
 interface HeroProps {
   content: Doc<"content">;
   onPlay?: (tmdbId: string) => void;
 }
 
+function StarRating({ score }: { score: number }) {
+  const pct = Math.round((score / 10) * 100);
+  return (
+    <div className="flex items-center gap-2">
+      <div className="relative h-1.5 w-20 bg-white/20 rounded-full overflow-hidden">
+        <div
+          className="absolute left-0 top-0 h-full bg-primary rounded-full"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-xs text-white/60">{score.toFixed(1)}</span>
+    </div>
+  );
+}
+
 export function Hero({ content, onPlay }: HeroProps) {
-  const [isMuted, setIsMuted] = useState(true);
+  const { isSignedIn } = useUser();
   const [showModal, setShowModal] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [showTrailer, setShowTrailer] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const isInWatchlist = useIsInWatchlist(content._id);
+  const addToWatchlist = useAddToWatchlist();
+  const removeFromWatchlist = useRemoveFromWatchlist();
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoaded(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleWatchlist = async () => {
+    if (!isSignedIn) {
+      toast.error("Sign in to save to your list");
+      return;
+    }
+    try {
+      if (isInWatchlist) {
+        await removeFromWatchlist(content._id);
+        toast.success("Removed from My List");
+      } else {
+        await addToWatchlist(content._id);
+        toast.success("Added to My List");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    }
+  };
+
+  const handlePlay = () => content.tmdbId && onPlay?.(content.tmdbId);
 
   return (
-    <div className="relative w-full h-[85vh] min-h-[600px]">
-      <div className="absolute inset-0">
-        <img
-          src={content.backdropUrl}
-          alt={`${content.title} backdrop`}
-          className="w-full h-full object-cover"
-          loading="eager"
-          decoding="async"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.onerror = null;
-            target.style.display = "none";
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
+    <div className="relative w-full h-[90vh] min-h-[640px] max-h-[900px] overflow-hidden">
+      {/* Backdrop */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"}`}
+      >
+        {showTrailer && content.trailerKey ? (
+          <iframe
+            className="absolute inset-0 w-full h-full scale-125"
+            src={`https://www.youtube.com/embed/${content.trailerKey}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&loop=1&playlist=${content.trailerKey}&modestbranding=1&showinfo=0`}
+            allow="autoplay"
+            title="Trailer"
+          />
+        ) : (
+          <img
+            src={content.backdropUrl}
+            alt={content.title}
+            className="w-full h-full object-cover"
+            onLoad={() => setLoaded(true)}
+            onError={() => setLoaded(true)}
+          />
+        )}
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 lg:px-12 pb-16 pt-32">
-        <div className="max-w-3xl space-y-6">
+      {/* Skeleton while loading */}
+      {!loaded && (
+        <div className="absolute inset-0 bg-gradient-to-r from-[hsl(220,20%,8%)] to-[hsl(220,20%,12%)] animate-pulse" />
+      )}
+
+      {/* Gradients */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/50 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/20" />
+
+      {/* Noise grain */}
+      <div className="absolute inset-0 opacity-[0.03] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuNjUiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbm9pc2UpIiBvcGFjaXR5PSIxIi8+PC9zdmc+')] pointer-events-none" />
+
+      {/* Content */}
+      <div
+        className={`absolute bottom-0 left-0 right-0 px-6 sm:px-10 lg:px-16 pb-20 transition-all duration-700 ${
+          loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+        }`}
+      >
+        <div className="max-w-2xl space-y-4">
+          {/* Logo or title */}
+          {content.logoUrl ? (
+            <img
+              src={content.logoUrl}
+              alt={content.title}
+              className="h-16 sm:h-20 lg:h-24 w-auto object-contain object-left max-w-xs"
+            />
+          ) : (
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-none tracking-tight">
+              {content.title}
+            </h1>
+          )}
+
+          {/* Meta badges */}
           <div className="flex items-center gap-3 flex-wrap">
-            <Badge variant="secondary" className="bg-primary text-primary-foreground font-semibold">
-              {content.type === "movie" ? "Movie" : "TV Series"}
-            </Badge>
-            {content.new && (
-              <Badge variant="secondary" className="bg-success-soft text-success border-success/30">
-                New Release
-              </Badge>
-            )}
-            {content.trending && (
-              <Badge
-                variant="secondary"
-                className="bg-warning-soft text-warning-foreground border-warning/30"
-              >
-                Trending #1
-              </Badge>
-            )}
-          </div>
-
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
-            {content.title}
-          </h1>
-
-          <div className="flex items-center gap-4 text-sm text-white/80 flex-wrap">
-            <span className="text-success font-semibold">{content.rating}</span>
-            <span>{content.year}</span>
-            {content.duration && <span>{content.duration}</span>}
+            <span
+              className={`text-xs font-bold px-2 py-0.5 rounded border rating-${content.rating} border-current`}
+            >
+              {content.rating}
+            </span>
+            <span className="text-sm text-white/70">{content.year}</span>
+            {content.duration && <span className="text-sm text-white/70">{content.duration}</span>}
             {content.seasons && (
-              <span>
+              <span className="text-sm text-white/70">
                 {content.seasons} Season{content.seasons > 1 ? "s" : ""}
               </span>
             )}
-            <div className="flex gap-1">
-              {content.genre.map((g, i) => (
-                <span key={g}>
-                  {g}
-                  {i < content.genre.length - 1 && <span className="mx-1">•</span>}
-                </span>
-              ))}
-            </div>
+            {content.voteAverage && content.voteAverage > 0 && (
+              <StarRating score={content.voteAverage} />
+            )}
+            {content.trending && (
+              <span className="text-xs font-semibold text-orange-400 flex items-center gap-1">
+                🔥 Trending
+              </span>
+            )}
           </div>
 
-          <p className="text-lg text-white/90 leading-relaxed max-w-2xl line-clamp-3">
+          {/* Genres */}
+          <div className="flex flex-wrap gap-2">
+            {content.genre.slice(0, 4).map((g) => (
+              <span
+                key={g}
+                className="text-xs px-2.5 py-1 bg-white/10 backdrop-blur rounded-full text-white/80 font-medium"
+              >
+                {g}
+              </span>
+            ))}
+          </div>
+
+          {/* Tagline or description */}
+          {content.tagline && (
+            <p className="text-base text-white/60 italic font-light">{content.tagline}</p>
+          )}
+          <p className="text-sm sm:text-base text-white/80 leading-relaxed line-clamp-3 max-w-lg">
             {content.description}
           </p>
 
-          <div className="flex items-center gap-4 flex-wrap">
+          {/* Actions */}
+          <div className="flex items-center gap-3 flex-wrap pt-2">
             <Button
               size="lg"
-              className="bg-white text-black hover:bg-white/90 font-semibold px-8"
-              onClick={() => content.tmdbId && onPlay?.(content.tmdbId)}
+              className="bg-white text-black hover:bg-white/90 font-display font-bold px-7 text-base shadow-lg hover:shadow-xl transition-all"
+              onClick={handlePlay}
             >
               <Play className="w-5 h-5 mr-2 fill-black" />
-              Play
+              Play Now
             </Button>
             <Button
               size="lg"
               variant="secondary"
-              className="bg-white/20 text-white hover:bg-white/30 font-semibold px-8"
+              className="glass text-white hover:bg-white/15 font-semibold px-7 text-base border-white/20"
               onClick={() => setShowModal(true)}
             >
               <Info className="w-5 h-5 mr-2" />
               More Info
             </Button>
-            <Button
-              size="icon"
-              variant="secondary"
-              className="bg-white/20 text-white hover:bg-white/30"
-              onClick={() => setIsMuted(!isMuted)}
+            <button
+              className="w-11 h-11 rounded-full glass text-white hover:bg-white/15 border border-white/20 flex items-center justify-center transition-all"
+              onClick={handleWatchlist}
+              title={isInWatchlist ? "Remove from My List" : "Add to My List"}
             >
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            </Button>
+              {isInWatchlist ? (
+                <Check className="w-5 h-5 text-green-400" />
+              ) : (
+                <Plus className="w-5 h-5" />
+              )}
+            </button>
+
+            {/* Trailer toggle */}
+            {content.trailerKey && (
+              <button
+                className="hidden sm:flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors ml-2"
+                onClick={() => setShowTrailer(!showTrailer)}
+              >
+                {showTrailer ? "Hide Trailer" : "Watch Trailer"}
+              </button>
+            )}
+
+            {/* Mute toggle for trailer */}
+            {showTrailer && content.trailerKey && (
+              <button
+                className="w-10 h-10 rounded-full glass text-white/60 hover:text-white flex items-center justify-center"
+                onClick={() => setMuted(!muted)}
+              >
+                {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* Scroll hint */}
+      <div className="absolute bottom-6 right-10 hidden lg:flex flex-col items-center gap-1 text-white/30 animate-bounce">
+        <ChevronDown className="w-5 h-5" />
       </div>
 
       <ContentModal

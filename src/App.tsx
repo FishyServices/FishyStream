@@ -9,96 +9,185 @@ import { ContentRow } from "@/components/ContentRow";
 import { useFeaturedContent, useAllCategories } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { api } from "../convex/_generated/api";
-import { Film, Loader2, RefreshCw, Database, Sparkles } from "lucide-react";
+import { Film, Loader2, RefreshCw, Database, Sparkles, Tv2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from "@/components/ui/dialog";
 
 function Footer() {
   return (
-    <footer className="bg-background border-t border-white/10 py-12 px-4 sm:px-6 lg:px-12 mt-12">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+    <footer className="border-t border-white/5 py-12 px-6 sm:px-10 mt-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+          {[
+            {
+              label: "Browse",
+              links: [
+                { text: "Movies", href: "/movies" },
+                { text: "TV Shows", href: "/tv-shows" },
+                { text: "New Releases", href: "/new-releases" }
+              ]
+            },
+            {
+              label: "Account",
+              links: [
+                { text: "My List", href: "/my-list" },
+                { text: "Watch History", href: "/history" }
+              ]
+            },
+            {
+              label: "Genres",
+              links: [
+                { text: "Action", href: "/movies?genre=Action" },
+                { text: "Comedy", href: "/movies?genre=Comedy" },
+                { text: "Drama", href: "/movies?genre=Drama" },
+                { text: "Sci-Fi", href: "/movies?genre=Sci-Fi" }
+              ]
+            }
+          ].map((col) => (
+            <div key={col.label}>
+              <h3 className="text-sm font-display font-bold text-white mb-4">{col.label}</h3>
+              <ul className="space-y-2">
+                {col.links.map((link) => (
+                  <li key={link.text}>
+                    <a
+                      href={link.href}
+                      className="text-sm text-white/40 hover:text-white/80 transition-colors"
+                    >
+                      {link.text}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
           <div>
-            <h3 className="text-sm font-semibold text-white mb-4">Browse</h3>
-            <ul className="space-y-2 text-sm text-white/60">
-              <li>
-                <a href="/movies" className="hover:text-white transition-colors">
-                  Movies
-                </a>
-              </li>
-              <li>
-                <a href="/tv-shows" className="hover:text-white transition-colors">
-                  TV Shows
-                </a>
-              </li>
-              <li>
-                <a href="/new-releases" className="hover:text-white transition-colors">
-                  New Releases
-                </a>
-              </li>
-              <li>
-                <a href="/popular" className="hover:text-white transition-colors">
-                  Popular
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-white mb-4">Account</h3>
-            <ul className="space-y-2 text-sm text-white/60">
-              <li>
-                <a href="/my-list" className="hover:text-white transition-colors">
-                  My List
-                </a>
-              </li>
-              <li>
-                <a href="/history" className="hover:text-white transition-colors">
-                  Watch History
-                </a>
-              </li>
-              <li>
-                <a href="/migration" className="hover:text-white transition-colors">
-                  Import Data
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-white mb-4">Info</h3>
-            <ul className="space-y-2 text-sm text-white/60">
-              <li>
-                <span className="text-white/30 cursor-default">Privacy Policy</span>
-              </li>
-              <li>
-                <span className="text-white/30 cursor-default">Terms of Service</span>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-white mb-4">FishyStream</h3>
-            <p className="text-sm text-white/40 leading-relaxed">
-              Stream your favorite movies and TV shows.
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center">
+                <span className="text-white font-bold font-display text-xs">F</span>
+              </div>
+              <span className="font-display font-bold text-white">FishyStream</span>
+            </div>
+            <p className="text-sm text-white/30 leading-relaxed">
+              Your personal streaming hub. Watch what you love, everywhere.
             </p>
           </div>
         </div>
-        <div className="flex items-center justify-between pt-8 border-t border-white/10 flex-wrap gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold">F</span>
-            </div>
-            <span className="font-bold text-white">FishyStream</span>
-          </div>
-          <p className="text-sm text-white/30">© 2026 FishyStream. All rights reserved.</p>
+        <div className="flex items-center justify-between pt-8 border-t border-white/5 flex-wrap gap-4">
+          <p className="text-xs text-white/20">© 2026 FishyStream</p>
+          <p className="text-xs text-white/20">Content data from TMDB</p>
         </div>
       </div>
     </footer>
+  );
+}
+
+function SyncPanel() {
+  const [syncing, setSyncing] = useState(false);
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
+  const syncContent = useAction(api.tmdb.syncContent);
+
+  const doSync = async (type: "movies" | "tv", count: number) => {
+    setSyncing(true);
+    try {
+      const n = await syncContent({ type, count });
+      toast.success(`Synced ${n} ${type === "movies" ? "movies" : "TV shows"}`);
+      setLastSynced(new Date().toLocaleTimeString());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <div className="mx-6 sm:mx-10 mb-6 p-4 rounded-xl bg-white/4 border border-white/8">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Database className="w-4 h-4 text-white/40" />
+          <span className="text-sm font-medium text-white/70">Content Library</span>
+          {lastSynced && <span className="text-xs text-white/30">• Last synced {lastSynced}</span>}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {[
+          { label: "Sync 50 Movies", type: "movies" as const, count: 50, icon: Film },
+          { label: "Sync 50 TV Shows", type: "tv" as const, count: 50, icon: Tv2 },
+          { label: "Sync 200 Movies", type: "movies" as const, count: 200, icon: Zap },
+          { label: "Sync 200 TV Shows", type: "tv" as const, count: 200, icon: Zap }
+        ].map((btn) => (
+          <Button
+            key={btn.label}
+            size="sm"
+            variant="outline"
+            className="text-xs border-white/15 text-white/60 hover:text-white hover:border-white/30"
+            disabled={syncing}
+            onClick={() => doSync(btn.type, btn.count)}
+          >
+            {syncing ? (
+              <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+            ) : (
+              <btn.icon className="w-3 h-3 mr-1.5" />
+            )}
+            {btn.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmptyState() {
+  const syncContent = useAction(api.tmdb.syncContent);
+  const [syncing, setSyncing] = useState<string | null>(null);
+
+  const doSync = async (type: "movies" | "tv") => {
+    setSyncing(type);
+    try {
+      const n = await syncContent({ type, count: 100 });
+      toast.success(
+        `Synced ${n} ${type === "movies" ? "movies" : "TV shows"}! Refresh to see them.`
+      );
+    } catch (e) {
+      toast.error("Sync failed");
+    } finally {
+      setSyncing(null);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center px-6">
+      <div className="text-center max-w-sm">
+        <div className="w-16 h-16 bg-primary/15 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <Film className="w-8 h-8 text-primary" />
+        </div>
+        <h1 className="font-display text-2xl font-bold text-white mb-2">Welcome to FishyStream</h1>
+        <p className="text-white/50 mb-8 text-sm leading-relaxed">
+          Your library is empty. Sync content from TMDB to get started.
+        </p>
+        <div className="flex flex-col gap-3">
+          <Button onClick={() => doSync("movies")} disabled={!!syncing} className="font-display">
+            {syncing === "movies" ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4 mr-2" />
+            )}
+            Sync Movies from TMDB
+          </Button>
+          <Button
+            onClick={() => doSync("tv")}
+            disabled={!!syncing}
+            variant="secondary"
+            className="font-display"
+          >
+            {syncing === "tv" ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Tv2 className="w-4 h-4 mr-2" />
+            )}
+            Sync TV Shows from TMDB
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -108,105 +197,32 @@ export function App() {
   const categories = useAllCategories();
   const featuredContent = useFeaturedContent();
   const continueWatching = useContinueWatching() ?? [];
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
-
-  const syncTMDB = useAction(api.tmdb.syncContent);
-
-  const handleSyncMovies = async () => {
-    setIsSyncing(true);
-    try {
-      const count = await syncTMDB({ type: "movies", count: 1000 });
-      toast.success(`Synced ${count} movies from TMDB`);
-      setSyncDialogOpen(false);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to sync movies";
-      toast.error(message);
-      console.error("Sync movies error:", err);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleSyncTV = async () => {
-    setIsSyncing(true);
-    try {
-      const count = await syncTMDB({ type: "tv", count: 1000 });
-      toast.success(`Synced ${count} TV shows from TMDB`);
-      setSyncDialogOpen(false);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to sync TV shows";
-      toast.error(message);
-      console.error("Sync TV error:", err);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const handlePlay = (tmdbId: string, season?: number, episode?: number) => {
     const params = new URLSearchParams();
     if (season !== undefined) params.set("season", String(season));
     if (episode !== undefined) params.set("episode", String(episode));
-    const query = params.toString();
-    navigate(`/watch/${tmdbId}${query ? `?${query}` : ""}`);
+    const qs = params.toString();
+    navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
   };
 
   if (!isLoaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-white/60 text-sm">Loading...</p>
-        </div>
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
       </div>
     );
   }
 
   const hasContent = featuredContent || categories.some((c) => c.content.length > 0);
-
-  if (!hasContent) {
+  if (!hasContent)
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center max-w-md px-6">
-          <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Film className="w-10 h-10 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Welcome to FishyStream</h1>
-          <p className="text-white/50 mb-6 text-sm">
-            No content yet. Pull a TMDB catalog batch to get started.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center min-w-0">
-            <Button onClick={handleSyncMovies} disabled={isSyncing} size="lg">
-              {isSyncing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Sync Movies
-                </>
-              )}
-            </Button>
-            <Button onClick={handleSyncTV} disabled={isSyncing} size="lg" variant="secondary">
-              {isSyncing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Sync TV Shows
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
+      <>
+        <Toaster position="top-right" richColors />
+        <Header />
+        <EmptyState />
+      </>
     );
-  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -216,64 +232,36 @@ export function App() {
       <main>
         {featuredContent && <Hero content={featuredContent} onPlay={handlePlay} />}
 
-        <div className="relative -mt-24 z-10 space-y-2 pb-8">
-          {/* Sync button */}
-          <div className="px-4 sm:px-6 lg:px-12 py-2">
-            <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 text-white/70 border-white/20 hover:border-white/40"
-                >
-                  <Database className="w-3.5 h-3.5" />
-                  Sync Content
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[400px]">
-                <DialogHeader>
-                  <DialogTitle>Sync TMDB Catalog</DialogTitle>
-                  <DialogDescription>
-                    Pull up to 1,000 titles from TMDB's discover API.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-3 py-2 min-w-0">
-                  <Button onClick={handleSyncMovies} disabled={isSyncing} className="gap-2">
-                    {isSyncing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-4 h-4" />
-                    )}
-                    Sync Movie Catalog
-                  </Button>
-                  <Button
-                    onClick={handleSyncTV}
-                    disabled={isSyncing}
-                    variant="secondary"
-                    className="gap-2"
-                  >
-                    {isSyncing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4" />
-                    )}
-                    Sync TV Catalog
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+        <div className="relative -mt-16 z-10 pt-4 pb-8 space-y-1">
+          {/* Sync panel */}
+          <SyncPanel />
 
+          {/* Continue Watching */}
           {isSignedIn && continueWatching.length > 0 && (
-            <ContentRow title="Continue Watching" content={continueWatching} onPlay={handlePlay} />
+            <ContentRow
+              title="Continue Watching"
+              content={continueWatching}
+              onPlay={handlePlay}
+              viewAllHref="/history"
+            />
           )}
 
-          {categories.map((category) => (
+          {/* Content rows */}
+          {categories.map((cat) => (
             <ContentRow
-              key={category.id}
-              title={category.title}
-              content={category.content}
+              key={cat.id}
+              title={cat.title}
+              content={cat.content}
               onPlay={handlePlay}
+              viewAllHref={
+                cat.id === "movies"
+                  ? "/movies"
+                  : cat.id === "tvshows"
+                    ? "/tv-shows"
+                    : cat.id === "new"
+                      ? "/new-releases"
+                      : undefined
+              }
             />
           ))}
         </div>

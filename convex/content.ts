@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation, internalAction } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
 const tmdbContentValidator = v.object({
@@ -9,27 +9,35 @@ const tmdbContentValidator = v.object({
   genre: v.array(v.string()),
   year: v.number(),
   rating: v.string(),
+  voteAverage: v.optional(v.number()),
+  voteCount: v.optional(v.number()),
+  popularity: v.optional(v.number()),
   duration: v.optional(v.string()),
   seasons: v.optional(v.number()),
+  totalEpisodes: v.optional(v.number()),
   posterUrl: v.string(),
   backdropUrl: v.string(),
-  tmdbId: v.optional(v.string()),
+  logoUrl: v.optional(v.string()),
+  trailerKey: v.optional(v.string()),
   imdbId: v.optional(v.string()),
+  tmdbId: v.optional(v.string()),
   trending: v.boolean(),
   popular: v.boolean(),
   featured: v.boolean(),
   new: v.boolean(),
+  status: v.optional(v.string()),
+  tagline: v.optional(v.string()),
+  originalLanguage: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number()
 });
 
 export const getFeatured = query({
   handler: async (ctx): Promise<Doc<"content"> | null> => {
-    const featured = await ctx.db
+    return await ctx.db
       .query("content")
       .withIndex("by_featured", (q) => q.eq("featured", true))
       .first();
-    return featured;
   }
 });
 
@@ -38,7 +46,7 @@ export const getTrending = query({
     return await ctx.db
       .query("content")
       .withIndex("by_trending", (q) => q.eq("trending", true))
-      .take(20);
+      .take(24);
   }
 });
 
@@ -47,7 +55,7 @@ export const getPopular = query({
     return await ctx.db
       .query("content")
       .withIndex("by_popular", (q) => q.eq("popular", true))
-      .take(20);
+      .take(24);
   }
 });
 
@@ -56,25 +64,27 @@ export const getNewReleases = query({
     return await ctx.db
       .query("content")
       .withIndex("by_new", (q) => q.eq("new", true))
-      .take(20);
+      .take(24);
   }
 });
 
 export const getMovies = query({
-  handler: async (ctx): Promise<Doc<"content">[]> => {
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 60 }): Promise<Doc<"content">[]> => {
     return await ctx.db
       .query("content")
       .withIndex("by_type", (q) => q.eq("type", "movie"))
-      .take(50);
+      .take(limit);
   }
 });
 
 export const getTVShows = query({
-  handler: async (ctx): Promise<Doc<"content">[]> => {
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 60 }): Promise<Doc<"content">[]> => {
     return await ctx.db
       .query("content")
       .withIndex("by_type", (q) => q.eq("type", "tv"))
-      .take(50);
+      .take(limit);
   }
 });
 
@@ -95,28 +105,102 @@ export const getByTmdbId = query({
   }
 });
 
-export const search = query({
-  args: { query: v.string() },
-  handler: async (ctx, { query }): Promise<Doc<"content">[]> => {
-    const allContent = await ctx.db.query("content").take(1000);
-    const lowerQuery = query.toLowerCase().trim();
-    if (!lowerQuery) return [];
-
-    return allContent.filter(
-      (c) =>
-        c.title.toLowerCase().includes(lowerQuery) ||
-        c.description.toLowerCase().includes(lowerQuery) ||
-        c.genre.some((g) => g.toLowerCase().includes(lowerQuery)) ||
-        c.type.toLowerCase() === lowerQuery
-    );
+export const getByGenre = query({
+  args: { genre: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, { genre, limit = 24 }): Promise<Doc<"content">[]> => {
+    const all = await ctx.db.query("content").take(500);
+    return all
+      .filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()))
+      .slice(0, limit);
   }
 });
 
-export const getByGenre = query({
-  args: { genre: v.string() },
-  handler: async (ctx, { genre }): Promise<Doc<"content">[]> => {
-    const allContent = await ctx.db.query("content").take(100);
-    return allContent.filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()));
+export const search = query({
+  args: { query: v.string() },
+  handler: async (ctx, { query: q }): Promise<Doc<"content">[]> => {
+    if (!q.trim()) return [];
+
+    const results = await ctx.db
+      .query("content")
+      .withSearchIndex("search_title", (s) => s.search("title", q))
+      .take(20);
+
+    return results;
+  }
+});
+
+export const getByIds = query({
+  args: { ids: v.array(v.id("content")) },
+  handler: async (ctx, { ids }): Promise<Doc<"content">[]> => {
+    const results = await Promise.all(ids.map((id) => ctx.db.get(id)));
+    return results.filter(Boolean) as Doc<"content">[];
+  }
+});
+
+export const getSimilar = query({
+  args: { contentId: v.id("content"), limit: v.optional(v.number()) },
+  handler: async (ctx, { contentId, limit = 12 }): Promise<Doc<"content">[]> => {
+    const source = await ctx.db.get(contentId);
+    if (!source) return [];
+
+    const all = await ctx.db
+      .query("content")
+      .withIndex("by_type", (q) => q.eq("type", source.type))
+      .take(200);
+
+    return all
+      .filter((c) => c._id !== contentId && c.genre.some((g) => source.genre.includes(g)))
+      .sort((a, b) => (b.voteAverage ?? 0) - (a.voteAverage ?? 0))
+      .slice(0, limit);
+  }
+});
+
+export const getPaginated = query({
+  args: {
+    type: v.optional(v.union(v.literal("movie"), v.literal("tv"))),
+    genre: v.optional(v.string()),
+    sortBy: v.optional(
+      v.union(v.literal("popular"), v.literal("new"), v.literal("rating"), v.literal("year"))
+    ),
+    cursor: v.optional(v.string()),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, { type, genre, sortBy = "popular", cursor, limit = 48 }) => {
+    let items: Doc<"content">[];
+
+    if (type) {
+      items = await ctx.db
+        .query("content")
+        .withIndex("by_type", (q) => q.eq("type", type))
+        .take(500);
+    } else {
+      items = await ctx.db.query("content").take(500);
+    }
+
+    if (genre) {
+      items = items.filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()));
+    }
+
+    // Sort
+    switch (sortBy) {
+      case "new":
+        items = items.filter((c) => c.new).concat(items.filter((c) => !c.new));
+        break;
+      case "rating":
+        items.sort((a, b) => (b.voteAverage ?? 0) - (a.voteAverage ?? 0));
+        break;
+      case "year":
+        items.sort((a, b) => b.year - a.year);
+        break;
+      default: // popular
+        items = items.filter((c) => c.popular).concat(items.filter((c) => !c.popular));
+    }
+
+    const start = cursor ? items.findIndex((c) => c._id === cursor) + 1 : 0;
+    const page = items.slice(start, start + limit);
+    const nextCursor = page.length === limit ? page[page.length - 1]?._id : undefined;
+
+    return { items: page, nextCursor, totalCount: items.length };
   }
 });
 
@@ -132,7 +216,6 @@ export const create = mutation({
     seasons: v.optional(v.number()),
     posterUrl: v.string(),
     backdropUrl: v.string(),
-    vidkingUrl: v.optional(v.string()),
     imdbId: v.optional(v.string()),
     tmdbId: v.optional(v.string()),
     trending: v.boolean(),
@@ -142,38 +225,23 @@ export const create = mutation({
   },
   handler: async (ctx, args): Promise<Doc<"content">["_id"]> => {
     const now = Date.now();
-    return await ctx.db.insert("content", {
-      ...args,
-      createdAt: now,
-      updatedAt: now
-    });
+    return await ctx.db.insert("content", { ...args, createdAt: now, updatedAt: now });
   }
 });
 
 export const update = mutation({
   args: {
     id: v.id("content"),
-    title: v.optional(v.string()),
-    description: v.optional(v.string()),
-    genre: v.optional(v.array(v.string())),
-    year: v.optional(v.number()),
-    rating: v.optional(v.string()),
-    duration: v.optional(v.string()),
-    seasons: v.optional(v.number()),
-    posterUrl: v.optional(v.string()),
-    backdropUrl: v.optional(v.string()),
-    vidkingUrl: v.optional(v.string()),
     trending: v.optional(v.boolean()),
     popular: v.optional(v.boolean()),
     featured: v.optional(v.boolean()),
-    new: v.optional(v.boolean())
+    new: v.optional(v.boolean()),
+    posterUrl: v.optional(v.string()),
+    backdropUrl: v.optional(v.string())
   },
   handler: async (ctx, args): Promise<void> => {
     const { id, ...updates } = args;
-    await ctx.db.patch(id, {
-      ...updates,
-      updatedAt: Date.now()
-    });
+    await ctx.db.patch(id, { ...updates, updatedAt: Date.now() });
   }
 });
 
@@ -184,32 +252,10 @@ export const remove = mutation({
   }
 });
 
-export const createFromTMDB = internalMutation({
-  args: tmdbContentValidator,
-  handler: async (ctx, args): Promise<void> => {
-    const existing = await ctx.db
-      .query("content")
-      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", args.tmdbId))
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        ...args,
-        updatedAt: Date.now()
-      });
-    } else {
-      await ctx.db.insert("content", args);
-    }
-  }
-});
-
 export const upsertBatchFromTMDB = internalMutation({
-  args: {
-    items: v.array(tmdbContentValidator)
-  },
+  args: { items: v.array(tmdbContentValidator) },
   handler: async (ctx, { items }): Promise<number> => {
-    let syncedCount = 0;
-
+    let count = 0;
     for (const item of items) {
       const existing = await ctx.db
         .query("content")
@@ -217,26 +263,12 @@ export const upsertBatchFromTMDB = internalMutation({
         .first();
 
       if (existing) {
-        await ctx.db.patch(existing._id, {
-          ...item,
-          updatedAt: Date.now()
-        });
+        await ctx.db.patch(existing._id, { ...item, updatedAt: Date.now() });
       } else {
         await ctx.db.insert("content", item);
       }
-
-      syncedCount += 1;
+      count++;
     }
-
-    return syncedCount;
-  }
-});
-
-export const seed = internalMutation({
-  handler: async (ctx): Promise<void> => {
-    const existing = await ctx.db.query("content").first();
-    if (existing) {
-      return;
-    }
+    return count;
   }
 });
