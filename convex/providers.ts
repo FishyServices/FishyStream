@@ -1,14 +1,12 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 
-// VidKing/VidSrc provider configuration
 interface StreamSource {
   name: string;
   url: string;
   quality: string;
 }
 
-// Provider configurations
 const PROVIDERS = {
   // VidKing provider
   vidking: {
@@ -18,7 +16,7 @@ const PROVIDERS = {
       `https://www.vidking.net/embed/tv/${imdbId}/${season}/${episode}`,
   },
   
-  // VidSrc provider (popular alternative)
+  // VidSrc provider
   vidsrc: {
     name: "VidSrc",
     getMovieUrl: (imdbId: string) => `https://vidsrc.to/embed/movie/${imdbId}`,
@@ -43,7 +41,6 @@ const PROVIDERS = {
   },
 };
 
-// Action to get streaming sources for a movie
 export const getMovieSources = action({
   args: { 
     imdbId: v.string(),
@@ -52,7 +49,6 @@ export const getMovieSources = action({
   handler: async (_ctx, { imdbId }): Promise<StreamSource[]> => {
     const sources: StreamSource[] = [];
     
-    // Add all available providers
     sources.push({
       name: "VidKing",
       url: PROVIDERS.vidking.getMovieUrl(imdbId),
@@ -81,7 +77,6 @@ export const getMovieSources = action({
   },
 });
 
-// Action to get streaming sources for a TV show episode
 export const getTVSources = action({
   args: { 
     imdbId: v.string(),
@@ -120,7 +115,6 @@ export const getTVSources = action({
   },
 });
 
-// Action to check if a source is available (basic check)
 export const checkSource = action({
   args: { url: v.string() },
   handler: async (_ctx, { url }): Promise<{ available: boolean; url: string }> => {
@@ -143,12 +137,11 @@ export const checkSource = action({
         url 
       };
     } catch (error) {
-      return { available: true, url }; // Assume available if we can't check
+      return { available: true, url };
     }
   },
 });
 
-// Simple function to get sources without calling other actions
 function getSourcesForContent(
   imdbId: string, 
   type: "movie" | "tv", 
@@ -198,7 +191,6 @@ function getSourcesForContent(
   return sources;
 }
 
-// Action to get the best available source
 export const getBestSource = action({
   args: { 
     imdbId: v.string(),

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/react";
+import { Link } from "react-router-dom";
 import { Search, Bell, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,11 +15,11 @@ interface HeaderProps {
 }
 
 const navLinks = [
-  { label: "Home", href: "#" },
-  { label: "TV Shows", href: "#tvshows" },
-  { label: "Movies", href: "#movies" },
-  { label: "New & Popular", href: "#new" },
-  { label: "My List", href: "#mylist" },
+  { label: "Home", href: "/" },
+  { label: "TV Shows", href: "/tv-shows" },
+  { label: "Movies", href: "/movies" },
+  { label: "New Releases", href: "/new-releases" },
+  { label: "Popular", href: "/popular" },
 ];
 
 export function Header({ onSearch }: HeaderProps) {
@@ -50,22 +51,22 @@ export function Header({ onSearch }: HeaderProps) {
     >
       <div className="flex items-center justify-between px-4 sm:px-6 lg:px-12 py-4">
         <div className="flex items-center gap-8">
-          <a href="/" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-lg">F</span>
             </div>
             <span className="text-xl font-bold hidden sm:block">FishyStream</span>
-          </a>
+          </Link>
 
           <nav className="hidden lg:flex items-center gap-6">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.label}
-                href={link.href}
+                to={link.href}
                 className="text-sm text-white/80 hover:text-white transition-colors"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
         </div>
@@ -151,14 +152,14 @@ export function Header({ onSearch }: HeaderProps) {
         <div className="lg:hidden bg-background/95 backdrop-blur-md border-t border-white/10">
           <nav className="flex flex-col p-4 gap-2">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.label}
-                href={link.href}
+                to={link.href}
                 className="py-2 px-4 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
         </div>

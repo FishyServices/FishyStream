@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import { query, mutation, internalMutation, internalAction } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
-// Query to get featured content
 export const getFeatured = query({
   handler: async (ctx): Promise<Doc<"content"> | null> => {
     const featured = await ctx.db
@@ -13,7 +12,6 @@ export const getFeatured = query({
   },
 });
 
-// Query to get trending content
 export const getTrending = query({
   handler: async (ctx): Promise<Doc<"content">[]> => {
     return await ctx.db
@@ -23,7 +21,6 @@ export const getTrending = query({
   },
 });
 
-// Query to get popular content
 export const getPopular = query({
   handler: async (ctx): Promise<Doc<"content">[]> => {
     return await ctx.db
@@ -33,7 +30,6 @@ export const getPopular = query({
   },
 });
 
-// Query to get new releases
 export const getNewReleases = query({
   handler: async (ctx): Promise<Doc<"content">[]> => {
     return await ctx.db
@@ -43,7 +39,6 @@ export const getNewReleases = query({
   },
 });
 
-// Query to get all movies
 export const getMovies = query({
   handler: async (ctx): Promise<Doc<"content">[]> => {
     return await ctx.db
@@ -53,7 +48,6 @@ export const getMovies = query({
   },
 });
 
-// Query to get all TV shows
 export const getTVShows = query({
   handler: async (ctx): Promise<Doc<"content">[]> => {
     return await ctx.db
@@ -63,7 +57,6 @@ export const getTVShows = query({
   },
 });
 
-// Query to get content by ID
 export const getById = query({
   args: { id: v.id("content") },
   handler: async (ctx, { id }): Promise<Doc<"content"> | null> => {
@@ -71,7 +64,6 @@ export const getById = query({
   },
 });
 
-// Query to get content by TMDB ID
 export const getByTmdbId = query({
   args: { tmdbId: v.string() },
   handler: async (ctx, { tmdbId }): Promise<Doc<"content"> | null> => {
@@ -82,7 +74,6 @@ export const getByTmdbId = query({
   },
 });
 
-// Query to search content
 export const search = query({
   args: { query: v.string() },
   handler: async (ctx, { query }): Promise<Doc<"content">[]> => {
@@ -97,7 +88,6 @@ export const search = query({
   },
 });
 
-// Query to get content by genre
 export const getByGenre = query({
   args: { genre: v.string() },
   handler: async (ctx, { genre }): Promise<Doc<"content">[]> => {
@@ -108,7 +98,6 @@ export const getByGenre = query({
   },
 });
 
-// Mutation to create content
 export const create = mutation({
   args: {
     title: v.string(),
@@ -139,7 +128,6 @@ export const create = mutation({
   },
 });
 
-// Mutation to update content
 export const update = mutation({
   args: {
     id: v.id("content"),
@@ -167,7 +155,6 @@ export const update = mutation({
   },
 });
 
-// Mutation to delete content
 export const remove = mutation({
   args: { id: v.id("content") },
   handler: async (ctx, { id }): Promise<void> => {
@@ -175,7 +162,6 @@ export const remove = mutation({
   },
 });
 
-// Internal mutation to create content from TMDB
 export const createFromTMDB = internalMutation({
   args: {
     title: v.string(),
@@ -198,26 +184,22 @@ export const createFromTMDB = internalMutation({
     updatedAt: v.number(),
   },
   handler: async (ctx, args): Promise<void> => {
-    // Check if content already exists by TMDB ID
     const existing = await ctx.db
       .query("content")
       .filter(q => q.eq(q.field("tmdbId"), args.tmdbId))
       .first();
     
     if (existing) {
-      // Update existing
       await ctx.db.patch(existing._id, {
         ...args,
         updatedAt: Date.now(),
       });
     } else {
-      // Create new
       await ctx.db.insert("content", args);
     }
   },
 });
 
-// Internal mutation to seed initial content
 export const seed = internalMutation({
   handler: async (ctx): Promise<void> => {
     const existing = await ctx.db.query("content").first();

@@ -9,6 +9,10 @@ import { App } from "./App";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { WatchPage } from "./pages/WatchPage";
+import { MoviesPage } from "./pages/MoviesPage";
+import { TVShowsPage } from "./pages/TVShowsPage";
+import { NewReleasesPage } from "./pages/NewReleasesPage";
+import { PopularPage } from "./pages/PopularPage";
 import "./index.css";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
@@ -33,6 +37,10 @@ createRoot(elem).render(
             <Route path="/sign-in/*" element={<SignInPage />} />
             <Route path="/sign-up/*" element={<SignUpPage />} />
             <Route path="/watch/:id" element={<WatchPage />} />
+            <Route path="/movies" element={<MoviesPage />} />
+            <Route path="/tv-shows" element={<TVShowsPage />} />
+            <Route path="/new-releases" element={<NewReleasesPage />} />
+            <Route path="/popular" element={<PopularPage />} />
             <Route path="/" element={<App />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

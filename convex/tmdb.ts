@@ -112,7 +112,6 @@ function getRating(voteAverage: number): string {
   return "G";
 }
 
-// Action to search movies on TMDB
 export const searchMovies = action({
   args: { query: v.string() },
   handler: async (_ctx, { query }): Promise<Array<{
@@ -145,7 +144,6 @@ export const searchMovies = action({
   },
 });
 
-// Action to get movie details including IMDB ID
 export const getMovieDetails = action({
   args: { tmdbId: v.number() },
   handler: async (_ctx, { tmdbId }): Promise<{
@@ -185,7 +183,6 @@ export const getMovieDetails = action({
   },
 });
 
-// Action to get trending movies
 export const getTrendingMovies = action({
   args: { page: v.optional(v.number()) },
   handler: async (_ctx, { page = 1 }): Promise<Array<{
@@ -217,7 +214,6 @@ export const getTrendingMovies = action({
   },
 });
 
-// Action to get popular TV shows
 export const getPopularTVShows = action({
   args: { page: v.optional(v.number()) },
   handler: async (_ctx, { page = 1 }): Promise<Array<{
@@ -263,7 +259,6 @@ export const getPopularTVShows = action({
   },
 });
 
-// Action to sync TMDB content to Convex database
 export const syncContent = action({
   args: { 
     type: v.union(v.literal("movies"), v.literal("tv")),

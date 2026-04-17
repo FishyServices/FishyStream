@@ -87,7 +87,7 @@ export function App() {
   const handleSyncMovies = async () => {
     setIsSyncing(true);
     try {
-      const count = await syncTMDB({ type: "movies", count: 20 });
+      const count = await syncTMDB({ type: "movies", count: 50 });
       toast.success(`Synced ${count} movies from TMDB`);
     } catch (e) {
       toast.error("Failed to sync movies");
@@ -99,7 +99,7 @@ export function App() {
   const handleSyncTV = async () => {
     setIsSyncing(true);
     try {
-      const count = await syncTMDB({ type: "tv", count: 20 });
+      const count = await syncTMDB({ type: "tv", count: 50 });
       toast.success(`Synced ${count} TV shows from TMDB`);
     } catch (e) {
       toast.error("Failed to sync TV shows");
