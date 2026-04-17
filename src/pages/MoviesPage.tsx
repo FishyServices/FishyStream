@@ -26,10 +26,10 @@ export function MoviesPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="pt-24 px-4 sm:px-6 lg:px-12">
         <h1 className="text-3xl font-bold text-white mb-8">Movies</h1>
-        
+
         {movies.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-white/60">No movies available. Sync from TMDB to get started.</p>

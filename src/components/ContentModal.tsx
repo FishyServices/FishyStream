@@ -2,11 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { X, Play, Plus, Check, Star, Calendar, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
 import { useIsInWatchlist, useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
@@ -22,7 +18,7 @@ interface ContentModalProps {
 export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalProps) {
   const navigate = useNavigate();
   const { isSignedIn } = useUser();
-  
+
   const isInWatchlist = useIsInWatchlist(content?._id);
   const addToWatchlist = useAddToWatchlist();
   const removeFromWatchlist = useRemoveFromWatchlist();
@@ -53,7 +49,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background border-none">
         <DialogTitle className="sr-only">{content.title}</DialogTitle>
-        
+
         {/* Hero Image */}
         <div className="relative h-[400px]">
           <img
@@ -62,7 +58,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-          
+
           {/* Close Button */}
           <Button
             variant="ghost"

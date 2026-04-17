@@ -14,9 +14,7 @@ export const syncCurrentUser = mutation({
 
     let user = await ctx.db
       .query("users")
-      .withIndex("by_clerk_user_id", (q: any) =>
-        q.eq("clerkUserId", identity.tokenIdentifier)
-      )
+      .withIndex("by_clerk_user_id", (q: any) => q.eq("clerkUserId", identity.tokenIdentifier))
       .unique();
 
     if (user) {

@@ -9,7 +9,7 @@ export const getFeatured = query({
       .withIndex("by_featured", (q) => q.eq("featured", true))
       .first();
     return featured;
-  },
+  }
 });
 
 export const getTrending = query({
@@ -18,7 +18,7 @@ export const getTrending = query({
       .query("content")
       .withIndex("by_trending", (q) => q.eq("trending", true))
       .take(20);
-  },
+  }
 });
 
 export const getPopular = query({
@@ -27,7 +27,7 @@ export const getPopular = query({
       .query("content")
       .withIndex("by_popular", (q) => q.eq("popular", true))
       .take(20);
-  },
+  }
 });
 
 export const getNewReleases = query({
@@ -36,7 +36,7 @@ export const getNewReleases = query({
       .query("content")
       .withIndex("by_new", (q) => q.eq("new", true))
       .take(20);
-  },
+  }
 });
 
 export const getMovies = query({
@@ -45,7 +45,7 @@ export const getMovies = query({
       .query("content")
       .withIndex("by_type", (q) => q.eq("type", "movie"))
       .take(50);
-  },
+  }
 });
 
 export const getTVShows = query({
@@ -54,14 +54,14 @@ export const getTVShows = query({
       .query("content")
       .withIndex("by_type", (q) => q.eq("type", "tv"))
       .take(50);
-  },
+  }
 });
 
 export const getById = query({
   args: { id: v.id("content") },
   handler: async (ctx, { id }): Promise<Doc<"content"> | null> => {
     return await ctx.db.get(id);
-  },
+  }
 });
 
 export const getByTmdbId = query({
@@ -71,7 +71,7 @@ export const getByTmdbId = query({
       .query("content")
       .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
       .first();
-  },
+  }
 });
 
 export const search = query({
@@ -85,17 +85,15 @@ export const search = query({
         c.description.toLowerCase().includes(lowerQuery) ||
         c.genre.some((g) => g.toLowerCase().includes(lowerQuery))
     );
-  },
+  }
 });
 
 export const getByGenre = query({
   args: { genre: v.string() },
   handler: async (ctx, { genre }): Promise<Doc<"content">[]> => {
     const allContent = await ctx.db.query("content").take(100);
-    return allContent.filter((c) =>
-      c.genre.some((g) => g.toLowerCase() === genre.toLowerCase())
-    );
-  },
+    return allContent.filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()));
+  }
 });
 
 export const create = mutation({
@@ -116,16 +114,16 @@ export const create = mutation({
     trending: v.boolean(),
     popular: v.boolean(),
     featured: v.boolean(),
-    new: v.boolean(),
+    new: v.boolean()
   },
   handler: async (ctx, args): Promise<Doc<"content">["_id"]> => {
     const now = Date.now();
     return await ctx.db.insert("content", {
       ...args,
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     });
-  },
+  }
 });
 
 export const update = mutation({
@@ -144,22 +142,22 @@ export const update = mutation({
     trending: v.optional(v.boolean()),
     popular: v.optional(v.boolean()),
     featured: v.optional(v.boolean()),
-    new: v.optional(v.boolean()),
+    new: v.optional(v.boolean())
   },
   handler: async (ctx, args): Promise<void> => {
     const { id, ...updates } = args;
     await ctx.db.patch(id, {
       ...updates,
-      updatedAt: Date.now(),
+      updatedAt: Date.now()
     });
-  },
+  }
 });
 
 export const remove = mutation({
   args: { id: v.id("content") },
   handler: async (ctx, { id }): Promise<void> => {
     await ctx.db.delete(id);
-  },
+  }
 });
 
 export const createFromTMDB = internalMutation({
@@ -181,23 +179,23 @@ export const createFromTMDB = internalMutation({
     featured: v.boolean(),
     new: v.boolean(),
     createdAt: v.number(),
-    updatedAt: v.number(),
+    updatedAt: v.number()
   },
   handler: async (ctx, args): Promise<void> => {
     const existing = await ctx.db
       .query("content")
-      .filter(q => q.eq(q.field("tmdbId"), args.tmdbId))
+      .filter((q) => q.eq(q.field("tmdbId"), args.tmdbId))
       .first();
-    
+
     if (existing) {
       await ctx.db.patch(existing._id, {
         ...args,
-        updatedAt: Date.now(),
+        updatedAt: Date.now()
       });
     } else {
       await ctx.db.insert("content", args);
     }
-  },
+  }
 });
 
 export const seed = internalMutation({
@@ -206,5 +204,5 @@ export const seed = internalMutation({
     if (existing) {
       return;
     }
-  },
+  }
 });

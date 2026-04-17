@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { ContentRow } from "@/components/ContentRow";
 import { useFeaturedContent, useAllCategories } from "@/hooks/useContent";
+import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { api } from "../convex/_generated/api";
 import type { Doc } from "../convex/_generated/dataModel";
 import { Film, Loader2, RefreshCw, Database, Sparkles } from "lucide-react";
@@ -17,7 +18,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogTrigger
 } from "@/components/ui/dialog";
 
 function Footer() {
@@ -28,35 +29,91 @@ function Footer() {
           <div>
             <h3 className="text-sm font-semibold text-white mb-4">Browse</h3>
             <ul className="space-y-2 text-sm text-white/60">
-              <li><a href="#" className="hover:text-white">Movies</a></li>
-              <li><a href="#" className="hover:text-white">TV Shows</a></li>
-              <li><a href="#" className="hover:text-white">New Releases</a></li>
-              <li><a href="#" className="hover:text-white">Popular</a></li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Movies
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  TV Shows
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  New Releases
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Popular
+                </a>
+              </li>
             </ul>
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white mb-4">Support</h3>
             <ul className="space-y-2 text-sm text-white/60">
-              <li><a href="#" className="hover:text-white">Help Center</a></li>
-              <li><a href="#" className="hover:text-white">Account</a></li>
-              <li><a href="#" className="hover:text-white">Contact Us</a></li>
-              <li><a href="#" className="hover:text-white">FAQ</a></li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Help Center
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Account
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Contact Us
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  FAQ
+                </a>
+              </li>
             </ul>
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white mb-4">Legal</h3>
             <ul className="space-y-2 text-sm text-white/60">
-              <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-white">Terms of Service</a></li>
-              <li><a href="#" className="hover:text-white">Cookie Policy</a></li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Privacy Policy
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Terms of Service
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Cookie Policy
+                </a>
+              </li>
             </ul>
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white mb-4">Connect</h3>
             <ul className="space-y-2 text-sm text-white/60">
-              <li><a href="#" className="hover:text-white">Twitter</a></li>
-              <li><a href="#" className="hover:text-white">Instagram</a></li>
-              <li><a href="#" className="hover:text-white">Facebook</a></li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Twitter
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Instagram
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white">
+                  Facebook
+                </a>
+              </li>
             </ul>
           </div>
         </div>
@@ -75,10 +132,11 @@ function Footer() {
 }
 
 export function App() {
-  const { isLoaded } = useUser();
+  const { isLoaded, isSignedIn } = useUser();
   const navigate = useNavigate();
   const categories = useAllCategories();
   const featuredContent = useFeaturedContent();
+  const continueWatching = useContinueWatching() ?? [];
   const [isSyncing, setIsSyncing] = useState(false);
 
   // TMDB Sync
@@ -123,7 +181,7 @@ export function App() {
     );
   }
 
-  const hasContent = featuredContent || categories.some(c => c.content.length > 0);
+  const hasContent = featuredContent || categories.some((c) => c.content.length > 0);
 
   if (!hasContent) {
     return (
@@ -133,9 +191,7 @@ export function App() {
             <Film className="w-10 h-10 text-primary" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Welcome to FishyStream</h1>
-          <p className="text-white/60 mb-6">
-            No content available. Sync from TMDB to get started.
-          </p>
+          <p className="text-white/60 mb-6">No content available. Sync from TMDB to get started.</p>
           <Button onClick={handleSyncMovies} disabled={isSyncing} size="lg">
             {isSyncing ? (
               <>
@@ -180,11 +236,7 @@ export function App() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <Button 
-                    onClick={handleSyncMovies} 
-                    disabled={isSyncing}
-                    className="gap-2"
-                  >
+                  <Button onClick={handleSyncMovies} disabled={isSyncing} className="gap-2">
                     {isSyncing ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
@@ -192,8 +244,8 @@ export function App() {
                     )}
                     Sync Trending Movies
                   </Button>
-                  <Button 
-                    onClick={handleSyncTV} 
+                  <Button
+                    onClick={handleSyncTV}
                     disabled={isSyncing}
                     variant="secondary"
                     className="gap-2"
@@ -209,6 +261,14 @@ export function App() {
               </DialogContent>
             </Dialog>
           </div>
+
+          {isSignedIn && continueWatching.length > 0 && (
+            <ContentRow
+              title="Continue Watching"
+              content={continueWatching}
+              onPlay={handlePlay}
+            />
+          )}
 
           {categories.map((category) => (
             <ContentRow

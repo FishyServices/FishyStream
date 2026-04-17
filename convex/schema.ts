@@ -51,9 +51,13 @@ export default defineSchema({
     userId: v.id("users"),
     contentId: v.id("content"),
     progress: v.number(),
+    positionSeconds: v.optional(v.number()),
+    durationSeconds: v.optional(v.number()),
     completed: v.boolean(),
     watchedAt: v.number()
   })
     .index("by_user", ["userId"])
     .index("by_user_content", ["userId", "contentId"])
+    .index("by_user_watched_at", ["userId", "watchedAt"])
+    .index("by_user_completed_watched_at", ["userId", "completed", "watchedAt"])
 });

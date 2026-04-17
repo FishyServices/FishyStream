@@ -3,20 +3,38 @@ import { query, mutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 
-async function getUserByClerkId(
-  ctx: any,
+type WatchHistoryContent = Doc<"content"> & {
+  progress: number;
+  completed: boolean;
+  watchedAt: number;
+  positionSeconds?: number;
+  durationSeconds?: number;
+};
+
+async function getUserByClerkIdQuery(
+  ctx: QueryCtx,
   clerkUserId: string
 ): Promise<Id<"users"> | null> {
-  let user = await ctx.db
+  const user = await ctx.db
     .query("users")
-    .withIndex("by_clerk_user_id", (q: any) =>
-      q.eq("clerkUserId", clerkUserId)
-    )
-    .first();
+    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
+    .unique();
+
+  return user?._id ?? null;
+}
+
+async function getUserByClerkId(
+  ctx: MutationCtx,
+  clerkUserId: string
+): Promise<Id<"users"> | null> {
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
+    .unique();
 
   if (!user) {
     const userId = await ctx.db.insert("users", {
-      clerkUserId: clerkUserId,
+      clerkUserId,
       email: undefined,
       name: undefined,
       createdAt: Date.now()
@@ -27,19 +45,24 @@ async function getUserByClerkId(
   return user._id;
 }
 
+function normalizeProgress(progress: number): number {
+  if (!Number.isFinite(progress)) return 0;
+  return Math.max(0, Math.min(progress, 100));
+}
+
 export const getMyWatchHistory = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<Array<Doc<"content"> & { progress: number; completed: boolean; watchedAt: number }>> => {
-    const userId = await getUserByClerkId(ctx, clerkUserId);
+  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryContent[]> => {
+    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
     const historyItems = await ctx.db
       .query("watchHistory")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
       .order("desc")
       .take(50);
 
-    const result: Array<Doc<"content"> & { progress: number; completed: boolean; watchedAt: number }> = [];
+    const result: WatchHistoryContent[] = [];
     for (const item of historyItems) {
       const content = await ctx.db.get(item.contentId);
       if (content) {
@@ -48,23 +71,26 @@ export const getMyWatchHistory = query({
           progress: item.progress,
           completed: item.completed,
           watchedAt: item.watchedAt,
+          positionSeconds: item.positionSeconds,
+          durationSeconds: item.durationSeconds
         });
       }
     }
     return result;
-  },
+  }
 });
 
 export const getContinueWatching = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<Array<Doc<"content"> & { progress: number }>> => {
-    const userId = await getUserByClerkId(ctx, clerkUserId);
+    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
     const historyItems = await ctx.db
       .query("watchHistory")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .filter((q) => q.eq(q.field("completed"), false))
+      .withIndex("by_user_completed_watched_at", (q) =>
+        q.eq("userId", userId).eq("completed", false)
+      )
       .order("desc")
       .take(10);
 
@@ -74,72 +100,106 @@ export const getContinueWatching = query({
       if (content) {
         result.push({
           ...content,
-          progress: item.progress,
+          progress: item.progress
         });
       }
     }
     return result;
-  },
+  }
 });
 
 export const getWatchProgress = query({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
-  handler: async (ctx, { clerkUserId, contentId }): Promise<number> => {
-    const userId = await getUserByClerkId(ctx, clerkUserId);
-    if (!userId) return 0;
+  handler: async (
+    ctx,
+    { clerkUserId, contentId }
+  ): Promise<{
+    progress: number;
+    positionSeconds: number;
+    durationSeconds: number;
+    completed: boolean;
+  }> => {
+    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+    if (!userId) {
+      return {
+        progress: 0,
+        positionSeconds: 0,
+        durationSeconds: 0,
+        completed: false
+      };
+    }
 
     const historyItem = await ctx.db
       .query("watchHistory")
-      .withIndex("by_user_content", (q) =>
-        q.eq("userId", userId).eq("contentId", contentId)
-      )
+      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
 
-    return historyItem?.progress || 0;
-  },
+    return {
+      progress: historyItem?.progress || 0,
+      positionSeconds: historyItem?.positionSeconds || 0,
+      durationSeconds: historyItem?.durationSeconds || 0,
+      completed: historyItem?.completed || false
+    };
+  }
 });
 
 export const updateProgress = mutation({
-  args: { 
-    clerkUserId: v.string(), 
+  args: {
+    clerkUserId: v.string(),
     contentId: v.id("content"),
     progress: v.number(),
-    completed: v.optional(v.boolean())
+    completed: v.optional(v.boolean()),
+    positionSeconds: v.optional(v.number()),
+    durationSeconds: v.optional(v.number())
   },
-  handler: async (ctx, { clerkUserId, contentId, progress, completed }): Promise<void> => {
+  handler: async (
+    ctx,
+    { clerkUserId, contentId, progress, completed, positionSeconds, durationSeconds }
+  ): Promise<void> => {
     const userId = await getUserByClerkId(ctx, clerkUserId);
     if (!userId) throw new Error("User not found");
+    const normalizedProgress = normalizeProgress(progress);
+    const normalizedPositionSeconds =
+      positionSeconds !== undefined && Number.isFinite(positionSeconds)
+        ? Math.max(0, positionSeconds)
+        : undefined;
+    const normalizedDurationSeconds =
+      durationSeconds !== undefined && Number.isFinite(durationSeconds)
+        ? Math.max(0, durationSeconds)
+        : undefined;
 
     const existing = await ctx.db
       .query("watchHistory")
-      .withIndex("by_user_content", (q) =>
-        q.eq("userId", userId).eq("contentId", contentId)
-      )
+      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
 
-    const isCompleted = completed ?? (progress >= 95);
+    const isCompleted = completed ?? normalizedProgress >= 95;
 
     if (existing) {
       await ctx.db.patch(existing._id, {
-        progress,
+        progress: normalizedProgress,
+        positionSeconds: normalizedPositionSeconds,
+        durationSeconds: normalizedDurationSeconds,
         completed: isCompleted,
-        watchedAt: Date.now(),
+        watchedAt: Date.now()
       });
     } else {
       await ctx.db.insert("watchHistory", {
         userId,
         contentId,
-        progress,
+        progress: normalizedProgress,
+        positionSeconds: normalizedPositionSeconds,
+        durationSeconds: normalizedDurationSeconds,
         completed: isCompleted,
-        watchedAt: Date.now(),
+        watchedAt: Date.now()
       });
     }
-  },
+  }
 });
 
 export const markAsCompleted = mutation({
-  args: { 
-    clerkUserId: v.string(), 
+  args: {
+    clerkUserId: v.string(),
     contentId: v.id("content")
   },
   handler: async (ctx, { clerkUserId, contentId }): Promise<void> => {
@@ -148,16 +208,14 @@ export const markAsCompleted = mutation({
 
     const existing = await ctx.db
       .query("watchHistory")
-      .withIndex("by_user_content", (q) =>
-        q.eq("userId", userId).eq("contentId", contentId)
-      )
+      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
 
     if (existing) {
       await ctx.db.patch(existing._id, {
         progress: 100,
         completed: true,
-        watchedAt: Date.now(),
+        watchedAt: Date.now()
       });
     } else {
       await ctx.db.insert("watchHistory", {
@@ -165,15 +223,15 @@ export const markAsCompleted = mutation({
         contentId,
         progress: 100,
         completed: true,
-        watchedAt: Date.now(),
+        watchedAt: Date.now()
       });
     }
-  },
+  }
 });
 
 export const removeFromHistory = mutation({
-  args: { 
-    clerkUserId: v.string(), 
+  args: {
+    clerkUserId: v.string(),
     contentId: v.id("content")
   },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
@@ -182,9 +240,7 @@ export const removeFromHistory = mutation({
 
     const existing = await ctx.db
       .query("watchHistory")
-      .withIndex("by_user_content", (q) =>
-        q.eq("userId", userId).eq("contentId", contentId)
-      )
+      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
 
     if (existing) {
@@ -192,5 +248,5 @@ export const removeFromHistory = mutation({
       return true;
     }
     return false;
-  },
+  }
 });

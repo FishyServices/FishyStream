@@ -18,7 +18,7 @@ export function ContentRow({ title, content, onPlay }: ContentRowProps) {
       const scrollAmount = 600;
       scrollRef.current.scrollBy({
         left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
+        behavior: "smooth"
       });
     }
   };
@@ -55,7 +55,7 @@ export function ContentRow({ title, content, onPlay }: ContentRowProps) {
           className="flex gap-4 overflow-x-auto scrollbar-hide px-4 sm:px-6 lg:px-12 pb-4"
           style={{
             scrollbarWidth: "none",
-            msOverflowStyle: "none",
+            msOverflowStyle: "none"
           }}
         >
           {content.map((item) => (

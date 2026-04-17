@@ -26,10 +26,10 @@ export function TVShowsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="pt-24 px-4 sm:px-6 lg:px-12">
         <h1 className="text-3xl font-bold text-white mb-8">TV Shows</h1>
-        
+
         {tvShows.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-white/60">No TV shows available. Sync from TMDB to get started.</p>

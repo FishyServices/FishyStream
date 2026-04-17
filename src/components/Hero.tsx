@@ -17,11 +17,7 @@ export function Hero({ content, onPlay }: HeroProps) {
   return (
     <div className="relative w-full h-[85vh] min-h-[600px]">
       <div className="absolute inset-0">
-        <img
-          src={content.backdropUrl}
-          alt={content.title}
-          className="w-full h-full object-cover"
-        />
+        <img src={content.backdropUrl} alt={content.title} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
       </div>
@@ -29,10 +25,7 @@ export function Hero({ content, onPlay }: HeroProps) {
       <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 lg:px-12 pb-16 pt-32">
         <div className="max-w-3xl space-y-6">
           <div className="flex items-center gap-3 flex-wrap">
-            <Badge
-              variant="secondary"
-              className="bg-primary text-primary-foreground font-semibold"
-            >
+            <Badge variant="secondary" className="bg-primary text-primary-foreground font-semibold">
               {content.type === "movie" ? "Movie" : "TV Series"}
             </Badge>
             {content.new && (
@@ -61,7 +54,11 @@ export function Hero({ content, onPlay }: HeroProps) {
             <span className="text-green-400 font-semibold">{content.rating}</span>
             <span>{content.year}</span>
             {content.duration && <span>{content.duration}</span>}
-            {content.seasons && <span>{content.seasons} Season{content.seasons > 1 ? "s" : ""}</span>}
+            {content.seasons && (
+              <span>
+                {content.seasons} Season{content.seasons > 1 ? "s" : ""}
+              </span>
+            )}
             <div className="flex gap-1">
               {content.genre.map((g, i) => (
                 <span key={g}>

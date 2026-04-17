@@ -3,34 +3,27 @@ import { query, mutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 
-// Helper to get user by clerkId (queries)
 async function getUserByClerkIdQuery(
   ctx: QueryCtx,
   clerkUserId: string
 ): Promise<Id<"users"> | null> {
   let user = await ctx.db
     .query("users")
-    .withIndex("by_clerk_user_id", (q: any) =>
-      q.eq("clerkUserId", clerkUserId)
-    )
+    .withIndex("by_clerk_user_id", (q: any) => q.eq("clerkUserId", clerkUserId))
     .first();
 
   return user?._id ?? null;
 }
 
-// Helper to get or create user by clerkId (mutations)
 async function getUserByClerkId(
   ctx: MutationCtx,
   clerkUserId: string
 ): Promise<Id<"users"> | null> {
   let user = await ctx.db
     .query("users")
-    .withIndex("by_clerk_user_id", (q: any) =>
-      q.eq("clerkUserId", clerkUserId)
-    )
+    .withIndex("by_clerk_user_id", (q: any) => q.eq("clerkUserId", clerkUserId))
     .first();
 
-  // Auto-create user if not exists
   if (!user) {
     const userId = await ctx.db.insert("users", {
       clerkUserId: clerkUserId,
@@ -63,7 +56,7 @@ export const getMyWatchlist = query({
       }
     }
     return contentItems;
-  },
+  }
 });
 
 export const isInWatchlist = query({
@@ -74,13 +67,11 @@ export const isInWatchlist = query({
 
     const existing = await ctx.db
       .query("watchlist")
-      .withIndex("by_user_content", (q) =>
-        q.eq("userId", userId).eq("contentId", contentId)
-      )
+      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
 
     return !!existing;
-  },
+  }
 });
 
 export const add = mutation({
@@ -94,9 +85,7 @@ export const add = mutation({
 
     const existing = await ctx.db
       .query("watchlist")
-      .withIndex("by_user_content", (q) =>
-        q.eq("userId", userId).eq("contentId", contentId)
-      )
+      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
 
     if (existing) return true;
@@ -104,10 +93,10 @@ export const add = mutation({
     await ctx.db.insert("watchlist", {
       userId,
       contentId,
-      addedAt: Date.now(),
+      addedAt: Date.now()
     });
     return true;
-  },
+  }
 });
 
 export const remove = mutation({
@@ -121,9 +110,7 @@ export const remove = mutation({
 
     const existing = await ctx.db
       .query("watchlist")
-      .withIndex("by_user_content", (q) =>
-        q.eq("userId", userId).eq("contentId", contentId)
-      )
+      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
 
     if (existing) {
@@ -131,5 +118,5 @@ export const remove = mutation({
       return true;
     }
     return false;
-  },
+  }
 });

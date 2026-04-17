@@ -42,13 +42,15 @@ export function MyListPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="pt-24 px-4 sm:px-6 lg:px-12">
         <h1 className="text-3xl font-bold text-white mb-8">My List</h1>
-        
+
         {watchlist.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-white/60">Your watchlist is empty. Add movies and shows to watch later.</p>
+            <p className="text-white/60">
+              Your watchlist is empty. Add movies and shows to watch later.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">

@@ -54,16 +54,18 @@ export function WatchHistoryPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="pt-24 px-4 sm:px-6 lg:px-12">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-white">Watch History</h1>
         </div>
-        
+
         {history.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-white/60 mb-4">Your watch history is empty.</p>
-            <p className="text-white/40 text-sm">Start watching movies and shows to see them here.</p>
+            <p className="text-white/40 text-sm">
+              Start watching movies and shows to see them here.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -87,10 +89,7 @@ export function WatchHistoryPage() {
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-2">
                   <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-primary"
-                      style={{ width: `${item.progress}%` }}
-                    />
+                    <div className="h-full bg-primary" style={{ width: `${item.progress}%` }} />
                   </div>
                   <p className="text-xs text-white/70 mt-1">
                     {item.completed ? "Completed" : `${Math.round(item.progress)}% watched`}

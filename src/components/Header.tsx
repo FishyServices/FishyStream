@@ -7,7 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
@@ -21,7 +21,7 @@ const navLinks = [
   { label: "New", href: "/new-releases" },
   { label: "Popular", href: "/popular" },
   { label: "My List", href: "/my-list" },
-  { label: "History", href: "/history" },
+  { label: "History", href: "/history" }
 ];
 
 export function Header({ onSearch }: HeaderProps) {
@@ -87,11 +87,7 @@ export function Header({ onSearch }: HeaderProps) {
             </div>
           </form>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/10 relative"
-          >
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 relative">
             <Bell className="w-5 h-5" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
           </Button>
@@ -99,16 +95,15 @@ export function Header({ onSearch }: HeaderProps) {
           {isSignedIn ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex items-center gap-2 hover:bg-white/10"
-                >
+                <Button variant="ghost" className="flex items-center gap-2 hover:bg-white/10">
                   <img
                     src={user?.imageUrl || "https://via.placeholder.com/32"}
                     alt="Profile"
                     className="w-8 h-8 rounded-full object-cover"
                   />
-                  <span className="hidden sm:block text-sm">{user?.firstName || user?.username}</span>
+                  <span className="hidden sm:block text-sm">
+                    {user?.firstName || user?.username}
+                  </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">

@@ -60,6 +60,6 @@ export function useAllCategories(): ContentCategory[] {
     { id: "popular", title: "Popular on FishyStream", content: popular },
     { id: "new", title: "New Releases", content: newReleases },
     { id: "movies", title: "Movies", content: movies },
-    { id: "tvshows", title: "TV Shows", content: tvShows },
+    { id: "tvshows", title: "TV Shows", content: tvShows }
   ].filter((cat) => cat.content.length > 0);
 }
