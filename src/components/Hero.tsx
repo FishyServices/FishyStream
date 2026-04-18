@@ -3,8 +3,7 @@ import { Play, Info, Plus, Check, Volume2, VolumeX, ChevronDown } from "lucide-r
 import { Button } from "@/components/ui/button";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { ContentModal } from "./ContentModal";
-import { useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
-import { useIsInWatchlistGlobal } from "@/hooks/useGlobalWatchlist";
+import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
 
@@ -35,9 +34,8 @@ export function Hero({ content, onPlay }: HeroProps) {
   const [showTrailer, setShowTrailer] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  const isInWatchlist = useIsInWatchlistGlobal(content._id);
-  const addToWatchlist = useAddToWatchlist();
-  const removeFromWatchlist = useRemoveFromWatchlist();
+  const isInWatchlist = useIsInWatchlist(content._id);
+  const toggleWatchlist = useToggleWatchlist();
 
   useEffect(() => {
     const timer = setTimeout(() => setLoaded(true), 100);
@@ -50,13 +48,8 @@ export function Hero({ content, onPlay }: HeroProps) {
       return;
     }
     try {
-      if (isInWatchlist) {
-        await removeFromWatchlist(content._id);
-        toast.success("Removed from My List");
-      } else {
-        await addToWatchlist(content._id);
-        toast.success("Added to My List");
-      }
+      await toggleWatchlist(content._id);
+      toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Something went wrong");
     }

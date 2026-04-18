@@ -1,8 +1,7 @@
 import { Play, Plus, Check, ChevronDown, Star } from "lucide-react";
 import { useState } from "react";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
-import { useIsInWatchlistGlobal } from "@/hooks/useGlobalWatchlist";
+import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
 import { toast } from "sonner";
 import { useUser } from "@clerk/react";
@@ -26,9 +25,8 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
   const [imgError, setImgError] = useState(false);
   const { isSignedIn } = useUser();
 
-  const isInWatchlist = useIsInWatchlistGlobal(content._id);
-  const addToWatchlist = useAddToWatchlist();
-  const removeFromWatchlist = useRemoveFromWatchlist();
+  const isInWatchlist = useIsInWatchlist(content._id);
+  const toggleWatchlist = useToggleWatchlist();
 
   const handleWatchlist = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -38,15 +36,9 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
       return;
     }
     try {
-      if (isInWatchlist) {
-        await removeFromWatchlist(content._id);
-        toast.success("Removed from My List");
-      } else {
-        await addToWatchlist(content._id);
-        toast.success("Added to My List");
-      }
-    } catch (err) {
-      console.error("Watchlist error:", err);
+      await toggleWatchlist(content._id);
+      toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
+    } catch {
       toast.error("Failed to update watchlist");
     }
   };
@@ -198,7 +190,6 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
                     {content.genre.slice(0, 2).join(" · ")}
                   </p>
                 )}
-
                 {hasProgress && (
                   <div className="mt-2">
                     <div className="flex justify-between text-[10px] text-white/50 mb-1">

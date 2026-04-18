@@ -19,8 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
-import { useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
-import { useIsInWatchlistGlobal } from "@/hooks/useGlobalWatchlist";
+import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
@@ -97,9 +96,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
 
-  const isInWatchlist = useIsInWatchlistGlobal(content?._id);
-  const addToWatchlist = useAddToWatchlist();
-  const removeFromWatchlist = useRemoveFromWatchlist();
+  const isInWatchlist = useIsInWatchlist(content?._id);
+  const toggleWatchlist = useToggleWatchlist();
 
   const dbSeason = useQuery(
     api.seasons.getSeason,
@@ -121,32 +119,24 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       ? content.tmdbId
       : parseInt(content.tmdbId, 10) || undefined
     : undefined;
-  const contentType = content?.type;
 
-  const { credits } = useContentCredits(tmdbIdNum, contentType, isOpen);
-  const { videos } = useContentVideos(tmdbIdNum, contentType, isOpen);
-  const { related } = useRelatedContent(tmdbIdNum, contentType, 8, isOpen);
+  const { credits } = useContentCredits(tmdbIdNum, content?.type, isOpen);
+  const { videos } = useContentVideos(tmdbIdNum, content?.type, isOpen);
+  const { related } = useRelatedContent(tmdbIdNum, content?.type, 8, isOpen);
 
   useEffect(() => {
     if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
-    if (allSeasons === undefined) return;
-    if (allSeasons.length > 0) return;
+    if (allSeasons === undefined || allSeasons.length > 0) return;
 
-    const run = async () => {
-      setIsSyncing(true);
-      try {
-        await syncSeasons({
-          tmdbId: content.tmdbId!,
-          contentId: content._id,
-          totalSeasons: content.seasons ?? 1
-        });
-      } catch {
-      } finally {
-        setIsSyncing(false);
-      }
-    };
-    run();
-  }, [content, allSeasons, syncSeasons]);
+    setIsSyncing(true);
+    syncSeasons({
+      tmdbId: content.tmdbId!,
+      contentId: content._id,
+      totalSeasons: content.seasons ?? 1
+    })
+      .catch(() => {})
+      .finally(() => setIsSyncing(false));
+  }, [content, allSeasons]);
 
   useEffect(() => {
     if (!content) return;
@@ -160,8 +150,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
   const isTV = content.type === "tv";
   const totalSeasons = content.seasons ?? 1;
-  const hasSeasonData = dbSeason && dbSeason.episodes.length > 0;
-  const episodes = hasSeasonData ? dbSeason.episodes : [];
+  const episodes = dbSeason?.episodes ?? [];
 
   const handleWatchlist = async () => {
     if (!isSignedIn) {
@@ -169,13 +158,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       return;
     }
     try {
-      if (isInWatchlist) {
-        await removeFromWatchlist(content._id);
-        toast.success("Removed from My List");
-      } else {
-        await addToWatchlist(content._id);
-        toast.success("Added to My List");
-      }
+      await toggleWatchlist(content._id);
+      toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Failed to update list");
     }
@@ -195,7 +179,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl p-0 overflow-hidden bg-[hsl(220,20%,5%)] border-white/10 max-h-[90vh] flex flex-col">
-        <DialogTitle className="sr-only">{content?.title || "Content Details"}</DialogTitle>
+        <DialogTitle className="sr-only">{content.title}</DialogTitle>
+
         {/* Hero */}
         <div className="relative h-[280px] sm:h-[340px] flex-shrink-0">
           <img
@@ -204,136 +189,93 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             className="w-full h-full object-cover"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[hsl(220,20%,5%)] via-[hsl(220,20%,5%)/50] to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[hsl(220,20%,5%)/80] to-transparent" />
-
+          <div className="absolute inset-0 bg-gradient-to-t from-[hsl(220,20%,5%)] via-black/40 to-transparent" />
           <button
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors z-10"
             onClick={onClose}
-            className="absolute top-4 right-4 w-9 h-9 rounded-full glass border border-white/20 flex items-center justify-center hover:bg-white/20 transition-all z-10"
           >
-            <X className="w-4 h-4 text-white" />
+            <X className="w-4 h-4" />
           </button>
-
-          <div className="absolute top-4 left-4">
-            <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 glass rounded-full border border-white/20 text-white/80">
-              {isTV ? <Tv className="w-3.5 h-3.5" /> : <Film className="w-3.5 h-3.5" />}
-              {isTV ? "TV Series" : "Movie"}
-            </span>
-          </div>
-
-          <div className="absolute bottom-0 left-0 right-0 p-6">
-            {content.logoUrl ? (
-              <img
-                src={content.logoUrl}
-                alt={content.title}
-                className="h-14 w-auto object-contain object-left mb-3"
-              />
-            ) : (
-              <h2 className="font-display text-3xl font-black text-white mb-3 leading-none">
-                {content.title}
-              </h2>
-            )}
-
-            <div className="flex items-center gap-3 mb-4 flex-wrap">
-              <span
-                className={`text-xs font-bold rating-${content.rating} border border-current px-2 py-0.5 rounded`}
-              >
-                {content.rating}
-              </span>
-              <span className="text-sm text-white/70">{content.year}</span>
-              {content.duration && (
-                <span className="flex items-center gap-1 text-sm text-white/70">
-                  <Clock className="w-3.5 h-3.5" />
-                  {content.duration}
-                </span>
-              )}
-              {content.seasons && (
-                <span className="flex items-center gap-1 text-sm text-white/70">
-                  <Calendar className="w-3.5 h-3.5" />
-                  {content.seasons} Season{content.seasons > 1 ? "s" : ""}
-                </span>
-              )}
-              {content.voteAverage && content.voteAverage > 0 && (
-                <span className="flex items-center gap-1 text-sm text-yellow-400 font-medium">
-                  <Star className="w-3.5 h-3.5 fill-yellow-400" />
-                  {content.voteAverage.toFixed(1)}
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="absolute bottom-0 left-0 right-0 p-5">
+            <h2 className="font-display text-2xl sm:text-3xl font-black text-white mb-3 leading-tight">
+              {content.title}
+            </h2>
+            <div className="flex items-center gap-3">
               <Button
-                className="bg-white text-black hover:bg-white/90 font-display font-bold"
+                className="bg-white text-black hover:bg-white/90 font-semibold"
                 onClick={() => handlePlay()}
               >
                 <Play className="w-4 h-4 mr-2 fill-black" />
-                {isTV ? `S${selectedSeason} E${selectedEpisode}` : "Play"}
+                Play
+                {isTV ? ` S${selectedSeason} E${selectedEpisode}` : ""}
               </Button>
-              <Button
-                variant="secondary"
-                className="glass border-white/20 text-white hover:bg-white/15"
+              <button
+                className="w-10 h-10 rounded-full border-2 border-white/50 glass flex items-center justify-center hover:border-white transition-colors"
                 onClick={handleWatchlist}
+                title={isInWatchlist ? "Remove from My List" : "Add to My List"}
               >
                 {isInWatchlist ? (
-                  <>
-                    <Check className="w-4 h-4 mr-2 text-green-400" />
-                    In My List
-                  </>
+                  <Check className="w-5 h-5 text-green-400" />
                 ) : (
-                  <>
-                    <Plus className="w-4 h-4 mr-2" />
-                    My List
-                  </>
+                  <Plus className="w-5 h-5 text-white" />
                 )}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin">
-          <div className="p-6 space-y-6">
-            <div>
-              <p className="text-sm text-white/80 leading-relaxed">{content.description}</p>
-              {content.tagline && (
-                <p className="text-sm text-white/40 italic mt-2">"{content.tagline}"</p>
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 scrollbar-thin">
+          <div className="p-5 space-y-6">
+            {/* Meta row */}
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              {content.voteAverage && content.voteAverage > 0 && (
+                <span className="flex items-center gap-1 text-yellow-400 font-semibold">
+                  <Star className="w-4 h-4 fill-yellow-400" />
+                  {content.voteAverage.toFixed(1)}
+                </span>
               )}
+              <span className="text-white/60 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5" />
+                {content.year}
+              </span>
+              {content.duration && (
+                <span className="text-white/60 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  {content.duration}
+                </span>
+              )}
+              <span
+                className={`font-semibold text-xs px-2 py-0.5 rounded border border-current rating-${content.rating}`}
+              >
+                {content.rating}
+              </span>
+              <span className="flex items-center gap-1 text-white/40">
+                {isTV ? <Tv className="w-3.5 h-3.5" /> : <Film className="w-3.5 h-3.5" />}
+                {isTV ? `${totalSeasons} Season${totalSeasons > 1 ? "s" : ""}` : "Movie"}
+              </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              {content.genre.length > 0 && (
-                <div>
-                  <span className="text-white/40">Genres:</span>
-                  <span className="text-white ml-2">{content.genre.slice(0, 4).join(", ")}</span>
-                </div>
-              )}
-              {content.imdbId && (
-                <div>
-                  <span className="text-white/40">IMDb:</span>
-                  <a
-                    href={`https://imdb.com/title/${content.imdbId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-yellow-400 hover:text-yellow-300 ml-2 transition-colors"
+            {/* Description */}
+            {content.description && (
+              <p className="text-sm text-white/70 leading-relaxed">{content.description}</p>
+            )}
+
+            {/* Genre pills */}
+            {content.genre.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {content.genre.map((g) => (
+                  <span
+                    key={g}
+                    className="text-xs px-3 py-1 rounded-full bg-white/8 border border-white/10 text-white/60"
                   >
-                    {content.imdbId}
-                  </a>
-                </div>
-              )}
-              {content.status && (
-                <div>
-                  <span className="text-white/40">Status:</span>
-                  <span className="text-white ml-2">{content.status}</span>
-                </div>
-              )}
-              {content.originalLanguage && (
-                <div>
-                  <span className="text-white/40">Language:</span>
-                  <span className="text-white ml-2 uppercase">{content.originalLanguage}</span>
-                </div>
-              )}
-            </div>
+                    {g}
+                  </span>
+                ))}
+              </div>
+            )}
 
+            {/* Progress */}
             {content.progress !== undefined && content.progress > 0 && (
               <div className="p-3 bg-white/5 rounded-lg border border-white/8">
                 <div className="flex justify-between text-xs text-white/60 mb-2">
@@ -402,8 +344,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                 )}
 
                 {isSyncing ? (
-                  <p className="text-xs text-white/30 text-center py-8">Loading episodes...</p>
-                ) : hasSeasonData ? (
+                  <p className="text-xs text-white/30 text-center py-8">Loading episodes…</p>
+                ) : episodes.length > 0 ? (
                   <div className="space-y-1">
                     {episodes.map((ep) => (
                       <EpisodePill

@@ -1,11 +1,9 @@
 import { useQuery, useAction } from "convex/react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { useState, useEffect, useCallback } from "react";
 
-// ─── TMDB action-based hooks (used in ContentModal) ───────────────────────────
-
-export interface TMDBMediaItem {
+export interface TMDBItem {
   tmdbId: number;
   title: string;
   description: string;
@@ -16,38 +14,73 @@ export interface TMDBMediaItem {
   rating: string;
   voteAverage?: number;
   popularity?: number;
+  seasons?: number;
+  imdbId?: string;
   type: "movie" | "tv";
+}
+
+export function useFeaturedContent() {
+  return useQuery(api.content.getFeatured);
+}
+
+export function useTrendingContent() {
+  return useQuery(api.content.getTrending);
+}
+
+export function usePopularContent() {
+  return useQuery(api.content.getPopular);
+}
+
+export function useNewReleases() {
+  return useQuery(api.content.getNewReleases);
+}
+
+export function useMovies(limit?: number) {
+  return useQuery(api.content.getMovies, { limit });
+}
+
+export function useTVShows(limit?: number) {
+  return useQuery(api.content.getTVShows, { limit });
+}
+
+export function useContentByTmdbId(tmdbId: string | undefined) {
+  return useQuery(api.content.getByTmdbId, tmdbId ? { tmdbId } : "skip");
+}
+
+export function useContentByGenre(genre: string, limit?: number) {
+  return useQuery(api.content.getByGenre, genre ? { genre, limit } : "skip");
 }
 
 export function useRelatedContent(
   tmdbId: number | undefined,
   type: "movie" | "tv" | undefined,
-  limit: number = 10,
-  enabled: boolean = true
+  limit = 10,
+  enabled = true
 ) {
-  const [related, setRelated] = useState<TMDBMediaItem[]>([]);
+  const [related, setRelated] = useState<TMDBItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const getRelated = useAction(api.tmdb.getRelated);
+  const cancelRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || !tmdbId || !type) {
       setRelated([]);
       return;
     }
-    let cancelled = false;
+    cancelRef.current = false;
     setIsLoading(true);
-    const timeout = setTimeout(async () => {
+    const t = setTimeout(async () => {
       try {
-        const results = await getRelated({ tmdbId, type, limit });
-        if (!cancelled) setRelated(results as TMDBMediaItem[]);
+        const res = await getRelated({ tmdbId, type, limit });
+        if (!cancelRef.current) setRelated(res as TMDBItem[]);
       } catch {}
-      if (!cancelled) setIsLoading(false);
+      if (!cancelRef.current) setIsLoading(false);
     }, 100);
     return () => {
-      clearTimeout(timeout);
-      cancelled = true;
+      clearTimeout(t);
+      cancelRef.current = true;
     };
-  }, [tmdbId, type, limit, enabled, getRelated]);
+  }, [tmdbId, type, limit, enabled]);
 
   return { related, isLoading };
 }
@@ -55,7 +88,7 @@ export function useRelatedContent(
 export function useContentCredits(
   tmdbId: number | undefined,
   type: "movie" | "tv" | undefined,
-  enabled: boolean = true
+  enabled = true
 ) {
   const [credits, setCredits] = useState<{
     cast: Array<{
@@ -70,26 +103,27 @@ export function useContentCredits(
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const getCredits = useAction(api.tmdb.getCredits);
+  const cancelRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || !tmdbId || !type) {
       setCredits(null);
       return;
     }
-    let cancelled = false;
+    cancelRef.current = false;
     setIsLoading(true);
-    const timeout = setTimeout(async () => {
+    const t = setTimeout(async () => {
       try {
-        const results = await getCredits({ tmdbId, type });
-        if (!cancelled) setCredits(results);
+        const res = await getCredits({ tmdbId, type });
+        if (!cancelRef.current) setCredits(res);
       } catch {}
-      if (!cancelled) setIsLoading(false);
+      if (!cancelRef.current) setIsLoading(false);
     }, 150);
     return () => {
-      clearTimeout(timeout);
-      cancelled = true;
+      clearTimeout(t);
+      cancelRef.current = true;
     };
-  }, [tmdbId, type, enabled, getCredits]);
+  }, [tmdbId, type, enabled]);
 
   return { credits, isLoading };
 }
@@ -97,99 +131,40 @@ export function useContentCredits(
 export function useContentVideos(
   tmdbId: number | undefined,
   type: "movie" | "tv" | undefined,
-  enabled: boolean = true
+  enabled = true
 ) {
   const [videos, setVideos] = useState<
     Array<{ key: string; name: string; type: string; official: boolean }>
   >([]);
   const [isLoading, setIsLoading] = useState(false);
   const getVideos = useAction(api.tmdb.getVideos);
+  const cancelRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || !tmdbId || !type) {
       setVideos([]);
       return;
     }
-    let cancelled = false;
+    cancelRef.current = false;
     setIsLoading(true);
-    const timeout = setTimeout(async () => {
+    const t = setTimeout(async () => {
       try {
-        const results = await getVideos({ tmdbId, type });
-        if (!cancelled) setVideos(results);
+        const res = await getVideos({ tmdbId, type });
+        if (!cancelRef.current) setVideos(res);
       } catch {}
-      if (!cancelled) setIsLoading(false);
+      if (!cancelRef.current) setIsLoading(false);
     }, 200);
     return () => {
-      clearTimeout(timeout);
-      cancelled = true;
+      clearTimeout(t);
+      cancelRef.current = true;
     };
-  }, [tmdbId, type, enabled, getVideos]);
+  }, [tmdbId, type, enabled]);
 
   return { videos, isLoading };
 }
 
-// ─── Convex DB query hooks ────────────────────────────────────────────────────
-
-export function useFeaturedContent(): Doc<"content"> | null | undefined {
-  return useQuery(api.content.getFeatured);
-}
-
-export function useTrendingContent(): Doc<"content">[] | undefined {
-  return useQuery(api.content.getTrending);
-}
-
-export function usePopularContent(): Doc<"content">[] | undefined {
-  return useQuery(api.content.getPopular);
-}
-
-export function useNewReleases(): Doc<"content">[] | undefined {
-  return useQuery(api.content.getNewReleases);
-}
-
-export function useMovies(limit?: number): Doc<"content">[] | undefined {
-  return useQuery(api.content.getMovies, { limit });
-}
-
-export function useTVShows(limit?: number): Doc<"content">[] | undefined {
-  return useQuery(api.content.getTVShows, { limit });
-}
-
-export function useContentByTmdbId(tmdbId: string | undefined): Doc<"content"> | null | undefined {
-  return useQuery(api.content.getByTmdbId, tmdbId ? { tmdbId } : "skip");
-}
-
-export function useSearchContent(query: string): Doc<"content">[] | undefined {
-  return useQuery(api.content.search, query.trim() ? { query } : "skip");
-}
-
-export function useContentByGenre(genre: string, limit?: number): Doc<"content">[] | undefined {
-  return useQuery(api.content.getByGenre, genre ? { genre, limit } : "skip");
-}
-
-// ─── Combined search (local DB + TMDB) ───────────────────────────────────────
-
-export interface SearchResult {
-  tmdbId: number;
-  title: string;
-  description: string;
-  posterUrl: string;
-  backdropUrl: string;
-  year: number;
-  genre: string[];
-  rating: string;
-  voteAverage?: number;
-  seasons?: number;
-  imdbId?: string;
-  type: "movie" | "tv";
-  popularity: number;
-}
-
-export function useSearchAll(query: string): {
-  results: SearchResult[];
-  loading: boolean;
-  error: string | null;
-} {
-  const [results, setResults] = useState<SearchResult[]>([]);
+export function useSearchAll(query: string) {
+  const [results, setResults] = useState<TMDBItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -203,11 +178,10 @@ export function useSearchAll(query: string): {
       setError(null);
       return;
     }
-
     setLoading(true);
     setError(null);
 
-    const id = setTimeout(async () => {
+    const t = setTimeout(async () => {
       try {
         const [movies, shows] = await Promise.all([
           searchMovies({ query }),
@@ -216,8 +190,8 @@ export function useSearchAll(query: string): {
         const combined = [
           ...movies.map((m) => ({ ...m, type: "movie" as const })),
           ...shows.map((s) => ({ ...s, type: "tv" as const }))
-        ].sort((a, b) => b.popularity - a.popularity);
-        setResults(combined);
+        ].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+        setResults(combined as TMDBItem[]);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Search failed");
       } finally {
@@ -225,13 +199,11 @@ export function useSearchAll(query: string): {
       }
     }, 350);
 
-    return () => clearTimeout(id);
+    return () => clearTimeout(t);
   }, [query]);
 
   return { results, loading, error };
 }
-
-// ─── Home page categories ─────────────────────────────────────────────────────
 
 export interface ContentCategory {
   id: string;

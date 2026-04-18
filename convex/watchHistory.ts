@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, action } from "./_generated/server";
+import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 
@@ -150,6 +151,56 @@ export const getWatchProgress = query({
       seasonNumber: historyItem?.seasonNumber ?? null,
       episodeNumber: historyItem?.episodeNumber ?? null
     };
+  }
+});
+
+async function fetchAllWatchProgress(ctx: QueryCtx, clerkUserId: string) {
+  const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+  if (!userId) return [];
+
+  const historyItems = await ctx.db
+    .query("watchHistory")
+    .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
+    .order("desc")
+    .take(100);
+
+  return historyItems.map((item) => ({
+    contentId: item.contentId,
+    progress: item.progress || 0,
+    positionSeconds: item.positionSeconds || 0,
+    durationSeconds: item.durationSeconds || 0,
+    completed: item.completed || false,
+    seasonNumber: item.seasonNumber ?? null,
+    episodeNumber: item.episodeNumber ?? null,
+    watchedAt: item.watchedAt
+  }));
+}
+
+export const getAllWatchProgress = query({
+  args: { clerkUserId: v.string() },
+  handler: async (ctx, { clerkUserId }) => {
+    return fetchAllWatchProgress(ctx, clerkUserId);
+  }
+});
+
+export const getAllWatchProgressAction = action({
+  args: { clerkUserId: v.string() },
+  handler: async (
+    ctx,
+    { clerkUserId }
+  ): Promise<
+    Array<{
+      contentId: string;
+      progress: number;
+      positionSeconds: number;
+      durationSeconds: number;
+      completed: boolean;
+      seasonNumber: number | null;
+      episodeNumber: number | null;
+      watchedAt: number;
+    }>
+  > => {
+    return ctx.runQuery(api.watchHistory.getAllWatchProgress, { clerkUserId });
   }
 });
 

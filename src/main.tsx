@@ -15,42 +15,40 @@ import { NewReleasesPage } from "./pages/NewReleasesPage";
 import { MyListPage } from "./pages/MyListPage";
 import { WatchHistoryPage } from "./pages/WatchHistoryPage";
 import { SearchPage } from "./pages/SearchPage";
-import { GlobalWatchlistProvider } from "./hooks/useGlobalWatchlist";
+import { GlobalWatchlistProvider } from "./hooks/useWatchlist";
+import { WatchProgressProvider } from "./hooks/useWatchProgress";
 import "./index.css";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
-const elem = document.getElementById("root")!;
-
-createRoot(elem).render(
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ClerkProvider
       publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY!}
       appearance={{
         baseTheme: dark,
-        variables: {
-          colorPrimary: "hsl(2 71% 56%)",
-          colorText: "white"
-        }
+        variables: { colorPrimary: "hsl(2 71% 56%)", colorText: "white" }
       }}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <GlobalWatchlistProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/sign-in/*" element={<SignInPage />} />
-              <Route path="/sign-up/*" element={<SignUpPage />} />
-              <Route path="/watch/:id" element={<WatchPage />} />
-              <Route path="/movies" element={<MoviesPage />} />
-              <Route path="/tv-shows" element={<TVShowsPage />} />
-              <Route path="/new-releases" element={<NewReleasesPage />} />
-              <Route path="/my-list" element={<MyListPage />} />
-              <Route path="/history" element={<WatchHistoryPage />} />
-              <Route path="/search" element={<SearchPage />} />
-              <Route path="/" element={<App />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
+          <WatchProgressProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/sign-in/*" element={<SignInPage />} />
+                <Route path="/sign-up/*" element={<SignUpPage />} />
+                <Route path="/watch/:id" element={<WatchPage />} />
+                <Route path="/movies" element={<MoviesPage />} />
+                <Route path="/tv-shows" element={<TVShowsPage />} />
+                <Route path="/new-releases" element={<NewReleasesPage />} />
+                <Route path="/my-list" element={<MyListPage />} />
+                <Route path="/history" element={<WatchHistoryPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/" element={<App />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </WatchProgressProvider>
         </GlobalWatchlistProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
