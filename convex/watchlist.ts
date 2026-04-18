@@ -74,6 +74,29 @@ export const isInWatchlist = query({
   }
 });
 
+export const areInWatchlist = query({
+  args: { clerkUserId: v.string(), contentIds: v.array(v.id("content")) },
+  handler: async (ctx, { clerkUserId, contentIds }): Promise<string[]> => {
+    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+    if (!userId) return [];
+
+    const inWatchlist: string[] = [];
+
+    for (const contentId of contentIds) {
+      const existing = await ctx.db
+        .query("watchlist")
+        .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
+        .first();
+
+      if (existing) {
+        inWatchlist.push(contentId);
+      }
+    }
+
+    return inWatchlist;
+  }
+});
+
 export const add = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {

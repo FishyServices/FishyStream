@@ -35,16 +35,21 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
       toast.error("Sign in to save to your list");
       return;
     }
+    if (isInWatchlist === undefined) {
+      toast.loading("Loading watchlist...");
+      return;
+    }
     try {
       if (isInWatchlist) {
         await removeFromWatchlist(content._id);
-        toast.success("Removed");
+        toast.success("Removed from My List");
       } else {
         await addToWatchlist(content._id);
         toast.success("Added to My List");
       }
-    } catch {
-      toast.error("Something went wrong");
+    } catch (err) {
+      console.error("Watchlist error:", err);
+      toast.error("Failed to update watchlist: " + (err instanceof Error ? err.message : "Unknown error"));
     }
   };
 
@@ -151,7 +156,9 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
                   onClick={handleWatchlist}
                   aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
                 >
-                  {isInWatchlist ? (
+                  {isInWatchlist === undefined ? (
+                    <span className="w-3.5 h-3.5" />
+                  ) : isInWatchlist ? (
                     <Check className="w-3.5 h-3.5 text-green-400" />
                   ) : (
                     <Plus className="w-3.5 h-3.5 text-white" />

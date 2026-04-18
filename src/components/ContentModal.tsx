@@ -107,14 +107,14 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
   const dbSeason = useQuery(
     api.seasons.getSeason,
-    content && content.type === "tv" && content._id
+    isOpen && content && content.type === "tv" && content._id
       ? { contentId: content._id, seasonNumber: selectedSeason }
       : "skip"
   );
 
   const allSeasons = useQuery(
     api.seasons.getSeasonsByContent,
-    content && content.type === "tv" && content._id ? { contentId: content._id } : "skip"
+    isOpen && content && content.type === "tv" && content._id ? { contentId: content._id } : "skip"
   );
 
   const syncSeasons = useAction(api.tmdb.syncSeasons);
@@ -127,9 +127,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     : undefined;
   const contentType = content?.type;
 
-  const { credits, isLoading: creditsLoading } = useContentCredits(tmdbIdNum, contentType);
-  const { videos, isLoading: videosLoading } = useContentVideos(tmdbIdNum, contentType);
-  const { related, isLoading: relatedLoading } = useRelatedContent(tmdbIdNum, contentType, 8);
+  const { credits, isLoading: creditsLoading } = useContentCredits(tmdbIdNum, contentType, isOpen);
+  const { videos, isLoading: videosLoading } = useContentVideos(tmdbIdNum, contentType, isOpen);
+  const { related, isLoading: relatedLoading } = useRelatedContent(tmdbIdNum, contentType, 8, isOpen);
 
   useEffect(() => {
     if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;

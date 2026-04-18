@@ -226,15 +226,16 @@ export function useLazyTMDBData(
 export function useRelatedContent(
   tmdbId: number | undefined,
   type: MediaType | undefined,
-  limit: number = 10
+  limit: number = 10,
+  enabled: boolean = true
 ) {
   const [related, setRelated] = useState<TMDBMediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const getRelated = useAction(api.tmdb.getRelated);
 
   useEffect(() => {
-    if (!tmdbId || !type) {
-      setRelated([]);
+    if (!enabled || !tmdbId || !type) {
+      if (!enabled) setRelated([]);
       return;
     }
 
@@ -254,12 +255,16 @@ export function useRelatedContent(
       clearTimeout(timeout);
       cancelled = true;
     };
-  }, [tmdbId, type, limit, getRelated]);
+  }, [tmdbId, type, limit, enabled, getRelated]);
 
   return { related, isLoading };
 }
 
-export function useContentCredits(tmdbId: number | undefined, type: MediaType | undefined) {
+export function useContentCredits(
+  tmdbId: number | undefined,
+  type: MediaType | undefined,
+  enabled: boolean = true
+) {
   const [credits, setCredits] = useState<{
     cast: Array<{ id: number; name: string; character: string; profileUrl?: string; order: number }>;
     directors: string[];
@@ -269,8 +274,8 @@ export function useContentCredits(tmdbId: number | undefined, type: MediaType | 
   const getCredits = useAction(api.tmdb.getCredits);
 
   useEffect(() => {
-    if (!tmdbId || !type) {
-      setCredits(null);
+    if (!enabled || !tmdbId || !type) {
+      if (!enabled) setCredits(null);
       return;
     }
 
@@ -290,19 +295,23 @@ export function useContentCredits(tmdbId: number | undefined, type: MediaType | 
       clearTimeout(timeout);
       cancelled = true;
     };
-  }, [tmdbId, type, getCredits]);
+  }, [tmdbId, type, enabled, getCredits]);
 
   return { credits, isLoading };
 }
 
-export function useContentVideos(tmdbId: number | undefined, type: MediaType | undefined) {
+export function useContentVideos(
+  tmdbId: number | undefined,
+  type: MediaType | undefined,
+  enabled: boolean = true
+) {
   const [videos, setVideos] = useState<Array<{ key: string; name: string; type: string; official: boolean }>>([]);
   const [isLoading, setIsLoading] = useState(false);
   const getVideos = useAction(api.tmdb.getVideos);
 
   useEffect(() => {
-    if (!tmdbId || !type) {
-      setVideos([]);
+    if (!enabled || !tmdbId || !type) {
+      if (!enabled) setVideos([]);
       return;
     }
 
@@ -322,7 +331,7 @@ export function useContentVideos(tmdbId: number | undefined, type: MediaType | u
       clearTimeout(timeout);
       cancelled = true;
     };
-  }, [tmdbId, type, getVideos]);
+  }, [tmdbId, type, enabled, getVideos]);
 
   return { videos, isLoading };
 }
