@@ -31,16 +31,46 @@ interface StreamSource {
 interface PlayerEventPayload {
   type: "PLAYER_EVENT";
   data: {
-    event: "timeupdate" | "play" | "pause" | "ended" | "seeked";
+    event: "timeupdate" | "play" | "pause" | "ended" | "seeked" | "playerstatus";
     currentTime: number;
     duration: number;
-    progress: number;
-    id: string;
+    progress?: number;
+    id?: string;
+    tmdbId?: number;
     mediaType: "movie" | "tv";
     season?: number;
     episode?: number;
-    timestamp: number;
+    timestamp?: number;
+    playing?: boolean;
+    muted?: boolean;
+    volume?: number;
   };
+}
+
+interface MediaDataPayload {
+  type: "MEDIA_DATA";
+  data: Record<string, {
+    id: number;
+    type: "movie" | "tv";
+    title: string;
+    progress: { watched: number; duration: number };
+    last_season_watched?: number;
+    last_episode_watched?: number;
+  }>;
+}
+
+const VIDFAST_ORIGINS = [
+  "https://vidfast.pro",
+  "https://vidfast.in",
+  "https://vidfast.io",
+  "https://vidfast.me",
+  "https://vidfast.net",
+  "https://vidfast.pm",
+  "https://vidfast.xyz"
+];
+
+function isVidFastOrigin(origin: string): boolean {
+  return VIDFAST_ORIGINS.includes(origin);
 }
 
 function clamp(v: number) {
@@ -59,14 +89,22 @@ function estimateDuration(content: Doc<"content">) {
   return s > 0 ? s : content.type === "tv" ? 45 * 60 : 2 * 60 * 60;
 }
 
-function parsePlayerMsg(raw: unknown): PlayerEventPayload | null {
+function parsePlayerMsg(raw: unknown): PlayerEventPayload | MediaDataPayload | null {
   try {
     const p = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (!p || typeof p !== "object" || (p as any).type !== "PLAYER_EVENT") return null;
-    return p as PlayerEventPayload;
+    if (!p || typeof p !== "object") return null;
+    if ((p as any).type === "PLAYER_EVENT" || (p as any).type === "MEDIA_DATA") {
+      return p as PlayerEventPayload | MediaDataPayload;
+    }
+    return null;
   } catch {
     return null;
   }
+}
+
+function calculateProgress(currentTime: number, duration: number): number {
+  if (!duration || duration <= 0) return 0;
+  return Math.min(100, Math.max(0, (currentTime / duration) * 100));
 }
 
 export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPlayerProps) {
@@ -189,19 +227,41 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   }, [content._id, sources.length, error]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
+  const isVidFast = selectedSourceConfig?.name === "VidFast";
+
   const embedUrl = (() => {
     if (!selectedSourceConfig) return "";
     try {
       const url = new URL(selectedSourceConfig.url);
-      if (selectedSourceConfig.supportsProgressEvents) url.searchParams.set("color", "e50914");
+      if (selectedSourceConfig.supportsProgressEvents && !isVidFast) {
+        url.searchParams.set("color", "e50914");
+      }
+      if (isVidFast && content.type === "tv") {
+        url.searchParams.set("nextButton", "true");
+      }
       return url.toString();
     } catch {
       return selectedSourceConfig.url;
     }
   })();
 
+  const postMessageToPlayer = (command: string, params?: Record<string, unknown>) => {
+    if (!iframeRef.current?.contentWindow) return;
+    const msg = { command, ...params };
+    iframeRef.current.contentWindow.postMessage(msg, "*");
+  };
+
+  const playerControls = {
+    play: () => postMessageToPlayer("play"),
+    pause: () => postMessageToPlayer("pause"),
+    seek: (time: number) => postMessageToPlayer("seek", { time }),
+    setVolume: (level: number) => postMessageToPlayer("volume", { level }),
+    mute: (muted: boolean) => postMessageToPlayer("mute", { muted }),
+    getStatus: () => postMessageToPlayer("getStatus")
+  };
+
   useEffect(() => {
-    if (!embedUrl || !isSignedIn || !user) return;
+    if (!embedUrl) return;
 
     let origin: string;
     try {
@@ -213,24 +273,36 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     let syncInFlight = false;
 
     const handleMsg = (event: MessageEvent) => {
-      if (event.origin !== origin) return;
+      const isVidFast = isVidFastOrigin(event.origin);
+      if (!isVidFast && event.origin !== origin) return;
       if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
         return;
+
       const payload = parsePlayerMsg(event.data);
       if (!payload) return;
-      if (payload.data.id !== content.tmdbId) return;
-      if (payload.data.mediaType !== content.type) return;
 
-      const { data } = payload;
-      if (syncInFlight) return;
+      if (payload.type === "MEDIA_DATA") {
+        return;
+      }
 
-      const nextProgress = clamp(data.progress);
+      const { data } = payload as PlayerEventPayload;
+
+      const eventTmdbId = data.tmdbId !== undefined ? String(data.tmdbId) : data.id;
+      if (eventTmdbId !== undefined && eventTmdbId !== content.tmdbId) return;
+      if (data.mediaType && data.mediaType !== content.type) return;
+
       const nextPos = Math.max(0, data.currentTime || 0);
       const nextDur = Math.max(0, data.duration || 0);
+      const nextProgress = data.progress !== undefined
+        ? clamp(data.progress)
+        : calculateProgress(nextPos, nextDur);
       const nextSeason = content.type === "tv" ? safeEp(data.season) : undefined;
       const nextEpisode = content.type === "tv" ? safeEp(data.episode) : undefined;
 
       setCurrentProgress(nextProgress);
+
+      if (!isSignedIn || !user) return;
+      if (syncInFlight) return;
 
       const isForced = data.event !== "timeupdate";
       const meaningful =

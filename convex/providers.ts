@@ -8,42 +8,74 @@ interface StreamSource {
   supportsProgressEvents?: boolean;
 }
 
-const PROVIDERS = {
-  superEmbed: {
+interface ProviderConfig {
+  name: string;
+  idType: "tmdb" | "imdb" | "both";
+  quality: string;
+  supportsProgressEvents?: boolean;
+  getMovieUrl: (id: string) => string;
+  getTVUrl: (id: string, season: number, episode: number) => string;
+}
+
+const PROVIDERS: ProviderConfig[] = [
+  {
+    name: "VidKing",
+    idType: "tmdb",
+    quality: "1080p",
+    supportsProgressEvents: true,
+    getMovieUrl: (tmdbId) => `https://www.vidking.net/embed/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) =>
+      `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}`
+  },
+  {
+    name: "VidFast",
+    idType: "both",
+    quality: "1080p",
+    supportsProgressEvents: true,
+    getMovieUrl: (id) => `https://vidfast.pro/movie/${id}`,
+    getTVUrl: (id, season, episode) =>
+      `https://vidfast.pro/tv/${id}/${season}/${episode}`
+  },
+  {
     name: "SuperEmbed",
-    getMovieUrl: (tmdbId: string) => `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
-    getTVUrl: (tmdbId: string, season: number, episode: number) =>
+    idType: "tmdb",
+    quality: "1080p",
+    getMovieUrl: (tmdbId) => `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
+    getTVUrl: (tmdbId, season, episode) =>
       `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1&season=${season}&episode=${episode}`
   },
-
-  vidsrc: {
-    name: "VidSrc",
-    getMovieUrl: (id: string) => `https://vidsrc.icu/embed/movie/${id}`,
-    getTVUrl: (id: string, season: number, episode: number) =>
-      `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`
-  },
-
-  twoEmbed: {
-    name: "2Embed",
-    getMovieUrl: (imdbId: string) => `https://www.2embed.cc/embed/${imdbId}`,
-    getTVUrl: (imdbId: string, season: number, episode: number) =>
-      `https://www.2embed.cc/embed/${imdbId}/${season}/${episode}`
-  },
-
-  autoembed: {
+  {
     name: "AutoEmbed",
-    getMovieUrl: (tmdbId: string) => `https://player.autoembed.cc/embed/movie/${tmdbId}`,
-    getTVUrl: (tmdbId: string, season: number, episode: number) =>
+    idType: "tmdb",
+    quality: "1080p",
+    getMovieUrl: (tmdbId) => `https://player.autoembed.cc/embed/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) =>
       `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}`
   },
-
-  vidking: {
-    name: "VidKing",
-    getMovieUrl: (tmdbId: string) => `https://www.vidking.net/embed/movie/${tmdbId}`,
-    getTVUrl: (tmdbId: string, season: number, episode: number) =>
-      `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}`
+  {
+    name: "VidSrc",
+    idType: "both",
+    quality: "1080p",
+    getMovieUrl: (id) => `https://vidsrc.icu/embed/movie/${id}`,
+    getTVUrl: (id, season, episode) =>
+      `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`
+  },
+  {
+    name: "2Embed",
+    idType: "imdb",
+    quality: "720p",
+    getMovieUrl: (imdbId) => `https://www.2embed.cc/embed/${imdbId}`,
+    getTVUrl: (imdbId, season, episode) =>
+      `https://www.2embed.cc/embed/${imdbId}/${season}/${episode}`
   }
-};
+];
+
+function getProviderId(config: ProviderConfig, imdbId?: string, tmdbId?: string): string | null {
+  if (config.idType === "tmdb" && tmdbId) return tmdbId;
+  if (config.idType === "imdb" && imdbId?.startsWith("tt")) return imdbId;
+  if (config.idType === "both") return imdbId || tmdbId || null;
+  return null;
+}
 
 export const getMovieSources = action({
   args: {
@@ -53,45 +85,15 @@ export const getMovieSources = action({
   handler: async (_ctx, { imdbId, tmdbId }): Promise<StreamSource[]> => {
     const sources: StreamSource[] = [];
 
-    if (tmdbId) {
-      sources.push({
-        name: "VidKing",
-        url: PROVIDERS.vidking.getMovieUrl(tmdbId),
-        quality: "1080p",
-        supportsProgressEvents: true
-      });
-    }
+    for (const config of PROVIDERS) {
+      const id = getProviderId(config, imdbId, tmdbId);
+      if (!id) continue;
 
-    if (tmdbId) {
       sources.push({
-        name: "SuperEmbed",
-        url: PROVIDERS.superEmbed.getMovieUrl(tmdbId),
-        quality: "1080p"
-      });
-    }
-
-    const vidsrcId = imdbId || tmdbId;
-    if (vidsrcId) {
-      sources.push({
-        name: "VidSrc",
-        url: PROVIDERS.vidsrc.getMovieUrl(vidsrcId),
-        quality: "1080p"
-      });
-    }
-
-    if (tmdbId) {
-      sources.push({
-        name: "AutoEmbed",
-        url: PROVIDERS.autoembed.getMovieUrl(tmdbId),
-        quality: "1080p"
-      });
-    }
-
-    if (imdbId && imdbId.startsWith("tt")) {
-      sources.push({
-        name: "2Embed",
-        url: PROVIDERS.twoEmbed.getMovieUrl(imdbId),
-        quality: "720p"
+        name: config.name,
+        url: config.getMovieUrl(id),
+        quality: config.quality,
+        ...(config.supportsProgressEvents && { supportsProgressEvents: true })
       });
     }
 
@@ -109,47 +111,18 @@ export const getTVSources = action({
   handler: async (_ctx, { imdbId, tmdbId, season, episode }): Promise<StreamSource[]> => {
     const sources: StreamSource[] = [];
 
-    if (tmdbId) {
+    for (const config of PROVIDERS) {
+      const id = getProviderId(config, imdbId, tmdbId);
+      if (!id) continue;
+
       sources.push({
-        name: "VidKing",
-        url: PROVIDERS.vidking.getTVUrl(tmdbId, season, episode),
-        quality: "1080p",
-        supportsProgressEvents: true
+        name: config.name,
+        url: config.getTVUrl(id, season, episode),
+        quality: config.quality,
+        ...(config.supportsProgressEvents && { supportsProgressEvents: true })
       });
     }
 
-    if (tmdbId) {
-      sources.push({
-        name: "SuperEmbed",
-        url: PROVIDERS.superEmbed.getTVUrl(tmdbId, season, episode),
-        quality: "1080p"
-      });
-    }
-
-    const vidsrcId = imdbId || tmdbId;
-    if (vidsrcId) {
-      sources.push({
-        name: "VidSrc",
-        url: PROVIDERS.vidsrc.getTVUrl(vidsrcId, season, episode),
-        quality: "1080p"
-      });
-    }
-
-    if (tmdbId) {
-      sources.push({
-        name: "AutoEmbed",
-        url: PROVIDERS.autoembed.getTVUrl(tmdbId, season, episode),
-        quality: "1080p"
-      });
-    }
-
-    if (imdbId && imdbId.startsWith("tt")) {
-      sources.push({
-        name: "2Embed",
-        url: PROVIDERS.twoEmbed.getTVUrl(imdbId, season, episode),
-        quality: "720p"
-      });
-    }
     return sources;
   }
 });
@@ -189,41 +162,19 @@ function getSourcesForContent(
 ): StreamSource[] {
   const sources: StreamSource[] = [];
 
-  if (type === "movie") {
-    sources.push({
-      name: "VidKing",
-      url: PROVIDERS.vidking.getMovieUrl(imdbId),
-      quality: "1080p"
-    });
+  for (const config of PROVIDERS) {
+    const id = getProviderId(config, imdbId, type === "movie" ? undefined : imdbId);
+    if (!id) continue;
+
+    const url = type === "movie"
+      ? config.getMovieUrl(id)
+      : config.getTVUrl(id, season, episode);
 
     sources.push({
-      name: "VidSrc",
-      url: PROVIDERS.vidsrc.getMovieUrl(imdbId),
-      quality: "1080p"
-    });
-
-    sources.push({
-      name: "2Embed",
-      url: PROVIDERS.twoEmbed.getMovieUrl(imdbId),
-      quality: "720p"
-    });
-  } else {
-    sources.push({
-      name: "VidKing",
-      url: PROVIDERS.vidking.getTVUrl(imdbId, season, episode),
-      quality: "1080p"
-    });
-
-    sources.push({
-      name: "VidSrc",
-      url: PROVIDERS.vidsrc.getTVUrl(imdbId, season, episode),
-      quality: "1080p"
-    });
-
-    sources.push({
-      name: "2Embed",
-      url: PROVIDERS.twoEmbed.getTVUrl(imdbId, season, episode),
-      quality: "720p"
+      name: config.name,
+      url,
+      quality: config.quality,
+      ...(config.supportsProgressEvents && { supportsProgressEvents: true })
     });
   }
 
