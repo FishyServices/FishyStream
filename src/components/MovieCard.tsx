@@ -1,7 +1,8 @@
 import { Play, Plus, Check, ChevronDown, Star } from "lucide-react";
 import { useState } from "react";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { useIsInWatchlist, useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
+import { useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
+import { useIsInWatchlistGlobal } from "@/hooks/useGlobalWatchlist";
 import { ContentModal } from "./ContentModal";
 import { toast } from "sonner";
 import { useUser } from "@clerk/react";
@@ -25,18 +26,15 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
   const [imgError, setImgError] = useState(false);
   const { isSignedIn } = useUser();
 
-  const isInWatchlist = useIsInWatchlist(content._id);
+  const isInWatchlist = useIsInWatchlistGlobal(content._id);
   const addToWatchlist = useAddToWatchlist();
   const removeFromWatchlist = useRemoveFromWatchlist();
 
   const handleWatchlist = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     if (!isSignedIn) {
       toast.error("Sign in to save to your list");
-      return;
-    }
-    if (isInWatchlist === undefined) {
-      toast.loading("Loading watchlist...");
       return;
     }
     try {
@@ -49,12 +47,13 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
       }
     } catch (err) {
       console.error("Watchlist error:", err);
-      toast.error("Failed to update watchlist: " + (err instanceof Error ? err.message : "Unknown error"));
+      toast.error("Failed to update watchlist");
     }
   };
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     if (content.tmdbId) {
       onPlay?.(
         content.tmdbId,
@@ -91,13 +90,11 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
         }}
         aria-label={`${content.title} (${content.year})`}
       >
-        {/* Card */}
         <div
           className={`relative aspect-[2/3] rounded-lg overflow-hidden transition-all duration-300 ${
             hovered ? "scale-105 z-20 shadow-2xl shadow-black/70 ring-1 ring-white/20" : "shadow-md"
           }`}
         >
-          {/* Poster image */}
           <img
             src={
               imgError
@@ -142,7 +139,6 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
             }`}
           >
             <div className="space-y-2.5">
-              {/* Play + actions row */}
               <div className="flex items-center gap-2">
                 <button
                   className="w-9 h-9 rounded-full bg-white flex items-center justify-center shrink-0 hover:bg-white/90 transition-colors shadow-lg"
@@ -156,9 +152,7 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
                   onClick={handleWatchlist}
                   aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
                 >
-                  {isInWatchlist === undefined ? (
-                    <span className="w-3.5 h-3.5" />
-                  ) : isInWatchlist ? (
+                  {isInWatchlist ? (
                     <Check className="w-3.5 h-3.5 text-green-400" />
                   ) : (
                     <Plus className="w-3.5 h-3.5 text-white" />
@@ -176,7 +170,6 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
                 </button>
               </div>
 
-              {/* Info */}
               <div>
                 <h3 className="text-sm font-display font-semibold text-white truncate leading-tight">
                   {content.title}
@@ -206,7 +199,6 @@ export function MovieCard({ content, onPlay, size = "md" }: MovieCardProps) {
                   </p>
                 )}
 
-                {/* Progress in hover */}
                 {hasProgress && (
                   <div className="mt-2">
                     <div className="flex justify-between text-[10px] text-white/50 mb-1">

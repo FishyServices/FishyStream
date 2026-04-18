@@ -3,48 +3,52 @@ import { query, mutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 
-type WatchHistoryContent = Doc<"content"> & {
-  progress: number;
-  completed: boolean;
-  watchedAt: number;
-  positionSeconds?: number;
-  durationSeconds?: number;
-  seasonNumber?: number;
-  episodeNumber?: number;
-};
-
 async function getUserByClerkIdQuery(
   ctx: QueryCtx,
   clerkUserId: string
 ): Promise<Id<"users"> | null> {
-  const user = await ctx.db
+  let user = await ctx.db
     .query("users")
     .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
-    .unique();
+    .first();
 
-  return user?._id ?? null;
+  if (user) return user._id;
+
+  const allUsers = await ctx.db.query("users").collect();
+  const legacyUser = allUsers.find(
+    (u) => u.clerkUserId.endsWith(`|${clerkUserId}`) || u.clerkUserId === clerkUserId
+  );
+  return legacyUser?._id ?? null;
 }
 
 async function getUserByClerkId(
   ctx: MutationCtx,
   clerkUserId: string
 ): Promise<Id<"users"> | null> {
-  const user = await ctx.db
+  let user = await ctx.db
     .query("users")
     .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
-    .unique();
+    .first();
 
-  if (!user) {
-    const userId = await ctx.db.insert("users", {
-      clerkUserId,
-      email: undefined,
-      name: undefined,
-      createdAt: Date.now()
-    });
-    return userId;
+  if (user) return user._id;
+
+  const allUsers = await ctx.db.query("users").collect();
+  const legacyUser = allUsers.find(
+    (u) => u.clerkUserId.endsWith(`|${clerkUserId}`) || u.clerkUserId === clerkUserId
+  );
+
+  if (legacyUser) {
+    await ctx.db.patch(legacyUser._id, { clerkUserId });
+    return legacyUser._id;
   }
 
-  return user._id;
+  const userId = await ctx.db.insert("users", {
+    clerkUserId,
+    email: undefined,
+    name: undefined,
+    createdAt: Date.now()
+  });
+  return userId;
 }
 
 function normalizeProgress(progress: number): number {
@@ -54,7 +58,7 @@ function normalizeProgress(progress: number): number {
 
 export const getMyWatchHistory = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryContent[]> => {
+  handler: async (ctx, { clerkUserId }) => {
     const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -64,7 +68,7 @@ export const getMyWatchHistory = query({
       .order("desc")
       .take(50);
 
-    const result: WatchHistoryContent[] = [];
+    const result = [];
     for (const item of historyItems) {
       const content = await ctx.db.get(item.contentId);
       if (content) {
@@ -86,22 +90,7 @@ export const getMyWatchHistory = query({
 
 export const getContinueWatching = query({
   args: { clerkUserId: v.string() },
-  handler: async (
-    ctx,
-    { clerkUserId }
-  ): Promise<
-    Array<
-      Doc<"content"> & {
-        progress: number;
-        completed: boolean;
-        watchedAt: number;
-        positionSeconds?: number;
-        durationSeconds?: number;
-        seasonNumber?: number;
-        episodeNumber?: number;
-      }
-    >
-  > => {
+  handler: async (ctx, { clerkUserId }) => {
     const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -113,17 +102,7 @@ export const getContinueWatching = query({
       .order("desc")
       .take(10);
 
-    const result: Array<
-      Doc<"content"> & {
-        progress: number;
-        completed: boolean;
-        watchedAt: number;
-        positionSeconds?: number;
-        durationSeconds?: number;
-        seasonNumber?: number;
-        episodeNumber?: number;
-      }
-    > = [];
+    const result = [];
     for (const item of historyItems) {
       const content = await ctx.db.get(item.contentId);
       if (content) {
@@ -145,17 +124,7 @@ export const getContinueWatching = query({
 
 export const getWatchProgress = query({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
-  handler: async (
-    ctx,
-    { clerkUserId, contentId }
-  ): Promise<{
-    progress: number;
-    positionSeconds: number;
-    durationSeconds: number;
-    completed: boolean;
-    seasonNumber: number | null;
-    episodeNumber: number | null;
-  }> => {
+  handler: async (ctx, { clerkUserId, contentId }) => {
     const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) {
       return {
@@ -195,9 +164,8 @@ export const updateProgress = mutation({
     seasonNumber: v.optional(v.number()),
     episodeNumber: v.optional(v.number())
   },
-  handler: async (
-    ctx,
-    {
+  handler: async (ctx, args): Promise<void> => {
+    const {
       clerkUserId,
       contentId,
       progress,
@@ -206,42 +174,25 @@ export const updateProgress = mutation({
       durationSeconds,
       seasonNumber,
       episodeNumber
-    }
-  ): Promise<void> => {
+    } = args;
     const userId = await getUserByClerkId(ctx, clerkUserId);
     if (!userId) throw new Error("User not found");
+
     const normalizedProgress = normalizeProgress(progress);
-    const normalizedPositionSeconds =
-      positionSeconds !== undefined && Number.isFinite(positionSeconds)
-        ? Math.max(0, positionSeconds)
-        : undefined;
-    const normalizedDurationSeconds =
-      durationSeconds !== undefined && Number.isFinite(durationSeconds)
-        ? Math.max(0, durationSeconds)
-        : undefined;
-    const normalizedSeasonNumber =
-      seasonNumber !== undefined && Number.isFinite(seasonNumber)
-        ? Math.max(1, Math.floor(seasonNumber))
-        : undefined;
-    const normalizedEpisodeNumber =
-      episodeNumber !== undefined && Number.isFinite(episodeNumber)
-        ? Math.max(1, Math.floor(episodeNumber))
-        : undefined;
+    const isCompleted = completed ?? normalizedProgress >= 95;
 
     const existing = await ctx.db
       .query("watchHistory")
       .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
 
-    const isCompleted = completed ?? normalizedProgress >= 95;
-
     if (existing) {
       await ctx.db.patch(existing._id, {
         progress: normalizedProgress,
-        positionSeconds: normalizedPositionSeconds ?? existing.positionSeconds,
-        durationSeconds: normalizedDurationSeconds ?? existing.durationSeconds,
-        seasonNumber: normalizedSeasonNumber ?? existing.seasonNumber,
-        episodeNumber: normalizedEpisodeNumber ?? existing.episodeNumber,
+        positionSeconds: positionSeconds ?? existing.positionSeconds,
+        durationSeconds: durationSeconds ?? existing.durationSeconds,
+        seasonNumber: seasonNumber ?? existing.seasonNumber,
+        episodeNumber: episodeNumber ?? existing.episodeNumber,
         completed: isCompleted,
         watchedAt: Date.now()
       });
@@ -250,10 +201,10 @@ export const updateProgress = mutation({
         userId,
         contentId,
         progress: normalizedProgress,
-        positionSeconds: normalizedPositionSeconds,
-        durationSeconds: normalizedDurationSeconds,
-        seasonNumber: normalizedSeasonNumber,
-        episodeNumber: normalizedEpisodeNumber,
+        positionSeconds,
+        durationSeconds,
+        seasonNumber,
+        episodeNumber,
         completed: isCompleted,
         watchedAt: Date.now()
       });
@@ -262,10 +213,7 @@ export const updateProgress = mutation({
 });
 
 export const markAsCompleted = mutation({
-  args: {
-    clerkUserId: v.string(),
-    contentId: v.id("content")
-  },
+  args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<void> => {
     const userId = await getUserByClerkId(ctx, clerkUserId);
     if (!userId) throw new Error("User not found");
@@ -276,11 +224,7 @@ export const markAsCompleted = mutation({
       .first();
 
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        progress: 100,
-        completed: true,
-        watchedAt: Date.now()
-      });
+      await ctx.db.patch(existing._id, { progress: 100, completed: true, watchedAt: Date.now() });
     } else {
       await ctx.db.insert("watchHistory", {
         userId,
@@ -294,10 +238,7 @@ export const markAsCompleted = mutation({
 });
 
 export const removeFromHistory = mutation({
-  args: {
-    clerkUserId: v.string(),
-    contentId: v.id("content")
-  },
+  args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
     const userId = await getUserByClerkId(ctx, clerkUserId);
     if (!userId) return false;

@@ -2,6 +2,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
+import { useCallback } from "react";
 
 export interface WatchHistoryItem extends Doc<"content"> {
   progress: number;
@@ -11,15 +12,6 @@ export interface WatchHistoryItem extends Doc<"content"> {
   durationSeconds?: number;
   seasonNumber?: number;
   episodeNumber?: number;
-}
-
-export interface WatchProgressState {
-  progress: number;
-  positionSeconds: number;
-  durationSeconds: number;
-  completed: boolean;
-  seasonNumber: number | null;
-  episodeNumber: number | null;
 }
 
 export function useMyWatchHistory(): WatchHistoryItem[] | undefined {
@@ -44,59 +36,15 @@ export function useContinueWatching():
   return useQuery(api.watchHistory.getContinueWatching, user ? { clerkUserId: user.id } : "skip");
 }
 
-export function useWatchProgress(
-  contentId: Id<"content"> | undefined
-): WatchProgressState | undefined {
-  const { user } = useUser();
-  return useQuery(
-    api.watchHistory.getWatchProgress,
-    user && contentId ? { clerkUserId: user.id, contentId } : "skip"
-  );
-}
-
-export function useUpdateProgress() {
-  const { user } = useUser();
-  const mutation = useMutation(api.watchHistory.updateProgress);
-
-  return (
-    contentId: Id<"content">,
-    progress: number,
-    completed?: boolean,
-    positionSeconds?: number,
-    durationSeconds?: number,
-    seasonNumber?: number,
-    episodeNumber?: number
-  ) => {
-    if (!user) throw new Error("Not signed in");
-    return mutation({
-      clerkUserId: user.id,
-      contentId,
-      progress,
-      completed,
-      positionSeconds,
-      durationSeconds,
-      seasonNumber,
-      episodeNumber
-    });
-  };
-}
-
-export function useMarkAsCompleted() {
-  const { user } = useUser();
-  const mutation = useMutation(api.watchHistory.markAsCompleted);
-
-  return (contentId: Id<"content">) => {
-    if (!user) throw new Error("Not signed in");
-    return mutation({ clerkUserId: user.id, contentId });
-  };
-}
-
 export function useRemoveFromHistory() {
   const { user } = useUser();
   const mutation = useMutation(api.watchHistory.removeFromHistory);
 
-  return (contentId: Id<"content">) => {
-    if (!user) throw new Error("Not signed in");
-    return mutation({ clerkUserId: user.id, contentId });
-  };
+  return useCallback(
+    (contentId: Id<"content">) => {
+      if (!user) throw new Error("Not signed in");
+      return mutation({ clerkUserId: user.id, contentId });
+    },
+    [user, mutation]
+  );
 }

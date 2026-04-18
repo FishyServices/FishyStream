@@ -5,32 +5,24 @@ import type { Id } from "./_generated/dataModel";
 export const syncCurrentUser = mutation({
   handler: async (ctx): Promise<Id<"users"> | null> => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      console.log("No identity found");
-      return null;
-    }
+    if (!identity) return null;
 
-    console.log("Identity found:", identity.tokenIdentifier);
+    const clerkUserId = identity.subject;
 
     let user = await ctx.db
       .query("users")
-      .withIndex("by_clerk_user_id", (q: any) => q.eq("clerkUserId", identity.tokenIdentifier))
+      .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
       .unique();
 
-    if (user) {
-      console.log("Existing user found:", user._id);
-      return user._id;
-    }
+    if (user) return user._id;
 
-    console.log("Creating new user");
     const userId = await ctx.db.insert("users", {
-      clerkUserId: identity.tokenIdentifier,
+      clerkUserId,
       email: identity.email,
       name: identity.name,
       createdAt: Date.now()
     });
 
-    console.log("New user created:", userId);
     return userId;
   }
 });
@@ -40,7 +32,7 @@ export const getCurrentUser = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("users")
-      .withIndex("by_clerk_user_id", (q: any) => q.eq("clerkUserId", args.clerkUserId))
+      .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", args.clerkUserId))
       .unique();
   }
 });
@@ -54,12 +46,10 @@ export const createUser = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_clerk_user_id", (q: any) => q.eq("clerkUserId", args.clerkUserId))
+      .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", args.clerkUserId))
       .unique();
 
-    if (existing) {
-      return existing._id;
-    }
+    if (existing) return existing._id;
 
     return await ctx.db.insert("users", {
       ...args,

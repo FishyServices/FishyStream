@@ -266,7 +266,13 @@ export function useContentCredits(
   enabled: boolean = true
 ) {
   const [credits, setCredits] = useState<{
-    cast: Array<{ id: number; name: string; character: string; profileUrl?: string; order: number }>;
+    cast: Array<{
+      id: number;
+      name: string;
+      character: string;
+      profileUrl?: string;
+      order: number;
+    }>;
     directors: string[];
     writers: string[];
   } | null>(null);
@@ -305,7 +311,9 @@ export function useContentVideos(
   type: MediaType | undefined,
   enabled: boolean = true
 ) {
-  const [videos, setVideos] = useState<Array<{ key: string; name: string; type: string; official: boolean }>>([]);
+  const [videos, setVideos] = useState<
+    Array<{ key: string; name: string; type: string; official: boolean }>
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const getVideos = useAction(api.tmdb.getVideos);
 

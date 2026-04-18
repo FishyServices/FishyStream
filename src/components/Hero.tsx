@@ -3,7 +3,8 @@ import { Play, Info, Plus, Check, Volume2, VolumeX, ChevronDown } from "lucide-r
 import { Button } from "@/components/ui/button";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { ContentModal } from "./ContentModal";
-import { useIsInWatchlist, useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
+import { useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
+import { useIsInWatchlistGlobal } from "@/hooks/useGlobalWatchlist";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
 
@@ -34,7 +35,7 @@ export function Hero({ content, onPlay }: HeroProps) {
   const [showTrailer, setShowTrailer] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  const isInWatchlist = useIsInWatchlist(content._id);
+  const isInWatchlist = useIsInWatchlistGlobal(content._id);
   const addToWatchlist = useAddToWatchlist();
   const removeFromWatchlist = useRemoveFromWatchlist();
 
@@ -87,17 +88,12 @@ export function Hero({ content, onPlay }: HeroProps) {
         )}
       </div>
 
-      {/* Skeleton while loading */}
       {!loaded && (
         <div className="absolute inset-0 bg-gradient-to-r from-[hsl(220,20%,8%)] to-[hsl(220,20%,12%)] animate-pulse" />
       )}
 
-      {/* Gradients */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/50 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/20" />
-
-      {/* Noise grain */}
-      <div className="absolute inset-0 opacity-[0.03] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuNjUiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbm9pc2UpIiBvcGFjaXR5PSIxIi8+PC9zdmc+')] pointer-events-none" />
 
       {/* Content */}
       <div
@@ -106,7 +102,6 @@ export function Hero({ content, onPlay }: HeroProps) {
         }`}
       >
         <div className="max-w-2xl space-y-4">
-          {/* Logo or title */}
           {content.logoUrl ? (
             <img
               src={content.logoUrl}
@@ -119,7 +114,6 @@ export function Hero({ content, onPlay }: HeroProps) {
             </h1>
           )}
 
-          {/* Meta badges */}
           <div className="flex items-center gap-3 flex-wrap">
             <span
               className={`text-xs font-bold px-2 py-0.5 rounded border rating-${content.rating} border-current`}
@@ -143,7 +137,6 @@ export function Hero({ content, onPlay }: HeroProps) {
             )}
           </div>
 
-          {/* Genres */}
           <div className="flex flex-wrap gap-2">
             {content.genre.slice(0, 4).map((g) => (
               <span
@@ -155,7 +148,6 @@ export function Hero({ content, onPlay }: HeroProps) {
             ))}
           </div>
 
-          {/* Tagline or description */}
           {content.tagline && (
             <p className="text-base text-white/60 italic font-light">{content.tagline}</p>
           )}
@@ -163,11 +155,10 @@ export function Hero({ content, onPlay }: HeroProps) {
             {content.description}
           </p>
 
-          {/* Actions */}
           <div className="flex items-center gap-3 flex-wrap pt-2">
             <Button
               size="lg"
-              className="bg-white text-black hover:bg-white/90 font-display font-bold px-7 text-base shadow-lg hover:shadow-xl transition-all"
+              className="bg-white text-black hover:bg-white/90 font-display font-bold px-7 text-base shadow-lg"
               onClick={handlePlay}
             >
               <Play className="w-5 h-5 mr-2 fill-black" />
@@ -194,7 +185,6 @@ export function Hero({ content, onPlay }: HeroProps) {
               )}
             </button>
 
-            {/* Trailer toggle */}
             {content.trailerKey && (
               <button
                 className="hidden sm:flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors ml-2"
@@ -204,7 +194,6 @@ export function Hero({ content, onPlay }: HeroProps) {
               </button>
             )}
 
-            {/* Mute toggle for trailer */}
             {showTrailer && content.trailerKey && (
               <button
                 className="w-10 h-10 rounded-full glass text-white/60 hover:text-white flex items-center justify-center"
@@ -217,7 +206,6 @@ export function Hero({ content, onPlay }: HeroProps) {
         </div>
       </div>
 
-      {/* Scroll hint */}
       <div className="absolute bottom-6 right-10 hidden lg:flex flex-col items-center gap-1 text-white/30 animate-bounce">
         <ChevronDown className="w-5 h-5" />
       </div>

@@ -2,61 +2,75 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
-import { useMemo, useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-const optimisticAdded = new Set<string>();
-const optimisticRemoved = new Set<string>();
-const optimisticCallbacks = new Set<() => void>();
+const WATCHLIST_STORAGE_KEY = "watchlist_local";
 
-function notifyOptimisticUpdate() {
-  optimisticCallbacks.forEach((cb) => cb());
+function getLocalWatchlist(): string[] {
+  try {
+    const data = localStorage.getItem(WATCHLIST_STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
 }
 
-export function useSyncUser() {
-  return useMutation(api.users.syncCurrentUser);
+function setLocalWatchlist(contentIds: string[]) {
+  try {
+    localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(contentIds));
+  } catch {}
+}
+
+function addToLocalWatchlist(contentId: string) {
+  const existing = getLocalWatchlist();
+  if (!existing.includes(contentId)) {
+    setLocalWatchlist([...existing, contentId]);
+  }
+}
+
+function removeFromLocalWatchlist(contentId: string) {
+  const existing = getLocalWatchlist();
+  setLocalWatchlist(existing.filter((id) => id !== contentId));
 }
 
 export function useMyWatchlist(): Doc<"content">[] | undefined {
   const { user } = useUser();
-  return useQuery(api.watchlist.getMyWatchlist, user ? { clerkUserId: user.id } : "skip");
-}
-
-export function useWatchlistStatus(contentIds: Id<"content">[]) {
-  const { user } = useUser();
-  const data = useQuery(
-    api.watchlist.areInWatchlist,
-    user && contentIds.length > 0 ? { clerkUserId: user.id, contentIds } : "skip"
+  const serverWatchlist = useQuery(
+    api.watchlist.getMyWatchlist,
+    user ? { clerkUserId: user.id } : "skip"
   );
+  const [localState, setLocalState] = useState<Doc<"content">[] | undefined>();
 
-  const inWatchlistSet = useMemo(() => {
-    return new Set(data ?? []);
-  }, [data]);
+  useEffect(() => {
+    if (serverWatchlist) {
+      setLocalState(serverWatchlist);
+      setLocalWatchlist(serverWatchlist.map((item) => item._id));
+    }
+  }, [serverWatchlist]);
 
-  const isInWatchlist = useMemo(() => {
-    return (contentId: Id<"content">) => inWatchlistSet.has(contentId);
-  }, [inWatchlistSet]);
-
-  return { isInWatchlist, isLoading: data === undefined, inWatchlistSet };
+  return localState ?? serverWatchlist;
 }
 
 export function useIsInWatchlist(contentId: Id<"content"> | undefined): boolean | undefined {
-  const myWatchlist = useMyWatchlist();
-  const [, forceUpdate] = useState({});
+  const { user } = useUser();
+  const [localResult, setLocalResult] = useState<boolean | undefined>();
 
-  useMemo(() => {
-    const cb = () => forceUpdate({});
-    optimisticCallbacks.add(cb);
-    return () => {
-      optimisticCallbacks.delete(cb);
-    };
-  }, []);
+  useEffect(() => {
+    if (!contentId) {
+      setLocalResult(undefined);
+      return;
+    }
+    const localWatchlist = getLocalWatchlist();
+    setLocalResult(localWatchlist.includes(contentId));
+  }, [contentId]);
 
-  return useMemo(() => {
-    if (!contentId || !myWatchlist) return undefined;
-    if (optimisticAdded.has(contentId)) return true;
-    if (optimisticRemoved.has(contentId)) return false;
-    return myWatchlist.some((item) => item._id === contentId);
-  }, [contentId, myWatchlist]);
+  const serverResult = useQuery(
+    api.watchlist.isInWatchlist,
+    user && contentId ? { clerkUserId: user.id, contentId } : "skip"
+  );
+
+  if (!contentId || !user) return undefined;
+  return serverResult ?? localResult;
 }
 
 export function useAddToWatchlist() {
@@ -64,15 +78,10 @@ export function useAddToWatchlist() {
   const mutation = useMutation(api.watchlist.add);
 
   return useCallback(
-    (contentId: Id<"content">) => {
+    async (contentId: Id<"content">) => {
       if (!user) throw new Error("Not signed in");
-      optimisticAdded.add(contentId);
-      optimisticRemoved.delete(contentId);
-      notifyOptimisticUpdate();
-      return mutation({ clerkUserId: user.id, contentId }).finally(() => {
-        optimisticAdded.delete(contentId);
-        notifyOptimisticUpdate();
-      });
+      addToLocalWatchlist(contentId);
+      return mutation({ clerkUserId: user.id, contentId });
     },
     [user, mutation]
   );
@@ -83,15 +92,10 @@ export function useRemoveFromWatchlist() {
   const mutation = useMutation(api.watchlist.remove);
 
   return useCallback(
-    (contentId: Id<"content">) => {
+    async (contentId: Id<"content">) => {
       if (!user) throw new Error("Not signed in");
-      optimisticRemoved.add(contentId);
-      optimisticAdded.delete(contentId);
-      notifyOptimisticUpdate();
-      return mutation({ clerkUserId: user.id, contentId }).finally(() => {
-        optimisticRemoved.delete(contentId);
-        notifyOptimisticUpdate();
-      });
+      removeFromLocalWatchlist(contentId);
+      return mutation({ clerkUserId: user.id, contentId });
     },
     [user, mutation]
   );

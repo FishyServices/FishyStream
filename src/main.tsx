@@ -15,6 +15,7 @@ import { NewReleasesPage } from "./pages/NewReleasesPage";
 import { MyListPage } from "./pages/MyListPage";
 import { WatchHistoryPage } from "./pages/WatchHistoryPage";
 import { SearchPage } from "./pages/SearchPage";
+import { GlobalWatchlistProvider } from "./hooks/useGlobalWatchlist";
 import "./index.css";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
@@ -34,21 +35,23 @@ createRoot(elem).render(
       }}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/sign-in/*" element={<SignInPage />} />
-            <Route path="/sign-up/*" element={<SignUpPage />} />
-            <Route path="/watch/:id" element={<WatchPage />} />
-            <Route path="/movies" element={<MoviesPage />} />
-            <Route path="/tv-shows" element={<TVShowsPage />} />
-            <Route path="/new-releases" element={<NewReleasesPage />} />
-            <Route path="/my-list" element={<MyListPage />} />
-            <Route path="/history" element={<WatchHistoryPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/" element={<App />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+        <GlobalWatchlistProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/sign-in/*" element={<SignInPage />} />
+              <Route path="/sign-up/*" element={<SignUpPage />} />
+              <Route path="/watch/:id" element={<WatchPage />} />
+              <Route path="/movies" element={<MoviesPage />} />
+              <Route path="/tv-shows" element={<TVShowsPage />} />
+              <Route path="/new-releases" element={<NewReleasesPage />} />
+              <Route path="/my-list" element={<MyListPage />} />
+              <Route path="/history" element={<WatchHistoryPage />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/" element={<App />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </GlobalWatchlistProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   </StrictMode>

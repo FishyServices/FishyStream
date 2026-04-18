@@ -19,16 +19,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
-import { useIsInWatchlist, useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
+import { useAddToWatchlist, useRemoveFromWatchlist } from "@/hooks/useWatchlist";
+import { useIsInWatchlistGlobal } from "@/hooks/useGlobalWatchlist";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
-import {
-  useContentCredits,
-  useContentVideos,
-  useRelatedContent,
-  type TMDBMediaItem
-} from "@/hooks/useContent";
+import { useContentCredits, useContentVideos, useRelatedContent } from "@/hooks/useContent";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -101,7 +97,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
 
-  const isInWatchlist = useIsInWatchlist(content?._id);
+  const isInWatchlist = useIsInWatchlistGlobal(content?._id);
   const addToWatchlist = useAddToWatchlist();
   const removeFromWatchlist = useRemoveFromWatchlist();
 
@@ -127,9 +123,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     : undefined;
   const contentType = content?.type;
 
-  const { credits, isLoading: creditsLoading } = useContentCredits(tmdbIdNum, contentType, isOpen);
-  const { videos, isLoading: videosLoading } = useContentVideos(tmdbIdNum, contentType, isOpen);
-  const { related, isLoading: relatedLoading } = useRelatedContent(tmdbIdNum, contentType, 8, isOpen);
+  const { credits } = useContentCredits(tmdbIdNum, contentType, isOpen);
+  const { videos } = useContentVideos(tmdbIdNum, contentType, isOpen);
+  const { related } = useRelatedContent(tmdbIdNum, contentType, 8, isOpen);
 
   useEffect(() => {
     if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
@@ -200,7 +196,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl p-0 overflow-hidden bg-[hsl(220,20%,5%)] border-white/10 max-h-[90vh] flex flex-col">
         <DialogTitle className="sr-only">{content?.title || "Content Details"}</DialogTitle>
-        {/* Hero section */}
+        {/* Hero */}
         <div className="relative h-[280px] sm:h-[340px] flex-shrink-0">
           <img
             src={content.backdropUrl}
@@ -211,7 +207,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
           <div className="absolute inset-0 bg-gradient-to-t from-[hsl(220,20%,5%)] via-[hsl(220,20%,5%)/50] to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-r from-[hsl(220,20%,5%)/80] to-transparent" />
 
-          {/* Close button */}
           <button
             onClick={onClose}
             className="absolute top-4 right-4 w-9 h-9 rounded-full glass border border-white/20 flex items-center justify-center hover:bg-white/20 transition-all z-10"
@@ -219,7 +214,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             <X className="w-4 h-4 text-white" />
           </button>
 
-          {/* Type badge */}
           <div className="absolute top-4 left-4">
             <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 glass rounded-full border border-white/20 text-white/80">
               {isTV ? <Tv className="w-3.5 h-3.5" /> : <Film className="w-3.5 h-3.5" />}
@@ -227,7 +221,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             </span>
           </div>
 
-          {/* Bottom info */}
           <div className="absolute bottom-0 left-0 right-0 p-6">
             {content.logoUrl ? (
               <img
@@ -268,7 +261,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
               )}
             </div>
 
-            {/* Action buttons */}
             <div className="flex items-center gap-3 flex-wrap">
               <Button
                 className="bg-white text-black hover:bg-white/90 font-display font-bold"
@@ -301,7 +293,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <div className="p-6 space-y-6">
-            {/* Description */}
             <div>
               <p className="text-sm text-white/80 leading-relaxed">{content.description}</p>
               {content.tagline && (
@@ -309,7 +300,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
               )}
             </div>
 
-            {/* Meta grid */}
             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
               {content.genre.length > 0 && (
                 <div>
@@ -344,7 +334,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
               )}
             </div>
 
-            {/* Progress bar if continue watching */}
             {content.progress !== undefined && content.progress > 0 && (
               <div className="p-3 bg-white/5 rounded-lg border border-white/8">
                 <div className="flex justify-between text-xs text-white/60 mb-2">
@@ -361,10 +350,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
               </div>
             )}
 
-            {/* Episode browser for TV shows */}
+            {/* Episodes */}
             {isTV && (
               <div>
-                {/* Season selector */}
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-display font-bold text-white">Episodes</h3>
                   {totalSeasons > 1 && (
@@ -409,12 +397,10 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                   )}
                 </div>
 
-                {/* Season info */}
                 {dbSeason?.overview && (
                   <p className="text-sm text-white/50 mb-3">{dbSeason.overview}</p>
                 )}
 
-                {/* Episode list */}
                 {isSyncing ? (
                   <p className="text-xs text-white/30 text-center py-8">Loading episodes...</p>
                 ) : hasSeasonData ? (
@@ -423,9 +409,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                       <EpisodePill
                         key={ep.episodeNumber}
                         ep={ep}
-                        selected={
-                          ep.episodeNumber === selectedEpisode && selectedSeason === selectedSeason
-                        }
+                        selected={ep.episodeNumber === selectedEpisode}
                         onClick={() => {
                           setSelectedEpisode(ep.episodeNumber);
                           handlePlay(ep.episodeNumber);
@@ -521,19 +505,13 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
               </div>
             )}
 
-            {/* Related Content */}
+            {/* Related */}
             {related.length > 0 && (
               <div>
                 <h3 className="font-display font-bold text-white mb-3">More Like This</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {related.map((item) => (
-                    <div
-                      key={item.tmdbId}
-                      className="group cursor-pointer"
-                      onClick={() => {
-                        toast.info(`Navigate to ${item.title}`);
-                      }}
-                    >
+                    <div key={item.tmdbId} className="group cursor-pointer">
                       <div className="aspect-[2/3] bg-white/5 rounded-lg overflow-hidden mb-1.5">
                         <img
                           src={item.posterUrl}
