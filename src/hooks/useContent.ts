@@ -3,6 +3,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 
+export interface PaginatedResult {
+  items: Doc<"content">[];
+  nextCursor?: string;
+  totalCount: number;
+}
+
 export interface TMDBItem {
   tmdbId: number;
   title: string;
@@ -225,4 +231,96 @@ export function useAllCategories(): ContentCategory[] {
     { id: "movies", title: "Movies", content: movies },
     { id: "tvshows", title: "TV Shows", content: tvShows }
   ].filter((c) => c.content.length > 0);
+}
+
+export function usePaginatedContent(
+  type: "movie" | "tv" | undefined,
+  genre: string | undefined,
+  sortBy: "popular" | "new" | "rating" | "year",
+  cursor: string | undefined,
+  limit = 24
+) {
+  return useQuery(api.content.getPaginated, { type, genre, sortBy, cursor, limit });
+}
+
+export function useRecommendations(
+  watchlistItems: Doc<"content">[] | undefined,
+  limit = 12,
+  typeFilter: "all" | "movie" | "tv" = "all",
+  refreshSeed = 0
+) {
+  const [recommendations, setRecommendations] = useState<Doc<"content">[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const allContent = useQuery(api.content.getAll);
+
+  useEffect(() => {
+    if (!watchlistItems || !allContent) {
+      setRecommendations([]);
+      return;
+    }
+
+    if (watchlistItems.length === 0) {
+      setRecommendations([]);
+      return;
+    }
+
+    setIsLoading(true);
+
+    const watchlistGenres = new Map<string, number>();
+    const watchlistTypes = new Map<string, number>();
+
+    for (const item of watchlistItems) {
+      watchlistTypes.set(item.type, (watchlistTypes.get(item.type) || 0) + 1);
+      for (const g of item.genre) {
+        watchlistGenres.set(g, (watchlistGenres.get(g) || 0) + 1);
+      }
+    }
+
+    const preferredType =
+      Array.from(watchlistTypes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "movie";
+
+    let filtered = allContent.filter(
+      (c: Doc<"content">) => !watchlistItems.some((w) => w._id === c._id)
+    );
+
+    if (typeFilter !== "all") {
+      filtered = filtered.filter((c: Doc<"content">) => c.type === typeFilter);
+    }
+
+    const shuffled = [...filtered].sort(() => Math.random() - 0.5);
+
+    const poolSize = Math.min(filtered.length, limit * 3 + refreshSeed * 5);
+    const pool = shuffled.slice(0, poolSize);
+
+    const scored = pool
+      .map((c: Doc<"content">) => {
+        let score = 0;
+        score += Math.random() * 15;
+        if (c.type === preferredType) score += 2;
+        for (const g of c.genre) {
+          const genreScore = watchlistGenres.get(g) || 0;
+          score += genreScore * 1.5;
+        }
+        if (c.popular) score += 1;
+        if (c.voteAverage && c.voteAverage > 7) score += 0.5;
+        return { content: c, score };
+      })
+      .sort(
+        (
+          a: { content: Doc<"content">; score: number },
+          b: { content: Doc<"content">; score: number }
+        ) => b.score - a.score
+      )
+      .slice(0, limit)
+      .map((s: { content: Doc<"content">; score: number }) => s.content);
+
+    setRecommendations(scored);
+    setIsLoading(false);
+  }, [watchlistItems, allContent, limit, typeFilter, refreshSeed]);
+
+  return { recommendations, isLoading };
+}
+
+export function useAllContent() {
+  return useQuery(api.content.getAll);
 }

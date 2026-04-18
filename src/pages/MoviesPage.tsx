@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Film, Filter, ChevronDown } from "lucide-react";
+import { Loader2, Film, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
-import { useMovies, useContentByGenre } from "@/hooks/useContent";
+import { usePaginatedContent } from "@/hooks/useContent";
+import { Button } from "@/components/ui/button";
 
 const GENRES = [
   "All",
@@ -31,27 +32,57 @@ export function MoviesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sortOpen, setSortOpen] = useState(false);
+  const [pageHistory, setPageHistory] = useState<string[]>([]);
 
   const genre = searchParams.get("genre") ?? "All";
   const sort = (searchParams.get("sort") ?? "popular") as "popular" | "new" | "rating" | "year";
+  const cursor = searchParams.get("cursor") ?? undefined;
 
-  const allMovies = useMovies(120);
-  const genreMovies = useContentByGenre(genre !== "All" ? genre : "");
+  const paginated = usePaginatedContent(
+    "movie",
+    genre !== "All" ? genre : undefined,
+    sort,
+    cursor,
+    24
+  );
 
-  const rawMovies = genre !== "All" ? genreMovies : allMovies;
+  const movies = paginated?.items;
+  const hasNextPage = !!paginated?.nextCursor;
+  const totalCount = paginated?.totalCount ?? 0;
 
-  const sortedMovies = rawMovies
-    ? [...rawMovies].sort((a, b) => {
-        if (sort === "rating") return (b.voteAverage ?? 0) - (a.voteAverage ?? 0);
-        if (sort === "year") return b.year - a.year;
-        if (sort === "new") return (b.new ? 1 : 0) - (a.new ? 1 : 0);
-        return (b.popular ? 1 : 0) - (a.popular ? 1 : 0);
-      })
-    : undefined;
+  const currentPage = pageHistory.length + 1;
+  const totalPages = Math.ceil(totalCount / 24);
 
   const currentSort = SORTS.find((s) => s.value === sort) ?? SORTS[0]!;
 
   const handlePlay = (tmdbId: string) => navigate(`/watch/${tmdbId}`);
+
+  const handleNext = () => {
+    if (paginated?.nextCursor) {
+      setPageHistory((prev) => [...prev, cursor ?? ""]);
+      setSearchParams((p) => {
+        p.set("cursor", paginated.nextCursor!);
+        return p;
+      });
+    }
+  };
+
+  const handlePrevious = () => {
+    if (pageHistory.length > 0) {
+      const prevCursor = pageHistory[pageHistory.length - 1];
+      setPageHistory((prev) => prev.slice(0, -1));
+      setSearchParams((p) => {
+        if (prevCursor) {
+          p.set("cursor", prevCursor);
+        } else {
+          p.delete("cursor");
+        }
+        return p;
+      });
+    }
+  };
+
+  const canGoBack = pageHistory.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -61,9 +92,7 @@ export function MoviesPage() {
         <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
           <div>
             <h1 className="font-display text-3xl font-black text-white">Movies</h1>
-            {sortedMovies && (
-              <p className="text-white/40 text-sm mt-1">{sortedMovies.length} titles</p>
-            )}
+            {movies && <p className="text-white/40 text-sm mt-1">{totalCount} titles</p>}
           </div>
 
           {/* Filters */}
@@ -128,21 +157,49 @@ export function MoviesPage() {
         </div>
 
         {/* Grid */}
-        {sortedMovies === undefined ? (
+        {movies === undefined ? (
           <div className="flex justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : sortedMovies.length === 0 ? (
+        ) : movies.length === 0 ? (
           <div className="text-center py-16">
             <Film className="w-10 h-10 text-white/15 mx-auto mb-3" />
             <p className="text-white/40">No movies found</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {sortedMovies.map((movie) => (
-              <MovieCard key={movie._id} content={movie} onPlay={handlePlay} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {movies.map((movie) => (
+                <MovieCard key={movie._id} content={movie} onPlay={handlePlay} />
+              ))}
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={!canGoBack}
+                className="flex items-center gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </Button>
+              <span className="text-white/60 text-sm">
+                Page {currentPage}
+                {totalPages > 0 ? ` of ${totalPages}` : ""}
+              </span>
+              <Button
+                variant="outline"
+                onClick={handleNext}
+                disabled={!hasNextPage}
+                className="flex items-center gap-2"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </>
         )}
       </main>
     </div>

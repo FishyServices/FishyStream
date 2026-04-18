@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Loader2, Search, X, Tv, Film } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useSearchAll } from "@/hooks/useContent";
-import { MovieCard } from "@/components/MovieCard";
+import { SearchCard } from "@/components/SearchCard";
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const query = searchParams.get("q") ?? "";
   const [input, setInput] = useState(query);
   const { results, loading, error } = useSearchAll(query);
@@ -95,12 +94,7 @@ export function SearchPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 stagger-children">
               {results.map((item) => (
                 <div key={`${item.type}-${item.tmdbId}`} className="animate-fade-in-up w-fit">
-                  <MovieCard
-                    content={item as any}
-                    onPlay={(tmdbId) => {
-                      navigate(`/watch/${tmdbId}`);
-                    }}
-                  />
+                  <SearchCard item={item} />
                 </div>
               ))}
             </div>

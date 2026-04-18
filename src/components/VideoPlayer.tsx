@@ -322,7 +322,8 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     const currentEpisode = tvTargetRef.current.episode;
     const totalSeasons = content.seasons ?? 1;
 
-    const maxEpisodes = currentSeasonData?.episodeCount ?? currentSeasonData?.episodes?.length ?? 999;
+    const maxEpisodes =
+      currentSeasonData?.episodeCount ?? currentSeasonData?.episodes?.length ?? 999;
 
     let nextSeason = currentSeason;
     let nextEpisode = currentEpisode + 1;

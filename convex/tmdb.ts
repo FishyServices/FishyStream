@@ -1015,9 +1015,81 @@ export const getRelated = action({
         posterUrl: getPosterUrl(item.poster_path),
         backdropUrl: getBackdropUrl(item.backdrop_path),
         year: getYear(isMovie ? item.release_date : item.first_air_date),
-        voteAverage: item.vote_average
+        voteAverage: item.vote_average,
+        genre: getGenres(item),
+        description: item.overview || "No description available",
+        rating: getRating(item.vote_average),
+        popularity: item.popularity
       };
     });
+  }
+});
+
+export const syncSingleContent = action({
+  args: {
+    tmdbId: v.number(),
+    type: v.union(v.literal("movie"), v.literal("tv"))
+  },
+  handler: async (ctx, { tmdbId, type }) => {
+    const existing = await ctx.runQuery(internal.content.getAllTmdbIds, {});
+    const existingTmdbIds = new Set(
+      existing.map((c: { tmdbId?: string }) => c.tmdbId).filter(Boolean)
+    );
+
+    if (existingTmdbIds.has(String(tmdbId))) {
+      return { alreadyExists: true, tmdbId: String(tmdbId) };
+    }
+
+    const details = await get<TMDBMovieDetails | TMDBTVDetails>(
+      type === "movie" ? `/movie/${tmdbId}` : `/tv/${tmdbId}`,
+      { append_to_response: "external_ids,videos,images" }
+    );
+
+    if (!details) return null;
+
+    const md = details as TMDBMovieDetails | null;
+    const td = details as TMDBTVDetails | null;
+
+    const now = Date.now();
+    const item = {
+      title: (type === "movie" ? md?.title : td?.name) || "Unknown Title",
+      description: details.overview || "No description available",
+      type,
+      genre: getGenres(details),
+      year: getYear(type === "movie" ? md?.release_date : td?.first_air_date),
+      rating: getRating(details.vote_average),
+      voteAverage: details.vote_average,
+      voteCount: details.vote_count,
+      popularity: details.popularity,
+      posterUrl: getPosterUrl(details.poster_path),
+      backdropUrl: getBackdropUrl(details.backdrop_path),
+      logoUrl: getLogoUrl(type === "movie" ? md?.images?.logos : td?.images?.logos),
+      trailerKey: getTrailerKey(type === "movie" ? md?.videos?.results : td?.videos?.results),
+      tmdbId: String(tmdbId),
+      imdbId:
+        type === "movie" ? md?.imdb_id || md?.external_ids?.imdb_id : td?.external_ids?.imdb_id,
+      duration:
+        type === "movie" ? formatRuntime(md?.runtime) : formatRuntime(td?.episode_run_time?.[0]),
+      seasons: type === "tv" ? td?.number_of_seasons : undefined,
+      totalEpisodes: type === "tv" ? td?.number_of_episodes : undefined,
+      status: type === "movie" ? md?.status : td?.status,
+      tagline: details.tagline || undefined,
+      originalLanguage: details.original_language,
+      productionCountries: details.production_countries?.map((c) => c.name),
+      spokenLanguages: details.spoken_languages?.map((l) => l.name),
+      budget: type === "movie" ? md?.budget : undefined,
+      revenue: type === "movie" ? md?.revenue : undefined,
+      trending: false,
+      popular: false,
+      featured: false,
+      new: false,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    await ctx.runMutation(internal.content.upsertBatchFromTMDB, { items: [item] });
+
+    return { alreadyExists: false, tmdbId: String(tmdbId) };
   }
 });
 

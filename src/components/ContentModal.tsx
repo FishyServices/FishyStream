@@ -23,7 +23,13 @@ import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
-import { useContentCredits, useContentVideos, useRelatedContent } from "@/hooks/useContent";
+import {
+  useContentCredits,
+  useContentVideos,
+  useRelatedContent,
+  useContentByTmdbId
+} from "@/hooks/useContent";
+import type { TMDBItem } from "@/hooks/useContent";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -91,6 +97,7 @@ function EpisodePill({
 }
 
 export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalProps) {
+  const navigate = useNavigate();
   const { isSignedIn } = useUser();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
@@ -124,6 +131,23 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const { videos } = useContentVideos(tmdbIdNum, content?.type, isOpen);
   const { related } = useRelatedContent(tmdbIdNum, content?.type, 8, isOpen);
 
+  const syncSingleContent = useAction(api.tmdb.syncSingleContent);
+  const [relatedModalItem, setRelatedModalItem] = useState<TMDBItem | null>(null);
+  const [relatedDbContent, setRelatedDbContent] = useState<Doc<"content"> | null | undefined>(
+    undefined
+  );
+
+  const relatedContentQuery = useQuery(
+    api.content.getByTmdbId,
+    relatedModalItem ? { tmdbId: String(relatedModalItem.tmdbId) } : "skip"
+  );
+
+  useEffect(() => {
+    if (relatedContentQuery) {
+      setRelatedDbContent(relatedContentQuery);
+    }
+  }, [relatedContentQuery]);
+
   useEffect(() => {
     if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
     if (allSeasons === undefined || allSeasons.length > 0) return;
@@ -137,6 +161,14 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       .catch(() => {})
       .finally(() => setIsSyncing(false));
   }, [content, allSeasons]);
+
+  const handleRelatedClick = async (item: TMDBItem) => {
+    setRelatedModalItem(item);
+    setRelatedDbContent(undefined);
+    try {
+      await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
+    } catch {}
+  };
 
   useEffect(() => {
     if (!content) return;
@@ -453,7 +485,11 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                 <h3 className="font-display font-bold text-white mb-3">More Like This</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {related.map((item) => (
-                    <div key={item.tmdbId} className="group cursor-pointer">
+                    <div
+                      key={item.tmdbId}
+                      className="group cursor-pointer"
+                      onClick={() => handleRelatedClick(item)}
+                    >
                       <div className="aspect-[2/3] bg-white/5 rounded-lg overflow-hidden mb-1.5">
                         <img
                           src={item.posterUrl}
@@ -476,6 +512,19 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
           </div>
         </div>
       </DialogContent>
+
+      {/* Nested modal for related content */}
+      {relatedModalItem && relatedDbContent && (
+        <ContentModal
+          content={relatedDbContent}
+          isOpen={true}
+          onClose={() => {
+            setRelatedModalItem(null);
+            setRelatedDbContent(undefined);
+          }}
+          onPlay={onPlay}
+        />
+      )}
     </Dialog>
   );
 }

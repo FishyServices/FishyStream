@@ -1,17 +1,32 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles, RefreshCw, Film, Tv } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { useMyWatchlist } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
+import { useRecommendations } from "@/hooks/useContent";
+import { Button } from "@/components/ui/button";
 
 export function MyListPage() {
   const navigate = useNavigate();
   const { isSignedIn } = useUser();
   const watchlist = useMyWatchlist();
+  const [typeFilter, setTypeFilter] = useState<"all" | "movie" | "tv">("all");
+  const [refreshSeed, setRefreshSeed] = useState(0);
+  const { recommendations, isLoading: recsLoading } = useRecommendations(
+    watchlist,
+    12,
+    typeFilter,
+    refreshSeed
+  );
 
   const handlePlay = (tmdbId: string) => {
     navigate(`/watch/${tmdbId}`);
+  };
+
+  const handleRefresh = () => {
+    setRefreshSeed((prev) => prev + 1);
   };
 
   if (!isSignedIn) {
@@ -57,6 +72,80 @@ export function MyListPage() {
             {watchlist.map((item) => (
               <MovieCard key={item._id} content={item} onPlay={handlePlay} />
             ))}
+          </div>
+        )}
+
+        {/* Recommendations */}
+        {watchlist.length > 0 && (
+          <div className="mt-16">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold text-white">Recommended For You</h2>
+              </div>
+
+              {/* Filter buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setTypeFilter("all")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    typeFilter === "all"
+                      ? "bg-primary text-white"
+                      : "bg-white/10 text-white/70 hover:bg-white/20"
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setTypeFilter("movie")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    typeFilter === "movie"
+                      ? "bg-primary text-white"
+                      : "bg-white/10 text-white/70 hover:bg-white/20"
+                  }`}
+                >
+                  <Film className="w-3.5 h-3.5" />
+                  Movies
+                </button>
+                <button
+                  onClick={() => setTypeFilter("tv")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    typeFilter === "tv"
+                      ? "bg-primary text-white"
+                      : "bg-white/10 text-white/70 hover:bg-white/20"
+                  }`}
+                >
+                  <Tv className="w-3.5 h-3.5" />
+                  TV Shows
+                </button>
+              </div>
+
+              {/* Refresh button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={recsLoading}
+                className="ml-auto flex items-center gap-2 text-white/60 hover:text-white"
+              >
+                <RefreshCw className={`w-4 h-4 ${recsLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+
+            {recommendations.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {recommendations.map((item) => (
+                  <MovieCard key={item._id} content={item} onPlay={handlePlay} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-white/40 text-sm">
+                {typeFilter === "all"
+                  ? "No recommendations available."
+                  : `No ${typeFilter === "movie" ? "movies" : "TV shows"} to recommend.`}
+              </p>
+            )}
           </div>
         )}
       </main>

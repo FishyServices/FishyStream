@@ -170,22 +170,44 @@ export const getPaginated = query({
     limit: v.optional(v.number())
   },
   handler: async (ctx, { type, genre, sortBy = "popular", cursor, limit = 48 }) => {
+    const pageSize = limit ?? 48;
+
+    if (sortBy === "popular" && !genre && type) {
+      const popular = await ctx.db
+        .query("content")
+        .withIndex("by_popular", (q) => q.eq("popular", true))
+        .filter((q) => q.eq(q.field("type"), type))
+        .take(1024);
+
+      const nonPopular = await ctx.db
+        .query("content")
+        .withIndex("by_type", (q) => q.eq("type", type))
+        .filter((q) => q.eq(q.field("popular"), false))
+        .take(1024);
+
+      const items = [...popular, ...nonPopular];
+      const start = cursor ? items.findIndex((c) => c._id === cursor) + 1 : 0;
+      const page = items.slice(start, start + pageSize);
+      const nextCursor = page.length === pageSize ? page[page.length - 1]?._id : undefined;
+
+      return { items: page, nextCursor, totalCount: items.length };
+    }
+
     let items: Doc<"content">[];
 
     if (type) {
       items = await ctx.db
         .query("content")
         .withIndex("by_type", (q) => q.eq("type", type))
-        .take(500);
+        .take(1024);
     } else {
-      items = await ctx.db.query("content").take(500);
+      items = await ctx.db.query("content").take(1024);
     }
 
     if (genre) {
       items = items.filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()));
     }
 
-    // Sort
     switch (sortBy) {
       case "new":
         items = items.filter((c) => c.new).concat(items.filter((c) => !c.new));
@@ -196,13 +218,13 @@ export const getPaginated = query({
       case "year":
         items.sort((a, b) => b.year - a.year);
         break;
-      default: // popular
+      default:
         items = items.filter((c) => c.popular).concat(items.filter((c) => !c.popular));
     }
 
     const start = cursor ? items.findIndex((c) => c._id === cursor) + 1 : 0;
-    const page = items.slice(start, start + limit);
-    const nextCursor = page.length === limit ? page[page.length - 1]?._id : undefined;
+    const page = items.slice(start, start + pageSize);
+    const nextCursor = page.length === pageSize ? page[page.length - 1]?._id : undefined;
 
     return { items: page, nextCursor, totalCount: items.length };
   }
@@ -282,5 +304,12 @@ export const getAllTmdbIds = internalQuery({
   handler: async (ctx) => {
     const content = await ctx.db.query("content").take(5000);
     return content.map((c) => ({ tmdbId: c.tmdbId, type: c.type }));
+  }
+});
+
+export const getAll = query({
+  args: {},
+  handler: async (ctx): Promise<Doc<"content">[]> => {
+    return await ctx.db.query("content").take(1000);
   }
 });
