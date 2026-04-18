@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { ArrowLeft, Loader2, AlertCircle, MonitorPlay, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, MonitorPlay, RefreshCw, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import {
@@ -83,6 +83,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const [selectedSource, setSelectedSource] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentProgress, setCurrentProgress] = useState(0);
 
   const historyInitRef = useRef(false);
   const realtimeDetectedRef = useRef(false);
@@ -99,6 +100,11 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     season: initialSeason ?? 1,
     episode: initialEpisode ?? 1
   });
+
+  const currentSeasonData = useQuery(
+    api.seasons.getSeason,
+    content.type === "tv" ? { contentId: content._id, seasonNumber: tvTarget.season } : "skip"
+  );
 
   useEffect(() => {
     setSources([]);
@@ -224,6 +230,8 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       const nextSeason = content.type === "tv" ? safeEp(data.season) : undefined;
       const nextEpisode = content.type === "tv" ? safeEp(data.episode) : undefined;
 
+      setCurrentProgress(nextProgress);
+
       const isForced = data.event !== "timeupdate";
       const meaningful =
         Math.abs(nextPos - lastSyncedPositionRef.current) >= 10 ||
@@ -306,6 +314,44 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       setLoading(false);
     }
   };
+
+  const handleNextEpisode = () => {
+    if (content.type !== "tv") return;
+
+    const currentSeason = tvTargetRef.current.season;
+    const currentEpisode = tvTargetRef.current.episode;
+    const totalSeasons = content.seasons ?? 1;
+
+    const maxEpisodes = currentSeasonData?.episodeCount ?? currentSeasonData?.episodes?.length ?? 999;
+
+    let nextSeason = currentSeason;
+    let nextEpisode = currentEpisode + 1;
+
+    if (currentEpisode >= maxEpisodes) {
+      nextSeason = currentSeason + 1;
+      nextEpisode = 1;
+    }
+
+    if (nextSeason > totalSeasons) {
+      return;
+    }
+
+    tvTargetRef.current = { season: nextSeason, episode: nextEpisode };
+    setTvTarget({ season: nextSeason, episode: nextEpisode });
+
+    const params = new URLSearchParams();
+    params.set("season", String(nextSeason));
+    params.set("episode", String(nextEpisode));
+    navigate({ search: params.toString() }, { replace: true });
+
+    setSources([]);
+    setLoading(true);
+    setError(null);
+  };
+
+  const hasNextEpisode =
+    content.type === "tv" &&
+    (tvTarget.episode < (content.totalEpisodes ?? 999) || tvTarget.season < (content.seasons ?? 1));
 
   if (loading) {
     return (
@@ -405,6 +451,17 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
           title={`Playing ${content.title}`}
           referrerPolicy="no-referrer-when-downgrade"
         />
+
+        {/* Next Episode Button - Bottom Right, shows at 80% progress */}
+        {content.type === "tv" && hasNextEpisode && currentProgress >= 80 && (
+          <Button
+            onClick={handleNextEpisode}
+            className="absolute bottom-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 backdrop-blur-sm"
+          >
+            <SkipForward className="w-4 h-4" />
+            Next Episode
+          </Button>
+        )}
       </div>
     </div>
   );
