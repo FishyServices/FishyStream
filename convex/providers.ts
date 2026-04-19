@@ -33,8 +33,16 @@ const PROVIDERS: ProviderConfig[] = [
     quality: "1080p",
     supportsProgressEvents: true,
     getMovieUrl: (id) => `https://vidfast.pro/movie/${id}`,
-    getTVUrl: (id, season, episode) =>
-      `https://vidfast.pro/tv/${id}/${season}/${episode}`
+    getTVUrl: (id, season, episode) => `https://vidfast.pro/tv/${id}/${season}/${episode}`
+  },
+  {
+    name: "VidEasy",
+    idType: "tmdb",
+    quality: "1080p",
+    supportsProgressEvents: true,
+    getMovieUrl: (tmdbId) => `https://player.videasy.net/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) =>
+      `https://player.videasy.net/tv/${tmdbId}/${season}/${episode}`
   },
   {
     name: "SuperEmbed",
@@ -57,8 +65,7 @@ const PROVIDERS: ProviderConfig[] = [
     idType: "both",
     quality: "1080p",
     getMovieUrl: (id) => `https://vidsrc.icu/embed/movie/${id}`,
-    getTVUrl: (id, season, episode) =>
-      `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`
+    getTVUrl: (id, season, episode) => `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`
   },
   {
     name: "2Embed",
@@ -166,9 +173,7 @@ function getSourcesForContent(
     const id = getProviderId(config, imdbId, type === "movie" ? undefined : imdbId);
     if (!id) continue;
 
-    const url = type === "movie"
-      ? config.getMovieUrl(id)
-      : config.getTVUrl(id, season, episode);
+    const url = type === "movie" ? config.getMovieUrl(id) : config.getTVUrl(id, season, episode);
 
     sources.push({
       name: config.name,

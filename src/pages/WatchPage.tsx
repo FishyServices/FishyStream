@@ -10,6 +10,7 @@ export function WatchPage() {
 
   const initialSeason = searchParams.get("season");
   const initialEpisode = searchParams.get("episode");
+  const initialSource = searchParams.get("source");
   const seasonOverride = initialSeason ? Number(initialSeason) : undefined;
   const episodeOverride = initialEpisode ? Number(initialEpisode) : undefined;
 
@@ -40,6 +41,7 @@ export function WatchPage() {
       content={content}
       initialSeason={seasonOverride}
       initialEpisode={episodeOverride}
+      initialSource={initialSource || undefined}
     />
   );
 }

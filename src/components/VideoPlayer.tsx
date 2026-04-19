@@ -4,7 +4,7 @@ import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { ArrowLeft, Loader2, AlertCircle, MonitorPlay, RefreshCw, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -14,11 +14,20 @@ import {
 } from "@/components/ui/select";
 import { useUser } from "@clerk/react";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
+import type { PlayerEventPayload, MediaDataPayload, PlayerControls } from "@/lib/playerProviders";
+import {
+  parsePlayerMessage,
+  calculateProgress,
+  isVidFastOrigin,
+  isVideasyOrigin,
+  createPlayerControls
+} from "@/lib/playerProviders";
 
 interface VideoPlayerProps {
   content: Doc<"content">;
   initialSeason?: number;
   initialEpisode?: number;
+  initialSource?: string;
 }
 
 interface StreamSource {
@@ -26,51 +35,6 @@ interface StreamSource {
   url: string;
   quality: string;
   supportsProgressEvents?: boolean;
-}
-
-interface PlayerEventPayload {
-  type: "PLAYER_EVENT";
-  data: {
-    event: "timeupdate" | "play" | "pause" | "ended" | "seeked" | "playerstatus";
-    currentTime: number;
-    duration: number;
-    progress?: number;
-    id?: string;
-    tmdbId?: number;
-    mediaType: "movie" | "tv";
-    season?: number;
-    episode?: number;
-    timestamp?: number;
-    playing?: boolean;
-    muted?: boolean;
-    volume?: number;
-  };
-}
-
-interface MediaDataPayload {
-  type: "MEDIA_DATA";
-  data: Record<string, {
-    id: number;
-    type: "movie" | "tv";
-    title: string;
-    progress: { watched: number; duration: number };
-    last_season_watched?: number;
-    last_episode_watched?: number;
-  }>;
-}
-
-const VIDFAST_ORIGINS = [
-  "https://vidfast.pro",
-  "https://vidfast.in",
-  "https://vidfast.io",
-  "https://vidfast.me",
-  "https://vidfast.net",
-  "https://vidfast.pm",
-  "https://vidfast.xyz"
-];
-
-function isVidFastOrigin(origin: string): boolean {
-  return VIDFAST_ORIGINS.includes(origin);
 }
 
 function clamp(v: number) {
@@ -89,26 +53,14 @@ function estimateDuration(content: Doc<"content">) {
   return s > 0 ? s : content.type === "tv" ? 45 * 60 : 2 * 60 * 60;
 }
 
-function parsePlayerMsg(raw: unknown): PlayerEventPayload | MediaDataPayload | null {
-  try {
-    const p = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (!p || typeof p !== "object") return null;
-    if ((p as any).type === "PLAYER_EVENT" || (p as any).type === "MEDIA_DATA") {
-      return p as PlayerEventPayload | MediaDataPayload;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function calculateProgress(currentTime: number, duration: number): number {
-  if (!duration || duration <= 0) return 0;
-  return Math.min(100, Math.max(0, (currentTime / duration) * 100));
-}
-
-export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPlayerProps) {
+export function VideoPlayer({
+  content,
+  initialSeason,
+  initialEpisode,
+  initialSource
+}: VideoPlayerProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { user, isSignedIn } = useUser();
 
@@ -212,7 +164,10 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
         loadedTvRef.current = { season, episode };
         setSources(fetched);
-        const def = fetched.find((s) => s.supportsProgressEvents) ?? fetched[0]!;
+        const preferredSource = initialSource
+          ? fetched.find((s) => s.name.toLowerCase() === initialSource.toLowerCase())
+          : undefined;
+        const def = preferredSource ?? fetched.find((s) => s.supportsProgressEvents) ?? fetched[0]!;
         setSelectedSource(def.url);
       } catch (err) {
         setError(
@@ -224,7 +179,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     };
 
     load();
-  }, [content._id, sources.length, error]);
+  }, [content._id, sources.length, error, initialSource]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
   const isVidFast = selectedSourceConfig?.name === "VidFast";
@@ -245,20 +200,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     }
   })();
 
-  const postMessageToPlayer = (command: string, params?: Record<string, unknown>) => {
-    if (!iframeRef.current?.contentWindow) return;
-    const msg = { command, ...params };
-    iframeRef.current.contentWindow.postMessage(msg, "*");
-  };
-
-  const playerControls = {
-    play: () => postMessageToPlayer("play"),
-    pause: () => postMessageToPlayer("pause"),
-    seek: (time: number) => postMessageToPlayer("seek", { time }),
-    setVolume: (level: number) => postMessageToPlayer("volume", { level }),
-    mute: (muted: boolean) => postMessageToPlayer("mute", { muted }),
-    getStatus: () => postMessageToPlayer("getStatus")
-  };
+  const playerControls: PlayerControls = createPlayerControls(iframeRef);
 
   useEffect(() => {
     if (!embedUrl) return;
@@ -274,14 +216,20 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
     const handleMsg = (event: MessageEvent) => {
       const isVidFast = isVidFastOrigin(event.origin);
-      if (!isVidFast && event.origin !== origin) return;
-      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
-        return;
+      const isVideasy = isVideasyOrigin(event.origin);
 
-      const payload = parsePlayerMsg(event.data);
+      if (!isVidFast && !isVideasy && event.origin !== origin) return;
+
+      if (!isVidFast && !isVideasy) {
+        if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
+          return;
+      }
+
+      const payload = parsePlayerMessage(event.data, event.origin);
+
       if (!payload) return;
 
-      if (payload.type === "MEDIA_DATA") {
+      if (payload.type === "MEDIA_DATA" && isVidFast) {
         return;
       }
 
@@ -293,9 +241,8 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
       const nextPos = Math.max(0, data.currentTime || 0);
       const nextDur = Math.max(0, data.duration || 0);
-      const nextProgress = data.progress !== undefined
-        ? clamp(data.progress)
-        : calculateProgress(nextPos, nextDur);
+      const nextProgress =
+        data.progress !== undefined ? clamp(data.progress) : calculateProgress(nextPos, nextDur);
       const nextSeason = content.type === "tv" ? safeEp(data.season) : undefined;
       const nextEpisode = content.type === "tv" ? safeEp(data.episode) : undefined;
 
@@ -346,13 +293,20 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   }, [content._id, content.tmdbId, content.type, embedUrl, isSignedIn, user, updateProgress]);
 
   const handleSourceChange = async (nextUrl: string) => {
-    const prevName = sources.find((s) => s.url === nextUrl)?.name;
+    const nextSource = sources.find((s) => s.url === nextUrl);
+    const prevName = nextSource?.name;
     const needsReload =
       content.type === "tv" &&
       (tvTargetRef.current.season !== loadedTvRef.current.season ||
         tvTargetRef.current.episode !== loadedTvRef.current.episode);
 
     realtimeDetectedRef.current = false;
+
+    if (nextSource) {
+      const params = new URLSearchParams(searchParams);
+      params.set("source", nextSource.name);
+      navigate({ search: params.toString() }, { replace: true });
+    }
 
     if (!needsReload) {
       setSelectedSource(nextUrl);
@@ -415,6 +369,10 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     const params = new URLSearchParams();
     params.set("season", String(nextSeason));
     params.set("episode", String(nextEpisode));
+    const currentSource = searchParams.get("source");
+    if (currentSource) {
+      params.set("source", currentSource);
+    }
     navigate({ search: params.toString() }, { replace: true });
 
     setSources([]);
