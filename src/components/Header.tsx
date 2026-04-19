@@ -16,19 +16,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const GENRES = [
-  "Action",
-  "Comedy",
-  "Drama",
-  "Horror",
-  "Sci-Fi",
-  "Thriller",
-  "Animation",
-  "Documentary",
-  "Romance",
-  "Fantasy"
-];
-
 const navLinks = [
   { label: "Home", href: "/" },
   {

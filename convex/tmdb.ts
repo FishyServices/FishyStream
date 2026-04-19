@@ -350,10 +350,19 @@ function getGenres(item: { genres?: TMDBGenre[]; genre_ids?: number[] }): string
   return (item.genre_ids ?? []).map((id) => GENRE_MAP[id]).filter(Boolean) as string[];
 }
 
-function getRating(voteAverage: number): string {
-  if (voteAverage >= 8) return "TV-MA";
-  if (voteAverage >= 6) return "PG-13";
-  if (voteAverage >= 4) return "PG";
+function getRating(voteAverage: number, certificationOrRating?: string | null): string {
+  if (certificationOrRating) {
+    const r = certificationOrRating.trim().toUpperCase();
+    const known = ["G", "PG", "PG-13", "R", "NC-17", "TV-Y", "TV-G", "TV-PG", "TV-14", "TV-MA"];
+    if (known.includes(r)) return r;
+    if (r === "U" || r === "U/A") return "PG";
+    if (r === "A") return "R";
+    if (r === "18" || r === "18+") return "R";
+    if (r === "15" || r === "16+") return "PG-13";
+    if (r === "12" || r === "12A" || r === "13+") return "PG-13";
+  }
+  if (voteAverage >= 7.5) return "PG-13";
+  if (voteAverage >= 5) return "PG";
   return "G";
 }
 

@@ -72,7 +72,7 @@ export function WatchHistoryPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {history.map((item) => (
-              <div key={item._id} className="relative group w-fit">
+              <div key={item._id} className="relative group">
                 <MovieCard content={item} onPlay={handlePlay} />
                 <div className="absolute top-2 right-2 z-20">
                   <Button

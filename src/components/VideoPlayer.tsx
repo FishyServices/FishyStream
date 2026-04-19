@@ -380,9 +380,15 @@ export function VideoPlayer({
     setError(null);
   };
 
-  const hasNextEpisode =
-    content.type === "tv" &&
-    (tvTarget.episode < (content.totalEpisodes ?? 999) || tvTarget.season < (content.seasons ?? 1));
+  const hasNextEpisode = (() => {
+    if (content.type !== "tv") return false;
+    const totalSeasons = content.seasons ?? 1;
+    if (tvTarget.season < totalSeasons) return true;
+    const seasonEpisodeCount =
+      currentSeasonData?.episodeCount ?? currentSeasonData?.episodes?.length;
+    if (seasonEpisodeCount == null) return false;
+    return tvTarget.episode < seasonEpisodeCount;
+  })();
 
   if (loading) {
     return (

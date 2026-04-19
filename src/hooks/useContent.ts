@@ -251,7 +251,10 @@ export function useRecommendations(
 ) {
   const [recommendations, setRecommendations] = useState<Doc<"content">[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const allContent = useQuery(api.content.getAll);
+  const allContent = useQuery(
+    api.content.getAll,
+    watchlistItems && watchlistItems.length > 0 ? undefined : "skip"
+  );
 
   useEffect(() => {
     if (!watchlistItems || !allContent) {
@@ -279,16 +282,14 @@ export function useRecommendations(
     const preferredType =
       Array.from(watchlistTypes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "movie";
 
-    let filtered = allContent.filter(
-      (c: Doc<"content">) => !watchlistItems.some((w) => w._id === c._id)
-    );
+    const watchlistIds = new Set(watchlistItems.map((w) => w._id));
+    let filtered = allContent.filter((c: Doc<"content">) => !watchlistIds.has(c._id));
 
     if (typeFilter !== "all") {
       filtered = filtered.filter((c: Doc<"content">) => c.type === typeFilter);
     }
 
     const shuffled = [...filtered].sort(() => Math.random() - 0.5);
-
     const poolSize = Math.min(filtered.length, limit * 3 + refreshSeed * 5);
     const pool = shuffled.slice(0, poolSize);
 

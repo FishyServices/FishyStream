@@ -112,8 +112,8 @@ export const getByTmdbId = query({
 export const getByGenre = query({
   args: { genre: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { genre, limit = 24 }): Promise<Doc<"content">[]> => {
-    const all = await ctx.db.query("content").take(500);
-    return all
+    const candidates = await ctx.db.query("content").take(300);
+    return candidates
       .filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()))
       .slice(0, limit);
   }
@@ -302,7 +302,8 @@ export const upsertBatchFromTMDB = internalMutation({
 export const getAllTmdbIds = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const content = await ctx.db.query("content").take(5000);
+    // Use a larger cap and only return the fields we actually need
+    const content = await ctx.db.query("content").take(10000);
     return content.map((c) => ({ tmdbId: c.tmdbId, type: c.type }));
   }
 });
@@ -310,6 +311,7 @@ export const getAllTmdbIds = internalQuery({
 export const getAll = query({
   args: {},
   handler: async (ctx): Promise<Doc<"content">[]> => {
-    return await ctx.db.query("content").take(1000);
+    // 300 is enough for the client-side recommendation scorer
+    return await ctx.db.query("content").take(300);
   }
 });

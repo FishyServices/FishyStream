@@ -108,15 +108,18 @@ export function useTMDBData(
         let results: TMDBMediaItem[] = [];
 
         if (mediaType === "movie") {
-          if (endpoint === "/trending/movie/week") {
+          if (endpoint.includes("/trending/")) {
             const data = await getTrendingMovies({ page: 1 });
             results = data.map((m) => ({ ...m, type: "movie" as const }));
           } else {
             const data = await getTrendingMovies({ page: 1 });
             results = data.map((m) => ({ ...m, type: "movie" as const }));
+            if (isGenre && typeof key === "number") {
+              results = results.filter((m) => m.genre.length > 0);
+            }
           }
         } else {
-          if (endpoint === "/tv/popular") {
+          if (endpoint.includes("/tv/popular") || endpoint.includes("/trending/")) {
             const data = await getPopularTVShows({ page: 1 });
             results = data.map((s) => ({ ...s, type: "tv" as const }));
           } else {
@@ -221,127 +224,6 @@ export function useLazyTMDBData(
   }, [genre, category, mediaType, fetchMedia, shouldLoad]);
 
   return { media, isLoading };
-}
-
-export function useRelatedContent(
-  tmdbId: number | undefined,
-  type: MediaType | undefined,
-  limit: number = 10,
-  enabled: boolean = true
-) {
-  const [related, setRelated] = useState<TMDBMediaItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const getRelated = useAction(api.tmdb.getRelated);
-
-  useEffect(() => {
-    if (!enabled || !tmdbId || !type) {
-      if (!enabled) setRelated([]);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoading(true);
-
-    const fetch = async () => {
-      try {
-        const results = await getRelated({ tmdbId, type, limit });
-        if (!cancelled) setRelated(results as TMDBMediaItem[]);
-      } catch {}
-      if (!cancelled) setIsLoading(false);
-    };
-
-    const timeout = setTimeout(fetch, 100);
-    return () => {
-      clearTimeout(timeout);
-      cancelled = true;
-    };
-  }, [tmdbId, type, limit, enabled, getRelated]);
-
-  return { related, isLoading };
-}
-
-export function useContentCredits(
-  tmdbId: number | undefined,
-  type: MediaType | undefined,
-  enabled: boolean = true
-) {
-  const [credits, setCredits] = useState<{
-    cast: Array<{
-      id: number;
-      name: string;
-      character: string;
-      profileUrl?: string;
-      order: number;
-    }>;
-    directors: string[];
-    writers: string[];
-  } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const getCredits = useAction(api.tmdb.getCredits);
-
-  useEffect(() => {
-    if (!enabled || !tmdbId || !type) {
-      if (!enabled) setCredits(null);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoading(true);
-
-    const fetch = async () => {
-      try {
-        const results = await getCredits({ tmdbId, type });
-        if (!cancelled) setCredits(results);
-      } catch {}
-      if (!cancelled) setIsLoading(false);
-    };
-
-    const timeout = setTimeout(fetch, 150);
-    return () => {
-      clearTimeout(timeout);
-      cancelled = true;
-    };
-  }, [tmdbId, type, enabled, getCredits]);
-
-  return { credits, isLoading };
-}
-
-export function useContentVideos(
-  tmdbId: number | undefined,
-  type: MediaType | undefined,
-  enabled: boolean = true
-) {
-  const [videos, setVideos] = useState<
-    Array<{ key: string; name: string; type: string; official: boolean }>
-  >([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const getVideos = useAction(api.tmdb.getVideos);
-
-  useEffect(() => {
-    if (!enabled || !tmdbId || !type) {
-      if (!enabled) setVideos([]);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoading(true);
-
-    const fetch = async () => {
-      try {
-        const results = await getVideos({ tmdbId, type });
-        if (!cancelled) setVideos(results);
-      } catch {}
-      if (!cancelled) setIsLoading(false);
-    };
-
-    const timeout = setTimeout(fetch, 200);
-    return () => {
-      clearTimeout(timeout);
-      cancelled = true;
-    };
-  }, [tmdbId, type, enabled, getVideos]);
-
-  return { videos, isLoading };
 }
 
 export function useIMDbMetadata(imdbId: string | undefined, type: MediaType | undefined) {

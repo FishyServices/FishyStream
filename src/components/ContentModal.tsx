@@ -13,7 +13,8 @@ import {
   Film,
   User,
   Video,
-  Users
+  Users,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -136,6 +137,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const [relatedDbContent, setRelatedDbContent] = useState<Doc<"content"> | null | undefined>(
     undefined
   );
+  const [relatedSyncing, setRelatedSyncing] = useState(false);
 
   const relatedContentQuery = useQuery(
     api.content.getByTmdbId,
@@ -165,9 +167,11 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const handleRelatedClick = async (item: TMDBItem) => {
     setRelatedModalItem(item);
     setRelatedDbContent(undefined);
+    setRelatedSyncing(true);
     try {
       await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
     } catch {}
+    setRelatedSyncing(false);
   };
 
   useEffect(() => {
@@ -514,7 +518,18 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       </DialogContent>
 
       {/* Nested modal for related content */}
-      {relatedModalItem && relatedDbContent && (
+      {relatedModalItem && relatedSyncing && (
+        <Dialog open={true} onOpenChange={() => { setRelatedModalItem(null); setRelatedSyncing(false); }}>
+          <DialogContent className="max-w-xs p-8 bg-[hsl(220,20%,5%)] border-white/10 flex items-center justify-center">
+            <DialogTitle className="sr-only">Loading</DialogTitle>
+            <div className="text-center">
+              <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-3" />
+              <p className="text-sm text-white/60">Loading {relatedModalItem.title}…</p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+      {relatedModalItem && relatedDbContent && !relatedSyncing && (
         <ContentModal
           content={relatedDbContent}
           isOpen={true}

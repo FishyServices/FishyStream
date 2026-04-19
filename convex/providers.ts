@@ -161,48 +161,4 @@ export const checkSource = action({
   }
 });
 
-function getSourcesForContent(
-  imdbId: string,
-  type: "movie" | "tv",
-  season: number = 1,
-  episode: number = 1
-): StreamSource[] {
-  const sources: StreamSource[] = [];
 
-  for (const config of PROVIDERS) {
-    const id = getProviderId(config, imdbId, type === "movie" ? undefined : imdbId);
-    if (!id) continue;
-
-    const url = type === "movie" ? config.getMovieUrl(id) : config.getTVUrl(id, season, episode);
-
-    sources.push({
-      name: config.name,
-      url,
-      quality: config.quality,
-      ...(config.supportsProgressEvents && { supportsProgressEvents: true })
-    });
-  }
-
-  return sources;
-}
-
-export const getBestSource = action({
-  args: {
-    imdbId: v.string(),
-    type: v.union(v.literal("movie"), v.literal("tv")),
-    season: v.optional(v.number()),
-    episode: v.optional(v.number())
-  },
-  handler: async (_ctx, args): Promise<StreamSource | null> => {
-    const { imdbId, type, season = 1, episode = 1 } = args;
-    const sources = getSourcesForContent(imdbId, type, season, episode);
-    return sources[0] || null;
-  }
-});
-
-export const providers = {
-  getMovieSources,
-  getTVSources,
-  checkSource,
-  getBestSource
-};
