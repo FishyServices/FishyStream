@@ -264,8 +264,6 @@ export function VideoPlayer({
       const nextDur = Math.max(0, data.duration || 0);
       const nextProgress =
         data.progress !== undefined ? clamp(data.progress) : calculateProgress(nextPos, nextDur);
-      const nextSeason = content.type === "tv" ? safeEp(data.season) : undefined;
-      const nextEpisode = content.type === "tv" ? safeEp(data.episode) : undefined;
 
       setCurrentProgress(nextProgress);
 
@@ -280,8 +278,16 @@ export function VideoPlayer({
 
       if (!isForced && !meaningful) return;
 
+      const nextSeason =
+        content.type === "tv" && data.season != null && Number.isFinite(data.season)
+          ? Math.max(1, Math.floor(data.season))
+          : undefined;
+      const nextEpisode =
+        content.type === "tv" && data.episode != null && Number.isFinite(data.episode)
+          ? Math.max(1, Math.floor(data.episode))
+          : undefined;
+
       if (
-        content.type === "tv" &&
         nextSeason !== undefined &&
         nextEpisode !== undefined &&
         (tvTargetRef.current.season !== nextSeason || tvTargetRef.current.episode !== nextEpisode)
