@@ -132,6 +132,11 @@ export function useGetProgress(contentId: Id<"content"> | undefined): ProgressSt
   return lsGetAll().find((p) => p.contentId === contentId);
 }
 
+export function useWatchProgressContext(): ProgressMap | undefined {
+  const ctx = useContext(Ctx);
+  return ctx?.map;
+}
+
 export function useUpdateProgress() {
   const { user } = useUser();
   const ctx = useContext(Ctx);

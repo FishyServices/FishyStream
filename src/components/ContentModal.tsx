@@ -519,7 +519,13 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
       {/* Nested modal for related content */}
       {relatedModalItem && relatedSyncing && (
-        <Dialog open={true} onOpenChange={() => { setRelatedModalItem(null); setRelatedSyncing(false); }}>
+        <Dialog
+          open={true}
+          onOpenChange={() => {
+            setRelatedModalItem(null);
+            setRelatedSyncing(false);
+          }}
+        >
           <DialogContent className="max-w-xs p-8 bg-[hsl(220,20%,5%)] border-white/10 flex items-center justify-center">
             <DialogTitle className="sr-only">Loading</DialogTitle>
             <div className="text-center">

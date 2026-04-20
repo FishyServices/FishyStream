@@ -1,18 +1,9 @@
-/**
- * useWatchHistory — watch history helpers.
- *
- * The actual progress caching lives in useWatchProgress.ts.
- * This file provides:
- *  - useMyWatchHistory()      full history list (needs DB)
- *  - useContinueWatching()    items with progress < 95% (needs DB)
- *  - useRemoveFromHistory()   remove a history entry
- */
-
 import { useQuery, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { useWatchProgressContext } from "./useWatchProgress";
 
 export interface WatchHistoryItem extends Doc<"content"> {
   progress: number;
@@ -31,7 +22,39 @@ export function useMyWatchHistory(): WatchHistoryItem[] | undefined {
 
 export function useContinueWatching(): WatchHistoryItem[] | undefined {
   const { user } = useUser();
-  return useQuery(api.watchHistory.getContinueWatching, user ? { clerkUserId: user.id } : "skip");
+  const serverData = useQuery(
+    api.watchHistory.getContinueWatching,
+    user ? { clerkUserId: user.id } : "skip"
+  );
+  const localProgress = useWatchProgressContext();
+
+  return useMemo(() => {
+    if (serverData === undefined) return undefined;
+
+    const result = [...serverData];
+    for (const [contentId, progress] of localProgress?.entries() ?? []) {
+      if (progress.completed || progress.progress < 5) continue;
+
+      const existingIndex = result.findIndex((item) => item._id === contentId);
+      if (existingIndex >= 0) {
+        const existing = result[existingIndex]!;
+        if (progress.progress > existing.progress) {
+          result[existingIndex] = {
+            ...existing,
+            progress: progress.progress,
+            completed: progress.completed,
+            positionSeconds: progress.positionSeconds,
+            durationSeconds: progress.durationSeconds,
+            seasonNumber: progress.seasonNumber,
+            episodeNumber: progress.episodeNumber,
+            watchedAt: Date.now()
+          };
+        }
+      }
+    }
+
+    return result;
+  }, [serverData, localProgress]);
 }
 
 export function useRemoveFromHistory() {
