@@ -132,12 +132,23 @@ export function VideoPlayer({
     lastSyncedPositionRef.current = Math.max(0, watchState.positionSeconds);
 
     if (content.type === "tv") {
-      const s =
-        initialSeason !== undefined ? safeEp(initialSeason) : safeEp(watchState.seasonNumber);
-      const e =
-        initialEpisode !== undefined ? safeEp(initialEpisode) : safeEp(watchState.episodeNumber);
-      tvTargetRef.current = { season: s, episode: e };
-      setTvTarget({ season: s, episode: e });
+      const hasExplicitInitials = initialSeason !== undefined || initialEpisode !== undefined;
+      const hasSavedProgress =
+        watchState.positionSeconds > 0 ||
+        watchState.progress > 0 ||
+        (watchState.seasonNumber != null && watchState.seasonNumber !== 1) ||
+        (watchState.episodeNumber != null && watchState.episodeNumber !== 1);
+
+      if (hasExplicitInitials || hasSavedProgress) {
+        const s =
+          initialSeason !== undefined ? safeEp(initialSeason) : safeEp(watchState.seasonNumber);
+        const e =
+          initialEpisode !== undefined ? safeEp(initialEpisode) : safeEp(watchState.episodeNumber);
+        if (tvTargetRef.current.season !== s || tvTargetRef.current.episode !== e) {
+          tvTargetRef.current = { season: s, episode: e };
+          setTvTarget({ season: s, episode: e });
+        }
+      }
     }
   }, [content._id, content.type, watchState, initialSeason, initialEpisode]);
 
