@@ -111,7 +111,17 @@ export function VideoPlayer({
     tvTargetRef.current = { season: s, episode: e };
     loadedTvRef.current = { season: s, episode: e };
     setTvTarget({ season: s, episode: e });
-  }, [content._id, initialSeason, initialEpisode]);
+  }, [content._id]);
+
+  useEffect(() => {
+    const s = initialSeason ?? 1;
+    const e = initialEpisode ?? 1;
+    if (tvTargetRef.current.season !== s || tvTargetRef.current.episode !== e) {
+      tvTargetRef.current = { season: s, episode: e };
+      loadedTvRef.current = { season: s, episode: e };
+      setTvTarget({ season: s, episode: e });
+    }
+  }, [initialSeason, initialEpisode]);
 
   useEffect(() => {
     if (historyInitRef.current) return;
