@@ -3,6 +3,7 @@
     "strict": true,
     "target": "ESNext",
     "lib": ["ES2021", "dom"],
+    "types": ["node"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "isolatedModules": true,

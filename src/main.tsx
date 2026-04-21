@@ -19,12 +19,25 @@ import { GlobalWatchlistProvider } from "./hooks/useWatchlist";
 import { WatchProgressProvider } from "./hooks/useWatchProgress";
 import "./index.css";
 
-const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+if (!publishableKey) {
+  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in environment");
+}
+
+const convexUrl = import.meta.env.VITE_CONVEX_URL;
+if (!convexUrl) {
+  throw new Error("Missing VITE_CONVEX_URL in environment");
+}
+
+const convex = new ConvexReactClient(convexUrl);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ClerkProvider
-      publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY!}
+      publishableKey={publishableKey}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      afterSignOutUrl="/"
       appearance={{
         baseTheme: dark,
         variables: { colorPrimary: "hsl(2 71% 56%)", colorText: "white" }

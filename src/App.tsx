@@ -206,14 +206,6 @@ export function App() {
     navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
   };
 
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   const hasContent = featuredContent || categories.some((c) => c.content.length > 0);
   if (!hasContent)
     return (
@@ -237,7 +229,7 @@ export function App() {
           <SyncPanel />
 
           {/* Continue Watching */}
-          {isSignedIn && continueWatching.length > 0 && (
+          {isLoaded && isSignedIn && continueWatching.length > 0 && (
             <ContentRow
               title="Continue Watching"
               content={continueWatching}
