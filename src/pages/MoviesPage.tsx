@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Film, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -87,16 +87,16 @@ export function MoviesPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-24 px-6 sm:px-10 pb-16">
+      <main className="page-stack px-4 sm:px-6 lg:px-10">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="font-display text-3xl font-black text-white">Movies</h1>
             {movies && <p className="text-white/40 text-sm mt-1">{totalCount} titles</p>}
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 self-start">
             {/* Sort */}
             <div className="relative">
               <button
@@ -135,7 +135,7 @@ export function MoviesPage() {
         </div>
 
         {/* Genre pills */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-4 mb-6 -mx-6 sm:-mx-10 px-6 sm:px-10">
+        <div className="-mx-1 mb-6 flex gap-2 overflow-x-auto scrollbar-hide px-1 pb-4">
           {GENRES.map((g) => (
             <button
               key={g}
@@ -168,19 +168,19 @@ export function MoviesPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {movies.map((movie) => (
-                <MovieCard key={movie._id} content={movie} onPlay={handlePlay} />
+                <MovieCard key={movie._id} content={movie} onPlay={handlePlay} layout="grid" />
               ))}
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-center gap-4 mt-8">
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
               <Button
                 variant="outline"
                 onClick={handlePrevious}
                 disabled={!canGoBack}
-                className="flex items-center gap-2"
+                className="flex w-full items-center justify-center gap-2 sm:w-auto"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Previous
@@ -193,7 +193,7 @@ export function MoviesPage() {
                 variant="outline"
                 onClick={handleNext}
                 disabled={!hasNextPage}
-                className="flex items-center gap-2"
+                className="flex w-full items-center justify-center gap-2 sm:w-auto"
               >
                 Next
                 <ChevronRight className="w-4 h-4" />

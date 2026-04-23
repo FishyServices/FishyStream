@@ -13,9 +13,10 @@ import type { Doc } from "../../convex/_generated/dataModel";
 interface SearchCardProps {
   item: TMDBItem;
   size?: "sm" | "md" | "lg";
+  layout?: "rail" | "grid";
 }
 
-export function SearchCard({ item, size = "md" }: SearchCardProps) {
+export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardProps) {
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -78,18 +79,20 @@ export function SearchCard({ item, size = "md" }: SearchCardProps) {
   };
 
   const widthClass =
-    size === "sm"
-      ? "w-[130px] sm:w-[160px]"
-      : size === "lg"
-        ? "w-[200px] sm:w-[240px] lg:w-[280px]"
-        : "w-[150px] sm:w-[185px] lg:w-[215px]";
+    layout === "grid"
+      ? "w-full min-w-0"
+      : size === "sm"
+        ? "w-[38vw] min-w-[130px] max-w-[160px] sm:w-[160px]"
+        : size === "lg"
+          ? "w-[56vw] min-w-[200px] max-w-[280px] sm:w-[240px] lg:w-[280px]"
+          : "w-[42vw] min-w-[148px] max-w-[215px] sm:w-[185px] lg:w-[215px]";
 
   const score = item.voteAverage;
 
   return (
     <>
       <div
-        className={`relative flex-shrink-0 ${widthClass} cursor-pointer select-none`}
+        className={`group/card relative ${layout === "rail" ? "snap-start flex-shrink-0" : ""} ${widthClass} cursor-pointer select-none`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={handleCardClick}
@@ -105,7 +108,7 @@ export function SearchCard({ item, size = "md" }: SearchCardProps) {
       >
         <div
           className={`relative aspect-[2/3] rounded-lg overflow-hidden transition-all duration-300 ${
-            hovered ? "scale-105 z-20 shadow-2xl shadow-black/70 ring-1 ring-white/20" : "shadow-md"
+            hovered ? "md:scale-105 md:z-20 md:shadow-2xl md:shadow-black/70 md:ring-1 md:ring-white/20" : "shadow-md"
           }`}
         >
           <img
@@ -123,7 +126,7 @@ export function SearchCard({ item, size = "md" }: SearchCardProps) {
 
           {/* Hover overlay */}
           <div
-            className={`absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10 flex flex-col justify-end p-3 transition-opacity duration-200 ${
+            className={`absolute inset-0 hidden md:flex bg-gradient-to-t from-black via-black/60 to-black/10 flex-col justify-end p-3 transition-opacity duration-200 ${
               hovered ? "opacity-100" : "opacity-0"
             }`}
           >
@@ -184,6 +187,61 @@ export function SearchCard({ item, size = "md" }: SearchCardProps) {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="mt-2.5 space-y-2 md:hidden">
+          <div>
+            <h3 className="line-clamp-1 text-sm font-display font-semibold leading-tight text-white">
+              {item.title}
+            </h3>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/58">
+              <span>{item.rating}</span>
+              <span>{item.year}</span>
+              {score && score > 0 && (
+                <span className="flex items-center gap-1">
+                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  {score.toFixed(1)}
+                </span>
+              )}
+            </div>
+            {item.genre.length > 0 && (
+              <p className="mt-1 line-clamp-1 text-[10px] text-white/40">
+                {item.genre.slice(0, 2).join(" · ")}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              className="flex h-9 flex-1 items-center justify-center gap-2 rounded-full bg-white text-black transition-colors"
+              onClick={handlePlay}
+              aria-label={`Play ${item.title}`}
+            >
+              <Play className="h-4 w-4 fill-black text-black" />
+              <span className="text-xs font-semibold">Play</span>
+            </button>
+            <button
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/[0.06]"
+              onClick={handleWatchlist}
+              aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
+            >
+              {isInWatchlist ? (
+                <Check className="h-4 w-4 text-green-400" />
+              ) : (
+                <Plus className="h-4 w-4 text-white" />
+              )}
+            </button>
+            <button
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/[0.06]"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCardClick();
+              }}
+              aria-label="More info"
+            >
+              <ChevronDown className="h-4 w-4 text-white" />
+            </button>
           </div>
         </div>
       </div>

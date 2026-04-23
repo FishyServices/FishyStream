@@ -71,6 +71,7 @@
     font-family: var(--font-sans);
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
 
   h1,
@@ -150,6 +151,21 @@
     background: rgba(255, 255, 255, 0.04);
     backdrop-filter: blur(12px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .page-shell {
+    width: min(100% - 1.5rem, 92rem);
+    margin-inline: auto;
+  }
+
+  .page-shell-tight {
+    width: min(100% - 1rem, 92rem);
+    margin-inline: auto;
+  }
+
+  .page-stack {
+    padding-top: clamp(5rem, 10vw, 6.5rem);
+    padding-bottom: clamp(3rem, 8vw, 5rem);
   }
 
   /* Card hover lift */
@@ -247,5 +263,18 @@
   }
   .rating-TV-MA {
     @apply text-red-400;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in-up,
+    .card-lift,
+    .shine-hover::before {
+      animation: none !important;
+      transition: none !important;
+    }
+
+    html {
+      scroll-behavior: auto;
+    }
   }
 }

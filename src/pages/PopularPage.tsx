@@ -27,7 +27,7 @@ export function PopularPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="pt-24 px-4 sm:px-6 lg:px-12">
+      <main className="page-stack px-4 sm:px-6 lg:px-12">
         <h1 className="text-3xl font-bold text-white mb-8">Popular on FishyStream</h1>
 
         {popular.length === 0 ? (
@@ -37,9 +37,9 @@ export function PopularPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {popular.map((content) => (
-              <MovieCard key={content._id} content={content} onPlay={handlePlay} />
+              <MovieCard key={content._id} content={content} onPlay={handlePlay} layout="grid" />
             ))}
           </div>
         )}

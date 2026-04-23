@@ -463,7 +463,8 @@ export function VideoPlayer({
   return (
     <div className="h-screen w-screen bg-black flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex-none flex items-center justify-between px-4 py-3 bg-black/90 backdrop-blur-sm border-b border-white/10 z-10">
+      <div className="flex-none border-b border-white/10 bg-black/90 backdrop-blur-sm z-10">
+        <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
         <div className="flex items-center gap-3 min-w-0">
           <Button
             variant="ghost"
@@ -484,7 +485,7 @@ export function VideoPlayer({
         </div>
 
         <Select value={selectedSource} onValueChange={handleSourceChange}>
-          <SelectTrigger className="w-[160px] sm:w-[220px] bg-white/10 border-white/20 text-white text-sm">
+          <SelectTrigger className="w-full sm:w-[220px] bg-white/10 border-white/20 text-white text-sm">
             <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
             <SelectValue placeholder="Source" />
           </SelectTrigger>
@@ -501,6 +502,7 @@ export function VideoPlayer({
             ))}
           </SelectContent>
         </Select>
+        </div>
       </div>
 
       {/* Player */}
@@ -520,7 +522,7 @@ export function VideoPlayer({
         {content.type === "tv" && hasNextEpisode && currentProgress >= 80 && (
           <Button
             onClick={handleNextEpisode}
-            className="absolute bottom-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 backdrop-blur-sm"
+            className="absolute bottom-4 left-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 backdrop-blur-sm sm:left-auto"
           >
             <SkipForward className="w-4 h-4" />
             Next Episode

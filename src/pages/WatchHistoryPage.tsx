@@ -57,7 +57,7 @@ export function WatchHistoryPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="pt-24 px-4 sm:px-6 lg:px-12">
+      <main className="page-stack px-4 sm:px-6 lg:px-12">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-white">Watch History</h1>
         </div>
@@ -70,15 +70,15 @@ export function WatchHistoryPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {history.map((item) => (
               <div key={item._id} className="relative group">
-                <MovieCard content={item} onPlay={handlePlay} />
+                <MovieCard content={item} onPlay={handlePlay} layout="grid" />
                 <div className="absolute top-2 right-2 z-20">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="w-6 h-6 bg-black/50 text-white hover:bg-red-500/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="h-7 w-7 bg-black/60 text-white opacity-100 transition-opacity hover:bg-red-500/80 md:opacity-0 md:group-hover:opacity-100"
                     onClick={() => handleRemove(item._id)}
                   >
                     <Trash2 className="w-3 h-3" />

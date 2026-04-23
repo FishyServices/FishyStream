@@ -58,7 +58,7 @@ export function Hero({ content, onPlay }: HeroProps) {
   const handlePlay = () => content.tmdbId && onPlay?.(content.tmdbId);
 
   return (
-    <div className="relative w-full h-[90vh] min-h-[640px] max-h-[900px] overflow-hidden">
+    <div className="relative w-full h-[78svh] min-h-[540px] sm:h-[90vh] sm:min-h-[640px] max-h-[900px] overflow-hidden">
       {/* Backdrop */}
       <div
         className={`absolute inset-0 transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"}`}
@@ -90,19 +90,19 @@ export function Hero({ content, onPlay }: HeroProps) {
 
       {/* Content */}
       <div
-        className={`absolute bottom-0 left-0 right-0 px-6 sm:px-10 lg:px-16 pb-20 transition-all duration-700 ${
+        className={`absolute bottom-0 left-0 right-0 px-4 pb-12 sm:px-10 sm:pb-20 lg:px-16 transition-all duration-700 ${
           loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         }`}
       >
-        <div className="max-w-2xl space-y-4">
+        <div className="max-w-xl space-y-4 sm:max-w-2xl">
           {content.logoUrl ? (
             <img
               src={content.logoUrl}
               alt={content.title}
-              className="h-16 sm:h-20 lg:h-24 w-auto object-contain object-left max-w-xs"
+              className="h-14 sm:h-20 lg:h-24 w-auto object-contain object-left max-w-[min(18rem,70vw)] sm:max-w-xs"
             />
           ) : (
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-none tracking-tight">
+            <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-none tracking-tight">
               {content.title}
             </h1>
           )}
@@ -142,16 +142,16 @@ export function Hero({ content, onPlay }: HeroProps) {
           </div>
 
           {content.tagline && (
-            <p className="text-base text-white/60 italic font-light">{content.tagline}</p>
+            <p className="text-sm sm:text-base text-white/60 italic font-light">{content.tagline}</p>
           )}
-          <p className="text-sm sm:text-base text-white/80 leading-relaxed line-clamp-3 max-w-lg">
+          <p className="text-sm sm:text-base text-white/80 leading-relaxed line-clamp-4 sm:line-clamp-3 max-w-lg">
             {content.description}
           </p>
 
           <div className="flex items-center gap-3 flex-wrap pt-2">
             <Button
               size="lg"
-              className="bg-white text-black hover:bg-white/90 font-display font-bold px-7 text-base shadow-lg"
+              className="w-full sm:w-auto bg-white text-black hover:bg-white/90 font-display font-bold px-7 text-base shadow-lg"
               onClick={handlePlay}
             >
               <Play className="w-5 h-5 mr-2 fill-black" />
@@ -160,7 +160,7 @@ export function Hero({ content, onPlay }: HeroProps) {
             <Button
               size="lg"
               variant="secondary"
-              className="glass text-white hover:bg-white/15 font-semibold px-7 text-base border-white/20"
+              className="w-full sm:w-auto glass text-white hover:bg-white/15 font-semibold px-7 text-base border-white/20"
               onClick={() => setShowModal(true)}
             >
               <Info className="w-5 h-5 mr-2" />
@@ -180,7 +180,7 @@ export function Hero({ content, onPlay }: HeroProps) {
 
             {content.trailerKey && (
               <button
-                className="hidden sm:flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors ml-2"
+                className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors sm:ml-2"
                 onClick={() => setShowTrailer(!showTrailer)}
               >
                 {showTrailer ? "Hide Trailer" : "Watch Trailer"}

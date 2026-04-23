@@ -38,7 +38,7 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
 
   return (
     <div className="relative group py-4">
-      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-12 mb-4">
+      <div className="mb-4 flex items-center justify-between gap-3 px-4 sm:px-6 lg:px-12">
         <h2 className="text-lg sm:text-xl font-semibold text-white truncate" title={title}>
           {title}
         </h2>
@@ -56,7 +56,7 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
         <Button
           variant="ghost"
           size="icon"
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-full bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-none"
+          className="absolute left-0 top-1/2 hidden md:flex -translate-y-1/2 z-10 w-12 h-full bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-none"
           onClick={() => scroll("left")}
           aria-label={`Scroll ${title} left`}
         >
@@ -66,7 +66,7 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
         <Button
           variant="ghost"
           size="icon"
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-full bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-none"
+          className="absolute right-0 top-1/2 hidden md:flex -translate-y-1/2 z-10 w-12 h-full bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-none"
           onClick={() => scroll("right")}
           aria-label={`Scroll ${title} right`}
         >
@@ -75,7 +75,7 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
 
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto scrollbar-hide px-4 sm:px-6 lg:px-12 pb-4"
+          className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-4 snap-x snap-mandatory sm:gap-4 sm:px-6 lg:px-12"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none"

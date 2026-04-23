@@ -25,7 +25,7 @@ export function SearchPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="pt-24 px-6 sm:px-10 pb-16">
+      <main className="page-stack px-4 sm:px-6 lg:px-10">
         {/* Search box */}
         <div className="max-w-2xl mb-10">
           <h1 className="font-display text-3xl font-black text-white mb-5">Search</h1>
@@ -79,7 +79,7 @@ export function SearchPage() {
 
         {!loading && results.length > 0 && (
           <>
-            <div className="flex items-center gap-4 mb-6 text-sm text-white/40">
+            <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-white/40 sm:gap-4">
               <span>{results.length} results</span>
               <span>·</span>
               <span className="flex items-center gap-1">
@@ -91,10 +91,10 @@ export function SearchPage() {
                 <Tv className="w-3.5 h-3.5" /> {results.filter((r) => r.type === "tv").length} shows
               </span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 stagger-children">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 stagger-children">
               {results.map((item) => (
-                <div key={`${item.type}-${item.tmdbId}`} className="animate-fade-in-up w-fit">
-                  <SearchCard item={item} />
+                <div key={`${item.type}-${item.tmdbId}`} className="animate-fade-in-up">
+                  <SearchCard item={item} layout="grid" />
                 </div>
               ))}
             </div>

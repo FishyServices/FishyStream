@@ -58,7 +58,7 @@ export function MyListPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="pt-24 px-4 sm:px-6 lg:px-12">
+      <main className="page-stack px-4 sm:px-6 lg:px-12">
         <h1 className="text-3xl font-bold text-white mb-8">My List</h1>
 
         {watchlist.length === 0 ? (
@@ -68,9 +68,9 @@ export function MyListPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {watchlist.map((item) => (
-              <MovieCard key={item._id} content={item} onPlay={handlePlay} />
+              <MovieCard key={item._id} content={item} onPlay={handlePlay} layout="grid" />
             ))}
           </div>
         )}
@@ -78,8 +78,8 @@ export function MyListPage() {
         {/* Recommendations */}
         {watchlist.length > 0 && (
           <div className="mt-16">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-              <div className="flex items-center gap-2">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="flex flex-wrap items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary" />
                 <h2 className="text-xl font-semibold text-white">Recommended For You</h2>
               </div>
@@ -126,7 +126,7 @@ export function MyListPage() {
                 size="sm"
                 onClick={handleRefresh}
                 disabled={recsLoading}
-                className="ml-auto flex items-center gap-2 text-white/60 hover:text-white"
+                className="flex items-center gap-2 self-start text-white/60 hover:text-white sm:ml-auto"
               >
                 <RefreshCw className={`w-4 h-4 ${recsLoading ? "animate-spin" : ""}`} />
                 Refresh
@@ -134,9 +134,9 @@ export function MyListPage() {
             </div>
 
             {recommendations.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {recommendations.map((item) => (
-                  <MovieCard key={item._id} content={item} onPlay={handlePlay} />
+                  <MovieCard key={item._id} content={item} onPlay={handlePlay} layout="grid" />
                 ))}
               </div>
             ) : (
