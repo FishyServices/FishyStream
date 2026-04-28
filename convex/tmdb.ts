@@ -752,9 +752,9 @@ export const syncContent = action({
         trailerKey: getTrailerKey(videos),
         tmdbId: String(seed.id),
         imdbId:
-          seed.type === "movie"
+          (seed.type === "movie"
             ? (md?.imdb_id ?? md?.external_ids?.imdb_id)
-            : td?.external_ids?.imdb_id,
+            : td?.external_ids?.imdb_id) || undefined,
         duration:
           seed.type === "movie"
             ? formatRuntime(md?.runtime)
@@ -1076,7 +1076,7 @@ export const syncSingleContent = action({
       trailerKey: getTrailerKey(type === "movie" ? md?.videos?.results : td?.videos?.results),
       tmdbId: String(tmdbId),
       imdbId:
-        type === "movie" ? md?.imdb_id || md?.external_ids?.imdb_id : td?.external_ids?.imdb_id,
+        (type === "movie" ? md?.imdb_id || md?.external_ids?.imdb_id : td?.external_ids?.imdb_id) || undefined,
       duration:
         type === "movie" ? formatRuntime(md?.runtime) : formatRuntime(td?.episode_run_time?.[0]),
       seasons: type === "tv" ? td?.number_of_seasons : undefined,

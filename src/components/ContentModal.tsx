@@ -152,17 +152,27 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
   useEffect(() => {
     if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
-    if (allSeasons === undefined || allSeasons.length > 0) return;
+    if (allSeasons === undefined || isSyncing) return;
+
+    const expectedSeasonCount = Math.max(content.seasons ?? 1, 1);
+    const syncedSeasonNumbers = new Set(allSeasons.map((season) => season.seasonNumber));
+    const isSeasonSyncComplete =
+      allSeasons.length >= expectedSeasonCount &&
+      Array.from({ length: expectedSeasonCount }, (_, index) => index + 1).every((seasonNumber) =>
+        syncedSeasonNumbers.has(seasonNumber)
+      );
+
+    if (isSeasonSyncComplete) return;
 
     setIsSyncing(true);
     syncSeasons({
       tmdbId: content.tmdbId!,
       contentId: content._id,
-      totalSeasons: content.seasons ?? 1
+      totalSeasons: expectedSeasonCount
     })
       .catch(() => {})
       .finally(() => setIsSyncing(false));
-  }, [content, allSeasons]);
+  }, [content, allSeasons, isSyncing, syncSeasons]);
 
   const handleRelatedClick = async (item: TMDBItem) => {
     setRelatedModalItem(item);
