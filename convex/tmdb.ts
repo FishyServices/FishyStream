@@ -2,6 +2,11 @@
 import { v } from "convex/values";
 import { action, query, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import {
+  getCanonicalSeasonCount,
+  getCanonicalTotalEpisodes,
+  getTvOrderingOverride
+} from "../shared/tvSeasonMappings";
 
 const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
@@ -441,7 +446,7 @@ export const searchTVShows = action({
         genre: getGenres(details || show),
         rating: getRating(details?.vote_average ?? show.vote_average),
         voteAverage: show.vote_average,
-        seasons: details?.number_of_seasons,
+        seasons: getCanonicalSeasonCount(show.id, details?.number_of_seasons),
         imdbId: details?.external_ids?.imdb_id,
         popularity: show.popularity
       };
@@ -499,8 +504,8 @@ export const getTVDetails = action({
       genre: getGenres(show),
       rating: getRating(show.vote_average),
       voteAverage: show.vote_average,
-      seasons: show.number_of_seasons,
-      totalEpisodes: show.number_of_episodes,
+      seasons: getCanonicalSeasonCount(show.id, show.number_of_seasons),
+      totalEpisodes: getCanonicalTotalEpisodes(show.id, show.number_of_episodes),
       status: show.status
     };
   }
@@ -572,7 +577,7 @@ export const getPopularTVShows = action({
         year: getYear(details?.first_air_date ?? show.first_air_date),
         genre: getGenres(details || show),
         rating: getRating(details?.vote_average ?? show.vote_average),
-        seasons: details?.number_of_seasons,
+        seasons: getCanonicalSeasonCount(show.id, details?.number_of_seasons),
         imdbId: details?.external_ids?.imdb_id,
         voteAverage: show.vote_average
       };
@@ -759,8 +764,10 @@ export const syncContent = action({
           seed.type === "movie"
             ? formatRuntime(md?.runtime)
             : formatRuntime(td?.episode_run_time?.[0]),
-        seasons: seed.type === "tv" ? td?.number_of_seasons : undefined,
-        totalEpisodes: seed.type === "tv" ? td?.number_of_episodes : undefined,
+        seasons:
+          seed.type === "tv" ? getCanonicalSeasonCount(seed.id, td?.number_of_seasons) : undefined,
+        totalEpisodes:
+          seed.type === "tv" ? getCanonicalTotalEpisodes(seed.id, td?.number_of_episodes) : undefined,
         status: seed.type === "movie" ? md?.status : td?.status,
         tagline: seed.type === "movie" ? md?.tagline || undefined : td?.tagline || undefined,
         originalLanguage: seed.originalLanguage,
@@ -804,6 +811,51 @@ export const syncContent = action({
 export const syncSeasons = action({
   args: { tmdbId: v.string(), contentId: v.string(), totalSeasons: v.number() },
   handler: async (ctx, { tmdbId, contentId, totalSeasons }) => {
+    const override = getTvOrderingOverride(tmdbId);
+    if (override?.episodeGroupId) {
+      const groupData = await get<{
+        groups: Array<{
+          order: number;
+          name: string;
+          episodes: Array<{
+            air_date: string | null;
+            name: string;
+            overview: string;
+            runtime: number | null;
+            still_path: string | null;
+            vote_average: number;
+          }>;
+        }>;
+      }>(`/tv/episode_group/${override.episodeGroupId}`);
+
+      if (groupData?.groups?.length) {
+        let groupSynced = 0;
+        for (const group of groupData.groups.slice(0, override.canonicalSeasonCount)) {
+          await ctx.runMutation(internal.seasons.upsertSeason, {
+            contentId: contentId as any,
+            tmdbId,
+            seasonNumber: Math.max(1, group.order),
+            name: group.name,
+            overview: undefined,
+            posterUrl: undefined,
+            airDate: group.episodes[0]?.air_date ?? undefined,
+            episodeCount: group.episodes.length,
+            episodes: group.episodes.map((ep, index) => ({
+              episodeNumber: index + 1,
+              name: ep.name,
+              overview: ep.overview || undefined,
+              stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
+              airDate: ep.air_date ?? undefined,
+              runtime: ep.runtime ?? undefined,
+              voteAverage: ep.vote_average
+            }))
+          });
+          groupSynced++;
+        }
+        return groupSynced;
+      }
+    }
+
     let synced = 0;
     for (let s = 1; s <= Math.min(totalSeasons, 20); s++) {
       const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${s}`);
@@ -1079,8 +1131,9 @@ export const syncSingleContent = action({
         (type === "movie" ? md?.imdb_id || md?.external_ids?.imdb_id : td?.external_ids?.imdb_id) || undefined,
       duration:
         type === "movie" ? formatRuntime(md?.runtime) : formatRuntime(td?.episode_run_time?.[0]),
-      seasons: type === "tv" ? td?.number_of_seasons : undefined,
-      totalEpisodes: type === "tv" ? td?.number_of_episodes : undefined,
+      seasons: type === "tv" ? getCanonicalSeasonCount(tmdbId, td?.number_of_seasons) : undefined,
+      totalEpisodes:
+        type === "tv" ? getCanonicalTotalEpisodes(tmdbId, td?.number_of_episodes) : undefined,
       status: type === "movie" ? md?.status : td?.status,
       tagline: details.tagline || undefined,
       originalLanguage: details.original_language,

@@ -22,6 +22,11 @@ import {
   isVideasyOrigin,
   createPlayerControls
 } from "@/lib/playerProviders";
+import {
+  getCanonicalSeasonCount,
+  getCanonicalSeasonEpisodeCount,
+  mapProviderToCanonicalOrder
+} from "../../shared/tvSeasonMappings";
 
 interface VideoPlayerProps {
   content: Doc<"content">;
@@ -278,14 +283,28 @@ export function VideoPlayer({
 
       if (!isForced && !meaningful) return;
 
-      const nextSeason =
+      let nextSeason =
         content.type === "tv" && data.season != null && Number.isFinite(data.season)
           ? Math.max(1, Math.floor(data.season))
           : undefined;
-      const nextEpisode =
+      let nextEpisode =
         content.type === "tv" && data.episode != null && Number.isFinite(data.episode)
           ? Math.max(1, Math.floor(data.episode))
           : undefined;
+
+      if (
+        content.type === "tv" &&
+        nextSeason !== undefined &&
+        nextEpisode !== undefined &&
+        selectedSourceConfig
+      ) {
+        const canonical = mapProviderToCanonicalOrder(content.tmdbId, selectedSourceConfig.name, {
+          season: nextSeason,
+          episode: nextEpisode
+        });
+        nextSeason = canonical.season;
+        nextEpisode = canonical.episode;
+      }
 
       if (
         nextSeason !== undefined &&
@@ -317,7 +336,16 @@ export function VideoPlayer({
 
     window.addEventListener("message", handleMsg);
     return () => window.removeEventListener("message", handleMsg);
-  }, [content._id, content.tmdbId, content.type, embedUrl, isSignedIn, user, updateProgress]);
+  }, [
+    content._id,
+    content.tmdbId,
+    content.type,
+    embedUrl,
+    isSignedIn,
+    selectedSourceConfig,
+    updateProgress,
+    user
+  ]);
 
   const handleSourceChange = async (nextUrl: string) => {
     const nextSource = sources.find((s) => s.url === nextUrl);
@@ -373,10 +401,13 @@ export function VideoPlayer({
 
     const currentSeason = tvTargetRef.current.season;
     const currentEpisode = tvTargetRef.current.episode;
-    const totalSeasons = content.seasons ?? 1;
+    const totalSeasons = getCanonicalSeasonCount(content.tmdbId, content.seasons);
 
     const maxEpisodes =
-      currentSeasonData?.episodeCount ?? currentSeasonData?.episodes?.length ?? 999;
+      currentSeasonData?.episodeCount ??
+      currentSeasonData?.episodes?.length ??
+      getCanonicalSeasonEpisodeCount(content.tmdbId, currentSeason) ??
+      999;
 
     let nextSeason = currentSeason;
     let nextEpisode = currentEpisode + 1;
@@ -409,10 +440,12 @@ export function VideoPlayer({
 
   const hasNextEpisode = (() => {
     if (content.type !== "tv") return false;
-    const totalSeasons = content.seasons ?? 1;
+    const totalSeasons = getCanonicalSeasonCount(content.tmdbId, content.seasons);
     if (tvTarget.season < totalSeasons) return true;
     const seasonEpisodeCount =
-      currentSeasonData?.episodeCount ?? currentSeasonData?.episodes?.length;
+      currentSeasonData?.episodeCount ??
+      currentSeasonData?.episodes?.length ??
+      getCanonicalSeasonEpisodeCount(content.tmdbId, tvTarget.season);
     if (seasonEpisodeCount == null) return false;
     return tvTarget.episode < seasonEpisodeCount;
   })();

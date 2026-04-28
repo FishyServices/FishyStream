@@ -31,6 +31,7 @@ import {
   useContentByTmdbId
 } from "@/hooks/useContent";
 import type { TMDBItem } from "@/hooks/useContent";
+import { getCanonicalSeasonCount } from "../../shared/tvSeasonMappings";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -154,7 +155,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
     if (allSeasons === undefined || isSyncing) return;
 
-    const expectedSeasonCount = Math.max(content.seasons ?? 1, 1);
+    const expectedSeasonCount = getCanonicalSeasonCount(content.tmdbId, content.seasons);
     const syncedSeasonNumbers = new Set(allSeasons.map((season) => season.seasonNumber));
     const isSeasonSyncComplete =
       allSeasons.length >= expectedSeasonCount &&
@@ -195,7 +196,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   if (!content) return null;
 
   const isTV = content.type === "tv";
-  const totalSeasons = content.seasons ?? 1;
+  const totalSeasons = getCanonicalSeasonCount(content.tmdbId, content.seasons);
   const episodes = dbSeason?.episodes ?? [];
 
   const handleWatchlist = async () => {

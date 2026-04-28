@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
+import { mapCanonicalToProviderOrder } from "../shared/tvSeasonMappings";
 
 interface StreamSource {
   name: string;
@@ -121,10 +122,11 @@ export const getTVSources = action({
     for (const config of PROVIDERS) {
       const id = getProviderId(config, imdbId, tmdbId);
       if (!id) continue;
+      const mapped = mapCanonicalToProviderOrder(tmdbId, config.name, { season, episode });
 
       sources.push({
         name: config.name,
-        url: config.getTVUrl(id, season, episode),
+        url: config.getTVUrl(id, mapped.season, mapped.episode),
         quality: config.quality,
         ...(config.supportsProgressEvents && { supportsProgressEvents: true })
       });
