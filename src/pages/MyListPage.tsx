@@ -6,7 +6,7 @@ import { MovieCard } from "@/components/MovieCard";
 import { useMyWatchlist } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
 import { useRecommendations } from "@/hooks/useContent";
-import { Button } from "@/components/ui/button";
+import { Button } from "@fishy/ui";
 
 export function MyListPage() {
   const navigate = useNavigate();

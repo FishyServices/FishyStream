@@ -10,7 +10,7 @@ import { useFeaturedContent, useAllCategories } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { api } from "../convex/_generated/api";
 import { Film, Loader2, RefreshCw, Database, Sparkles, Tv2, Zap } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@fishy/ui";
 
 function Footer() {
   return (

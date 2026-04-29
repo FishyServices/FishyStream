@@ -13,7 +13,7 @@ import {
   Clock,
   BookMarked
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@fishy/ui";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -125,7 +125,9 @@ export function Header() {
                           ? "bg-white/10 text-white"
                           : "text-white/70 hover:bg-white/5 hover:text-white"
                       }`}
-                      onClick={() => setOpenDropdown(openDropdown === link.label ? null : link.label)}
+                      onClick={() =>
+                        setOpenDropdown(openDropdown === link.label ? null : link.label)
+                      }
                     >
                       {link.label}
                       <ChevronDown

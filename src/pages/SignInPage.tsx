@@ -1,18 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  ClerkFailed,
-  ClerkLoaded,
-  ClerkLoading,
-  SignIn,
-  useAuth,
-  useSignIn
-} from "@clerk/react";
+import { ClerkFailed, ClerkLoaded, ClerkLoading, SignIn, useAuth, useSignIn } from "@clerk/react";
 import { dark } from "@clerk/themes";
 import { Link, useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { AlertCircle, Loader2, Mail, Lock, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button, Input } from "@fishy/ui";
 
 type NativeSignInMode = "password" | "email-code";
 
@@ -23,7 +15,8 @@ function getClerkErrorMessage(error: unknown) {
     "errors" in error &&
     Array.isArray((error as { errors?: Array<{ longMessage?: string; message?: string }> }).errors)
   ) {
-    const first = (error as { errors: Array<{ longMessage?: string; message?: string }> }).errors[0];
+    const first = (error as { errors: Array<{ longMessage?: string; message?: string }> })
+      .errors[0];
     return first?.longMessage || first?.message || "Authentication failed";
   }
 
@@ -54,7 +47,7 @@ function NativeSignInCard() {
         ? "Clerk requires an email verification code for this device before finishing sign in."
         : mode === "email-code"
           ? "Use a one-time email code. This works for accounts created on desktop, including Google-based accounts."
-        : "Sign in directly inside the Android app. Social/browser redirect login is disabled here.",
+          : "Sign in directly inside the Android app. Social/browser redirect login is disabled here.",
     [mode, requiresVerification]
   );
 
@@ -238,7 +231,10 @@ function NativeSignInCard() {
       )}
 
       {!requiresVerification ? (
-        <form className="space-y-3" onSubmit={mode === "password" ? handleSubmit : handleSendEmailCode}>
+        <form
+          className="space-y-3"
+          onSubmit={mode === "password" ? handleSubmit : handleSendEmailCode}
+        >
           <label className="block">
             <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
               <Mail className="h-4 w-4" />

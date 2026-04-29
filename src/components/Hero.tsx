@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Play, Info, Plus, Check, Volume2, VolumeX, ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@fishy/ui";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { ContentModal } from "./ContentModal";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
@@ -142,7 +142,9 @@ export function Hero({ content, onPlay }: HeroProps) {
           </div>
 
           {content.tagline && (
-            <p className="text-sm sm:text-base text-white/60 italic font-light">{content.tagline}</p>
+            <p className="text-sm sm:text-base text-white/60 italic font-light">
+              {content.tagline}
+            </p>
           )}
           <p className="text-sm sm:text-base text-white/80 leading-relaxed line-clamp-4 sm:line-clamp-3 max-w-lg">
             {content.description}

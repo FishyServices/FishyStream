@@ -4,7 +4,7 @@ import { Loader2, Tv2, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lu
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { usePaginatedContent } from "@/hooks/useContent";
-import { Button } from "@/components/ui/button";
+import { Button } from "@fishy/ui";
 
 const GENRES = [
   "All",

@@ -16,8 +16,7 @@ import {
   Users,
   Loader2
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button, Dialog, DialogContent, DialogTitle } from "@fishy/ui";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
@@ -31,7 +30,10 @@ import {
   useContentByTmdbId
 } from "@/hooks/useContent";
 import type { TMDBItem } from "@/hooks/useContent";
-import { getCanonicalSeasonCount, getCanonicalSeasonEpisodeCount } from "../../shared/tvSeasonMappings";
+import {
+  getCanonicalSeasonCount,
+  getCanonicalSeasonEpisodeCount
+} from "../../shared/tvSeasonMappings";
 
 interface WatchHistoryFields {
   progress?: number;

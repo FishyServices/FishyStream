@@ -767,7 +767,9 @@ export const syncContent = action({
         seasons:
           seed.type === "tv" ? getCanonicalSeasonCount(seed.id, td?.number_of_seasons) : undefined,
         totalEpisodes:
-          seed.type === "tv" ? getCanonicalTotalEpisodes(seed.id, td?.number_of_episodes) : undefined,
+          seed.type === "tv"
+            ? getCanonicalTotalEpisodes(seed.id, td?.number_of_episodes)
+            : undefined,
         status: seed.type === "movie" ? md?.status : td?.status,
         tagline: seed.type === "movie" ? md?.tagline || undefined : td?.tagline || undefined,
         originalLanguage: seed.originalLanguage,
@@ -1128,7 +1130,8 @@ export const syncSingleContent = action({
       trailerKey: getTrailerKey(type === "movie" ? md?.videos?.results : td?.videos?.results),
       tmdbId: String(tmdbId),
       imdbId:
-        (type === "movie" ? md?.imdb_id || md?.external_ids?.imdb_id : td?.external_ids?.imdb_id) || undefined,
+        (type === "movie" ? md?.imdb_id || md?.external_ids?.imdb_id : td?.external_ids?.imdb_id) ||
+        undefined,
       duration:
         type === "movie" ? formatRuntime(md?.runtime) : formatRuntime(td?.episode_run_time?.[0]),
       seasons: type === "tv" ? getCanonicalSeasonCount(tmdbId, td?.number_of_seasons) : undefined,

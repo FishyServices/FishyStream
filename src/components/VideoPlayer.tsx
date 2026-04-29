@@ -3,7 +3,7 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { ArrowLeft, Loader2, AlertCircle, MonitorPlay, RefreshCw, SkipForward } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Select,
@@ -11,7 +11,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue
-} from "@/components/ui/select";
+} from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
 import type { PlayerEventPayload, MediaDataPayload, PlayerControls } from "@/lib/playerProviders";
@@ -217,9 +217,6 @@ export function VideoPlayer({
       if (selectedSourceConfig.supportsProgressEvents && !isVidFast) {
         url.searchParams.set("color", "e50914");
       }
-      if (isVidFast && content.type === "tv") {
-        url.searchParams.set("nextButton", "true");
-      }
       return url.toString();
     } catch {
       return selectedSourceConfig.url;
@@ -402,11 +399,15 @@ export function VideoPlayer({
     const currentSeason = tvTargetRef.current.season;
     const currentEpisode = tvTargetRef.current.episode;
     const totalSeasons = getCanonicalSeasonCount(content.tmdbId, content.seasons);
-    const canonicalEpisodeCount = getCanonicalSeasonEpisodeCount(content.tmdbId, currentSeason) ?? 0;
+    const canonicalEpisodeCount =
+      getCanonicalSeasonEpisodeCount(content.tmdbId, currentSeason) ?? 0;
 
     const maxEpisodes =
-      Math.max(currentSeasonData?.episodeCount ?? 0, currentSeasonData?.episodes?.length ?? 0, canonicalEpisodeCount) ||
-      999;
+      Math.max(
+        currentSeasonData?.episodeCount ?? 0,
+        currentSeasonData?.episodes?.length ?? 0,
+        canonicalEpisodeCount
+      ) || 999;
 
     let nextSeason = currentSeason;
     let nextEpisode = currentEpisode + 1;
@@ -441,7 +442,8 @@ export function VideoPlayer({
     if (content.type !== "tv") return false;
     const totalSeasons = getCanonicalSeasonCount(content.tmdbId, content.seasons);
     if (tvTarget.season < totalSeasons) return true;
-    const canonicalEpisodeCount = getCanonicalSeasonEpisodeCount(content.tmdbId, tvTarget.season) ?? 0;
+    const canonicalEpisodeCount =
+      getCanonicalSeasonEpisodeCount(content.tmdbId, tvTarget.season) ?? 0;
     const seasonEpisodeCount =
       Math.max(
         currentSeasonData?.episodeCount ?? 0,
@@ -500,43 +502,43 @@ export function VideoPlayer({
       {/* Header */}
       <div className="flex-none border-b border-white/10 bg-black/90 backdrop-blur-sm z-10">
         <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/10 shrink-0"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="min-w-0">
-            <h1 className="text-base font-semibold text-white truncate">{content.title}</h1>
-            <p className="text-xs text-white/50 truncate">
-              {content.type === "movie"
-                ? `Movie · ${content.year}`
-                : `TV Series · ${content.year} · S${tvTarget.season} E${tvTarget.episode}`}
-            </p>
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/10 shrink-0"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-base font-semibold text-white truncate">{content.title}</h1>
+              <p className="text-xs text-white/50 truncate">
+                {content.type === "movie"
+                  ? `Movie · ${content.year}`
+                  : `TV Series · ${content.year} · S${tvTarget.season} E${tvTarget.episode}`}
+              </p>
+            </div>
           </div>
-        </div>
 
-        <Select value={selectedSource} onValueChange={handleSourceChange}>
-          <SelectTrigger className="w-full sm:w-[220px] bg-white/10 border-white/20 text-white text-sm">
-            <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
-            <SelectValue placeholder="Source" />
-          </SelectTrigger>
-          <SelectContent className="z-50 bg-black border-white/20">
-            {sources.map((s) => (
-              <SelectItem
-                key={s.url}
-                value={s.url}
-                className="text-white focus:bg-white/10 focus:text-white"
-              >
-                {s.name}
-                {s.supportsProgressEvents ? " ✓" : ""} ({s.quality})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={selectedSource} onValueChange={handleSourceChange}>
+            <SelectTrigger className="w-full sm:w-[220px] bg-white/10 border-white/20 text-white text-sm">
+              <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
+              <SelectValue placeholder="Source" />
+            </SelectTrigger>
+            <SelectContent className="z-50 bg-black border-white/20">
+              {sources.map((s) => (
+                <SelectItem
+                  key={s.url}
+                  value={s.url}
+                  className="text-white focus:bg-white/10 focus:text-white"
+                >
+                  {s.name}
+                  {s.supportsProgressEvents ? " ✓" : ""} ({s.quality})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -553,7 +555,6 @@ export function VideoPlayer({
           referrerPolicy="no-referrer-when-downgrade"
         />
 
-        {/* Next Episode Button - Bottom Right, shows at 80% progress */}
         {content.type === "tv" && hasNextEpisode && currentProgress >= 80 && (
           <Button
             onClick={handleNextEpisode}
@@ -567,3 +568,4 @@ export function VideoPlayer({
     </div>
   );
 }
+

@@ -52,7 +52,7 @@ function normalizeTmdbId(tmdbId?: string | number | null): string | undefined {
 
 export function getTvOrderingOverride(tmdbId?: string | number | null): TvOrderingOverride | null {
   const key = normalizeTmdbId(tmdbId);
-  return key ? OVERRIDES[key] ?? null : null;
+  return key ? (OVERRIDES[key] ?? null) : null;
 }
 
 export function getCanonicalSeasonCount(
@@ -79,7 +79,8 @@ export function getCanonicalSeasonEpisodeCount(
 ): number | undefined {
   const override = getTvOrderingOverride(tmdbId);
   if (!override || seasonNumber == null) return undefined;
-  return override.canonicalSeasons.find((season) => season.seasonNumber === seasonNumber)?.episodeCount;
+  return override.canonicalSeasons.find((season) => season.seasonNumber === seasonNumber)
+    ?.episodeCount;
 }
 
 export function mapCanonicalToProviderOrder(
@@ -93,7 +94,9 @@ export function mapCanonicalToProviderOrder(
   const format = override.providerFormats[providerName] ?? "canonical";
   if (format === "canonical") return address;
 
-  const seasonDef = override.canonicalSeasons.find((season) => season.seasonNumber === address.season);
+  const seasonDef = override.canonicalSeasons.find(
+    (season) => season.seasonNumber === address.season
+  );
   if (!seasonDef) return address;
 
   return {

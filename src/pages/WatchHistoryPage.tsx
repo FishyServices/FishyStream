@@ -4,7 +4,7 @@ import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { useMyWatchHistory, useRemoveFromHistory } from "@/hooks/useWatchHistory";
 import { useUser } from "@clerk/react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@fishy/ui";
 import { toast } from "sonner";
 
 export function WatchHistoryPage() {

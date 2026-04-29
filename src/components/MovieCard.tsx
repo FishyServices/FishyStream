@@ -87,7 +87,9 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
       >
         <div
           className={`relative aspect-[2/3] rounded-lg overflow-hidden transition-all duration-300 ${
-            hovered ? "md:scale-105 md:z-20 md:shadow-2xl md:shadow-black/70 md:ring-1 md:ring-white/20" : "shadow-md"
+            hovered
+              ? "md:scale-105 md:z-20 md:shadow-2xl md:shadow-black/70 md:ring-1 md:ring-white/20"
+              : "shadow-md"
           }`}
         >
           <img

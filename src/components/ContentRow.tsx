@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@fishy/ui";
 import { MovieCard } from "./MovieCard";
 import type { Doc } from "../../convex/_generated/dataModel";
 

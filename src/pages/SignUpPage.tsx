@@ -1,18 +1,10 @@
 import { useEffect, useState } from "react";
-import {
-  ClerkFailed,
-  ClerkLoaded,
-  ClerkLoading,
-  SignUp,
-  useAuth,
-  useSignUp
-} from "@clerk/react";
+import { ClerkFailed, ClerkLoaded, ClerkLoading, SignUp, useAuth, useSignUp } from "@clerk/react";
 import { dark } from "@clerk/themes";
 import { Link, useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { AlertCircle, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button, Input } from "@fishy/ui";
 
 function getClerkErrorMessage(error: unknown) {
   if (
@@ -21,7 +13,8 @@ function getClerkErrorMessage(error: unknown) {
     "errors" in error &&
     Array.isArray((error as { errors?: Array<{ longMessage?: string; message?: string }> }).errors)
   ) {
-    const first = (error as { errors: Array<{ longMessage?: string; message?: string }> }).errors[0];
+    const first = (error as { errors: Array<{ longMessage?: string; message?: string }> })
+      .errors[0];
     return first?.longMessage || first?.message || "Authentication failed";
   }
 
@@ -115,7 +108,8 @@ function NativeSignUpCard() {
         </p>
         <h1 className="mt-2 font-display text-3xl font-black text-white">Create Your Account</h1>
         <p className="mt-2 text-sm leading-relaxed text-white/60">
-          This native Android flow stays inside the app and verifies your email with a one-time code.
+          This native Android flow stays inside the app and verifies your email with a one-time
+          code.
         </p>
       </div>
 
