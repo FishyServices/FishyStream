@@ -34,7 +34,7 @@ const MONEY_HEIST_OVERRIDE: TvOrderingOverride = {
     { seasonNumber: 5, episodeCount: 10, sourceSeason: 3, sourceEpisodeStart: 1 }
   ],
   providerFormats: {
-    VidKing: "tmdb",
+    VidKing: "canonical",
     VidFast: "canonical",
     VidEasy: "canonical"
   }
