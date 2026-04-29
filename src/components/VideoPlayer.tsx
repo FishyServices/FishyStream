@@ -402,11 +402,10 @@ export function VideoPlayer({
     const currentSeason = tvTargetRef.current.season;
     const currentEpisode = tvTargetRef.current.episode;
     const totalSeasons = getCanonicalSeasonCount(content.tmdbId, content.seasons);
+    const canonicalEpisodeCount = getCanonicalSeasonEpisodeCount(content.tmdbId, currentSeason) ?? 0;
 
     const maxEpisodes =
-      currentSeasonData?.episodeCount ??
-      currentSeasonData?.episodes?.length ??
-      getCanonicalSeasonEpisodeCount(content.tmdbId, currentSeason) ??
+      Math.max(currentSeasonData?.episodeCount ?? 0, currentSeasonData?.episodes?.length ?? 0, canonicalEpisodeCount) ||
       999;
 
     let nextSeason = currentSeason;
@@ -442,10 +441,13 @@ export function VideoPlayer({
     if (content.type !== "tv") return false;
     const totalSeasons = getCanonicalSeasonCount(content.tmdbId, content.seasons);
     if (tvTarget.season < totalSeasons) return true;
+    const canonicalEpisodeCount = getCanonicalSeasonEpisodeCount(content.tmdbId, tvTarget.season) ?? 0;
     const seasonEpisodeCount =
-      currentSeasonData?.episodeCount ??
-      currentSeasonData?.episodes?.length ??
-      getCanonicalSeasonEpisodeCount(content.tmdbId, tvTarget.season);
+      Math.max(
+        currentSeasonData?.episodeCount ?? 0,
+        currentSeasonData?.episodes?.length ?? 0,
+        canonicalEpisodeCount
+      ) || undefined;
     if (seasonEpisodeCount == null) return false;
     return tvTarget.episode < seasonEpisodeCount;
   })();

@@ -24,11 +24,11 @@ const MONEY_HEIST_TMDB_ID = "71446";
 const MONEY_HEIST_OVERRIDE: TvOrderingOverride = {
   tmdbId: MONEY_HEIST_TMDB_ID,
   canonicalSeasonCount: 5,
-  canonicalTotalEpisodes: 41,
-  episodeGroupId: "5ae0275b0e0a26156c00de9f",
+  canonicalTotalEpisodes: 48,
+  episodeGroupId: "5eb730dfca7ec6001f7beb51",
   canonicalSeasons: [
-    { seasonNumber: 1, episodeCount: 9, sourceSeason: 1, sourceEpisodeStart: 1 },
-    { seasonNumber: 2, episodeCount: 6, sourceSeason: 1, sourceEpisodeStart: 10 },
+    { seasonNumber: 1, episodeCount: 13, sourceSeason: 1, sourceEpisodeStart: 1 },
+    { seasonNumber: 2, episodeCount: 9, sourceSeason: 1, sourceEpisodeStart: 14 },
     { seasonNumber: 3, episodeCount: 8, sourceSeason: 2, sourceEpisodeStart: 1 },
     { seasonNumber: 4, episodeCount: 8, sourceSeason: 2, sourceEpisodeStart: 9 },
     { seasonNumber: 5, episodeCount: 10, sourceSeason: 3, sourceEpisodeStart: 1 }

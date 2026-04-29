@@ -31,7 +31,7 @@ import {
   useContentByTmdbId
 } from "@/hooks/useContent";
 import type { TMDBItem } from "@/hooks/useContent";
-import { getCanonicalSeasonCount } from "../../shared/tvSeasonMappings";
+import { getCanonicalSeasonCount, getCanonicalSeasonEpisodeCount } from "../../shared/tvSeasonMappings";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -157,7 +157,14 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
     const expectedSeasonCount = getCanonicalSeasonCount(content.tmdbId, content.seasons);
     const syncedSeasonNumbers = new Set(allSeasons.map((season) => season.seasonNumber));
+    const hasSeasonShapeMismatch = allSeasons.some((season) => {
+      const expectedEpisodes = getCanonicalSeasonEpisodeCount(content.tmdbId, season.seasonNumber);
+      if (expectedEpisodes == null) return false;
+      const actualEpisodes = season.episodeCount || season.episodes.length;
+      return actualEpisodes !== expectedEpisodes;
+    });
     const isSeasonSyncComplete =
+      !hasSeasonShapeMismatch &&
       allSeasons.length >= expectedSeasonCount &&
       Array.from({ length: expectedSeasonCount }, (_, index) => index + 1).every((seasonNumber) =>
         syncedSeasonNumbers.has(seasonNumber)
