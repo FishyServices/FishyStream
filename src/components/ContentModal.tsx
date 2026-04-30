@@ -391,7 +391,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-3xl p-0 overflow-hidden bg-[hsl(220,20%,5%)] border-white/10 max-h-[90vh] flex flex-col">
         <DialogTitle className="sr-only">{content.title}</DialogTitle>
 

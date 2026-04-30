@@ -1,7 +1,7 @@
 "use node";
 import { v } from "convex/values";
 import { action, query, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internal, api } from "./_generated/api";
 import {
   getCanonicalSeasonCount,
   getCanonicalTotalEpisodes,
@@ -1166,13 +1166,20 @@ export const syncSingleContent = action({
     tmdbId: v.number(),
     type: v.union(v.literal("movie"), v.literal("tv"))
   },
-  handler: async (ctx, { tmdbId, type }) => {
+  handler: async (ctx, { tmdbId, type }): Promise<{
+    alreadyExists: boolean;
+    tmdbId: string;
+    seasons: number | undefined;
+    totalEpisodes: number | undefined;
+  } | null> => {
     const details = await get<TMDBMovieDetails | TMDBTVDetails>(
       type === "movie" ? `/movie/${tmdbId}` : `/tv/${tmdbId}`,
       { append_to_response: "external_ids,videos,images" }
     );
 
     if (!details) return null;
+
+    const existing: any = await ctx.runQuery(api.content.getByTmdbId, { tmdbId: String(tmdbId) });
 
     const md = details as TMDBMovieDetails | null;
     const td = details as TMDBTVDetails | null;
@@ -1208,10 +1215,10 @@ export const syncSingleContent = action({
       spokenLanguages: details.spoken_languages?.map((l) => l.name),
       budget: type === "movie" ? md?.budget : undefined,
       revenue: type === "movie" ? md?.revenue : undefined,
-      trending: false,
-      popular: false,
-      featured: false,
-      new: false,
+      trending: existing ? existing.trending : false,
+      popular: existing ? existing.popular : false,
+      featured: existing ? existing.featured : false,
+      new: existing ? existing.new : false,
       createdAt: now,
       updatedAt: now
     };

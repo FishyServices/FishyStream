@@ -74,7 +74,11 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
         className={`group/card relative ${layout === "rail" ? "snap-start flex-shrink-0" : ""} ${widthClass} cursor-pointer select-none`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onClick={() => setShowModal(true)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowModal(true);
+        }}
         tabIndex={0}
         role="button"
         onKeyDown={(e) => {
@@ -158,6 +162,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
                 <button
                   className="w-8 h-8 rounded-full border border-white/40 glass flex items-center justify-center shrink-0 ml-auto hover:border-white/70 transition-colors"
                   onClick={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     setShowModal(true);
                   }}
@@ -264,6 +269,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
             <button
               className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/[0.06]"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 setShowModal(true);
               }}
