@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Tv2, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
-import { usePaginatedContent } from "@/hooks/useContent";
+import { usePaginatedContent, type ContentSort } from "@/hooks/useContent";
 import { Button } from "@fishy/ui";
 
 const GENRES = [
@@ -19,11 +19,14 @@ const GENRES = [
   "Kids"
 ];
 const SORTS = [
+  { label: "Trending", value: "trending" },
   { label: "Popular", value: "popular" },
   { label: "Now Airing", value: "new" },
   { label: "Top Rated", value: "rating" },
   { label: "Year", value: "year" }
-];
+] as const;
+
+const VALID_SORTS = new Set<ContentSort>(SORTS.map((sort) => sort.value));
 
 export function TVShowsPage() {
   const navigate = useNavigate();
@@ -32,7 +35,9 @@ export function TVShowsPage() {
   const [pageHistory, setPageHistory] = useState<string[]>([]);
 
   const genre = searchParams.get("genre") ?? "All";
-  const sort = (searchParams.get("sort") ?? "popular") as "popular" | "new" | "rating" | "year";
+  const sortParam = searchParams.get("sort");
+  const sort: ContentSort =
+    sortParam && VALID_SORTS.has(sortParam as ContentSort) ? (sortParam as ContentSort) : "popular";
   const cursor = searchParams.get("cursor") ?? undefined;
 
   const paginated = usePaginatedContent(
@@ -114,6 +119,7 @@ export function TVShowsPage() {
                     onClick={() => {
                       setSearchParams((p) => {
                         p.set("sort", s.value);
+                        p.delete("cursor");
                         return p;
                       });
                       setSortOpen(false);
@@ -139,6 +145,7 @@ export function TVShowsPage() {
               onClick={() =>
                 setSearchParams((p) => {
                   g === "All" ? p.delete("genre") : p.set("genre", g);
+                  p.delete("cursor");
                   return p;
                 })
               }

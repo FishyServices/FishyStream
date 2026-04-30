@@ -164,7 +164,13 @@ export const getPaginated = query({
     type: v.optional(v.union(v.literal("movie"), v.literal("tv"))),
     genre: v.optional(v.string()),
     sortBy: v.optional(
-      v.union(v.literal("popular"), v.literal("new"), v.literal("rating"), v.literal("year"))
+      v.union(
+        v.literal("trending"),
+        v.literal("popular"),
+        v.literal("new"),
+        v.literal("rating"),
+        v.literal("year")
+      )
     ),
     cursor: v.optional(v.string()),
     limit: v.optional(v.number())
@@ -172,20 +178,20 @@ export const getPaginated = query({
   handler: async (ctx, { type, genre, sortBy = "popular", cursor, limit = 48 }) => {
     const pageSize = limit ?? 48;
 
-    if (sortBy === "popular" && !genre && type) {
-      const popular = await ctx.db
+    if ((sortBy === "trending" || sortBy === "popular") && !genre && type) {
+      const prioritized = await ctx.db
         .query("content")
-        .withIndex("by_popular", (q) => q.eq("popular", true))
+        .withIndex(sortBy === "trending" ? "by_trending" : "by_popular", (q) => q.eq(sortBy, true))
         .filter((q) => q.eq(q.field("type"), type))
         .take(1024);
 
-      const nonPopular = await ctx.db
+      const nonPrioritized = await ctx.db
         .query("content")
         .withIndex("by_type", (q) => q.eq("type", type))
-        .filter((q) => q.eq(q.field("popular"), false))
+        .filter((q) => q.eq(q.field(sortBy), false))
         .take(1024);
 
-      const items = [...popular, ...nonPopular];
+      const items = [...prioritized, ...nonPrioritized];
       const start = cursor ? items.findIndex((c) => c._id === cursor) + 1 : 0;
       const page = items.slice(start, start + pageSize);
       const nextCursor = page.length === pageSize ? page[page.length - 1]?._id : undefined;
@@ -209,6 +215,9 @@ export const getPaginated = query({
     }
 
     switch (sortBy) {
+      case "trending":
+        items = items.filter((c) => c.trending).concat(items.filter((c) => !c.trending));
+        break;
       case "new":
         items = items.filter((c) => c.new).concat(items.filter((c) => !c.new));
         break;

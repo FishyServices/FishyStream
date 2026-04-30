@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Play,
@@ -23,12 +23,7 @@ import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "@fishy/ui";
-import {
-  useContentCredits,
-  useContentVideos,
-  useRelatedContent,
-  useContentByTmdbId
-} from "@/hooks/useContent";
+import { useContentCredits, useContentVideos, useRelatedContent } from "@/hooks/useContent";
 import type { TMDBItem } from "@/hooks/useContent";
 import {
   getCanonicalSeasonCount,
@@ -122,15 +117,22 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     isOpen && content && content.type === "tv" && content._id ? { contentId: content._id } : "skip"
   );
 
+  const syncSeason = useAction(api.tmdb.syncSeason);
   const syncSeasons = useAction(api.tmdb.syncSeasons);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isRefreshingTv, setIsRefreshingTv] = useState(false);
+  const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
+  const [episodeLoadError, setEpisodeLoadError] = useState<string | null>(null);
+  const [seasonCountOverride, setSeasonCountOverride] = useState<number | undefined>(undefined);
+  const refreshedTvKeyRef = useRef<string | null>(null);
+  const backgroundSyncKeyRef = useRef<string | null>(null);
+  const syncedSeasonKeysRef = useRef(new Set<string>());
 
   const tmdbIdNum = content?.tmdbId
     ? typeof content.tmdbId === "number"
       ? content.tmdbId
       : parseInt(content.tmdbId, 10) || undefined
     : undefined;
-
   const { credits } = useContentCredits(tmdbIdNum, content?.type, isOpen);
   const { videos } = useContentVideos(tmdbIdNum, content?.type, isOpen);
   const { related } = useRelatedContent(tmdbIdNum, content?.type, 8, isOpen);
@@ -153,14 +155,125 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     }
   }, [relatedContentQuery]);
 
+  const requestSeasonSync = (
+    seasonNumber: number,
+    options?: { force?: boolean; showLoader?: boolean }
+  ) => {
+    if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
+
+    const seasonKey = `${content._id}:${seasonNumber}`;
+    if (options?.force) {
+      syncedSeasonKeysRef.current.delete(seasonKey);
+    }
+    if (syncedSeasonKeysRef.current.has(seasonKey)) return;
+
+    syncedSeasonKeysRef.current.add(seasonKey);
+    setEpisodeLoadError(null);
+    if (options?.showLoader) {
+      setIsSyncing(true);
+    }
+
+    void syncSeason({
+      tmdbId: String(content.tmdbId),
+      contentId: content._id,
+      seasonNumber
+    })
+      .then((result) => {
+        if (!result) {
+          syncedSeasonKeysRef.current.delete(seasonKey);
+          if (selectedSeason === seasonNumber) {
+            setEpisodeLoadError(`Couldn't load Season ${seasonNumber}.`);
+          }
+        }
+      })
+      .catch(() => {
+        syncedSeasonKeysRef.current.delete(seasonKey);
+        if (selectedSeason === seasonNumber) {
+          setEpisodeLoadError(`Couldn't load Season ${seasonNumber}.`);
+        }
+      })
+      .finally(() => {
+        if (options?.showLoader) {
+          setIsSyncing(false);
+        }
+      });
+  };
+
+  useEffect(() => {
+    if (!content || !isOpen) {
+      setEpisodeLoadError(null);
+      setSeasonCountOverride(undefined);
+      syncedSeasonKeysRef.current.clear();
+      backgroundSyncKeyRef.current = null;
+    }
+  }, [content, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      refreshedTvKeyRef.current = null;
+      return;
+    }
+    if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
+    const tmdbId = String(content.tmdbId);
+    const refreshKey = `${content._id}:${tmdbId}`;
+    if (isRefreshingTv || refreshedTvKeyRef.current === refreshKey) return;
+
+    let cancelled = false;
+    refreshedTvKeyRef.current = refreshKey;
+    setIsRefreshingTv(true);
+
+    syncSingleContent({ tmdbId: Number(tmdbId), type: "tv" })
+      .then((refreshed) => {
+        if (cancelled) return;
+        const totalSeasons = getCanonicalSeasonCount(tmdbId, refreshed?.seasons ?? content.seasons);
+        if (refreshed?.seasons != null) {
+          setSeasonCountOverride(refreshed.seasons);
+        }
+
+        const backgroundSyncKey = `${content._id}:${tmdbId}:${totalSeasons}`;
+        if (backgroundSyncKeyRef.current !== backgroundSyncKey) {
+          backgroundSyncKeyRef.current = backgroundSyncKey;
+          setIsBackgroundSyncing(true);
+
+          void syncSeasons({
+            tmdbId,
+            contentId: content._id,
+            totalSeasons
+          })
+            .catch(() => {
+              if (!cancelled) {
+                backgroundSyncKeyRef.current = null;
+              }
+            })
+            .finally(() => {
+              if (!cancelled) {
+                setIsBackgroundSyncing(false);
+              }
+            });
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setIsRefreshingTv(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [content, isOpen, isRefreshingTv, syncSeasons, syncSingleContent]);
+
   useEffect(() => {
     if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
-    if (allSeasons === undefined || isSyncing) return;
+    if (!isOpen || isRefreshingTv || isBackgroundSyncing || allSeasons === undefined) return;
 
-    const expectedSeasonCount = getCanonicalSeasonCount(content.tmdbId, content.seasons);
+    const tmdbId = String(content.tmdbId);
+    const expectedSeasonCount = getCanonicalSeasonCount(
+      tmdbId,
+      seasonCountOverride ?? content.seasons
+    );
     const syncedSeasonNumbers = new Set(allSeasons.map((season) => season.seasonNumber));
     const hasSeasonShapeMismatch = allSeasons.some((season) => {
-      const expectedEpisodes = getCanonicalSeasonEpisodeCount(content.tmdbId, season.seasonNumber);
+      const expectedEpisodes = getCanonicalSeasonEpisodeCount(tmdbId, season.seasonNumber);
       if (expectedEpisodes == null) return false;
       const actualEpisodes = season.episodeCount || season.episodes.length;
       return actualEpisodes !== expectedEpisodes;
@@ -174,15 +287,57 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
     if (isSeasonSyncComplete) return;
 
-    setIsSyncing(true);
+    const backgroundSyncKey = `${content._id}:${tmdbId}:${expectedSeasonCount}`;
+    if (backgroundSyncKeyRef.current === backgroundSyncKey) return;
+
+    let cancelled = false;
+    backgroundSyncKeyRef.current = backgroundSyncKey;
+    setIsBackgroundSyncing(true);
+
     syncSeasons({
-      tmdbId: content.tmdbId!,
+      tmdbId,
       contentId: content._id,
       totalSeasons: expectedSeasonCount
     })
-      .catch(() => {})
-      .finally(() => setIsSyncing(false));
-  }, [content, allSeasons, isSyncing, syncSeasons]);
+      .catch(() => {
+        if (!cancelled) {
+          backgroundSyncKeyRef.current = null;
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsBackgroundSyncing(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    allSeasons,
+    content,
+    isBackgroundSyncing,
+    isOpen,
+    isRefreshingTv,
+    seasonCountOverride,
+    syncSeasons
+  ]);
+
+  useEffect(() => {
+    if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
+    if (!isOpen || isSyncing) return;
+
+    const seasonKey = `${content._id}:${selectedSeason}`;
+    const expectedEpisodes = getCanonicalSeasonEpisodeCount(content.tmdbId, selectedSeason);
+    const actualEpisodes = dbSeason ? dbSeason.episodeCount || dbSeason.episodes.length : 0;
+    const hasEpisodes = actualEpisodes > 0;
+    const hasMismatch =
+      expectedEpisodes != null && hasEpisodes && actualEpisodes !== expectedEpisodes;
+    const needsSync = !dbSeason || !hasEpisodes || hasMismatch;
+
+    if (!needsSync || syncedSeasonKeysRef.current.has(seasonKey)) return;
+    requestSeasonSync(selectedSeason, { showLoader: !hasEpisodes });
+  }, [content, dbSeason, isOpen, isSyncing, selectedSeason, syncSeason]);
 
   const handleRelatedClick = async (item: TMDBItem) => {
     setRelatedModalItem(item);
@@ -205,7 +360,10 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   if (!content) return null;
 
   const isTV = content.type === "tv";
-  const totalSeasons = getCanonicalSeasonCount(content.tmdbId, content.seasons);
+  const totalSeasons = getCanonicalSeasonCount(
+    content.tmdbId,
+    seasonCountOverride ?? content.seasons
+  );
   const episodes = dbSeason?.episodes ?? [];
 
   const handleWatchlist = async () => {
@@ -378,6 +536,21 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                                 setSelectedSeason(s);
                                 setSelectedEpisode(1);
                                 setSeasonMenuOpen(false);
+                                const cachedSeason = allSeasons?.find(
+                                  (ds) => ds.seasonNumber === s
+                                );
+                                const cachedEpisodes =
+                                  cachedSeason?.episodeCount || cachedSeason?.episodes.length || 0;
+                                const expectedEpisodes = content?.tmdbId
+                                  ? getCanonicalSeasonEpisodeCount(content.tmdbId, s)
+                                  : undefined;
+                                const needsSync =
+                                  !cachedSeason ||
+                                  cachedEpisodes === 0 ||
+                                  (expectedEpisodes != null && cachedEpisodes !== expectedEpisodes);
+                                if (needsSync) {
+                                  requestSeasonSync(s, { force: true, showLoader: true });
+                                }
                               }}
                             >
                               Season {s}
@@ -399,8 +572,10 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                   <p className="text-sm text-white/50 mb-3">{dbSeason.overview}</p>
                 )}
 
-                {isSyncing ? (
+                {isSyncing && episodes.length === 0 ? (
                   <p className="text-xs text-white/30 text-center py-8">Loading episodes…</p>
+                ) : episodeLoadError ? (
+                  <p className="text-xs text-red-300/80 text-center py-8">{episodeLoadError}</p>
                 ) : episodes.length > 0 ? (
                   <div className="space-y-1">
                     {episodes.map((ep) => (

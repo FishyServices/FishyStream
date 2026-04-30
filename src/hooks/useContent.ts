@@ -217,6 +217,8 @@ export interface ContentCategory {
   content: Doc<"content">[];
 }
 
+export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
+
 export function useAllCategories(): ContentCategory[] {
   const trending = useTrendingContent() ?? [];
   const popular = usePopularContent() ?? [];
@@ -236,7 +238,7 @@ export function useAllCategories(): ContentCategory[] {
 export function usePaginatedContent(
   type: "movie" | "tv" | undefined,
   genre: string | undefined,
-  sortBy: "popular" | "new" | "rating" | "year",
+  sortBy: ContentSort,
   cursor: string | undefined,
   limit = 24
 ) {

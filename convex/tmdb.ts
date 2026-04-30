@@ -888,6 +888,79 @@ export const syncSeasons = action({
   }
 });
 
+export const syncSeason = action({
+  args: { tmdbId: v.string(), contentId: v.string(), seasonNumber: v.number() },
+  handler: async (ctx, { tmdbId, contentId, seasonNumber }) => {
+    const override = getTvOrderingOverride(tmdbId);
+    if (override?.episodeGroupId) {
+      const groupData = await get<{
+        groups: Array<{
+          order: number;
+          name: string;
+          episodes: Array<{
+            air_date: string | null;
+            name: string;
+            overview: string;
+            runtime: number | null;
+            still_path: string | null;
+            vote_average: number;
+          }>;
+        }>;
+      }>(`/tv/episode_group/${override.episodeGroupId}`);
+
+      const group = groupData?.groups?.find((entry) => Math.max(1, entry.order) === seasonNumber);
+      if (!group) return null;
+
+      await ctx.runMutation(internal.seasons.upsertSeason, {
+        contentId: contentId as any,
+        tmdbId,
+        seasonNumber,
+        name: group.name,
+        overview: undefined,
+        posterUrl: undefined,
+        airDate: group.episodes[0]?.air_date ?? undefined,
+        episodeCount: group.episodes.length,
+        episodes: group.episodes.map((ep, index) => ({
+          episodeNumber: index + 1,
+          name: ep.name,
+          overview: ep.overview || undefined,
+          stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
+          airDate: ep.air_date ?? undefined,
+          runtime: ep.runtime ?? undefined,
+          voteAverage: ep.vote_average
+        }))
+      });
+
+      return { seasonNumber, episodeCount: group.episodes.length };
+    }
+
+    const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
+    if (!data) return null;
+
+    await ctx.runMutation(internal.seasons.upsertSeason, {
+      contentId: contentId as any,
+      tmdbId,
+      seasonNumber: data.season_number,
+      name: data.name,
+      overview: data.overview || undefined,
+      posterUrl: data.poster_path ? getPosterUrl(data.poster_path) : undefined,
+      airDate: data.air_date ?? undefined,
+      episodeCount: data.episodes?.length ?? 0,
+      episodes: (data.episodes ?? []).map((ep) => ({
+        episodeNumber: ep.episode_number,
+        name: ep.name,
+        overview: ep.overview || undefined,
+        stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
+        airDate: ep.air_date ?? undefined,
+        runtime: ep.runtime ?? undefined,
+        voteAverage: ep.vote_average
+      }))
+    });
+
+    return { seasonNumber: data.season_number, episodeCount: data.episodes?.length ?? 0 };
+  }
+});
+
 // ─── IMDb Scraper ────────────────────────────────────────────
 
 interface IMDbMetadata {
@@ -1094,15 +1167,6 @@ export const syncSingleContent = action({
     type: v.union(v.literal("movie"), v.literal("tv"))
   },
   handler: async (ctx, { tmdbId, type }) => {
-    const existing = await ctx.runQuery(internal.content.getAllTmdbIds, {});
-    const existingTmdbIds = new Set(
-      existing.map((c: { tmdbId?: string }) => c.tmdbId).filter(Boolean)
-    );
-
-    if (existingTmdbIds.has(String(tmdbId))) {
-      return { alreadyExists: true, tmdbId: String(tmdbId) };
-    }
-
     const details = await get<TMDBMovieDetails | TMDBTVDetails>(
       type === "movie" ? `/movie/${tmdbId}` : `/tv/${tmdbId}`,
       { append_to_response: "external_ids,videos,images" }
@@ -1154,7 +1218,12 @@ export const syncSingleContent = action({
 
     await ctx.runMutation(internal.content.upsertBatchFromTMDB, { items: [item] });
 
-    return { alreadyExists: false, tmdbId: String(tmdbId) };
+    return {
+      alreadyExists: false,
+      tmdbId: String(tmdbId),
+      seasons: item.seasons,
+      totalEpisodes: item.totalEpisodes
+    };
   }
 });
 
