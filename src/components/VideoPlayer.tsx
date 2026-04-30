@@ -5,13 +5,7 @@ import type { Doc } from "../../convex/_generated/dataModel";
 import { ArrowLeft, Loader2, AlertCircle, MonitorPlay, RefreshCw, SkipForward } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@fishy/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
 import type { PlayerEventPayload, MediaDataPayload, PlayerControls } from "@/lib/playerProviders";
@@ -568,4 +562,3 @@ export function VideoPlayer({
     </div>
   );
 }
-

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import type { TMDBItem } from "@/hooks/useContent";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
-import { toast } from "sonner";
+import { toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";

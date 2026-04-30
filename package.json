@@ -20,19 +20,13 @@
     "@capacitor/core": "^8.3.1",
     "@clerk/react": "^6.2.1",
     "@clerk/themes": "^2.4.57",
-    "@clerk/types": "^4.101.20",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
     "convex": "1.36.0",
     "lucide-react": "^1.8.0",
-    "next-themes": "^0.4.6",
     "react": "^19",
     "react-dom": "^19",
     "react-router-dom": "^7.5.0",
-    "sonner": "^2.0.7",
-    "tailwind-merge": "^3.5.0",
-    "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git"
+    "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git",
+    "class-variance-authority": "^0.7.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",

@@ -5,7 +5,7 @@ import type { Doc } from "../../convex/_generated/dataModel";
 import { ContentModal } from "./ContentModal";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
-import { toast } from "sonner";
+import { toast } from "@fishy/ui";
 
 interface HeroProps {
   content: Doc<"content">;

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useUser } from "@clerk/react";
 import { useNavigate } from "react-router-dom";
-import { Toaster, toast } from "sonner";
 import { useAction } from "convex/react";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
@@ -10,7 +9,7 @@ import { useFeaturedContent, useAllCategories } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { api } from "../convex/_generated/api";
 import { Film, Loader2, RefreshCw, Database, Sparkles, Tv2, Zap } from "lucide-react";
-import { Button } from "@fishy/ui";
+import { Button, Toaster, toast } from "@fishy/ui";
 
 function Footer() {
   return (

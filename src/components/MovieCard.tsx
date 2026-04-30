@@ -3,7 +3,7 @@ import { useState } from "react";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
-import { toast } from "sonner";
+import { toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
 
 interface WatchHistoryFields {

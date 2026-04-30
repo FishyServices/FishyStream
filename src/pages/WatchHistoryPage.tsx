@@ -4,8 +4,7 @@ import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { useMyWatchHistory, useRemoveFromHistory } from "@/hooks/useWatchHistory";
 import { useUser } from "@clerk/react";
-import { Button } from "@fishy/ui";
-import { toast } from "sonner";
+import { Button, toast } from "@fishy/ui";
 
 export function WatchHistoryPage() {
   const navigate = useNavigate();

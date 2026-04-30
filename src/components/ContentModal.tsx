@@ -22,7 +22,7 @@ import { useUser } from "@clerk/react";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { toast } from "sonner";
+import { toast } from "@fishy/ui";
 import {
   useContentCredits,
   useContentVideos,
