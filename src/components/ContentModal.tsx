@@ -349,13 +349,26 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     setRelatedSyncing(false);
   };
 
+  const userHasSelectedRef = useRef(false);
+
   useEffect(() => {
     if (!content) return;
-    if (content.type === "tv") {
+    if (content.type === "tv" && !userHasSelectedRef.current) {
       setSelectedSeason(content.seasonNumber ?? 1);
       setSelectedEpisode(content.episodeNumber ?? 1);
     }
   }, [content]);
+
+  const handleSeasonChange = (season: number) => {
+    userHasSelectedRef.current = true;
+    setSelectedSeason(season);
+    setSelectedEpisode(1);
+  };
+
+  const handleEpisodeClick = (ep: number) => {
+    userHasSelectedRef.current = true;
+    setSelectedEpisode(ep);
+  };
 
   if (!content) return null;
 
@@ -533,8 +546,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                                   : "text-white/80"
                               }`}
                               onClick={() => {
-                                setSelectedSeason(s);
-                                setSelectedEpisode(1);
+                                handleSeasonChange(s);
                                 setSeasonMenuOpen(false);
                                 const cachedSeason = allSeasons?.find(
                                   (ds) => ds.seasonNumber === s
@@ -584,7 +596,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                         ep={ep}
                         selected={ep.episodeNumber === selectedEpisode}
                         onClick={() => {
-                          setSelectedEpisode(ep.episodeNumber);
+                          handleEpisodeClick(ep.episodeNumber);
                           handlePlay(ep.episodeNumber);
                         }}
                       />

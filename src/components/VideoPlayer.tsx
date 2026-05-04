@@ -18,8 +18,7 @@ import {
 } from "@/lib/playerProviders";
 import {
   getCanonicalSeasonCount,
-  getCanonicalSeasonEpisodeCount,
-  mapProviderToCanonicalOrder
+  getCanonicalSeasonEpisodeCount
 } from "../../shared/tvSeasonMappings";
 
 interface VideoPlayerProps {
@@ -211,6 +210,10 @@ export function VideoPlayer({
       if (selectedSourceConfig.supportsProgressEvents && !isVidFast) {
         url.searchParams.set("color", "e50914");
       }
+      if (isVidFast) {
+        url.searchParams.set("nextbutton", "false");
+        url.searchParams.set("autonext", "false");
+      }
       return url.toString();
     } catch {
       return selectedSourceConfig.url;
@@ -282,20 +285,6 @@ export function VideoPlayer({
         content.type === "tv" && data.episode != null && Number.isFinite(data.episode)
           ? Math.max(1, Math.floor(data.episode))
           : undefined;
-
-      if (
-        content.type === "tv" &&
-        nextSeason !== undefined &&
-        nextEpisode !== undefined &&
-        selectedSourceConfig
-      ) {
-        const canonical = mapProviderToCanonicalOrder(content.tmdbId, selectedSourceConfig.name, {
-          season: nextSeason,
-          episode: nextEpisode
-        });
-        nextSeason = canonical.season;
-        nextEpisode = canonical.episode;
-      }
 
       if (
         nextSeason !== undefined &&
