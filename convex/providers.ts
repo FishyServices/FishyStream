@@ -77,11 +77,12 @@ export const getTVSources = action({
     season: v.number(),
     episode: v.number(),
     title: v.optional(v.string()),
-    tmdbId: v.optional(v.string())
+    tmdbId: v.optional(v.string()),
+    dub: v.optional(v.boolean())
   },
   handler: async (
     _ctx,
-    { imdbId, tmdbId, season, episode, isAnime, title }
+    { imdbId, tmdbId, season, episode, isAnime, title, dub }
   ): Promise<StreamSource[]> => {
     const sources: StreamSource[] = [];
     let resolvedAniListId: string | null | undefined;
@@ -104,7 +105,7 @@ export const getTVSources = action({
       const mapped = mapCanonicalToProviderOrder(tmdbId, provider.name, { season, episode });
       const url =
         isAnime && provider.getAnimeTVUrl && animeId
-          ? provider.getAnimeTVUrl(id, mapped.season, mapped.episode)
+          ? provider.getAnimeTVUrl(id, mapped.season, mapped.episode, dub ?? false)
           : provider.getTVUrl(id, mapped.season, mapped.episode);
 
       sources.push({

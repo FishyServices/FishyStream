@@ -14,7 +14,14 @@ export type ProviderKey =
   | "superembed"
   | "autoembed"
   | "vidsrc"
-  | "2embed";
+  | "2embed"
+  | "vidzee"
+  | "111movies"
+  | "vidplays"
+  | "tryembed"
+  | "vidcore"
+  | "megaplay"
+  | "peachify";
 
 export type ProviderCategory = "primary" | "anime" | "fallback";
 
@@ -35,10 +42,11 @@ export interface ProviderCatalogEntry {
   notes?: string;
   animeOnly?: boolean;
   animeIdType?: "same" | "anilist";
+  dubSupport?: boolean;
   progress?: ProviderProgressConfig;
   getMovieUrl: (id: string) => string;
   getTVUrl: (id: string, season: number, episode: number) => string;
-  getAnimeTVUrl?: (id: string, season: number, episode: number) => string;
+  getAnimeTVUrl?: (id: string, season: number, episode: number, dub?: boolean) => string;
 }
 
 export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
@@ -103,14 +111,15 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://vidnest.fun",
     notes: "Anime dub support",
     animeIdType: "anilist",
+    dubSupport: true,
     progress: {
       origins: ["*"],
       resumeParam: "progress"
     },
     getMovieUrl: (tmdbId) => `https://vidnest.fun/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) => `https://vidnest.fun/tv/${tmdbId}/${season}/${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://vidnest.fun/anime/${aniListId}/${episode}/dub`
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://vidnest.fun/anime/${aniListId}/${episode}${dub ? "/dub" : "/sub"}`
   },
   {
     key: "vidrock",
@@ -121,13 +130,14 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://vidrock.ru",
     notes: "IMDb or TMDB with anime",
     animeIdType: "anilist",
+    dubSupport: true,
     progress: {
       origins: ["*"]
     },
     getMovieUrl: (id) => `https://vidrock.ru/embed/movie/${id}`,
     getTVUrl: (id, season, episode) => `https://vidrock.ru/embed/tv/${id}/${season}/${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://vidrock.ru/embed/anime/${aniListId}/${episode}`
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://vidrock.ru/embed/anime/${aniListId}/${episode}${dub ? "?dub=true" : ""}`
   },
   {
     key: "vidplus (ads)",
@@ -138,14 +148,15 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://player.vidplus.to",
     notes: "Includes ads",
     animeIdType: "anilist",
+    dubSupport: true,
     progress: {
       origins: ["*"]
     },
     getMovieUrl: (id) => `https://player.vidplus.to/embed/movie/${id}`,
     getTVUrl: (id, season, episode) =>
       `https://player.vidplus.to/embed/tv/${id}/${season}/${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://player.vidplus.to/embed/anime/${aniListId}/${episode}?dub=true`
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://player.vidplus.to/embed/anime/${aniListId}/${episode}${dub ? "?dub=true" : ""}`
   },
   {
     key: "filmu",
@@ -156,13 +167,14 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://embed.filmu.in",
     notes: "Anime and TV",
     animeIdType: "anilist",
+    dubSupport: true,
     progress: {
       origins: ["*"]
     },
     getMovieUrl: (id) => `https://embed.filmu.in/embed/movie/${id}`,
     getTVUrl: (id, season, episode) => `https://embed.filmu.in/embed/tv/${id}/${season}/${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://embed.filmu.in/embed/anime/${aniListId}/${episode}?dub=true`
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://embed.filmu.in/embed/anime/${aniListId}/${episode}${dub ? "?dub=true" : ""}`
   },
   {
     key: "vidzen",
@@ -214,6 +226,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://player.cinezo.live",
     notes: "Customizable player with anime",
     animeIdType: "anilist",
+    dubSupport: true,
     progress: {
       origins: ["*"],
       resumeParam: "startAt"
@@ -221,8 +234,8 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     getMovieUrl: (tmdbId) => `https://player.cinezo.live/embed/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) =>
       `https://player.cinezo.live/embed/tv/${tmdbId}/${season}/${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://player.cinezo.live/embed/anime/${aniListId}/${episode}?dub=true`
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://player.cinezo.live/embed/anime/${aniListId}/${episode}${dub ? "?dub=true" : ""}`
   },
   {
     key: "mafiaembed",
@@ -233,6 +246,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://embed.streammafia.to",
     notes: "Anime and TV",
     animeIdType: "anilist",
+    dubSupport: true,
     progress: {
       origins: ["*"],
       resumeParam: "progress"
@@ -240,8 +254,8 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     getMovieUrl: (tmdbId) => `https://embed.streammafia.to/embed/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) =>
       `https://embed.streammafia.to/embed/tv/${tmdbId}/${season}/${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://embed.streammafia.to/embed/anime/${aniListId}/${episode}?dub=true`
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://embed.streammafia.to/embed/anime/${aniListId}/${episode}${dub ? "?dub=true" : ""}`
   },
   {
     key: "superembed",
@@ -252,11 +266,12 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://www.multiembed.mov",
     notes: "Multiembed endpoint",
     animeIdType: "anilist",
+    dubSupport: true,
     getMovieUrl: (tmdbId) => `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
     getTVUrl: (tmdbId, season, episode) =>
       `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1&season=${season}&episode=${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://www.multiembed.mov/?video_id=${aniListId}&anime=1&episode=${episode}&dub=1`
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://www.multiembed.mov/?video_id=${aniListId}&anime=1&episode=${episode}${dub ? "&dub=1" : ""}`
   },
   {
     key: "autoembed",
@@ -279,10 +294,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://vidsrc.icu",
     notes: "Legacy anime-capable source",
     animeIdType: "anilist",
+    dubSupport: true,
     getMovieUrl: (id) => `https://vidsrc.icu/embed/movie/${id}`,
     getTVUrl: (id, season, episode) => `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://vidsrc.icu/embed/anime/${aniListId}/${episode}/1`
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://vidsrc.icu/embed/anime/${aniListId}/${episode}/${dub ? "2" : "1"}`
   },
   {
     key: "2embed",
@@ -293,11 +309,125 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://www.2embed.cc",
     notes: "IMDb-only fallback",
     animeIdType: "anilist",
+    dubSupport: true,
     getMovieUrl: (imdbId) => `https://www.2embed.cc/embed/${imdbId}`,
     getTVUrl: (imdbId, season, episode) =>
       `https://www.2embed.cc/embed/${imdbId}/${season}/${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://www.2embed.cc/embed/anime/${aniListId}/${episode}`
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://www.2embed.cc/embed/anime/${aniListId}/${episode}${dub ? "?dub=true" : ""}`
+  },
+  {
+    key: "vidzee",
+    name: "VidZee",
+    category: "fallback",
+    idType: "imdb",
+    quality: "720p",
+    website: "https://player.vidzee.wtf",
+    notes: "IMDb-only fallback",
+    getMovieUrl: (imdbId) => `https://player.vidzee.wtf/embed/${imdbId}`,
+    getTVUrl: (imdbId, season, episode) =>
+      `https://player.vidzee.wtf/embed/${imdbId}/${season}/${episode}`
+  },
+
+  {
+    key: "111movies",
+    name: "111movies",
+    category: "fallback",
+    idType: "imdb",
+    quality: "720p",
+    website: "https://111movies.net",
+    notes: "IMDb-only fallback",
+    getMovieUrl: (imdbId) => `https://111movies.net/embed/${imdbId}`,
+    getTVUrl: (imdbId, season, episode) =>
+      `https://111movies.net/embed/${imdbId}/${season}/${episode}`
+  },
+  {
+    key: "vidplays",
+    name: "VidPlays",
+    category: "primary",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://vidplays.fun",
+    notes: "Ad-free, 115K+ titles",
+    progress: {
+      origins: ["*"],
+      resumeParam: "startAt"
+    },
+    getMovieUrl: (tmdbId) => `https://vidplays.fun/embed/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) =>
+      `https://vidplays.fun/embed/tv/${tmdbId}/${season}/${episode}`
+  },
+  {
+    key: "tryembed",
+    name: "TryEmbed",
+    category: "anime",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://tryembed.us.cc",
+    notes: "Ad-free anime, auto-skip intro/outro",
+    animeOnly: true,
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: {
+      origins: ["*"],
+      resumeParam: "startAt"
+    },
+    getMovieUrl: (tmdbId) => `https://tryembed.us.cc/embed/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) =>
+      `https://tryembed.us.cc/embed/tv/${tmdbId}/${season}/${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://tryembed.us.cc/embed/anime/${aniListId}/${episode}/${dub ? "dub" : "sub"}`
+  },
+  {
+    key: "megaplay",
+    name: "MegaPlay",
+    category: "anime",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://megaplay.buzz",
+    notes: "Anime via AniList, sub/dub",
+    animeOnly: true,
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: {
+      origins: ["*"]
+    },
+    getMovieUrl: (tmdbId) => `https://megaplay.buzz/stream/ani/${tmdbId}/1/sub`,
+    getTVUrl: (tmdbId, _season, episode) =>
+      `https://megaplay.buzz/stream/ani/${tmdbId}/${episode}/sub`,
+    getAnimeTVUrl: (aniListId, _season, episode, dub) =>
+      `https://megaplay.buzz/stream/ani/${aniListId}/${episode}/${dub ? "dub" : "sub"}`
+  },
+  {
+    key: "vidcore",
+    name: "VidCore",
+    category: "primary",
+    idType: "both",
+    quality: "4K",
+    website: "https://vidcore.net",
+    notes: "4K, IMDb or TMDB",
+    progress: {
+      origins: ["*"],
+      resumeParam: "startAt"
+    },
+    getMovieUrl: (id) => `https://vidcore.net/movie/${id}`,
+    getTVUrl: (id, season, episode) => `https://vidcore.net/tv/${id}/${season}/${episode}`
+  },
+  {
+    key: "peachify",
+    name: "Peachify",
+    category: "primary",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://peachify.top",
+    notes: "TMDB embed",
+    progress: {
+      origins: ["*"],
+      resumeParam: "startAt"
+    },
+    getMovieUrl: (tmdbId) => `https://peachify.top/embed/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) =>
+      `https://peachify.top/embed/tv/${tmdbId}/${season}/${episode}`
   }
 ];
 
@@ -312,6 +442,7 @@ export function getProviderCapabilities(provider: ProviderCatalogEntry): string[
   else capabilities.push(provider.idType.toUpperCase());
 
   if (provider.getAnimeTVUrl) capabilities.push("Anime");
+  if (provider.dubSupport) capabilities.push("Sub/Dub");
   if (provider.progress?.resumeParam) capabilities.push("Resume");
   if (provider.notes) capabilities.push(provider.notes);
 

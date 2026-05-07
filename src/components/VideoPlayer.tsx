@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { ArrowLeft, Loader2, AlertCircle, MonitorPlay, RefreshCw, SkipForward } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, MonitorPlay, RefreshCw, SkipForward, Mic2 } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -125,7 +125,7 @@ export function VideoPlayer({
   initialSource
 }: VideoPlayerProps) {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { user, isSignedIn } = useUser();
   const { settings } = useAppSettings();
@@ -141,6 +141,7 @@ export function VideoPlayer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentProgress, setCurrentProgress] = useState(0);
+  const isDub = searchParams.get("dub") === "true";
 
   const historyInitRef = useRef(false);
   const realtimeDetectedRef = useRef(false);
@@ -255,7 +256,8 @@ export function VideoPlayer({
                 isAnime: animeContent,
                 title: content.title,
                 season,
-                episode
+                episode,
+                dub: animeContent ? isDub : undefined
               })
             : await getMovieSources({
                 imdbId: content.imdbId ?? undefined,
@@ -301,6 +303,7 @@ export function VideoPlayer({
     content,
     error,
     initialSource,
+    isDub,
     settings.defaultProvider,
     sources.length,
     watchState
@@ -313,6 +316,7 @@ export function VideoPlayer({
   const groupedSources = groupSourcesByProviderCategory(sources);
   const supportsProgressEvents = !!selectedProvider?.progress;
   const canRequestStatus = !!selectedProvider?.progress?.statusRequest;
+  const showDubToggle = animeContent && !!selectedProvider?.dubSupport;
 
   const embedUrl = (() => {
     if (!selectedSourceConfig) return "";
@@ -530,7 +534,8 @@ export function VideoPlayer({
         isAnime: animeContent,
         title: content.title,
         season: tvTargetRef.current.season,
-        episode: tvTargetRef.current.episode
+        episode: tvTargetRef.current.episode,
+        dub: animeContent ? isDub : undefined
       });
 
       if (!refreshed?.length) {
@@ -556,6 +561,21 @@ export function VideoPlayer({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDubToggle = (newIsDub: boolean) => {
+    if (newIsDub === isDub) return;
+    const params = new URLSearchParams(searchParams);
+    if (newIsDub) {
+      params.set("dub", "true");
+    } else {
+      params.delete("dub");
+    }
+    setSearchParams(params, { replace: true });
+    setSources([]);
+    setSelectedSource("");
+    setLoading(true);
+    setError(null);
   };
 
   const handleNextEpisode = () => {
@@ -601,6 +621,9 @@ export function VideoPlayer({
     const currentSource = searchParams.get("source");
     if (currentSource) {
       params.set("source", currentSource);
+    }
+    if (isDub) {
+      params.set("dub", "true");
     }
     navigate({ search: params.toString() }, { replace: true });
 
@@ -701,47 +724,77 @@ export function VideoPlayer({
             </div>
           </div>
 
-          <Select value={selectedSource} onValueChange={handleSourceChange}>
-            <SelectTrigger className="w-full border-border/80 bg-card/90 text-sm text-foreground sm:w-[220px]">
-              <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
-              <SelectValue placeholder="Source">
-                {selectedSourceConfig
-                  ? `${selectedSourceConfig.name} · ${selectedSourceConfig.quality}`
-                  : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="z-50 border-border/80 bg-popover text-popover-foreground">
-              {groupedSources.map((group, index) => (
-                <Fragment key={group.key}>
-                  {index > 0 ? <SelectSeparator /> : null}
-                  <SelectGroup>
-                    <SelectLabel>{group.label}</SelectLabel>
-                    {group.sources.map((source) => {
-                      const provider = getProviderByKey(source.key);
-                      const meta = provider
-                        ? getProviderCapabilities(provider).slice(1, 3).join(" • ")
-                        : source.quality;
+          <div className="flex items-center gap-2 sm:shrink-0">
+            {showDubToggle && (
+              <div className="flex items-center rounded-md border border-border/80 bg-card/90 overflow-hidden shrink-0">
+                <button
+                  onClick={() => handleDubToggle(false)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                    !isDub
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  }`}
+                >
+                  <Mic2 className="w-3 h-3" />
+                  SUB
+                </button>
+                <button
+                  onClick={() => handleDubToggle(true)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                    isDub
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  }`}
+                >
+                  <Mic2 className="w-3 h-3" />
+                  DUB
+                </button>
+              </div>
+            )}
 
-                      return (
-                        <SelectItem
-                          key={source.url}
-                          value={source.url}
-                          className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                        >
-                          <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                            <span className="min-w-0 truncate">{source.name}</span>
-                            <span className="truncate text-[11px] text-muted-foreground">
-                              {meta}
+            <Select value={selectedSource} onValueChange={handleSourceChange}>
+              <SelectTrigger className="w-full border-border/80 bg-card/90 text-sm text-foreground sm:w-[220px]">
+                <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
+                <SelectValue placeholder="Source">
+                  {selectedSourceConfig
+                    ? `${selectedSourceConfig.name} · ${selectedSourceConfig.quality}`
+                    : undefined}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="z-50 border-border/80 bg-popover text-popover-foreground">
+                {groupedSources.map((group, index) => (
+                  <Fragment key={group.key}>
+                    {index > 0 ? <SelectSeparator /> : null}
+                    <SelectGroup>
+                      <SelectLabel>{group.label}</SelectLabel>
+                      {group.sources.map((source) => {
+                        const provider = getProviderByKey(source.key);
+                        const caps = provider ? getProviderCapabilities(provider) : [];
+                        const badge = provider?.dubSupport
+                          ? `${caps[0]} · Sub/Dub`
+                          : caps.slice(1, 3).join(" • ");
+
+                        return (
+                          <SelectItem
+                            key={source.url}
+                            value={source.url}
+                            className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                          >
+                            <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                              <span className="min-w-0 truncate">{source.name}</span>
+                              <span className="truncate text-[11px] text-muted-foreground">
+                                {badge}
+                              </span>
                             </span>
-                          </span>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectGroup>
-                </Fragment>
-              ))}
-            </SelectContent>
-          </Select>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectGroup>
+                  </Fragment>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
