@@ -7,6 +7,7 @@ import { Hero } from "@/components/Hero";
 import { ContentRow } from "@/components/ContentRow";
 import { useFeaturedContent, useAllCategories } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
+import { useAppSettings } from "@/hooks/useAppSettings";
 import { api } from "../convex/_generated/api";
 import { Film, Loader2, RefreshCw, Database, Sparkles, Tv2, Zap } from "lucide-react";
 import { Button, Toaster, toast } from "@fishy/ui";
@@ -29,7 +30,8 @@ function Footer() {
               label: "Account",
               links: [
                 { text: "My List", href: "/my-list" },
-                { text: "Watch History", href: "/history" }
+                { text: "Watch History", href: "/history" },
+                { text: "Settings", href: "/settings" }
               ]
             },
             {
@@ -98,12 +100,14 @@ function SyncPanel() {
   };
 
   return (
-    <div className="mx-6 sm:mx-10 mb-6 p-4 rounded-xl bg-white/4 border border-white/8">
+    <div className="surface mb-6 p-4">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Database className="w-4 h-4 text-white/40" />
-          <span className="text-sm font-medium text-white/70">Content Library</span>
-          {lastSynced && <span className="text-xs text-white/30">• Last synced {lastSynced}</span>}
+          <Database className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground/80">Content Library</span>
+          {lastSynced && (
+            <span className="text-xs text-muted-foreground">• Last synced {lastSynced}</span>
+          )}
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -117,7 +121,7 @@ function SyncPanel() {
             key={btn.label}
             size="sm"
             variant="outline"
-            className="text-xs border-white/15 text-white/60 hover:text-white hover:border-white/30"
+            className="text-xs"
             disabled={syncing}
             onClick={() => doSync(btn.type, btn.count)}
           >
@@ -196,6 +200,7 @@ export function App() {
   const categories = useAllCategories();
   const featuredContent = useFeaturedContent();
   const continueWatching = useContinueWatching() ?? [];
+  const { settings } = useAppSettings();
 
   const handlePlay = (tmdbId: string, season?: number, episode?: number) => {
     const params = new URLSearchParams();
@@ -221,21 +226,32 @@ export function App() {
       <Header />
 
       <main>
-        {featuredContent && <Hero content={featuredContent} onPlay={handlePlay} />}
+        {featuredContent && (
+          <Hero
+            content={featuredContent}
+            onPlay={handlePlay}
+            autoPlayTrailer={settings.autoPlayHeroTrailer}
+          />
+        )}
 
-        <div className="relative -mt-16 z-10 pt-4 pb-8 space-y-1">
+        <div className="relative z-10 -mt-14 pb-10 pt-4 sm:-mt-18">
           {/* Sync panel */}
-          <SyncPanel />
+          <div className="page-shell-wide">
+            <SyncPanel />
+          </div>
 
           {/* Continue Watching */}
-          {isLoaded && isSignedIn && continueWatching.length > 0 && (
-            <ContentRow
-              title="Continue Watching"
-              content={continueWatching}
-              onPlay={handlePlay}
-              viewAllHref="/history"
-            />
-          )}
+          {settings.showContinueWatchingRow &&
+            isLoaded &&
+            isSignedIn &&
+            continueWatching.length > 0 && (
+              <ContentRow
+                title="Continue Watching"
+                content={continueWatching}
+                onPlay={handlePlay}
+                viewAllHref="/history"
+              />
+            )}
 
           {/* Content rows */}
           {categories.map((cat) => (

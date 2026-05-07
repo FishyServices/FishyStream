@@ -8,6 +8,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
+import { useAppSettings } from "@/hooks/useAppSettings";
 import type { PlayerEventPayload } from "@/lib/playerProviders";
 import {
   parsePlayerMessage,
@@ -95,6 +96,7 @@ export function VideoPlayer({
   const [searchParams] = useSearchParams();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { user, isSignedIn } = useUser();
+  const { settings } = useAppSettings();
 
   const getMovieSources = useAction(api.providers.getMovieSources);
   const getTVSources = useAction(api.providers.getTVSources);
@@ -224,7 +226,9 @@ export function VideoPlayer({
         setSources(fetched);
         const preferredSource = initialSource
           ? fetched.find((s) => s.name.toLowerCase() === initialSource.toLowerCase())
-          : undefined;
+          : settings.defaultProvider !== "auto"
+            ? fetched.find((s) => s.key === settings.defaultProvider)
+            : undefined;
         const def =
           preferredSource ?? fetched.find((s) => getProviderByKey(s.key)?.progress) ?? fetched[0]!;
         setResumePositionSeconds(
@@ -247,7 +251,7 @@ export function VideoPlayer({
     };
 
     load();
-  }, [animeContent, content, sources.length, error, initialSource, watchState]);
+  }, [animeContent, content, error, initialSource, settings.defaultProvider, sources.length, watchState]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
   const selectedProvider = selectedSourceConfig
@@ -421,7 +425,8 @@ export function VideoPlayer({
     user
   ]);
 
-  const handleSourceChange = async (nextUrl: string) => {
+  const handleSourceChange = async (nextUrl: string | null) => {
+    if (!nextUrl) return;
     const nextSource = sources.find((s) => s.url === nextUrl);
     const prevName = nextSource?.name;
     const needsReload =
@@ -633,16 +638,16 @@ export function VideoPlayer({
           </div>
 
           <Select value={selectedSource} onValueChange={handleSourceChange}>
-            <SelectTrigger className="w-full sm:w-[220px] bg-white/10 border-white/20 text-white text-sm">
+            <SelectTrigger className="w-full border-border/80 bg-card/90 text-sm text-foreground sm:w-[220px]">
               <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
               <SelectValue placeholder="Source" />
             </SelectTrigger>
-            <SelectContent className="z-50 bg-black border-white/20">
+            <SelectContent className="z-50 border-border/80 bg-popover text-popover-foreground">
               {sources.map((s) => (
                 <SelectItem
                   key={s.url}
                   value={s.url}
-                  className="text-white focus:bg-white/10 focus:text-white"
+                  className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                 >
                   {s.name}
                   {getProviderByKey(s.key)?.progress ? " ✓" : ""} ({s.quality})

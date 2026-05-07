@@ -10,6 +10,7 @@ import { toast } from "@fishy/ui";
 interface HeroProps {
   content: Doc<"content">;
   onPlay?: (tmdbId: string) => void;
+  autoPlayTrailer?: boolean;
 }
 
 function StarRating({ score }: { score: number }) {
@@ -27,11 +28,11 @@ function StarRating({ score }: { score: number }) {
   );
 }
 
-export function Hero({ content, onPlay }: HeroProps) {
+export function Hero({ content, onPlay, autoPlayTrailer = false }: HeroProps) {
   const { isSignedIn } = useUser();
   const [showModal, setShowModal] = useState(false);
   const [muted, setMuted] = useState(true);
-  const [showTrailer, setShowTrailer] = useState(false);
+  const [showTrailer, setShowTrailer] = useState(autoPlayTrailer && !!content.trailerKey);
   const [loaded, setLoaded] = useState(false);
 
   const isInWatchlist = useIsInWatchlist(content._id);
@@ -41,6 +42,10 @@ export function Hero({ content, onPlay }: HeroProps) {
     const timer = setTimeout(() => setLoaded(true), 100);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setShowTrailer(autoPlayTrailer && !!content.trailerKey);
+  }, [autoPlayTrailer, content._id, content.trailerKey]);
 
   const handleWatchlist = async () => {
     if (!isSignedIn) {

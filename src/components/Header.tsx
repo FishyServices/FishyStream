@@ -8,6 +8,7 @@ import {
   X,
   ChevronDown,
   Flame,
+  Settings,
   Tv,
   Film,
   Clock,
@@ -96,8 +97,8 @@ export function Header() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "border-b border-white/5 bg-[hsl(220,20%,4%)/95] shadow-2xl backdrop-blur-xl"
-          : "bg-gradient-to-b from-black/70 via-black/30 to-transparent"
+          ? "border-b border-border/70 bg-background/92 shadow-lg backdrop-blur-xl"
+          : "bg-gradient-to-b from-background/82 via-background/32 to-transparent"
       }`}
     >
       <div className="px-4 sm:px-6 lg:px-10" ref={dropdownRef}>
@@ -150,12 +151,12 @@ export function Header() {
                   )}
 
                   {link.dropdown && openDropdown === link.label && (
-                    <div className="absolute left-0 top-full mt-1 w-48 rounded-lg border border-white/10 bg-[hsl(220,16%,8%)] py-1 shadow-2xl">
+                    <div className="absolute left-0 top-full mt-1 w-48 rounded-lg border border-border/80 bg-popover py-1 shadow-lg">
                       {link.dropdown.map((item) => (
                         <Link
                           key={item.label}
                           to={item.href}
-                          className="flex items-center px-4 py-2 text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+                          className="flex items-center px-4 py-2 text-sm text-foreground/74 transition-colors hover:bg-accent hover:text-accent-foreground"
                           onClick={() => setOpenDropdown(null)}
                         >
                           {item.label}
@@ -246,24 +247,25 @@ export function Header() {
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 overflow-hidden rounded-xl border border-white/10 bg-[hsl(220,16%,8%)] shadow-2xl">
-                    <div className="border-b border-white/8 px-4 py-3">
-                      <p className="truncate text-sm font-medium text-white">
+                  <div className="absolute right-0 top-full mt-2 w-52 overflow-hidden rounded-xl border border-border/80 bg-popover shadow-lg">
+                    <div className="border-b border-border/70 px-4 py-3">
+                      <p className="truncate text-sm font-medium text-foreground">
                         {user?.firstName} {user?.lastName}
                       </p>
-                      <p className="truncate text-xs text-white/50">
+                      <p className="truncate text-xs text-muted-foreground">
                         {user?.emailAddresses[0]?.emailAddress}
                       </p>
                     </div>
                     <div className="py-1">
                       {[
                         { label: "My List", href: "/my-list", icon: BookMarked },
-                        { label: "Watch History", href: "/history", icon: Clock }
+                        { label: "Watch History", href: "/history", icon: Clock },
+                        { label: "Settings", href: "/settings", icon: Settings }
                       ].map((item) => (
                         <Link
                           key={item.label}
                           to={item.href}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground/74 transition-colors hover:bg-accent hover:text-accent-foreground"
                           onClick={() => setProfileOpen(false)}
                         >
                           <item.icon className="h-4 w-4" />
@@ -271,7 +273,7 @@ export function Header() {
                         </Link>
                       ))}
                     </div>
-                    <div className="border-t border-white/8 py-1">
+                    <div className="border-t border-border/70 py-1">
                       <button
                         className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
                         onClick={() => {

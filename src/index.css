@@ -22,17 +22,38 @@
     background: var(--color-background);
   }
 
+  html[data-theme="light"] {
+    color-scheme: light;
+  }
+
   body {
     @apply min-h-screen bg-background font-sans text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background-image:
-      radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 22%, transparent), transparent 28%),
-      radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-secondary) 72%, transparent), transparent 26%),
-      linear-gradient(color-mix(in oklab, var(--color-foreground) 5%, transparent) 1px, transparent 1px),
-      linear-gradient(90deg, color-mix(in oklab, var(--color-foreground) 5%, transparent) 1px, transparent 1px);
+      radial-gradient(
+        circle at top left,
+        color-mix(in oklab, var(--color-primary) 22%, transparent),
+        transparent 28%
+      ),
+      radial-gradient(
+        circle at bottom right,
+        color-mix(in oklab, var(--color-secondary) 72%, transparent),
+        transparent 26%
+      ),
+      linear-gradient(
+        color-mix(in oklab, var(--color-foreground) 5%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--color-foreground) 5%, transparent) 1px,
+        transparent 1px
+      );
     background-size:
       auto,
       auto,
@@ -88,6 +109,11 @@
 
   .page-shell-tight {
     width: min(100% - 1rem, 92rem);
+    margin-inline: auto;
+  }
+
+  .page-shell-wide {
+    width: min(100% - 5.35rem, 175rem);
     margin-inline: auto;
   }
 

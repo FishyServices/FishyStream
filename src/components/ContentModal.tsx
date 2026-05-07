@@ -8,7 +8,6 @@ import {
   Calendar,
   Clock,
   X,
-  ChevronDown,
   Tv,
   Film,
   User,
@@ -16,7 +15,17 @@ import {
   Users,
   Loader2
 } from "lucide-react";
-import { Button, Dialog, DialogContent, DialogTitle } from "@fishy/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@fishy/ui";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
@@ -64,8 +73,8 @@ function EpisodePill({
 }) {
   return (
     <button
-      className={`flex items-start gap-3 p-3 rounded-lg text-left transition-all w-full group hover:bg-white/8 ${
-        selected ? "bg-white/12 ring-1 ring-primary/50" : ""
+      className={`group flex w-full items-start gap-3 rounded-lg p-3 text-left transition-all hover:bg-accent ${
+        selected ? "bg-accent ring-1 ring-primary/40" : ""
       }`}
       onClick={onClick}
     >
@@ -73,24 +82,26 @@ function EpisodePill({
         <img
           src={ep.stillUrl}
           alt={ep.name}
-          className="w-24 h-14 object-cover rounded-md flex-shrink-0 bg-white/5"
+          className="h-14 w-24 flex-shrink-0 rounded-md bg-muted object-cover"
           loading="lazy"
         />
       ) : (
-        <div className="w-24 h-14 flex-shrink-0 bg-white/5 rounded-md flex items-center justify-center">
-          <Tv className="w-5 h-5 text-white/20" />
+        <div className="flex h-14 w-24 flex-shrink-0 items-center justify-center rounded-md bg-muted">
+          <Tv className="h-5 w-5 text-muted-foreground/50" />
         </div>
       )}
       <div className="min-w-0 flex-1 pt-0.5">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-xs font-bold text-white/50">E{ep.episodeNumber}</span>
+          <span className="text-xs font-bold text-muted-foreground">E{ep.episodeNumber}</span>
           {selected && <span className="text-[10px] font-bold text-primary">▶ Playing</span>}
         </div>
-        <p className="text-sm font-medium text-white line-clamp-1">{ep.name}</p>
-        {ep.overview && <p className="text-xs text-white/50 line-clamp-2 mt-0.5">{ep.overview}</p>}
-        {ep.runtime && <p className="text-[11px] text-white/35 mt-1">{ep.runtime}m</p>}
+        <p className="line-clamp-1 text-sm font-medium text-foreground">{ep.name}</p>
+        {ep.overview && (
+          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{ep.overview}</p>
+        )}
+        {ep.runtime && <p className="mt-1 text-[11px] text-muted-foreground/80">{ep.runtime}m</p>}
       </div>
-      <Play className="w-4 h-4 text-white/0 group-hover:text-white/60 flex-shrink-0 mt-4 transition-colors" />
+      <Play className="mt-4 h-4 w-4 flex-shrink-0 text-transparent transition-colors group-hover:text-muted-foreground" />
     </button>
   );
 }
@@ -100,7 +111,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const { isSignedIn } = useUser();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
-  const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
 
   const isInWatchlist = useIsInWatchlist(content?._id);
   const toggleWatchlist = useToggleWatchlist();
@@ -404,8 +414,13 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-[hsl(220,20%,5%)] border-white/10 max-h-[90vh] flex flex-col">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden border-border/80 bg-card p-0 text-card-foreground">
         <DialogTitle className="sr-only">{content.title}</DialogTitle>
 
         {/* Hero */}
@@ -416,9 +431,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             className="w-full h-full object-cover"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[hsl(220,20%,5%)] via-black/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-background/35 to-transparent" />
           <button
-            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors z-10"
+            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-border/80 bg-background/78 text-foreground transition-colors hover:bg-background"
             onClick={onClose}
           >
             <X className="w-4 h-4" />
@@ -437,14 +452,14 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                 {isTV ? ` S${selectedSeason} E${selectedEpisode}` : ""}
               </Button>
               <button
-                className="w-10 h-10 rounded-full border-2 border-white/50 glass flex items-center justify-center hover:border-white transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border/80 bg-background/60 text-foreground transition-colors hover:bg-background"
                 onClick={handleWatchlist}
                 title={isInWatchlist ? "Remove from My List" : "Add to My List"}
               >
                 {isInWatchlist ? (
                   <Check className="w-5 h-5 text-green-400" />
                 ) : (
-                  <Plus className="w-5 h-5 text-white" />
+                  <Plus className="w-5 h-5 text-foreground" />
                 )}
               </button>
             </div>
@@ -462,12 +477,12 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                   {content.voteAverage.toFixed(1)}
                 </span>
               )}
-              <span className="text-white/60 flex items-center gap-1">
+              <span className="flex items-center gap-1 text-muted-foreground">
                 <Calendar className="w-3.5 h-3.5" />
                 {content.year}
               </span>
               {content.duration && (
-                <span className="text-white/60 flex items-center gap-1">
+                <span className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="w-3.5 h-3.5" />
                   {content.duration}
                 </span>
@@ -477,7 +492,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
               >
                 {content.rating}
               </span>
-              <span className="flex items-center gap-1 text-white/40">
+              <span className="flex items-center gap-1 text-muted-foreground/90">
                 {isTV ? <Tv className="w-3.5 h-3.5" /> : <Film className="w-3.5 h-3.5" />}
                 {isTV ? `${totalSeasons} Season${totalSeasons > 1 ? "s" : ""}` : "Movie"}
               </span>
@@ -485,7 +500,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
             {/* Description */}
             {content.description && (
-              <p className="text-sm text-white/70 leading-relaxed">{content.description}</p>
+              <p className="text-sm leading-relaxed text-muted-foreground">{content.description}</p>
             )}
 
             {/* Genre pills */}
@@ -494,7 +509,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                 {content.genre.map((g) => (
                   <span
                     key={g}
-                    className="text-xs px-3 py-1 rounded-full bg-white/8 border border-white/10 text-white/60"
+                    className="rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground"
                   >
                     {g}
                   </span>
@@ -504,8 +519,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
             {/* Progress */}
             {content.progress !== undefined && content.progress > 0 && (
-              <div className="p-3 bg-white/5 rounded-lg border border-white/8">
-                <div className="flex justify-between text-xs text-white/60 mb-2">
+              <div className="rounded-lg border border-border bg-muted/65 p-3">
+                <div className="mb-2 flex justify-between text-xs text-muted-foreground">
                   <span>
                     {isTV && content.seasonNumber
                       ? `Season ${content.seasonNumber}, Ep ${content.episodeNumber}`
@@ -513,7 +528,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                   </span>
                   <span>{Math.round(content.progress)}%</span>
                 </div>
-                <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-1 overflow-hidden rounded-full bg-border/80">
                   <div className="h-full bg-primary" style={{ width: `${content.progress}%` }} />
                 </div>
               </div>
@@ -523,69 +538,50 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             {isTV && (
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-display font-bold text-white">Episodes</h3>
+                  <h3 className="font-display font-bold text-foreground">Episodes</h3>
                   {totalSeasons > 1 && (
-                    <div className="relative">
-                      <button
-                        className="flex items-center gap-2 px-3 py-1.5 glass rounded-lg border border-white/20 text-sm text-white hover:bg-white/10 transition-colors"
-                        onClick={() => setSeasonMenuOpen(!seasonMenuOpen)}
-                      >
-                        Season {selectedSeason}
-                        <ChevronDown
-                          className={`w-4 h-4 transition-transform ${seasonMenuOpen ? "rotate-180" : ""}`}
-                        />
-                      </button>
-                      {seasonMenuOpen && (
-                        <div className="absolute right-0 top-full mt-1 w-40 bg-[hsl(220,16%,8%)] border border-white/15 rounded-lg shadow-2xl py-1 z-20 max-h-48 overflow-y-auto scrollbar-thin">
-                          {Array.from({ length: totalSeasons }, (_, i) => i + 1).map((s) => (
-                            <button
-                              key={s}
-                              className={`w-full text-left px-4 py-2 text-sm hover:bg-white/8 transition-colors ${
-                                s === selectedSeason
-                                  ? "text-primary font-semibold"
-                                  : "text-white/80"
-                              }`}
-                              onClick={() => {
-                                handleSeasonChange(s);
-                                setSeasonMenuOpen(false);
-                                const cachedSeason = allSeasons?.find(
-                                  (ds) => ds.seasonNumber === s
-                                );
-                                const cachedEpisodes =
-                                  cachedSeason?.episodeCount || cachedSeason?.episodes.length || 0;
-                                const expectedEpisodes = content?.tmdbId
-                                  ? getCanonicalSeasonEpisodeCount(content.tmdbId, s)
-                                  : undefined;
-                                const needsSync =
-                                  !cachedSeason ||
-                                  cachedEpisodes === 0 ||
-                                  (expectedEpisodes != null && cachedEpisodes !== expectedEpisodes);
-                                if (needsSync) {
-                                  requestSeasonSync(s, { force: true, showLoader: true });
-                                }
-                              }}
-                            >
-                              Season {s}
-                              {allSeasons?.find((ds) => ds.seasonNumber === s)?.episodeCount && (
-                                <span className="text-white/30 ml-2">
-                                  ({allSeasons.find((ds) => ds.seasonNumber === s)!.episodeCount}{" "}
-                                  ep)
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <Select
+                      value={String(selectedSeason)}
+                      onValueChange={(value) => {
+                        const season = Number(value);
+                        handleSeasonChange(season);
+                        const cachedSeason = allSeasons?.find((ds) => ds.seasonNumber === season);
+                        const cachedEpisodes =
+                          cachedSeason?.episodeCount || cachedSeason?.episodes.length || 0;
+                        const expectedEpisodes = content?.tmdbId
+                          ? getCanonicalSeasonEpisodeCount(content.tmdbId, season)
+                          : undefined;
+                        const needsSync =
+                          !cachedSeason ||
+                          cachedEpisodes === 0 ||
+                          (expectedEpisodes != null && cachedEpisodes !== expectedEpisodes);
+                        if (needsSync) {
+                          requestSeasonSync(season, { force: true, showLoader: true });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-[10rem] border-border/80 bg-background text-foreground">
+                        <SelectValue placeholder="Season" />
+                      </SelectTrigger>
+                      <SelectContent className="border-border/80 bg-popover text-popover-foreground">
+                        {Array.from({ length: totalSeasons }, (_, i) => i + 1).map((s) => (
+                          <SelectItem key={s} value={String(s)}>
+                            Season {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
                 </div>
 
                 {dbSeason?.overview && (
-                  <p className="text-sm text-white/50 mb-3">{dbSeason.overview}</p>
+                  <p className="mb-3 text-sm text-muted-foreground">{dbSeason.overview}</p>
                 )}
 
                 {isSyncing && episodes.length === 0 ? (
-                  <p className="text-xs text-white/30 text-center py-8">Loading episodes…</p>
+                  <p className="py-8 text-center text-xs text-muted-foreground">
+                    Loading episodes…
+                  </p>
                 ) : episodeLoadError ? (
                   <p className="text-xs text-red-300/80 text-center py-8">{episodeLoadError}</p>
                 ) : episodes.length > 0 ? (
@@ -603,7 +599,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-white/30 text-center py-8">
+                  <p className="py-8 text-center text-xs text-muted-foreground">
                     No episode data available.
                   </p>
                 )}
@@ -613,7 +609,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             {/* Cast */}
             {credits && credits.cast.length > 0 && (
               <div>
-                <h3 className="font-display font-bold text-white mb-3 flex items-center gap-2">
+                <h3 className="mb-3 flex items-center gap-2 font-display font-bold text-foreground">
                   <Users className="w-4 h-4" />
                   Cast
                 </h3>
@@ -624,24 +620,26 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                         <img
                           src={actor.profileUrl}
                           alt={actor.name}
-                          className="w-16 h-16 object-cover rounded-full bg-white/5 mb-1"
+                          className="mb-1 h-16 w-16 rounded-full bg-muted object-cover"
                           loading="lazy"
                         />
                       ) : (
-                        <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-1">
-                          <User className="w-6 h-6 text-white/30" />
+                        <div className="mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                          <User className="h-6 w-6 text-muted-foreground/60" />
                         </div>
                       )}
-                      <p className="text-[10px] text-white font-medium line-clamp-2">
+                      <p className="line-clamp-2 text-[10px] font-medium text-foreground">
                         {actor.name}
                       </p>
-                      <p className="text-[9px] text-white/50 line-clamp-1">{actor.character}</p>
+                      <p className="line-clamp-1 text-[9px] text-muted-foreground">
+                        {actor.character}
+                      </p>
                     </div>
                   ))}
                 </div>
                 {credits.directors.length > 0 && (
-                  <p className="text-xs text-white/50 mt-2">
-                    <span className="text-white/30">Directed by:</span>{" "}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    <span className="text-muted-foreground/80">Directed by:</span>{" "}
                     {credits.directors.slice(0, 3).join(", ")}
                   </p>
                 )}
@@ -651,7 +649,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             {/* Videos */}
             {videos.length > 0 && (
               <div>
-                <h3 className="font-display font-bold text-white mb-3 flex items-center gap-2">
+                <h3 className="mb-3 flex items-center gap-2 font-display font-bold text-foreground">
                   <Video className="w-4 h-4" />
                   Trailers & More
                 </h3>
@@ -664,7 +662,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                       rel="noopener noreferrer"
                       className="flex-shrink-0 w-40 group"
                     >
-                      <div className="relative aspect-video bg-white/5 rounded-lg overflow-hidden mb-1">
+                      <div className="relative mb-1 aspect-video overflow-hidden rounded-lg bg-muted">
                         <img
                           src={`https://img.youtube.com/vi/${video.key}/mqdefault.jpg`}
                           alt={video.name}
@@ -680,10 +678,10 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-white font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                      <p className="line-clamp-1 text-xs font-medium text-foreground transition-colors group-hover:text-primary">
                         {video.name}
                       </p>
-                      <p className="text-[10px] text-white/40">{video.type}</p>
+                      <p className="text-[10px] text-muted-foreground">{video.type}</p>
                     </a>
                   ))}
                 </div>
@@ -693,7 +691,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             {/* Related */}
             {related.length > 0 && (
               <div>
-                <h3 className="font-display font-bold text-white mb-3">More Like This</h3>
+                <h3 className="mb-3 font-display font-bold text-foreground">More Like This</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {related.map((item) => (
                     <div
@@ -701,7 +699,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                       className="group cursor-pointer"
                       onClick={() => handleRelatedClick(item)}
                     >
-                      <div className="aspect-[2/3] bg-white/5 rounded-lg overflow-hidden mb-1.5">
+                      <div className="mb-1.5 aspect-[2/3] overflow-hidden rounded-lg bg-muted">
                         <img
                           src={item.posterUrl}
                           alt={item.title}
@@ -709,10 +707,10 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                           loading="lazy"
                         />
                       </div>
-                      <p className="text-xs text-white font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                      <p className="line-clamp-1 text-xs font-medium text-foreground transition-colors group-hover:text-primary">
                         {item.title}
                       </p>
-                      <p className="text-[10px] text-white/40">
+                      <p className="text-[10px] text-muted-foreground">
                         {item.year} • {item.voteAverage?.toFixed(1)} ★
                       </p>
                     </div>
@@ -733,11 +731,11 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             setRelatedSyncing(false);
           }}
         >
-          <DialogContent className="max-w-xs p-8 bg-[hsl(220,20%,5%)] border-white/10 flex items-center justify-center">
+          <DialogContent className="flex max-w-xs items-center justify-center border-border/80 bg-card p-8 text-card-foreground">
             <DialogTitle className="sr-only">Loading</DialogTitle>
             <div className="text-center">
               <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-3" />
-              <p className="text-sm text-white/60">Loading {relatedModalItem.title}…</p>
+              <p className="text-sm text-muted-foreground">Loading {relatedModalItem.title}…</p>
             </div>
           </DialogContent>
         </Dialog>

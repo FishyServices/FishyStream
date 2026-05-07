@@ -37,45 +37,45 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
   if (content.length === 0) return null;
 
   return (
-    <div className="relative group py-4">
-      <div className="mb-4 flex items-center justify-between gap-3 px-4 sm:px-6 lg:px-12">
-        <h2 className="text-lg sm:text-xl font-semibold text-white truncate" title={title}>
+    <section className="group py-1 sm:py-2">
+      <div className="page-shell-wide mb-4 flex items-center justify-between gap-3">
+        <h2 className="truncate text-lg font-semibold text-foreground sm:text-xl" title={title}>
           {title}
         </h2>
         {viewAllHref && (
           <button
             onClick={() => navigate(viewAllHref)}
-            className="text-sm text-white/60 hover:text-white transition-colors whitespace-nowrap ml-4"
+            className="ml-4 whitespace-nowrap text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             View All →
           </button>
         )}
       </div>
 
-      <div className="relative">
+      <div className="page-shell-wide relative">
         <Button
           variant="ghost"
           size="icon"
-          className="absolute left-0 top-1/2 hidden md:flex -translate-y-1/2 z-10 w-12 h-full bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-none"
+          className="absolute left-1 top-1/2 z-10 hidden h-[calc(100%-1rem)] w-11 -translate-y-1/2 rounded-md border border-border/60 bg-background/92 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-background xl:flex group-hover:opacity-100"
           onClick={() => scroll("left")}
           aria-label={`Scroll ${title} left`}
         >
-          <ChevronLeft className="w-8 h-8" />
+          <ChevronLeft className="h-5 w-5" />
         </Button>
 
         <Button
           variant="ghost"
           size="icon"
-          className="absolute right-0 top-1/2 hidden md:flex -translate-y-1/2 z-10 w-12 h-full bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-none"
+          className="absolute right-1 top-1/2 z-10 hidden h-[calc(100%-1rem)] w-11 -translate-y-1/2 rounded-md border border-border/60 bg-background/92 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-background xl:flex group-hover:opacity-100"
           onClick={() => scroll("right")}
           aria-label={`Scroll ${title} right`}
         >
-          <ChevronRight className="w-8 h-8" />
+          <ChevronRight className="h-5 w-5" />
         </Button>
 
         <div
           ref={scrollRef}
-          className="flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-4 snap-x snap-mandatory sm:gap-4 sm:px-6 lg:px-12"
+          className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-4 sm:gap-4 sm:px-0"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none"
@@ -86,6 +86,6 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
           ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

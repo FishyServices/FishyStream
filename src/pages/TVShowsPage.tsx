@@ -3,7 +3,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Tv2, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
+import { useAppSettings } from "@/hooks/useAppSettings";
 import { usePaginatedContent, type ContentSort } from "@/hooks/useContent";
+import { TV_SORT_OPTIONS } from "@/lib/appSettings";
 import { Button } from "@fishy/ui";
 
 const GENRES = [
@@ -18,18 +20,11 @@ const GENRES = [
   "Reality",
   "Kids"
 ];
-const SORTS = [
-  { label: "Trending", value: "trending" },
-  { label: "Popular", value: "popular" },
-  { label: "Now Airing", value: "new" },
-  { label: "Top Rated", value: "rating" },
-  { label: "Year", value: "year" }
-] as const;
-
-const VALID_SORTS = new Set<ContentSort>(SORTS.map((sort) => sort.value));
+const VALID_SORTS = new Set<ContentSort>(TV_SORT_OPTIONS.map((sort) => sort.value));
 
 export function TVShowsPage() {
   const navigate = useNavigate();
+  const { settings } = useAppSettings();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sortOpen, setSortOpen] = useState(false);
   const [pageHistory, setPageHistory] = useState<string[]>([]);
@@ -37,7 +32,9 @@ export function TVShowsPage() {
   const genre = searchParams.get("genre") ?? "All";
   const sortParam = searchParams.get("sort");
   const sort: ContentSort =
-    sortParam && VALID_SORTS.has(sortParam as ContentSort) ? (sortParam as ContentSort) : "popular";
+    sortParam && VALID_SORTS.has(sortParam as ContentSort)
+      ? (sortParam as ContentSort)
+      : settings.defaultTVSort;
   const cursor = searchParams.get("cursor") ?? undefined;
 
   const paginated = usePaginatedContent(
@@ -55,7 +52,10 @@ export function TVShowsPage() {
   const currentPage = pageHistory.length + 1;
   const totalPages = Math.ceil(totalCount / 24);
 
-  const currentSort = SORTS.find((s) => s.value === sort) ?? SORTS[0]!;
+  const currentSort =
+    TV_SORT_OPTIONS.find((s) => s.value === sort) ??
+    TV_SORT_OPTIONS.find((s) => s.value === settings.defaultTVSort) ??
+    TV_SORT_OPTIONS[0]!;
   const handlePlay = (tmdbId: string, season?: number, episode?: number) => {
     const p = new URLSearchParams();
     if (season) p.set("season", String(season));
@@ -96,12 +96,12 @@ export function TVShowsPage() {
       <main className="page-stack px-4 sm:px-6 lg:px-10">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-black text-white">TV Shows</h1>
-            {shows && <p className="text-white/40 text-sm mt-1">{totalCount} titles</p>}
+            <h1 className="font-display text-3xl font-black text-foreground">TV Shows</h1>
+            {shows && <p className="mt-1 text-sm text-muted-foreground">{totalCount} titles</p>}
           </div>
           <div className="relative self-start">
             <button
-              className="flex items-center gap-2 px-3 py-2 glass rounded-lg border border-white/15 text-sm text-white/70 hover:text-white transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-border bg-card/70 px-3 py-2 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
               onClick={() => setSortOpen(!sortOpen)}
             >
               <Filter className="w-3.5 h-3.5" />
@@ -111,11 +111,11 @@ export function TVShowsPage() {
               />
             </button>
             {sortOpen && (
-              <div className="absolute right-0 top-full mt-1 w-40 bg-[hsl(220,16%,8%)] border border-white/15 rounded-lg shadow-2xl py-1 z-20">
-                {SORTS.map((s) => (
+              <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-lg border border-border/80 bg-popover py-1 shadow-lg">
+                {TV_SORT_OPTIONS.map((s) => (
                   <button
                     key={s.value}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-white/8 transition-colors ${s.value === sort ? "text-primary font-semibold" : "text-white/70"}`}
+                    className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-accent ${s.value === sort ? "font-semibold text-primary" : "text-foreground/75"}`}
                     onClick={() => {
                       setSearchParams((p) => {
                         p.set("sort", s.value);
@@ -140,7 +140,7 @@ export function TVShowsPage() {
               className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                 genre === g
                   ? "bg-primary text-white"
-                  : "glass border border-white/15 text-white/60 hover:text-white hover:border-white/30"
+                  : "border border-border bg-card/65 text-foreground/72 hover:border-primary/30 hover:text-foreground"
               }`}
               onClick={() =>
                 setSearchParams((p) => {
@@ -161,8 +161,8 @@ export function TVShowsPage() {
           </div>
         ) : shows.length === 0 ? (
           <div className="text-center py-16">
-            <Tv2 className="w-10 h-10 text-white/15 mx-auto mb-3" />
-            <p className="text-white/40">No shows found</p>
+            <Tv2 className="mx-auto mb-3 h-10 w-10 text-muted-foreground/35" />
+            <p className="text-muted-foreground">No shows found</p>
           </div>
         ) : (
           <>
@@ -183,7 +183,7 @@ export function TVShowsPage() {
                 <ChevronLeft className="w-4 h-4" />
                 Previous
               </Button>
-              <span className="text-white/60 text-sm">
+              <span className="text-sm text-muted-foreground">
                 Page {currentPage}
                 {totalPages > 0 ? ` of ${totalPages}` : ""}
               </span>
