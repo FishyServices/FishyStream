@@ -213,6 +213,7 @@ export function VideoPlayer({
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
   const isVidFast = selectedSourceConfig?.name === "VidFast";
+  const isVidNest = selectedSourceConfig?.name === "VidNest";
   const supportsProgressEvents = !!selectedSourceConfig?.supportsProgressEvents;
 
   const embedUrl = (() => {
@@ -485,6 +486,9 @@ export function VideoPlayer({
     return tvTarget.episode < seasonEpisodeCount;
   })();
 
+  const showNextEpisodeButton =
+    content.type === "tv" && hasNextEpisode && (currentProgress >= 80 || isVidNest);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -586,7 +590,7 @@ export function VideoPlayer({
           referrerPolicy="no-referrer-when-downgrade"
         />
 
-        {content.type === "tv" && hasNextEpisode && currentProgress >= 80 && (
+        {showNextEpisodeButton && (
           <Button
             onClick={handleNextEpisode}
             className="absolute bottom-4 left-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 backdrop-blur-sm sm:left-auto"
