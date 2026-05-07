@@ -39,16 +39,13 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidKing",
     idType: "tmdb",
     quality: "1080p",
-    animeIdType: "anilist",
     progress: {
       origins: ["*"],
       resumeParam: "progress"
     },
     getMovieUrl: (tmdbId) => `https://www.vidking.net/embed/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) =>
-      `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://www.vidking.net/embed/anime/${aniListId}/${episode}`
+      `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}`
   },
   {
     key: "vidfast",
