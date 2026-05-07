@@ -215,7 +215,9 @@ export function useUpdateProgress() {
       const elapsed = Date.now() - lastDbSyncAtRef.current;
       if (elapsed >= DB_SYNC_INTERVAL_MS) {
         return flushToDb(true);
-      } else if (!syncTimerRef.current) {
+      }
+
+      if (!syncTimerRef.current) {
         syncTimerRef.current = setTimeout(() => {
           syncTimerRef.current = null;
           void flushToDb(true);

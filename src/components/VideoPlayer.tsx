@@ -8,13 +8,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
-import type { PlayerEventPayload, MediaDataPayload, PlayerControls } from "@/lib/playerProviders";
+import type { PlayerEventPayload, MediaDataPayload } from "@/lib/playerProviders";
 import {
   parsePlayerMessage,
   calculateProgress,
   isVidFastOrigin,
   isVideasyOrigin,
-  createPlayerControls
+  isVidNestOrigin,
+  postMessageToPlayer
 } from "@/lib/playerProviders";
 import {
   getCanonicalSeasonCount,
@@ -51,6 +52,13 @@ function estimateDuration(content: Doc<"content">) {
   return s > 0 ? s : content.type === "tv" ? 45 * 60 : 2 * 60 * 60;
 }
 
+function isAnimeContent(content: Doc<"content">) {
+  if (content.type !== "tv") return false;
+
+  const genres = new Set(content.genre.map((g) => g.toLowerCase()));
+  return genres.has("animation") && content.originalLanguage?.toLowerCase() === "ja";
+}
+
 export function VideoPlayer({
   content,
   initialSeason,
@@ -66,6 +74,7 @@ export function VideoPlayer({
   const getTVSources = useAction(api.providers.getTVSources);
   const updateProgress = useUpdateProgress();
   const watchState = useGetProgress(content._id);
+  const animeContent = isAnimeContent(content);
 
   const [sources, setSources] = useState<StreamSource[]>([]);
   const [selectedSource, setSelectedSource] = useState("");
@@ -167,6 +176,8 @@ export function VideoPlayer({
             ? await getTVSources({
                 imdbId: content.imdbId ?? undefined,
                 tmdbId: content.tmdbId ?? undefined,
+                isAnime: animeContent,
+                title: content.title,
                 season,
                 episode
               })
@@ -198,10 +209,11 @@ export function VideoPlayer({
     };
 
     load();
-  }, [content._id, sources.length, error, initialSource]);
+  }, [animeContent, content._id, sources.length, error, initialSource]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
   const isVidFast = selectedSourceConfig?.name === "VidFast";
+  const supportsProgressEvents = !!selectedSourceConfig?.supportsProgressEvents;
 
   const embedUrl = (() => {
     if (!selectedSourceConfig) return "";
@@ -220,10 +232,41 @@ export function VideoPlayer({
     }
   })();
 
-  const playerControls: PlayerControls = createPlayerControls(iframeRef);
+  useEffect(() => {
+    if (!watchState) return;
+    setCurrentProgress(clamp(watchState.progress));
+  }, [watchState]);
 
   useEffect(() => {
-    if (!embedUrl) return;
+    if (!embedUrl || !supportsProgressEvents) return;
+
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const requestStatus = () => postMessageToPlayer(iframeRef.current, "getStatus");
+    const onLoad = () => {
+      window.setTimeout(requestStatus, 1500);
+    };
+
+    iframe.addEventListener("load", onLoad);
+    requestStatus();
+
+    const interval = window.setInterval(requestStatus, 15_000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") requestStatus();
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      iframe.removeEventListener("load", onLoad);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(interval);
+    };
+  }, [embedUrl, supportsProgressEvents]);
+
+  useEffect(() => {
+    if (!embedUrl || !supportsProgressEvents) return;
 
     let origin: string;
     try {
@@ -237,10 +280,11 @@ export function VideoPlayer({
     const handleMsg = (event: MessageEvent) => {
       const isVidFast = isVidFastOrigin(event.origin);
       const isVideasy = isVideasyOrigin(event.origin);
+      const isVidNest = isVidNestOrigin(event.origin);
 
-      if (!isVidFast && !isVideasy && event.origin !== origin) return;
+      if (!isVidFast && !isVideasy && !isVidNest && event.origin !== origin) return;
 
-      if (!isVidFast && !isVideasy) {
+      if (!isVidFast && !isVideasy && !isVidNest) {
         if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
           return;
       }
@@ -256,7 +300,8 @@ export function VideoPlayer({
       const { data } = payload as PlayerEventPayload;
 
       const eventTmdbId = data.tmdbId !== undefined ? String(data.tmdbId) : data.id;
-      if (eventTmdbId !== undefined && eventTmdbId !== content.tmdbId) return;
+      const shouldSkipIdCheck = animeContent && isVidNest;
+      if (!shouldSkipIdCheck && eventTmdbId !== undefined && eventTmdbId !== content.tmdbId) return;
       if (data.mediaType && data.mediaType !== content.type) return;
 
       const nextPos = Math.max(0, data.currentTime || 0);
@@ -323,6 +368,7 @@ export function VideoPlayer({
     embedUrl,
     isSignedIn,
     selectedSourceConfig,
+    supportsProgressEvents,
     updateProgress,
     user
   ]);
@@ -353,6 +399,8 @@ export function VideoPlayer({
       const refreshed = await getTVSources({
         imdbId: content.imdbId ?? undefined,
         tmdbId: content.tmdbId ?? undefined,
+        isAnime: animeContent,
+        title: content.title,
         season: tvTargetRef.current.season,
         episode: tvTargetRef.current.episode
       });
