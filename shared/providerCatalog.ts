@@ -3,6 +3,7 @@ export type ProviderKey =
   | "vidfast"
   | "videasy"
   | "vidnest"
+  | "vidrock"
   | "superembed"
   | "autoembed"
   | "vidsrc"
@@ -94,6 +95,17 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     getTVUrl: (tmdbId, season, episode) => `https://vidnest.fun/tv/${tmdbId}/${season}/${episode}`,
     getAnimeTVUrl: (aniListId, _season, episode) =>
       `https://vidnest.fun/anime/${aniListId}/${episode}/dub`
+  },
+  {
+    key: "vidrock",
+    name: "VidRock",
+    idType: "both",
+    quality: "1080p",
+    progress: {
+      origins: ["https://vidrock.ru"]
+    },
+    getMovieUrl: (id) => `https://vidrock.ru/embed/movie/${id}`,
+    getTVUrl: (id, season, episode) => `https://vidrock.ru/embed/tv/${id}/${season}/${episode}`
   },
   {
     key: "superembed",
