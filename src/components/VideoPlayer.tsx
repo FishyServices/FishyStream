@@ -338,6 +338,14 @@ export function VideoPlayer({
       if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
         return;
 
+      if (
+        content.type === "tv" &&
+        (tvTargetRef.current.season !== loadedTvRef.current.season ||
+          tvTargetRef.current.episode !== loadedTvRef.current.episode)
+      ) {
+        return;
+      }
+
       const payload = parsePlayerMessage(event.data, event.origin);
       if (!payload) return;
 
