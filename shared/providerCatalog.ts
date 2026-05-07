@@ -4,6 +4,10 @@ export type ProviderKey =
   | "videasy"
   | "vidnest"
   | "vidrock"
+  | "vidzen"
+  | "vixsrc"
+  //| "cinezo"
+  | "mafiaembed"
   | "superembed"
   | "autoembed"
   | "vidsrc"
@@ -35,13 +39,16 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidKing",
     idType: "tmdb",
     quality: "1080p",
+    animeIdType: "anilist",
     progress: {
-      origins: ["https://www.vidking.net"],
+      origins: ["*"],
       resumeParam: "progress"
     },
     getMovieUrl: (tmdbId) => `https://www.vidking.net/embed/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) =>
-      `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}`
+      `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode) =>
+      `https://www.vidking.net/embed/anime/${aniListId}/${episode}`
   },
   {
     key: "vidfast",
@@ -49,15 +56,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "both",
     quality: "1080p",
     progress: {
-      origins: [
-        "https://vidfast.pro",
-        "https://vidfast.in",
-        "https://vidfast.io",
-        "https://vidfast.me",
-        "https://vidfast.net",
-        "https://vidfast.pm",
-        "https://vidfast.xyz"
-      ],
+      origins: ["*"],
       controlApi: true,
       statusRequest: true,
       resumeParam: "startAt"
@@ -72,7 +71,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     quality: "1080p",
     animeIdType: "anilist",
     progress: {
-      origins: ["https://player.videasy.net", "https://videasy.net"],
+      origins: ["*"],
       resumeParam: "progress"
     },
     getMovieUrl: (tmdbId) => `https://player.videasy.net/movie/${tmdbId}`,
@@ -88,7 +87,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     quality: "1080p",
     animeIdType: "anilist",
     progress: {
-      origins: ["https://vidnest.fun"],
+      origins: ["*"],
       resumeParam: "progress"
     },
     getMovieUrl: (tmdbId) => `https://vidnest.fun/movie/${tmdbId}`,
@@ -101,20 +100,84 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidRock",
     idType: "both",
     quality: "1080p",
+    animeIdType: "anilist",
     progress: {
-      origins: ["https://vidrock.ru"]
+      origins: ["*"]
     },
     getMovieUrl: (id) => `https://vidrock.ru/embed/movie/${id}`,
-    getTVUrl: (id, season, episode) => `https://vidrock.ru/embed/tv/${id}/${season}/${episode}`
+    getTVUrl: (id, season, episode) => `https://vidrock.ru/embed/tv/${id}/${season}/${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode) =>
+      `https://vidrock.ru/embed/anime/${aniListId}/${episode}`
+  },
+  {
+    key: "vidzen",
+    name: "VidZen",
+    idType: "tmdb",
+    quality: "1080p",
+    progress: {
+      origins: ["*"],
+      resumeParam: "startAt"
+    },
+    getMovieUrl: (tmdbId) => `https://vidzen.fun/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) => `https://vidzen.fun/tv/${tmdbId}/${season}/${episode}`
+  },
+  {
+    key: "vixsrc",
+    name: "VixSrc",
+    idType: "tmdb",
+    quality: "1080p",
+    progress: {
+      origins: ["*"],
+      resumeParam: "startAt"
+    },
+    getMovieUrl: (tmdbId) => `https://vixsrc.to/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) => `https://vixsrc.to/tv/${tmdbId}/${season}/${episode}`
+  },
+  /*
+  {
+    key: "cinezo",
+    name: "Cinezo",
+    idType: "tmdb",
+    quality: "1080p",
+    animeIdType: "anilist",
+    progress: {
+      origins: ["*"],
+      resumeParam: "startAt"
+    },
+    getMovieUrl: (tmdbId) => `https://player.vidrush.net/embed/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) =>
+      `https://player.vidrush.net/embed/tv/${tmdbId}/${season}/${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode) =>
+      `https://player.vidrush.net/embed/anime/${aniListId}/${episode}?dub=true`
+  },
+  */
+  {
+    key: "mafiaembed",
+    name: "MafiaEmbed",
+    idType: "tmdb",
+    quality: "1080p",
+    animeIdType: "anilist",
+    progress: {
+      origins: ["*"],
+      resumeParam: "progress"
+    },
+    getMovieUrl: (tmdbId) => `https://embed.streammafia.to/embed/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) =>
+      `https://embed.streammafia.to/embed/tv/${tmdbId}/${season}/${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode) =>
+      `https://embed.streammafia.to/embed/anime/${aniListId}/${episode}?dub=true`
   },
   {
     key: "superembed",
     name: "SuperEmbed",
     idType: "tmdb",
     quality: "1080p",
+    animeIdType: "anilist",
     getMovieUrl: (tmdbId) => `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
     getTVUrl: (tmdbId, season, episode) =>
-      `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1&season=${season}&episode=${episode}`
+      `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1&season=${season}&episode=${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode) =>
+      `https://www.multiembed.mov/?video_id=${aniListId}&anime=1&episode=${episode}&dub=1`
   },
   {
     key: "autoembed",
@@ -141,9 +204,12 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "2Embed",
     idType: "imdb",
     quality: "720p",
+    animeIdType: "anilist",
     getMovieUrl: (imdbId) => `https://www.2embed.cc/embed/${imdbId}`,
     getTVUrl: (imdbId, season, episode) =>
-      `https://www.2embed.cc/embed/${imdbId}/${season}/${episode}`
+      `https://www.2embed.cc/embed/${imdbId}/${season}/${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode) =>
+      `https://www.2embed.cc/embed/anime/${aniListId}/${episode}`
   }
 ];
 
@@ -152,7 +218,10 @@ export function getProviderByKey(key: string): ProviderCatalogEntry | undefined 
 }
 
 export function getProviderByOrigin(origin: string): ProviderCatalogEntry | undefined {
-  return STREAM_PROVIDERS.find((provider) => provider.progress?.origins.includes(origin));
+  return STREAM_PROVIDERS.find((provider) => {
+    const origins = provider.progress?.origins;
+    return !!origins && (origins.includes("*") || origins.includes(origin));
+  });
 }
 
 export function getProviderId(

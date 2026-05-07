@@ -243,8 +243,7 @@ export function VideoPlayer({
           : settings.defaultProvider !== "auto"
             ? fetched.find((s) => s.key === settings.defaultProvider)
             : undefined;
-        const def =
-          preferredSource ?? fetched.find((s) => getProviderByKey(s.key)?.progress) ?? fetched[0]!;
+        const def = preferredSource ?? fetched[0]!;
         setResumePositionSeconds(
           pickResumePositionSeconds(
             content,
@@ -265,7 +264,15 @@ export function VideoPlayer({
     };
 
     load();
-  }, [animeContent, content, error, initialSource, settings.defaultProvider, sources.length, watchState]);
+  }, [
+    animeContent,
+    content,
+    error,
+    initialSource,
+    settings.defaultProvider,
+    sources.length,
+    watchState
+  ]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
   const selectedProvider = selectedSourceConfig
@@ -289,10 +296,30 @@ export function VideoPlayer({
       if (selectedProvider?.key === "vidfast") {
         url.searchParams.set("nextButton", "false");
         url.searchParams.set("autoNext", "false");
+        url.searchParams.set("hideServerControls", "true");
       }
       if (selectedProvider?.key === "vidnest" && content.type === "tv") {
         url.searchParams.set("prevepisode", "hide");
         url.searchParams.set("nextepisode", "hide");
+      }
+      /*
+      if (selectedProvider?.key === "cinezo") {
+        url.searchParams.set("autoplay", "false");
+        url.searchParams.set("servericon", "false");
+        url.searchParams.set("setting", "false");
+        url.searchParams.set("pip", "false");
+        url.searchParams.set("chromecast", "false");
+        if (content.type === "tv") {
+          url.searchParams.set("episodes", "false");
+          url.searchParams.set("nextbutton", "false");
+          url.searchParams.set("autonext", "false");
+        }
+      }
+      */
+      if (selectedProvider?.key === "mafiaembed" && content.type === "tv") {
+        url.searchParams.set("episodelist", "false");
+        url.searchParams.set("nextbutton", "false");
+        url.searchParams.set("autonext", "false");
       }
       if (shouldResume && selectedProvider?.progress?.resumeParam) {
         url.searchParams.set(selectedProvider.progress.resumeParam, String(resumePositionSeconds));
@@ -480,10 +507,7 @@ export function VideoPlayer({
 
       loadedTvRef.current = { ...tvTargetRef.current };
       setSources(refreshed);
-      const next =
-        refreshed.find((s) => s.name === prevName) ??
-        refreshed.find((s) => getProviderByKey(s.key)?.progress) ??
-        refreshed[0]!;
+      const next = refreshed.find((s) => s.name === prevName) ?? refreshed[0]!;
       setResumePositionSeconds(
         pickResumePositionSeconds(
           content,
@@ -569,7 +593,8 @@ export function VideoPlayer({
   })();
 
   const matchingEpisodeWatchProgress =
-    content.type === "tv" && isMatchingEpisodeProgress(content, watchState, tvTarget.season, tvTarget.episode)
+    content.type === "tv" &&
+    isMatchingEpisodeProgress(content, watchState, tvTarget.season, tvTarget.episode)
       ? clamp(watchState?.progress ?? 0)
       : 0;
   const nextEpisodeProgress = Math.max(currentProgress, matchingEpisodeWatchProgress);
@@ -648,7 +673,7 @@ export function VideoPlayer({
               <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
               <SelectValue placeholder="Source">
                 {selectedSourceConfig
-                  ? `${selectedSourceConfig.name}${getProviderByKey(selectedSourceConfig.key)?.progress ? " ✓" : ""} (${selectedSourceConfig.quality})`
+                  ? `${selectedSourceConfig.name} (${selectedSourceConfig.quality})`
                   : undefined}
               </SelectValue>
             </SelectTrigger>
@@ -659,8 +684,7 @@ export function VideoPlayer({
                   value={s.url}
                   className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                 >
-                  {s.name}
-                  {getProviderByKey(s.key)?.progress ? " ✓" : ""} ({s.quality})
+                  {s.name} ({s.quality})
                 </SelectItem>
               ))}
             </SelectContent>
