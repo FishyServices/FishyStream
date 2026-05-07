@@ -143,6 +143,8 @@ export const getMovieSources = action({
     const sources: StreamSource[] = [];
 
     for (const config of PROVIDERS) {
+      if (config.animeOnly) continue;
+
       const id = getProviderId(config, imdbId, tmdbId);
       if (!id) continue;
 

@@ -1,0 +1,193 @@
+API DOCUMENTATION
+Embed Movies
+
+TmdbId is required from The Movie Database API.
+
+https://vidnest.fun/movie/[TMDB_ID]
+
+Code Example
+
+<iframe src="https://vidnest.fun/movie/666243" frameBorder="0" scrolling="no" allowFullScreen></iframe>
+
+Embed Shows
+
+TmdbId is required from The Movie Database API. Season and episode number should not be empty.
+
+https://vidnest.fun/tv/[TMDB_ID]/[SEASON]/[EPISODE]
+
+Code Example
+
+<iframe src="https://vidnest.fun/tv/94997/1/1" frameBorder="0" scrolling="no" allowFullScreen></iframe>
+
+Embed Anime
+
+AnilistId is required. Episode number and sub/dub preference should be specified.
+
+https://vidnest.fun/anime/[ANILIST_ID]/[EPISODE]/[SUB_OR_DUB]
+
+Code Example
+
+<iframe src="https://vidnest.fun/anime/154587/1/hindi" frameBorder="0" scrolling="no" allowFullScreen></iframe>
+
+Embed AnimePahe
+
+AnilistId is required. Episode number and sub/dub preference should be specified.
+
+https://vidnest.fun/animepahe/[ANILIST_ID]/[EPISODE]/[SUB_OR_DUB]
+
+Code Example
+
+<iframe src="https://vidnest.fun/animepahe/16498/1/sub" frameBorder="0" scrolling="no" allowFullScreen></iframe>
+
+Query Parameters
+
+Customize playback using query params.
+startAt / progress
+
+Start playback at N seconds from the beginning.
+
+https://vidnest.fun/movie/666243?startAt=120
+
+https://vidnest.fun/tv/94997/1/1?progress=90
+
+server
+
+Force an initial server. Allowed values: lamda, primesrc, sigma, alfa, beta, gama, catflix, hexa, delta.
+
+https://vidnest.fun/movie/666243?server=gama
+
+https://vidnest.fun/tv/94997/1/1?server=alfa
+
+Combined Example
+
+<iframe src="https://vidnest.fun/movie/666243?server=gama&startAt=100" frameBorder="0" scrolling="no" allowFullScreen></iframe>
+
+Hide Controls (by query)
+
+Pass control names as query params with values like hide, false, 0, off, or empty to hide.
+
+    Server Icon (servericon)
+    Top Captions (topcaption)
+    Top Settings (topsettings)
+    Seek Backward (centerseekbackward)
+    Play (centerplay)
+    Seek Forward (centerseekforward)
+    Time Slider (timeslider)
+    Mute (mute)
+    Volume (volume)
+    Time Group (current/duration) (timegroup)
+    Bottom Captions (bottomcaption)
+    Bottom Settings (bottomsettings)
+    Picture-in-Picture (pip)
+    Cast (cast)
+    Fullscreen (fullscreen)
+    Prev Episode (TV only) (prevepisode)
+    Next Episode (TV only) (nextepisode)
+
+Movie examples
+
+https://vidnest.fun/movie/666243?servericon=hide&topcaption=false&timeslider=0
+
+TV examples
+
+https://vidnest.fun/tv/94997/1/1?prevepisode=hide&nextepisode=hide&bottomsettings=off
+
+
+
+Progress Tracking Docs
+
+Simple, persistent video progress tracking system
+Overview
+
+Progress Tracking is a lightweight event-driven system for monitoring playback progress in your custom video player. It stores watch data locally, providing persistent resume functionality across sessions.
+
+    Smart resume and episode-specific tracking
+    Real-time event monitoring (play, pause, seeked, etc.)
+    Persistent local storage
+    Simple API for analytics or resume points
+
+
+    Add Event Listener
+
+Place this inside your React or Next.js useEffect where the player iframe exists.
+
+window.addEventListener('message', (event) => {
+  if (event.origin !== 'https://vidnest.fun') return;
+  
+  if (event.data?.type === 'MEDIA_DATA') {
+    const mediaData = event.data.data;
+    localStorage.setItem('vidNestProgress', JSON.stringify(mediaData));
+  }
+});
+
+
+
+
+
+Stored Data Structure
+
+Example of how progress data is stored in localStorage.
+
+{
+  "76479": {
+    "id": 76479,
+    "type": "tv",
+    "title": "The Boys",
+    "poster_path": "/2zmTngn1tYC1AvfnrFLhxeD82hz.jpg",
+    "progress": {
+      "watched": 31.435372,
+      "duration": 3609.867
+    },
+    "last_season_watched": "1",
+    "last_episode_watched": "1",
+    "show_progress": {
+      "s1e1": {
+        "season": "1",
+        "episode": "1",
+        "progress": {
+          "watched": 31.435372,
+          "duration": 3609.867
+        }
+      }
+    }
+  }
+}
+
+Player Events
+
+Capture player events such as play, pause, seeked, and ended for analytics or logic.
+
+window.addEventListener('message', (event) => {
+  if (event.origin !== 'https://vidnest.fun') return;
+  
+  if (event.data?.type === 'PLAYER_EVENT') {
+    const { event: eventType, currentTime, duration } = event.data.data;
+    console.log(`Player ${eventType} at ${currentTime}s of ${duration}s`);
+  }
+});
+
+
+
+Implementation Example
+
+How to integrate the tracker in your React or Next.js application.
+
+import { progressTracker } from './shared/progressTracking';
+
+useEffect(() => {
+  const handleEvent = (event) => {
+    switch (event.data.event) {
+      case 'play': console.log('Video started playing'); break;
+      case 'pause': console.log('Video paused'); break;
+      case 'ended': console.log('Video ended'); break;
+      case 'seeked': console.log('User seeked to:', event.data.currentTime); break;
+      case 'timeupdate': console.log('Progress update:', event.data.currentTime); break;
+    }
+  };
+  progressTracker.addEventListener(handleEvent);
+  return () => progressTracker.removeEventListener(handleEvent);
+}, []);
+
+const allProgress = progressTracker.getAllMediaData();
+const movieData = progressTracker.getMediaData('12345');
+const resumeTime = progressTracker.getResumeTime('12345', '1', '1');
