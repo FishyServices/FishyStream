@@ -557,7 +557,13 @@ export function VideoPlayer({
     return tvTarget.episode < seasonEpisodeCount;
   })();
 
-  const showNextEpisodeButton = content.type === "tv" && hasNextEpisode && currentProgress >= 80;
+  const matchingEpisodeWatchProgress =
+    content.type === "tv" && isMatchingEpisodeProgress(content, watchState, tvTarget.season, tvTarget.episode)
+      ? clamp(watchState?.progress ?? 0)
+      : 0;
+  const nextEpisodeProgress = Math.max(currentProgress, matchingEpisodeWatchProgress);
+  const showNextEpisodeButton =
+    content.type === "tv" && hasNextEpisode && nextEpisodeProgress >= 80;
 
   if (loading) {
     return (
