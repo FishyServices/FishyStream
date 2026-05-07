@@ -155,10 +155,24 @@ export function VideoPlayer({
     const e = initialEpisode ?? 1;
     if (tvTargetRef.current.season !== s || tvTargetRef.current.episode !== e) {
       tvTargetRef.current = { season: s, episode: e };
-      loadedTvRef.current = { season: s, episode: e };
       setTvTarget({ season: s, episode: e });
     }
   }, [initialSeason, initialEpisode]);
+
+  useEffect(() => {
+    if (content.type !== "tv") return;
+    if (
+      loadedTvRef.current.season === tvTarget.season &&
+      loadedTvRef.current.episode === tvTarget.episode
+    ) {
+      return;
+    }
+
+    setSources([]);
+    setSelectedSource("");
+    setLoading(true);
+    setError(null);
+  }, [content.type, tvTarget.episode, tvTarget.season]);
 
   useEffect(() => {
     if (historyInitRef.current) return;
@@ -264,7 +278,10 @@ export function VideoPlayer({
     if (!selectedSourceConfig) return "";
     try {
       const url = new URL(selectedSourceConfig.url);
-      const shouldResume = resumePositionSeconds > 0 && !(watchState?.completed ?? false);
+      const shouldResume =
+        resumePositionSeconds > 0 &&
+        !(watchState?.completed ?? false) &&
+        !(content.type === "tv" && selectedProvider?.key === "vidnest");
 
       if (selectedProvider?.key === "vidking" || selectedProvider?.key === "videasy") {
         url.searchParams.set("color", "e50914");
@@ -272,6 +289,10 @@ export function VideoPlayer({
       if (selectedProvider?.key === "vidfast") {
         url.searchParams.set("nextButton", "false");
         url.searchParams.set("autoNext", "false");
+      }
+      if (selectedProvider?.key === "vidnest" && content.type === "tv") {
+        url.searchParams.set("prevepisode", "hide");
+        url.searchParams.set("nextepisode", "hide");
       }
       if (shouldResume && selectedProvider?.progress?.resumeParam) {
         url.searchParams.set(selectedProvider.progress.resumeParam, String(resumePositionSeconds));
@@ -374,23 +395,8 @@ export function VideoPlayer({
 
       if (!isForced && !meaningful) return;
 
-      let nextSeason =
-        content.type === "tv" && data.season != null && Number.isFinite(data.season)
-          ? Math.max(1, Math.floor(data.season))
-          : undefined;
-      let nextEpisode =
-        content.type === "tv" && data.episode != null && Number.isFinite(data.episode)
-          ? Math.max(1, Math.floor(data.episode))
-          : undefined;
-
-      if (
-        nextSeason !== undefined &&
-        nextEpisode !== undefined &&
-        (tvTargetRef.current.season !== nextSeason || tvTargetRef.current.episode !== nextEpisode)
-      ) {
-        tvTargetRef.current = { season: nextSeason, episode: nextEpisode };
-        setTvTarget({ season: nextSeason, episode: nextEpisode });
-      }
+      const persistedSeason = content.type === "tv" ? tvTargetRef.current.season : undefined;
+      const persistedEpisode = content.type === "tv" ? tvTargetRef.current.episode : undefined;
 
       realtimeDetectedRef.current = true;
       syncInFlight = true;
@@ -401,8 +407,8 @@ export function VideoPlayer({
         data.event === "ended" || nextProgress >= 95,
         nextPos,
         nextDur,
-        nextSeason,
-        nextEpisode
+        persistedSeason,
+        persistedEpisode
       );
 
       lastSyncedProgressRef.current = nextProgress;
@@ -640,7 +646,11 @@ export function VideoPlayer({
           <Select value={selectedSource} onValueChange={handleSourceChange}>
             <SelectTrigger className="w-full border-border/80 bg-card/90 text-sm text-foreground sm:w-[220px]">
               <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
-              <SelectValue placeholder="Source" />
+              <SelectValue placeholder="Source">
+                {selectedSourceConfig
+                  ? `${selectedSourceConfig.name}${getProviderByKey(selectedSourceConfig.key)?.progress ? " ✓" : ""} (${selectedSourceConfig.quality})`
+                  : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent className="z-50 border-border/80 bg-popover text-popover-foreground">
               {sources.map((s) => (

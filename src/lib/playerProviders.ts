@@ -136,8 +136,6 @@ function mediaDataToPlayerEvent(value: RawMediaData): PlayerEventPayload {
       progress: explicitProgress ?? calculateProgress(watched, duration),
       id: String(value.id),
       mediaType: normalizeMediaType(value.mediaType ?? value.type),
-      season: toFiniteNumber(value.last_season_watched),
-      episode: toFiniteNumber(value.last_episode_watched),
       timestamp: Date.now()
     }
   };

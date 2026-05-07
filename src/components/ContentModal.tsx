@@ -561,7 +561,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                       }}
                     >
                       <SelectTrigger className="w-[10rem] border-border/80 bg-background text-foreground">
-                        <SelectValue placeholder="Season" />
+                        <SelectValue placeholder="Season">{`Season ${selectedSeason}`}</SelectValue>
                       </SelectTrigger>
                       <SelectContent className="border-border/80 bg-popover text-popover-foreground">
                         {Array.from({ length: totalSeasons }, (_, i) => i + 1).map((s) => (

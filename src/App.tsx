@@ -74,7 +74,6 @@ function Footer() {
         </div>
         <div className="flex items-center justify-between pt-8 border-t border-white/5 flex-wrap gap-4">
           <p className="text-xs text-white/20">© 2026 FishyStream</p>
-          <p className="text-xs text-white/20">Content data from TMDB</p>
         </div>
       </div>
     </footer>
