@@ -8,15 +8,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
-import type { PlayerEventPayload, MediaDataPayload } from "@/lib/playerProviders";
+import type { PlayerEventPayload } from "@/lib/playerProviders";
 import {
   parsePlayerMessage,
   calculateProgress,
-  isVidFastOrigin,
-  isVideasyOrigin,
-  isVidNestOrigin,
+  isKnownPlayerOrigin,
   postMessageToPlayer
 } from "@/lib/playerProviders";
+import { getProviderByKey } from "../../shared/providerCatalog";
 import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
@@ -30,10 +29,10 @@ interface VideoPlayerProps {
 }
 
 interface StreamSource {
+  key: string;
   name: string;
   url: string;
   quality: string;
-  supportsProgressEvents?: boolean;
 }
 
 function clamp(v: number) {
@@ -42,14 +41,6 @@ function clamp(v: number) {
 
 function safeEp(v: number | null | undefined) {
   return v != null && Number.isFinite(v) ? Math.max(1, Math.floor(v)) : 1;
-}
-
-function estimateDuration(content: Doc<"content">) {
-  const txt = content.duration?.toLowerCase() ?? "";
-  const h = Number(txt.match(/(\d+)h/)?.[1] ?? 0);
-  const m = Number(txt.match(/(\d+)m/)?.[1] ?? 0);
-  const s = h * 3600 + m * 60;
-  return s > 0 ? s : content.type === "tv" ? 45 * 60 : 2 * 60 * 60;
 }
 
 function isAnimeContent(content: Doc<"content">) {
@@ -197,7 +188,10 @@ export function VideoPlayer({
         const preferredSource = initialSource
           ? fetched.find((s) => s.name.toLowerCase() === initialSource.toLowerCase())
           : undefined;
-        const def = preferredSource ?? fetched.find((s) => s.supportsProgressEvents) ?? fetched[0]!;
+        const def =
+          preferredSource ??
+          fetched.find((s) => getProviderByKey(s.key)?.progress) ??
+          fetched[0]!;
         setSelectedSource(def.url);
       } catch (err) {
         setError(
@@ -212,20 +206,20 @@ export function VideoPlayer({
   }, [animeContent, content._id, sources.length, error, initialSource]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
-  const isVidFast = selectedSourceConfig?.name === "VidFast";
-  const isVidNest = selectedSourceConfig?.name === "VidNest";
-  const supportsProgressEvents = !!selectedSourceConfig?.supportsProgressEvents;
+  const selectedProvider = selectedSourceConfig ? getProviderByKey(selectedSourceConfig.key) : undefined;
+  const supportsProgressEvents = !!selectedProvider?.progress;
+  const canRequestStatus = !!selectedProvider?.progress?.statusRequest;
 
   const embedUrl = (() => {
     if (!selectedSourceConfig) return "";
     try {
       const url = new URL(selectedSourceConfig.url);
-      if (selectedSourceConfig.supportsProgressEvents && !isVidFast) {
+      if (selectedProvider?.key === "vidking" || selectedProvider?.key === "videasy") {
         url.searchParams.set("color", "e50914");
       }
-      if (isVidFast) {
-        url.searchParams.set("nextbutton", "false");
-        url.searchParams.set("autonext", "false");
+      if (selectedProvider?.key === "vidfast") {
+        url.searchParams.set("nextButton", "false");
+        url.searchParams.set("autoNext", "false");
       }
       return url.toString();
     } catch {
@@ -239,7 +233,7 @@ export function VideoPlayer({
   }, [watchState]);
 
   useEffect(() => {
-    if (!embedUrl || !supportsProgressEvents) return;
+    if (!embedUrl || !supportsProgressEvents || !canRequestStatus) return;
 
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -264,14 +258,14 @@ export function VideoPlayer({
       document.removeEventListener("visibilitychange", onVisibility);
       window.clearInterval(interval);
     };
-  }, [embedUrl, supportsProgressEvents]);
+  }, [canRequestStatus, embedUrl, supportsProgressEvents]);
 
   useEffect(() => {
     if (!embedUrl || !supportsProgressEvents) return;
 
-    let origin: string;
+    let expectedOrigin: string;
     try {
-      origin = new URL(embedUrl).origin;
+      expectedOrigin = new URL(embedUrl).origin;
     } catch {
       return;
     }
@@ -279,31 +273,15 @@ export function VideoPlayer({
     let syncInFlight = false;
 
     const handleMsg = (event: MessageEvent) => {
-      const isVidFast = isVidFastOrigin(event.origin);
-      const isVideasy = isVideasyOrigin(event.origin);
-      const isVidNest = isVidNestOrigin(event.origin);
-
-      if (!isVidFast && !isVideasy && !isVidNest && event.origin !== origin) return;
-
-      if (!isVidFast && !isVideasy && !isVidNest) {
-        if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
-          return;
-      }
+      const originMatchesProvider = isKnownPlayerOrigin(event.origin);
+      if (!originMatchesProvider && event.origin !== expectedOrigin) return;
+      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow) return;
 
       const payload = parsePlayerMessage(event.data, event.origin);
-
       if (!payload) return;
 
-      if (payload.type === "MEDIA_DATA" && isVidFast) {
-        return;
-      }
-
       const { data } = payload as PlayerEventPayload;
-
-      const eventTmdbId = data.tmdbId !== undefined ? String(data.tmdbId) : data.id;
-      const shouldSkipIdCheck = animeContent && isVidNest;
-      if (!shouldSkipIdCheck && eventTmdbId !== undefined && eventTmdbId !== content.tmdbId) return;
-      if (data.mediaType && data.mediaType !== content.type) return;
+      if (data.mediaType !== content.type) return;
 
       const nextPos = Math.max(0, data.currentTime || 0);
       const nextDur = Math.max(0, data.duration || 0);
@@ -352,12 +330,12 @@ export function VideoPlayer({
         nextDur,
         nextSeason,
         nextEpisode
-      )?.finally(() => {
-        lastSyncedProgressRef.current = nextProgress;
-        lastSyncedPositionRef.current = nextPos;
-        lastRealtimeSyncAtRef.current = Date.now();
-        syncInFlight = false;
-      });
+      );
+
+      lastSyncedProgressRef.current = nextProgress;
+      lastSyncedPositionRef.current = nextPos;
+      lastRealtimeSyncAtRef.current = Date.now();
+      syncInFlight = false;
     };
 
     window.addEventListener("message", handleMsg);
@@ -415,7 +393,7 @@ export function VideoPlayer({
       setSources(refreshed);
       const next =
         refreshed.find((s) => s.name === prevName) ??
-        refreshed.find((s) => s.supportsProgressEvents) ??
+        refreshed.find((s) => getProviderByKey(s.key)?.progress) ??
         refreshed[0]!;
       setSelectedSource(next.url);
     } catch (err) {
@@ -486,8 +464,7 @@ export function VideoPlayer({
     return tvTarget.episode < seasonEpisodeCount;
   })();
 
-  const showNextEpisodeButton =
-    content.type === "tv" && hasNextEpisode && (currentProgress >= 80 || isVidNest);
+  const showNextEpisodeButton = content.type === "tv" && hasNextEpisode && currentProgress >= 80;
 
   if (loading) {
     return (
@@ -569,7 +546,7 @@ export function VideoPlayer({
                   className="text-white focus:bg-white/10 focus:text-white"
                 >
                   {s.name}
-                  {s.supportsProgressEvents ? " ✓" : ""} ({s.quality})
+                  {getProviderByKey(s.key)?.progress ? " ✓" : ""} ({s.quality})
                 </SelectItem>
               ))}
             </SelectContent>

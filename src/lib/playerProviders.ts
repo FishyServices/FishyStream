@@ -1,3 +1,5 @@
+import { getProviderByOrigin } from "../../shared/providerCatalog";
+
 export interface PlayerEventData {
   event: "timeupdate" | "play" | "pause" | "ended" | "seeked" | "playerstatus";
   currentTime: number;
@@ -19,142 +21,31 @@ export interface PlayerEventPayload {
   data: PlayerEventData;
 }
 
-export interface MediaDataPayload {
-  type: "MEDIA_DATA";
-  data: Record<string, VideasyMediaData> | ProviderMediaData;
-}
+type RawMediaProgress = {
+  watched: number;
+  duration: number;
+  percentage?: number;
+};
 
-export interface VideasyMediaData {
-  id: number;
-  mediaType: "movie" | "tv";
-  title: string;
-  progress: { duration: number; watched: number };
-  last_season_watched?: number;
-  last_episode_watched?: number;
-  show_progress?: Record<
-    string,
-    {
-      season: string;
-      episode: string;
-      progress: { watched: number; duration: number };
-      last_updated?: number;
-    }
-  >;
-}
+type RawMediaData = {
+  id: string | number;
+  type: "movie" | "tv" | "anime";
+  mediaType?: "movie" | "tv" | "anime";
+  title?: string;
+  progress: RawMediaProgress;
+  last_season_watched?: number | string;
+  last_episode_watched?: number | string;
+};
 
-export interface VideasyPayload {
+type RawProgressPayload = {
   id: string | number;
   type: "movie" | "tv" | "anime";
   progress: number;
   timestamp: number;
   duration: number;
-  season?: number;
-  episode?: number;
-}
-
-export interface ProviderMediaData {
-  id: string | number;
-  type: "movie" | "tv" | "anime";
-  title?: string;
-  progress: {
-    watched: number;
-    duration: number;
-    percentage?: number;
-  };
-  last_season_watched?: number | string;
-  last_episode_watched?: number | string;
-  show_progress?: Record<
-    string,
-    {
-      season: number | string;
-      episode: number | string;
-      progress: { watched: number; duration: number; percentage?: number };
-      last_updated?: number;
-    }
-  >;
-}
-
-const VIDFAST_ORIGINS = [
-  "https://vidfast.pro",
-  "https://vidfast.in",
-  "https://vidfast.io",
-  "https://vidfast.me",
-  "https://vidfast.net",
-  "https://vidfast.pm",
-  "https://vidfast.xyz"
-];
-
-const VIDEASY_ORIGINS = ["https://player.videasy.net", "https://videasy.net"];
-const MOSTREAM_ORIGINS = ["https://mostream.us"];
-const VIDAPI_ORIGINS = ["https://vidapi.qzz.io"];
-const VIDNEST_ORIGINS = ["https://vidnest.fun"];
-
-export function isVidFastOrigin(origin: string): boolean {
-  return VIDFAST_ORIGINS.includes(origin);
-}
-
-export function isVideasyOrigin(origin: string): boolean {
-  return VIDEASY_ORIGINS.includes(origin);
-}
-
-export function isMoStreamOrigin(origin: string): boolean {
-  return MOSTREAM_ORIGINS.includes(origin);
-}
-
-export function isVidApiOrigin(origin: string): boolean {
-  return VIDAPI_ORIGINS.includes(origin);
-}
-
-export function isVidNestOrigin(origin: string): boolean {
-  return VIDNEST_ORIGINS.includes(origin);
-}
-
-function isVideasyPayload(p: unknown): p is VideasyPayload {
-  if (!p || typeof p !== "object") return false;
-  const obj = p as Record<string, unknown>;
-  return (
-    (obj.id !== undefined || obj.progress !== undefined || obj.timestamp !== undefined) &&
-    (obj.type === "movie" || obj.type === "tv" || obj.type === "anime")
-  );
-}
-
-function parseVideasyMediaData(p: any): PlayerEventPayload | null {
-  try {
-    const mediaData: Record<string, VideasyMediaData> =
-      typeof p.data === "string" ? JSON.parse(p.data) : p.data;
-
-    if (!mediaData || typeof mediaData !== "object") return null;
-
-    const entries = Object.entries(mediaData);
-    if (entries.length === 0) return null;
-
-    const entry = entries[0];
-    if (!entry) return null;
-    const data = entry[1];
-    if (!data || typeof data !== "object") return null;
-
-    const watched = data.progress?.watched ?? 0;
-    const duration = data.progress?.duration ?? 0;
-    const progressPercent = duration > 0 ? (watched / duration) * 100 : 0;
-
-    return {
-      type: "PLAYER_EVENT",
-      data: {
-        event: "timeupdate",
-        currentTime: watched,
-        duration: duration,
-        progress: progressPercent,
-        id: String(data.id),
-        mediaType: data.mediaType,
-        season: data.last_season_watched,
-        episode: data.last_episode_watched,
-        timestamp: Date.now()
-      }
-    };
-  } catch {
-    return null;
-  }
-}
+  season?: number | string;
+  episode?: number | string;
+};
 
 function toFiniteNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -165,25 +56,76 @@ function toFiniteNumber(value: unknown): number | undefined {
   return undefined;
 }
 
-function isProviderMediaData(p: unknown): p is ProviderMediaData {
-  if (!p || typeof p !== "object") return false;
-  const obj = p as Record<string, unknown>;
-  const progress = obj.progress;
+function parseMaybeJson(raw: unknown): unknown {
+  if (typeof raw !== "string") return raw;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object";
+}
+
+function isPlayerEventPayload(value: unknown): value is PlayerEventPayload {
+  if (!isRecord(value) || value.type !== "PLAYER_EVENT" || !isRecord(value.data)) return false;
+  return typeof value.data.event === "string";
+}
+
+function isRawMediaData(value: unknown): value is RawMediaData {
+  if (!isRecord(value) || !isRecord(value.progress)) return false;
 
   return (
-    obj.id !== undefined &&
-    (obj.type === "movie" || obj.type === "tv" || obj.type === "anime") &&
-    !!progress &&
-    typeof progress === "object" &&
-    toFiniteNumber((progress as Record<string, unknown>).watched) !== undefined &&
-    toFiniteNumber((progress as Record<string, unknown>).duration) !== undefined
+    value.id !== undefined &&
+    (value.type === "movie" || value.type === "tv" || value.type === "anime") &&
+    toFiniteNumber(value.progress.watched) !== undefined &&
+    toFiniteNumber(value.progress.duration) !== undefined
   );
 }
 
-function parseProviderMediaData(p: ProviderMediaData): PlayerEventPayload | null {
-  const watched = toFiniteNumber(p.progress.watched) ?? 0;
-  const duration = toFiniteNumber(p.progress.duration) ?? 0;
-  const explicitProgress = toFiniteNumber(p.progress.percentage);
+function unwrapMediaData(value: unknown): RawMediaData | null {
+  if (isRawMediaData(value)) return value;
+  if (!isRecord(value)) return null;
+
+  const firstValue = Object.values(value)[0];
+  return isRawMediaData(firstValue) ? firstValue : null;
+}
+
+function isRawProgressPayload(value: unknown): value is RawProgressPayload {
+  if (!isRecord(value)) return false;
+
+  return (
+    value.id !== undefined &&
+    (value.type === "movie" || value.type === "tv" || value.type === "anime") &&
+    toFiniteNumber(value.progress) !== undefined &&
+    toFiniteNumber(value.timestamp) !== undefined &&
+    toFiniteNumber(value.duration) !== undefined
+  );
+}
+
+function normalizeMediaType(value: unknown): "movie" | "tv" {
+  return value === "movie" ? "movie" : "tv";
+}
+
+function normalizePlayerEventPayload(payload: PlayerEventPayload): PlayerEventPayload {
+  return {
+    type: "PLAYER_EVENT",
+    data: {
+      ...payload.data,
+      mediaType: normalizeMediaType(payload.data.mediaType),
+      season: toFiniteNumber(payload.data.season),
+      episode: toFiniteNumber(payload.data.episode)
+    }
+  };
+}
+
+function mediaDataToPlayerEvent(value: RawMediaData): PlayerEventPayload {
+  const watched = toFiniteNumber(value.progress.watched) ?? 0;
+  const duration = toFiniteNumber(value.progress.duration) ?? 0;
+  const explicitProgress = toFiniteNumber(value.progress.percentage);
 
   return {
     type: "PLAYER_EVENT",
@@ -191,107 +133,65 @@ function parseProviderMediaData(p: ProviderMediaData): PlayerEventPayload | null
       event: "timeupdate",
       currentTime: watched,
       duration,
-      progress: explicitProgress ?? (duration > 0 ? (watched / duration) * 100 : 0),
-      id: String(p.id),
-      mediaType: p.type === "anime" ? "tv" : p.type,
-      season: toFiniteNumber(p.last_season_watched),
-      episode: toFiniteNumber(p.last_episode_watched),
+      progress: explicitProgress ?? calculateProgress(watched, duration),
+      id: String(value.id),
+      mediaType: normalizeMediaType(value.mediaType ?? value.type),
+      season: toFiniteNumber(value.last_season_watched),
+      episode: toFiniteNumber(value.last_episode_watched),
       timestamp: Date.now()
     }
   };
 }
 
-function normalizePlayerEventPayload(
-  payload: PlayerEventPayload,
-  origin: string
-): PlayerEventPayload {
-  const isKnownAnimeCapableOrigin =
-    isVideasyOrigin(origin) ||
-    isMoStreamOrigin(origin) ||
-    isVidApiOrigin(origin) ||
-    isVidNestOrigin(origin);
-
-  if (!isKnownAnimeCapableOrigin) return payload;
-
-  const rawData = payload.data as PlayerEventData & {
-    mediaType?: string;
-    type?: "movie" | "tv" | "anime";
-    season?: number | string;
-    episode?: number | string;
-  };
-
-  const mediaType = (rawData.mediaType ?? rawData.type) as string | undefined;
-
-  const normalizedMediaType: "movie" | "tv" = mediaType === "movie" ? "movie" : "tv";
+function rawProgressToPlayerEvent(value: RawProgressPayload): PlayerEventPayload {
+  const currentTime = toFiniteNumber(value.timestamp) ?? 0;
+  const duration = toFiniteNumber(value.duration) ?? 0;
 
   return {
     type: "PLAYER_EVENT",
     data: {
-      ...payload.data,
-      mediaType: normalizedMediaType,
-      season: toFiniteNumber(rawData.season),
-      episode: toFiniteNumber(rawData.episode)
+      event: "timeupdate",
+      currentTime,
+      duration,
+      progress: toFiniteNumber(value.progress) ?? calculateProgress(currentTime, duration),
+      id: String(value.id),
+      mediaType: normalizeMediaType(value.type),
+      season: toFiniteNumber(value.season),
+      episode: toFiniteNumber(value.episode),
+      timestamp: Date.now()
     }
   };
 }
 
-export function parsePlayerMessage(
-  raw: unknown,
-  origin?: string,
-  currentContentId?: string
-): PlayerEventPayload | MediaDataPayload | null {
-  try {
-    const normalizedOrigin = origin || "";
-    const isVideasyLike = isVideasyOrigin(normalizedOrigin) || isMoStreamOrigin(normalizedOrigin);
-    const isProviderLike = isVidApiOrigin(normalizedOrigin) || isVidNestOrigin(normalizedOrigin);
-    const p = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (!p || typeof p !== "object") return null;
+export function isKnownPlayerOrigin(origin: string): boolean {
+  return !!getProviderByOrigin(origin)?.progress;
+}
 
-    if ((p as PlayerEventPayload | MediaDataPayload).type === "PLAYER_EVENT") {
-      return normalizePlayerEventPayload(p as PlayerEventPayload, normalizedOrigin);
-    }
+export function parsePlayerMessage(raw: unknown, origin?: string): PlayerEventPayload | null {
+  const normalizedOrigin = origin || "";
+  if (normalizedOrigin && !isKnownPlayerOrigin(normalizedOrigin)) return null;
 
-    if ((p as PlayerEventPayload | MediaDataPayload).type === "MEDIA_DATA" && !isVideasyLike) {
-      return p as MediaDataPayload;
-    }
+  const payload = parseMaybeJson(raw);
+  if (payload === raw && typeof raw === "string") return null;
 
-    if (isVideasyLike && (p as any).type === "MEDIA_DATA") {
-      return parseVideasyMediaData(p);
-    }
-
-    if (isVideasyLike && isVideasyPayload(p)) {
-      return {
-        type: "PLAYER_EVENT",
-        data: {
-          event: "timeupdate",
-          currentTime: p.timestamp,
-          duration: p.duration,
-          progress: p.progress,
-          id: String(p.id),
-          mediaType: p.type === "anime" ? "tv" : p.type,
-          season: p.season,
-          episode: p.episode,
-          timestamp: Date.now()
-        }
-      };
-    }
-
-    if (
-      isProviderLike &&
-      (p as any).type === "MEDIA_DATA" &&
-      isProviderMediaData((p as any).data)
-    ) {
-      return parseProviderMediaData((p as any).data);
-    }
-
-    if (isProviderLike && isProviderMediaData(p)) {
-      return parseProviderMediaData(p);
-    }
-
-    return null;
-  } catch {
-    return null;
+  if (isPlayerEventPayload(payload)) {
+    return normalizePlayerEventPayload(payload);
   }
+
+  if (isRecord(payload) && payload.type === "MEDIA_DATA") {
+    const nested = parseMaybeJson(payload.data);
+    const mediaData = unwrapMediaData(nested);
+    return mediaData ? mediaDataToPlayerEvent(mediaData) : null;
+  }
+
+  const mediaData = unwrapMediaData(payload);
+  if (mediaData) return mediaDataToPlayerEvent(mediaData);
+
+  if (isRawProgressPayload(payload)) {
+    return rawProgressToPlayerEvent(payload);
+  }
+
+  return null;
 }
 
 export function calculateProgress(currentTime: number, duration: number): number {
@@ -314,8 +214,7 @@ export function postMessageToPlayer(
   params?: Record<string, unknown>
 ): void {
   if (!iframe?.contentWindow) return;
-  const msg = { command, ...params };
-  iframe.contentWindow.postMessage(msg, "*");
+  iframe.contentWindow.postMessage({ command, ...params }, "*");
 }
 
 export function createPlayerControls(

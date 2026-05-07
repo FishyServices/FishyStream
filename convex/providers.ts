@@ -1,103 +1,13 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { mapCanonicalToProviderOrder } from "../shared/tvSeasonMappings";
+import { STREAM_PROVIDERS, getProviderId } from "../shared/providerCatalog";
 
 interface StreamSource {
+  key: string;
   name: string;
   url: string;
   quality: string;
-  supportsProgressEvents?: boolean;
-}
-
-interface ProviderConfig {
-  name: string;
-  idType: "tmdb" | "imdb" | "both";
-  quality: string;
-  supportsProgressEvents?: boolean;
-  animeOnly?: boolean;
-  animeIdType?: "same" | "anilist";
-  getMovieUrl: (id: string) => string;
-  getTVUrl: (id: string, season: number, episode: number) => string;
-  getAnimeTVUrl?: (id: string, season: number, episode: number) => string;
-}
-
-const PROVIDERS: ProviderConfig[] = [
-  {
-    name: "VidKing",
-    idType: "tmdb",
-    quality: "1080p",
-    supportsProgressEvents: true,
-    getMovieUrl: (tmdbId) => `https://www.vidking.net/embed/movie/${tmdbId}`,
-    getTVUrl: (tmdbId, season, episode) =>
-      `https://www.vidking.net/embed/tv/${tmdbId}/${season}/${episode}`
-  },
-  {
-    name: "VidFast",
-    idType: "both",
-    quality: "1080p",
-    supportsProgressEvents: true,
-    getMovieUrl: (id) => `https://vidfast.pro/movie/${id}`,
-    getTVUrl: (id, season, episode) => `https://vidfast.pro/tv/${id}/${season}/${episode}`
-  },
-  {
-    name: "VidEasy",
-    idType: "tmdb",
-    quality: "1080p",
-    supportsProgressEvents: true,
-    getMovieUrl: (tmdbId) => `https://player.videasy.net/movie/${tmdbId}`,
-    getTVUrl: (tmdbId, season, episode) =>
-      `https://player.videasy.net/tv/${tmdbId}/${season}/${episode}`
-  },
-
-  {
-    name: "VidNest",
-    idType: "tmdb",
-    quality: "1080p",
-    supportsProgressEvents: true,
-    animeIdType: "anilist",
-    getMovieUrl: (tmdbId) => `https://vidnest.fun/movie/${tmdbId}`,
-    getTVUrl: (tmdbId, season, episode) => `https://vidnest.fun/tv/${tmdbId}/${season}/${episode}`,
-    getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://vidnest.fun/anime/${aniListId}/${episode}/dub`
-  },
-  {
-    name: "SuperEmbed",
-    idType: "tmdb",
-    quality: "1080p",
-    getMovieUrl: (tmdbId) => `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
-    getTVUrl: (tmdbId, season, episode) =>
-      `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1&season=${season}&episode=${episode}`
-  },
-  {
-    name: "AutoEmbed",
-    idType: "tmdb",
-    quality: "1080p",
-    getMovieUrl: (tmdbId) => `https://player.autoembed.cc/embed/movie/${tmdbId}`,
-    getTVUrl: (tmdbId, season, episode) =>
-      `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}`
-  },
-  {
-    name: "VidSrc",
-    idType: "both",
-    quality: "1080p",
-    getMovieUrl: (id) => `https://vidsrc.icu/embed/movie/${id}`,
-    getTVUrl: (id, season, episode) => `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`
-  },
-  {
-    name: "2Embed",
-    idType: "imdb",
-    quality: "720p",
-    getMovieUrl: (imdbId) => `https://www.2embed.cc/embed/${imdbId}`,
-    getTVUrl: (imdbId, season, episode) =>
-      `https://www.2embed.cc/embed/${imdbId}/${season}/${episode}`
-  }
-];
-
-function getProviderId(config: ProviderConfig, imdbId?: string, tmdbId?: string): string | null {
-  if (config.idType === "tmdb" && tmdbId) return tmdbId;
-  if (config.idType === "imdb" && imdbId?.startsWith("tt")) return imdbId;
-  if (config.idType === "both") return imdbId || tmdbId || null;
-  return null;
 }
 
 async function resolveAniListId(title?: string): Promise<string | null> {
@@ -142,17 +52,17 @@ export const getMovieSources = action({
   handler: async (_ctx, { imdbId, tmdbId }): Promise<StreamSource[]> => {
     const sources: StreamSource[] = [];
 
-    for (const config of PROVIDERS) {
-      if (config.animeOnly) continue;
+    for (const provider of STREAM_PROVIDERS) {
+      if (provider.animeOnly) continue;
 
-      const id = getProviderId(config, imdbId, tmdbId);
+      const id = getProviderId(provider, imdbId, tmdbId);
       if (!id) continue;
 
       sources.push({
-        name: config.name,
-        url: config.getMovieUrl(id),
-        quality: config.quality,
-        ...(config.supportsProgressEvents && { supportsProgressEvents: true })
+        key: provider.key,
+        name: provider.name,
+        url: provider.getMovieUrl(id),
+        quality: provider.quality
       });
     }
 
@@ -175,29 +85,29 @@ export const getTVSources = action({
   ): Promise<StreamSource[]> => {
     const sources: StreamSource[] = [];
 
-    for (const config of PROVIDERS) {
-      if (config.animeOnly && !isAnime) continue;
+    for (const provider of STREAM_PROVIDERS) {
+      if (provider.animeOnly && !isAnime) continue;
 
-      const defaultId = getProviderId(config, imdbId, tmdbId);
+      const defaultId = getProviderId(provider, imdbId, tmdbId);
       let animeId = defaultId;
 
-      if (isAnime && config.getAnimeTVUrl && config.animeIdType === "anilist") {
+      if (isAnime && provider.getAnimeTVUrl && provider.animeIdType === "anilist") {
         animeId = await resolveAniListId(title);
       }
 
       const id = animeId ?? defaultId;
       if (!id) continue;
-      const mapped = mapCanonicalToProviderOrder(tmdbId, config.name, { season, episode });
+      const mapped = mapCanonicalToProviderOrder(tmdbId, provider.name, { season, episode });
       const url =
-        isAnime && config.getAnimeTVUrl && animeId
-          ? config.getAnimeTVUrl(id, mapped.season, mapped.episode)
-          : config.getTVUrl(id, mapped.season, mapped.episode);
+        isAnime && provider.getAnimeTVUrl && animeId
+          ? provider.getAnimeTVUrl(id, mapped.season, mapped.episode)
+          : provider.getTVUrl(id, mapped.season, mapped.episode);
 
       sources.push({
-        name: config.name,
+        key: provider.key,
+        name: provider.name,
         url,
-        quality: config.quality,
-        ...(config.supportsProgressEvents && { supportsProgressEvents: true })
+        quality: provider.quality
       });
     }
 
