@@ -21,7 +21,8 @@ export type ProviderKey =
   | "tryembed"
   | "vidcore"
   | "megaplay"
-  | "peachify";
+  | "peachify"
+  | "cinesrc";
 
 export type ProviderCategory = "primary" | "anime" | "fallback";
 
@@ -428,6 +429,22 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     getMovieUrl: (tmdbId) => `https://peachify.top/embed/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) =>
       `https://peachify.top/embed/tv/${tmdbId}/${season}/${episode}`
+  },
+  {
+    key: "cinesrc",
+    name: "cinesrc",
+    category: "fallback",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://cinesrc.st",
+    notes: "TMDB embed",
+    progress: {
+      origins: ["*"],
+      resumeParam: "startAt"
+    },
+    getMovieUrl: (tmdbId) => `https://cinesrc.st/embed/movie/${tmdbId}`,
+    getTVUrl: (tmdbId, season, episode) =>
+      `https://cinesrc.st/embed/tv/${tmdbId}?s=${season}&e=${episode}`
   }
 ];
 
