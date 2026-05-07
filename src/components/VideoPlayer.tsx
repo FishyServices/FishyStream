@@ -43,19 +43,39 @@ function safeEp(v: number | null | undefined) {
   return v != null && Number.isFinite(v) ? Math.max(1, Math.floor(v)) : 1;
 }
 
-function getResumePositionSeconds(
+function isMatchingEpisodeProgress(
+  content: Doc<"content">,
   watchState: ReturnType<typeof useGetProgress>,
-  lastSyncedPosition: number
+  season: number,
+  episode: number
 ) {
+  if (content.type !== "tv") return true;
+  if (!watchState) return false;
+  return safeEp(watchState.seasonNumber) === season && safeEp(watchState.episodeNumber) === episode;
+}
+
+function getResumePositionSeconds(
+  content: Doc<"content">,
+  watchState: ReturnType<typeof useGetProgress>,
+  lastSyncedPosition: number,
+  season: number,
+  episode: number
+) {
+  if (!isMatchingEpisodeProgress(content, watchState, season, episode)) return 0;
   const storedPosition = Math.max(0, watchState?.positionSeconds ?? 0);
   return Math.max(storedPosition, Math.max(0, lastSyncedPosition));
 }
 
 function pickResumePositionSeconds(
+  content: Doc<"content">,
   watchState: ReturnType<typeof useGetProgress>,
-  lastSyncedPosition: number
+  lastSyncedPosition: number,
+  season: number,
+  episode: number
 ) {
-  return Math.floor(getResumePositionSeconds(watchState, lastSyncedPosition));
+  return Math.floor(
+    getResumePositionSeconds(content, watchState, lastSyncedPosition, season, episode)
+  );
 }
 
 function isAnimeContent(content: Doc<"content">) {
@@ -206,10 +226,16 @@ export function VideoPlayer({
           ? fetched.find((s) => s.name.toLowerCase() === initialSource.toLowerCase())
           : undefined;
         const def =
-          preferredSource ??
-          fetched.find((s) => getProviderByKey(s.key)?.progress) ??
-          fetched[0]!;
-        setResumePositionSeconds(pickResumePositionSeconds(watchState, lastSyncedPositionRef.current));
+          preferredSource ?? fetched.find((s) => getProviderByKey(s.key)?.progress) ?? fetched[0]!;
+        setResumePositionSeconds(
+          pickResumePositionSeconds(
+            content,
+            watchState,
+            lastSyncedPositionRef.current,
+            season,
+            episode
+          )
+        );
         setSelectedSource(def.url);
       } catch (err) {
         setError(
@@ -221,10 +247,12 @@ export function VideoPlayer({
     };
 
     load();
-  }, [animeContent, content._id, sources.length, error, initialSource, watchState]);
+  }, [animeContent, content, sources.length, error, initialSource, watchState]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
-  const selectedProvider = selectedSourceConfig ? getProviderByKey(selectedSourceConfig.key) : undefined;
+  const selectedProvider = selectedSourceConfig
+    ? getProviderByKey(selectedSourceConfig.key)
+    : undefined;
   const supportsProgressEvents = !!selectedProvider?.progress;
   const canRequestStatus = !!selectedProvider?.progress?.statusRequest;
 
@@ -252,12 +280,17 @@ export function VideoPlayer({
 
   useEffect(() => {
     if (!watchState) return;
-    setCurrentProgress(clamp(watchState.progress));
-    lastSyncedPositionRef.current = Math.max(
-      lastSyncedPositionRef.current,
-      Math.max(0, watchState.positionSeconds)
-    );
-  }, [watchState]);
+    if (isMatchingEpisodeProgress(content, watchState, tvTarget.season, tvTarget.episode)) {
+      setCurrentProgress(clamp(watchState.progress));
+      lastSyncedPositionRef.current = Math.max(
+        lastSyncedPositionRef.current,
+        Math.max(0, watchState.positionSeconds)
+      );
+      return;
+    }
+
+    setCurrentProgress(0);
+  }, [content, tvTarget.episode, tvTarget.season, watchState]);
 
   useEffect(() => {
     if (!embedUrl || !supportsProgressEvents || !canRequestStatus) return;
@@ -302,7 +335,8 @@ export function VideoPlayer({
     const handleMsg = (event: MessageEvent) => {
       const originMatchesProvider = isKnownPlayerOrigin(event.origin);
       if (!originMatchesProvider && event.origin !== expectedOrigin) return;
-      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow) return;
+      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
+        return;
 
       const payload = parsePlayerMessage(event.data, event.origin);
       if (!payload) return;
@@ -396,7 +430,15 @@ export function VideoPlayer({
     }
 
     if (!needsReload) {
-      setResumePositionSeconds(pickResumePositionSeconds(watchState, lastSyncedPositionRef.current));
+      setResumePositionSeconds(
+        pickResumePositionSeconds(
+          content,
+          watchState,
+          lastSyncedPositionRef.current,
+          tvTargetRef.current.season,
+          tvTargetRef.current.episode
+        )
+      );
       setSelectedSource(nextUrl);
       return;
     }
@@ -423,7 +465,15 @@ export function VideoPlayer({
         refreshed.find((s) => s.name === prevName) ??
         refreshed.find((s) => getProviderByKey(s.key)?.progress) ??
         refreshed[0]!;
-      setResumePositionSeconds(pickResumePositionSeconds(watchState, lastSyncedPositionRef.current));
+      setResumePositionSeconds(
+        pickResumePositionSeconds(
+          content,
+          watchState,
+          lastSyncedPositionRef.current,
+          tvTargetRef.current.season,
+          tvTargetRef.current.episode
+        )
+      );
       setSelectedSource(next.url);
     } catch (err) {
       setError(`Failed to switch sources: ${err instanceof Error ? err.message : String(err)}`);
@@ -462,6 +512,12 @@ export function VideoPlayer({
 
     tvTargetRef.current = { season: nextSeason, episode: nextEpisode };
     setTvTarget({ season: nextSeason, episode: nextEpisode });
+    setCurrentProgress(0);
+    setResumePositionSeconds(0);
+    lastSyncedProgressRef.current = 0;
+    lastSyncedPositionRef.current = 0;
+    lastRealtimeSyncAtRef.current = 0;
+    realtimeDetectedRef.current = false;
 
     const params = new URLSearchParams();
     params.set("season", String(nextSeason));
