@@ -4,6 +4,8 @@ export type ProviderKey =
   | "videasy"
   | "vidnest"
   | "vidrock"
+  | "vidplus (ads)"
+  | "filmu"
   | "vidzen"
   | "vixsrc"
   //| "cinezo"
@@ -105,6 +107,35 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     getTVUrl: (id, season, episode) => `https://vidrock.ru/embed/tv/${id}/${season}/${episode}`,
     getAnimeTVUrl: (aniListId, _season, episode) =>
       `https://vidrock.ru/embed/anime/${aniListId}/${episode}`
+  },
+  {
+    key: "vidplus (ads)",
+    name: "VidPlus (Ads)",
+    idType: "both",
+    quality: "1080p",
+    animeIdType: "anilist",
+    progress: {
+      origins: ["*"]
+    },
+    getMovieUrl: (id) => `https://player.vidplus.to/embed/movie/${id}`,
+    getTVUrl: (id, season, episode) =>
+      `https://player.vidplus.to/embed/tv/${id}/${season}/${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode) =>
+      `https://player.vidplus.to/embed/anime/${aniListId}/${episode}?dub=true`
+  },
+  {
+    key: "filmu",
+    name: "filmu",
+    idType: "both",
+    quality: "1080p",
+    animeIdType: "anilist",
+    progress: {
+      origins: ["*"]
+    },
+    getMovieUrl: (id) => `https://embed.filmu.in/embed/movie/${id}`,
+    getTVUrl: (id, season, episode) => `https://embed.filmu.in/embed/tv/${id}/${season}/${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode) =>
+      `https://embed.filmu.in/embed/anime/${aniListId}/${episode}?dub=true`
   },
   {
     key: "vidzen",
