@@ -43,6 +43,21 @@ function safeEp(v: number | null | undefined) {
   return v != null && Number.isFinite(v) ? Math.max(1, Math.floor(v)) : 1;
 }
 
+function getResumePositionSeconds(
+  watchState: ReturnType<typeof useGetProgress>,
+  lastSyncedPosition: number
+) {
+  const storedPosition = Math.max(0, watchState?.positionSeconds ?? 0);
+  return Math.max(storedPosition, Math.max(0, lastSyncedPosition));
+}
+
+function pickResumePositionSeconds(
+  watchState: ReturnType<typeof useGetProgress>,
+  lastSyncedPosition: number
+) {
+  return Math.floor(getResumePositionSeconds(watchState, lastSyncedPosition));
+}
+
 function isAnimeContent(content: Doc<"content">) {
   if (content.type !== "tv") return false;
 
@@ -78,6 +93,7 @@ export function VideoPlayer({
   const lastSyncedProgressRef = useRef(0);
   const lastSyncedPositionRef = useRef(0);
   const lastRealtimeSyncAtRef = useRef(0);
+  const [resumePositionSeconds, setResumePositionSeconds] = useState(0);
 
   const tvTargetRef = useRef({
     season: initialSeason ?? 1,
@@ -104,6 +120,7 @@ export function VideoPlayer({
     lastSyncedProgressRef.current = 0;
     lastSyncedPositionRef.current = 0;
     lastRealtimeSyncAtRef.current = 0;
+    setResumePositionSeconds(0);
     const s = initialSeason ?? 1;
     const e = initialEpisode ?? 1;
     tvTargetRef.current = { season: s, episode: e };
@@ -192,6 +209,7 @@ export function VideoPlayer({
           preferredSource ??
           fetched.find((s) => getProviderByKey(s.key)?.progress) ??
           fetched[0]!;
+        setResumePositionSeconds(pickResumePositionSeconds(watchState, lastSyncedPositionRef.current));
         setSelectedSource(def.url);
       } catch (err) {
         setError(
@@ -203,7 +221,7 @@ export function VideoPlayer({
     };
 
     load();
-  }, [animeContent, content._id, sources.length, error, initialSource]);
+  }, [animeContent, content._id, sources.length, error, initialSource, watchState]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
   const selectedProvider = selectedSourceConfig ? getProviderByKey(selectedSourceConfig.key) : undefined;
@@ -214,12 +232,17 @@ export function VideoPlayer({
     if (!selectedSourceConfig) return "";
     try {
       const url = new URL(selectedSourceConfig.url);
+      const shouldResume = resumePositionSeconds > 0 && !(watchState?.completed ?? false);
+
       if (selectedProvider?.key === "vidking" || selectedProvider?.key === "videasy") {
         url.searchParams.set("color", "e50914");
       }
       if (selectedProvider?.key === "vidfast") {
         url.searchParams.set("nextButton", "false");
         url.searchParams.set("autoNext", "false");
+      }
+      if (shouldResume && selectedProvider?.progress?.resumeParam) {
+        url.searchParams.set(selectedProvider.progress.resumeParam, String(resumePositionSeconds));
       }
       return url.toString();
     } catch {
@@ -230,6 +253,10 @@ export function VideoPlayer({
   useEffect(() => {
     if (!watchState) return;
     setCurrentProgress(clamp(watchState.progress));
+    lastSyncedPositionRef.current = Math.max(
+      lastSyncedPositionRef.current,
+      Math.max(0, watchState.positionSeconds)
+    );
   }, [watchState]);
 
   useEffect(() => {
@@ -369,6 +396,7 @@ export function VideoPlayer({
     }
 
     if (!needsReload) {
+      setResumePositionSeconds(pickResumePositionSeconds(watchState, lastSyncedPositionRef.current));
       setSelectedSource(nextUrl);
       return;
     }
@@ -395,6 +423,7 @@ export function VideoPlayer({
         refreshed.find((s) => s.name === prevName) ??
         refreshed.find((s) => getProviderByKey(s.key)?.progress) ??
         refreshed[0]!;
+      setResumePositionSeconds(pickResumePositionSeconds(watchState, lastSyncedPositionRef.current));
       setSelectedSource(next.url);
     } catch (err) {
       setError(`Failed to switch sources: ${err instanceof Error ? err.message : String(err)}`);

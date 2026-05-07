@@ -12,6 +12,7 @@ export interface ProviderProgressConfig {
   origins: string[];
   controlApi?: boolean;
   statusRequest?: boolean;
+  resumeParam?: "progress" | "startAt";
 }
 
 export interface ProviderCatalogEntry {
@@ -34,7 +35,8 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     quality: "1080p",
     progress: {
-      origins: ["https://www.vidking.net"]
+      origins: ["https://www.vidking.net"],
+      resumeParam: "progress"
     },
     getMovieUrl: (tmdbId) => `https://www.vidking.net/embed/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) =>
@@ -56,7 +58,8 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
         "https://vidfast.xyz"
       ],
       controlApi: true,
-      statusRequest: true
+      statusRequest: true,
+      resumeParam: "startAt"
     },
     getMovieUrl: (id) => `https://vidfast.pro/movie/${id}`,
     getTVUrl: (id, season, episode) => `https://vidfast.pro/tv/${id}/${season}/${episode}`
@@ -66,12 +69,16 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidEasy",
     idType: "tmdb",
     quality: "1080p",
+    animeIdType: "anilist",
     progress: {
-      origins: ["https://player.videasy.net", "https://videasy.net"]
+      origins: ["https://player.videasy.net", "https://videasy.net"],
+      resumeParam: "progress"
     },
     getMovieUrl: (tmdbId) => `https://player.videasy.net/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) =>
-      `https://player.videasy.net/tv/${tmdbId}/${season}/${episode}`
+      `https://player.videasy.net/tv/${tmdbId}/${season}/${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode) =>
+      `https://player.videasy.net/anime/${aniListId}/${episode}`
   },
   {
     key: "vidnest",
@@ -80,7 +87,8 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     quality: "1080p",
     animeIdType: "anilist",
     progress: {
-      origins: ["https://vidnest.fun"]
+      origins: ["https://vidnest.fun"],
+      resumeParam: "progress"
     },
     getMovieUrl: (tmdbId) => `https://vidnest.fun/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) => `https://vidnest.fun/tv/${tmdbId}/${season}/${episode}`,
@@ -110,8 +118,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidSrc",
     idType: "both",
     quality: "1080p",
+    animeIdType: "anilist",
     getMovieUrl: (id) => `https://vidsrc.icu/embed/movie/${id}`,
-    getTVUrl: (id, season, episode) => `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`
+    getTVUrl: (id, season, episode) => `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`,
+    getAnimeTVUrl: (aniListId, _season, episode) =>
+      `https://vidsrc.icu/embed/anime/${aniListId}/${episode}/1`
   },
   {
     key: "2embed",
