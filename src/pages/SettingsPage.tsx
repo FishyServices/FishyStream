@@ -1,11 +1,27 @@
 import type { ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { Header } from "@/components/Header";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { MOVIE_SORT_OPTIONS, TV_SORT_OPTIONS } from "@/lib/appSettings";
-import { STREAM_PROVIDERS } from "../../shared/providerCatalog";
 import {
+  STREAM_PROVIDERS,
+  getGroupedProviders,
+  getProviderByKey,
+  getProviderCapabilities
+} from "../../shared/providerCatalog";
+import {
+  Button,
   Card,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -14,7 +30,7 @@ import {
   Switch,
   ThemeSwitcher
 } from "@fishy/ui";
-import { MonitorPlay, Palette, PlayCircle, Tv2 } from "lucide-react";
+import { Check, ChevronsUpDown, MonitorPlay, Palette, PlayCircle, Tv2 } from "lucide-react";
 
 function SettingRow({
   label,
@@ -33,6 +49,96 @@ function SettingRow({
       </div>
       <div className="sm:min-w-[13rem] sm:max-w-[18rem]">{control}</div>
     </div>
+  );
+}
+
+function ProviderPicker({
+  value,
+  onValueChange
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const providerGroups = useMemo(() => getGroupedProviders(STREAM_PROVIDERS), []);
+  const selectedProvider = value === "auto" ? null : getProviderByKey(value);
+  const selectedSummary = selectedProvider ? getProviderCapabilities(selectedProvider)[0] : null;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-between bg-background text-foreground hover:bg-background"
+            aria-expanded={open}
+          >
+            <span className="flex min-w-0 flex-col items-start text-left">
+              <span className="truncate text-sm font-medium">
+                {selectedProvider ? selectedProvider.name : "Auto choose best source"}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {selectedProvider ? selectedSummary : "Recommended default"}
+              </span>
+            </span>
+            <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        }
+      />
+      <PopoverContent className="w-[min(32rem,calc(100vw-2rem))] p-0">
+        <Command>
+          <CommandInput placeholder="Search providers by name, quality, or notes" />
+          <CommandList className="max-h-[24rem]">
+            <CommandEmpty>No providers match that search.</CommandEmpty>
+            <CommandGroup heading="Recommended">
+              <CommandItem
+                value="auto recommended default"
+                onSelect={() => {
+                  onValueChange("auto");
+                  setOpen(false);
+                }}
+                className="flex items-center gap-3"
+              >
+                <Check className={`h-4 w-4 ${value === "auto" ? "opacity-100" : "opacity-0"}`} />
+                <div className="min-w-0">
+                  <div className="truncate font-medium">Auto choose best source</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    Use the first working provider for each title
+                  </div>
+                </div>
+              </CommandItem>
+            </CommandGroup>
+
+            {providerGroups.map((group) => (
+              <CommandGroup key={group.key} heading={group.label}>
+                {group.providers.map((provider) => (
+                  <CommandItem
+                    key={provider.key}
+                    value={`${provider.name} ${provider.key} ${provider.quality} ${provider.notes ?? ""}`}
+                    onSelect={() => {
+                      onValueChange(provider.key);
+                      setOpen(false);
+                    }}
+                    className="flex items-center gap-3"
+                  >
+                    <Check
+                      className={`h-4 w-4 ${value === provider.key ? "opacity-100" : "opacity-0"}`}
+                    />
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{provider.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {getProviderCapabilities(provider).join(" • ")}
+                      </div>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -175,26 +281,14 @@ export function SettingsPage() {
 
             <SettingRow
               label="Preferred provider"
-              description="When a title has several embeds, FishyStream will try this provider first."
+              description="Search and pin the provider FishyStream should try first when several embeds are available."
               control={
-                <Select
+                <ProviderPicker
                   value={settings.defaultProvider}
                   onValueChange={(value) =>
                     updateSetting("defaultProvider", value as typeof settings.defaultProvider)
                   }
-                >
-                  <SelectTrigger className="w-full bg-background text-foreground">
-                    <SelectValue placeholder="Select provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Auto choose best source</SelectItem>
-                    {STREAM_PROVIDERS.map((provider) => (
-                      <SelectItem key={provider.key} value={provider.key}>
-                        {provider.name} ({provider.quality})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               }
             />
           </Card>

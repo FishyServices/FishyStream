@@ -8,12 +8,15 @@ export type ProviderKey =
   | "filmu"
   | "vidzen"
   | "vixsrc"
-  //| "cinezo"
+  | "vidsrc pro"
+  | "cinezo"
   | "mafiaembed"
   | "superembed"
   | "autoembed"
   | "vidsrc"
   | "2embed";
+
+export type ProviderCategory = "primary" | "anime" | "fallback";
 
 export interface ProviderProgressConfig {
   origins: string[];
@@ -25,8 +28,11 @@ export interface ProviderProgressConfig {
 export interface ProviderCatalogEntry {
   key: ProviderKey;
   name: string;
+  category: ProviderCategory;
   idType: "tmdb" | "imdb" | "both";
   quality: string;
+  website?: string;
+  notes?: string;
   animeOnly?: boolean;
   animeIdType?: "same" | "anilist";
   progress?: ProviderProgressConfig;
@@ -39,8 +45,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "vidking",
     name: "VidKing",
+    category: "primary",
     idType: "tmdb",
     quality: "1080p",
+    website: "https://www.vidking.net",
+    notes: "Fast TMDB embed",
     progress: {
       origins: ["*"],
       resumeParam: "progress"
@@ -52,8 +61,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "vidfast",
     name: "VidFast",
+    category: "primary",
     idType: "both",
     quality: "1080p",
+    website: "https://vidfast.pro",
+    notes: "IMDb or TMDB",
     progress: {
       origins: ["*"],
       controlApi: true,
@@ -66,8 +78,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "videasy",
     name: "VidEasy",
+    category: "primary",
     idType: "tmdb",
     quality: "1080p",
+    website: "https://player.videasy.net",
+    notes: "Anime via AniList",
     animeIdType: "anilist",
     progress: {
       origins: ["*"],
@@ -82,8 +97,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "vidnest",
     name: "VidNest",
+    category: "anime",
     idType: "tmdb",
     quality: "1080p",
+    website: "https://vidnest.fun",
+    notes: "Anime dub support",
     animeIdType: "anilist",
     progress: {
       origins: ["*"],
@@ -97,8 +115,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "vidrock",
     name: "VidRock",
+    category: "anime",
     idType: "both",
     quality: "1080p",
+    website: "https://vidrock.ru",
+    notes: "IMDb or TMDB with anime",
     animeIdType: "anilist",
     progress: {
       origins: ["*"]
@@ -111,8 +132,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "vidplus (ads)",
     name: "VidPlus (Ads)",
+    category: "fallback",
     idType: "both",
     quality: "1080p",
+    website: "https://player.vidplus.to",
+    notes: "Includes ads",
     animeIdType: "anilist",
     progress: {
       origins: ["*"]
@@ -126,8 +150,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "filmu",
     name: "filmu",
+    category: "anime",
     idType: "both",
     quality: "1080p",
+    website: "https://embed.filmu.in",
+    notes: "Anime and TV",
     animeIdType: "anilist",
     progress: {
       origins: ["*"]
@@ -140,8 +167,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "vidzen",
     name: "VidZen",
+    category: "primary",
     idType: "tmdb",
     quality: "1080p",
+    website: "https://vidzen.fun",
+    notes: "TMDB-first source",
     progress: {
       origins: ["*"],
       resumeParam: "startAt"
@@ -152,8 +182,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "vixsrc",
     name: "VixSrc",
+    category: "primary",
     idType: "tmdb",
     quality: "1080p",
+    website: "https://vixsrc.to",
+    notes: "TMDB embed",
     progress: {
       origins: ["*"],
       resumeParam: "startAt"
@@ -161,29 +194,44 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     getMovieUrl: (tmdbId) => `https://vixsrc.to/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) => `https://vixsrc.to/tv/${tmdbId}/${season}/${episode}`
   },
-  /*
+  {
+    key: "vidsrc pro",
+    name: "VidSrc Pro",
+    category: "primary",
+    idType: "both",
+    quality: "1080p",
+    website: "https://vidsrc.mov",
+    notes: "Current VidSrc API",
+    getMovieUrl: (id) => `https://vidsrc.mov/embed/movie/${id}`,
+    getTVUrl: (id, season, episode) => `https://vidsrc.mov/embed/tv/${id}/${season}/${episode}`
+  },
   {
     key: "cinezo",
     name: "Cinezo",
+    category: "anime",
     idType: "tmdb",
     quality: "1080p",
+    website: "https://player.cinezo.live",
+    notes: "Customizable player with anime",
     animeIdType: "anilist",
     progress: {
       origins: ["*"],
       resumeParam: "startAt"
     },
-    getMovieUrl: (tmdbId) => `https://player.vidrush.net/embed/movie/${tmdbId}`,
+    getMovieUrl: (tmdbId) => `https://player.cinezo.live/embed/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) =>
-      `https://player.vidrush.net/embed/tv/${tmdbId}/${season}/${episode}`,
+      `https://player.cinezo.live/embed/tv/${tmdbId}/${season}/${episode}`,
     getAnimeTVUrl: (aniListId, _season, episode) =>
-      `https://player.vidrush.net/embed/anime/${aniListId}/${episode}?dub=true`
+      `https://player.cinezo.live/embed/anime/${aniListId}/${episode}?dub=true`
   },
-  */
   {
     key: "mafiaembed",
     name: "MafiaEmbed",
+    category: "anime",
     idType: "tmdb",
     quality: "1080p",
+    website: "https://embed.streammafia.to",
+    notes: "Anime and TV",
     animeIdType: "anilist",
     progress: {
       origins: ["*"],
@@ -198,8 +246,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "superembed",
     name: "SuperEmbed",
+    category: "fallback",
     idType: "tmdb",
     quality: "1080p",
+    website: "https://www.multiembed.mov",
+    notes: "Multiembed endpoint",
     animeIdType: "anilist",
     getMovieUrl: (tmdbId) => `https://www.multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
     getTVUrl: (tmdbId, season, episode) =>
@@ -210,8 +261,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "autoembed",
     name: "AutoEmbed",
+    category: "fallback",
     idType: "tmdb",
     quality: "1080p",
+    website: "https://player.autoembed.cc",
+    notes: "Basic TMDB embed",
     getMovieUrl: (tmdbId) => `https://player.autoembed.cc/embed/movie/${tmdbId}`,
     getTVUrl: (tmdbId, season, episode) =>
       `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}`
@@ -219,8 +273,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "vidsrc",
     name: "VidSrc",
+    category: "anime",
     idType: "both",
     quality: "1080p",
+    website: "https://vidsrc.icu",
+    notes: "Legacy anime-capable source",
     animeIdType: "anilist",
     getMovieUrl: (id) => `https://vidsrc.icu/embed/movie/${id}`,
     getTVUrl: (id, season, episode) => `https://vidsrc.icu/embed/tv/${id}/${season}/${episode}`,
@@ -230,8 +287,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   {
     key: "2embed",
     name: "2Embed",
+    category: "fallback",
     idType: "imdb",
     quality: "720p",
+    website: "https://www.2embed.cc",
+    notes: "IMDb-only fallback",
     animeIdType: "anilist",
     getMovieUrl: (imdbId) => `https://www.2embed.cc/embed/${imdbId}`,
     getTVUrl: (imdbId, season, episode) =>
@@ -243,6 +303,34 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
 
 export function getProviderByKey(key: string): ProviderCatalogEntry | undefined {
   return STREAM_PROVIDERS.find((provider) => provider.key === key);
+}
+
+export function getProviderCapabilities(provider: ProviderCatalogEntry): string[] {
+  const capabilities = [provider.quality];
+
+  if (provider.idType === "both") capabilities.push("TMDB/IMDb");
+  else capabilities.push(provider.idType.toUpperCase());
+
+  if (provider.getAnimeTVUrl) capabilities.push("Anime");
+  if (provider.progress?.resumeParam) capabilities.push("Resume");
+  if (provider.notes) capabilities.push(provider.notes);
+
+  return capabilities;
+}
+
+export function getGroupedProviders(providers: ProviderCatalogEntry[] = STREAM_PROVIDERS) {
+  const groups: Array<{ key: ProviderCategory; label: string; providers: ProviderCatalogEntry[] }> =
+    [
+      { key: "primary", label: "Primary Sources", providers: [] },
+      { key: "anime", label: "Anime Friendly", providers: [] },
+      { key: "fallback", label: "Fallback Sources", providers: [] }
+    ];
+
+  for (const provider of providers) {
+    groups.find((group) => group.key === provider.category)?.providers.push(provider);
+  }
+
+  return groups.filter((group) => group.providers.length > 0);
 }
 
 export function getProviderByOrigin(origin: string): ProviderCatalogEntry | undefined {

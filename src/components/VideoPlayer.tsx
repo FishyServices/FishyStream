@@ -1,11 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { ArrowLeft, Loader2, AlertCircle, MonitorPlay, RefreshCw, SkipForward } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@fishy/ui";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue
+} from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
 import { useAppSettings } from "@/hooks/useAppSettings";
@@ -16,7 +25,11 @@ import {
   isKnownPlayerOrigin,
   postMessageToPlayer
 } from "@/lib/playerProviders";
-import { getProviderByKey } from "../../shared/providerCatalog";
+import {
+  getGroupedProviders,
+  getProviderByKey,
+  getProviderCapabilities
+} from "../../shared/providerCatalog";
 import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
@@ -34,6 +47,25 @@ interface StreamSource {
   name: string;
   url: string;
   quality: string;
+}
+
+function groupSourcesByProviderCategory(sources: StreamSource[]) {
+  const sourceByKey = new Map(sources.map((source) => [source.key, source]));
+
+  return getGroupedProviders(
+    sources
+      .map((source) => getProviderByKey(source.key))
+      .filter(
+        (provider): provider is NonNullable<ReturnType<typeof getProviderByKey>> => !!provider
+      )
+  )
+    .map((group) => ({
+      ...group,
+      sources: group.providers
+        .map((provider) => sourceByKey.get(provider.key))
+        .filter((source): source is StreamSource => !!source)
+    }))
+    .filter((group) => group.sources.length > 0);
 }
 
 function clamp(v: number) {
@@ -278,6 +310,7 @@ export function VideoPlayer({
   const selectedProvider = selectedSourceConfig
     ? getProviderByKey(selectedSourceConfig.key)
     : undefined;
+  const groupedSources = groupSourcesByProviderCategory(sources);
   const supportsProgressEvents = !!selectedProvider?.progress;
   const canRequestStatus = !!selectedProvider?.progress?.statusRequest;
 
@@ -673,19 +706,39 @@ export function VideoPlayer({
               <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
               <SelectValue placeholder="Source">
                 {selectedSourceConfig
-                  ? `${selectedSourceConfig.name} (${selectedSourceConfig.quality})`
+                  ? `${selectedSourceConfig.name} · ${selectedSourceConfig.quality}`
                   : undefined}
               </SelectValue>
             </SelectTrigger>
             <SelectContent className="z-50 border-border/80 bg-popover text-popover-foreground">
-              {sources.map((s) => (
-                <SelectItem
-                  key={s.url}
-                  value={s.url}
-                  className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                >
-                  {s.name} ({s.quality})
-                </SelectItem>
+              {groupedSources.map((group, index) => (
+                <Fragment key={group.key}>
+                  {index > 0 ? <SelectSeparator /> : null}
+                  <SelectGroup>
+                    <SelectLabel>{group.label}</SelectLabel>
+                    {group.sources.map((source) => {
+                      const provider = getProviderByKey(source.key);
+                      const meta = provider
+                        ? getProviderCapabilities(provider).slice(1, 3).join(" • ")
+                        : source.quality;
+
+                      return (
+                        <SelectItem
+                          key={source.url}
+                          value={source.url}
+                          className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                        >
+                          <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                            <span className="min-w-0 truncate">{source.name}</span>
+                            <span className="truncate text-[11px] text-muted-foreground">
+                              {meta}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                </Fragment>
               ))}
             </SelectContent>
           </Select>
