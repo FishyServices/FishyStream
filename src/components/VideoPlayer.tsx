@@ -2,7 +2,15 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { ArrowLeft, Loader2, AlertCircle, MonitorPlay, RefreshCw, SkipForward, Mic2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+  MonitorPlay,
+  RefreshCw,
+  SkipForward,
+  Mic2
+} from "lucide-react";
 import { Button } from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -111,6 +119,22 @@ function pickResumePositionSeconds(
   );
 }
 
+function shouldApplyProviderResume(
+  providerKey: string | undefined,
+  contentType: Doc<"content">["type"]
+) {
+  if (!providerKey) return false;
+  if (providerKey === "vidking" && contentType === "tv") {
+    return false;
+  }
+
+  if (providerKey === "vidnest" && contentType === "tv") {
+    return false;
+  }
+
+  return true;
+}
+
 function isAnimeContent(content: Doc<"content">) {
   if (content.type !== "tv") return false;
 
@@ -187,6 +211,12 @@ export function VideoPlayer({
     const s = initialSeason ?? 1;
     const e = initialEpisode ?? 1;
     if (tvTargetRef.current.season !== s || tvTargetRef.current.episode !== e) {
+      setCurrentProgress(0);
+      setResumePositionSeconds(0);
+      realtimeDetectedRef.current = false;
+      lastSyncedProgressRef.current = 0;
+      lastSyncedPositionRef.current = 0;
+      lastRealtimeSyncAtRef.current = 0;
       tvTargetRef.current = { season: s, episode: e };
       setTvTarget({ season: s, episode: e });
     }
@@ -325,7 +355,7 @@ export function VideoPlayer({
       const shouldResume =
         resumePositionSeconds > 0 &&
         !(watchState?.completed ?? false) &&
-        !(content.type === "tv" && selectedProvider?.key === "vidnest");
+        shouldApplyProviderResume(selectedProvider?.key, content.type);
 
       if (selectedProvider?.key === "vidking" || selectedProvider?.key === "videasy") {
         url.searchParams.set("color", "e50914");
