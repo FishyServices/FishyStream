@@ -56,6 +56,17 @@ interface StreamSource {
   quality: string;
 }
 
+function shouldWaitForAnimeSeasonMetadata(
+  content: Doc<"content">,
+  animeContent: boolean,
+  seasonNumber: number,
+  currentSeasonData: Doc<"seasons"> | null | undefined
+) {
+  if (!animeContent || content.type !== "tv") return false;
+  if (seasonNumber <= 1) return false;
+  return currentSeasonData === undefined;
+}
+
 function groupSourcesByProviderCategory(sources: StreamSource[]) {
   const sourceByKey = new Map(sources.map((source) => [source.key, source]));
 
@@ -188,6 +199,12 @@ export function VideoPlayer({
     api.seasons.getSeason,
     content.type === "tv" ? { contentId: content._id, seasonNumber: tvTarget.season } : "skip"
   );
+  const waitingForAnimeSeasonMetadata = shouldWaitForAnimeSeasonMetadata(
+    content,
+    animeContent,
+    tvTarget.season,
+    currentSeasonData
+  );
 
   useEffect(() => {
     setSources([]);
@@ -268,6 +285,7 @@ export function VideoPlayer({
 
   useEffect(() => {
     if (sources.length > 0 || error) return;
+    if (waitingForAnimeSeasonMetadata) return;
 
     const load = async () => {
       if (!content.imdbId && !content.tmdbId) {
@@ -339,7 +357,9 @@ export function VideoPlayer({
     settings.defaultProvider,
     sources.length,
     watchState,
-    searchParams
+    searchParams,
+    currentSeasonData?.name,
+    waitingForAnimeSeasonMetadata
   ]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
@@ -561,6 +581,9 @@ export function VideoPlayer({
 
     try {
       setLoading(true);
+      if (waitingForAnimeSeasonMetadata) {
+        return;
+      }
       const refreshed = await getTVSources({
         imdbId: content.imdbId ?? undefined,
         tmdbId: content.tmdbId ?? undefined,

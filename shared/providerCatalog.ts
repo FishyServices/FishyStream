@@ -391,8 +391,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   })
 ];
 
+const PROVIDER_BY_KEY = new Map(STREAM_PROVIDERS.map((provider) => [provider.key, provider]));
+const PROVIDERS_WITH_PROGRESS = STREAM_PROVIDERS.filter((provider) => provider.progress);
+
 export function getProviderByKey(key: string): ProviderCatalogEntry | undefined {
-  return STREAM_PROVIDERS.find((provider) => provider.key === key);
+  return PROVIDER_BY_KEY.get(key as ProviderKey);
 }
 
 export function getProviderCapabilities(provider: ProviderCatalogEntry): string[] {
@@ -431,7 +434,7 @@ export function getGroupedProviders(providers: ProviderCatalogEntry[] = STREAM_P
 }
 
 export function getProviderByOrigin(origin: string): ProviderCatalogEntry | undefined {
-  return STREAM_PROVIDERS.find((provider) => {
+  return PROVIDERS_WITH_PROGRESS.find((provider) => {
     const origins = provider.progress?.origins;
     return !!origins && (origins.includes("*") || origins.includes(origin));
   });
