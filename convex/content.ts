@@ -311,7 +311,6 @@ export const upsertBatchFromTMDB = internalMutation({
 export const getAllTmdbIds = internalQuery({
   args: {},
   handler: async (ctx) => {
-    // Use a larger cap and only return the fields we actually need
     const content = await ctx.db.query("content").take(10000);
     return content.map((c) => ({ tmdbId: c.tmdbId, type: c.type }));
   }
@@ -320,7 +319,6 @@ export const getAllTmdbIds = internalQuery({
 export const getAll = query({
   args: {},
   handler: async (ctx): Promise<Doc<"content">[]> => {
-    // 300 is enough for the client-side recommendation scorer
     return await ctx.db.query("content").take(300);
   }
 });

@@ -102,7 +102,7 @@ function ProviderPicker({
       />
       <PopoverContent className="w-[min(32rem,calc(100vw-2rem))] p-0">
         <Command>
-          <CommandInput placeholder="Search providers by name, quality, or notes" />
+          <CommandInput placeholder="Search providers by name or quality" />
           <CommandList className="max-h-[24rem]">
             <CommandEmpty>No providers match that search.</CommandEmpty>
             <CommandGroup heading="Recommended">
@@ -129,7 +129,7 @@ function ProviderPicker({
                 {group.providers.map((provider) => (
                   <CommandItem
                     key={provider.key}
-                    value={`${provider.name} ${provider.key} ${provider.quality} ${provider.notes ?? ""}`}
+                    value={`${provider.name} ${provider.key} ${provider.quality}`}
                     onSelect={() => {
                       onValueChange(provider.key);
                       setOpen(false);

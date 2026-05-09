@@ -35,8 +35,7 @@ import {
 } from "@/lib/playerProviders";
 import {
   getGroupedProviders,
-  getProviderByKey,
-  getProviderCapabilities
+  getProviderByKey
 } from "../../shared/providerCatalog";
 import {
   getCanonicalSeasonCount,
@@ -819,9 +818,7 @@ export function VideoPlayer({
               <SelectTrigger className="w-full border-border/80 bg-card/90 text-sm text-foreground sm:w-[220px]">
                 <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
                 <SelectValue placeholder="Source">
-                  {selectedSourceConfig
-                    ? `${selectedSourceConfig.name} · ${selectedSourceConfig.quality}`
-                    : undefined}
+                  {selectedSourceConfig ? selectedSourceConfig.name : undefined}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent className="z-50 border-border/80 bg-popover text-popover-foreground">
@@ -830,28 +827,15 @@ export function VideoPlayer({
                     {index > 0 ? <SelectSeparator /> : null}
                     <SelectGroup>
                       <SelectLabel>{group.label}</SelectLabel>
-                      {group.sources.map((source) => {
-                        const provider = getProviderByKey(source.key);
-                        const caps = provider ? getProviderCapabilities(provider) : [];
-                        const badge = provider?.dubSupport
-                          ? `${caps[0]} · Sub/Dub`
-                          : caps.slice(1, 3).join(" • ");
-
-                        return (
-                          <SelectItem
-                            key={source.url}
-                            value={source.url}
-                            className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                          >
-                            <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                              <span className="min-w-0 truncate">{source.name}</span>
-                              <span className="truncate text-[11px] text-muted-foreground">
-                                {badge}
-                              </span>
-                            </span>
-                          </SelectItem>
-                        );
-                      })}
+                      {group.sources.map((source) => (
+                        <SelectItem
+                          key={source.url}
+                          value={source.url}
+                          className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                        >
+                          {source.name}
+                        </SelectItem>
+                      ))}
                     </SelectGroup>
                   </Fragment>
                 ))}
