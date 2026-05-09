@@ -286,6 +286,7 @@ export function VideoPlayer({
                 tmdbId: content.tmdbId ?? undefined,
                 isAnime: animeContent,
                 title: content.title,
+                seasonTitle: currentSeasonData?.name,
                 season,
                 episode,
                 dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
@@ -566,6 +567,7 @@ export function VideoPlayer({
         tmdbId: content.tmdbId ?? undefined,
         isAnime: animeContent,
         title: content.title,
+        seasonTitle: currentSeasonData?.name,
         season: tvTargetRef.current.season,
         episode: tvTargetRef.current.episode,
         dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
