@@ -687,8 +687,11 @@ export function VideoPlayer({
       ? clamp(watchState?.progress ?? 0)
       : 0;
   const nextEpisodeProgress = Math.max(currentProgress, matchingEpisodeWatchProgress);
+  const showNextEpisodeFallback = content.type === "tv" && hasNextEpisode && !canRequestStatus;
   const showNextEpisodeButton =
-    content.type === "tv" && hasNextEpisode && nextEpisodeProgress >= 80;
+    content.type === "tv" &&
+    hasNextEpisode &&
+    (nextEpisodeProgress >= 80 || showNextEpisodeFallback);
   const autoAdvancedRef = useRef<string | null>(null);
 
   useEffect(() => {
