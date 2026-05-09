@@ -15,6 +15,7 @@ import {
 interface AppSettingsContextValue {
   settings: AppSettings;
   updateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
+  resetSettings: () => void;
 }
 
 const AppSettingsContext = createContext<AppSettingsContextValue | null>(null);
@@ -50,6 +51,9 @@ export function AppSettingsProvider({ children }: PropsWithChildren) {
       settings,
       updateSetting: (key, newValue) => {
         setSettings((current) => ({ ...current, [key]: newValue }));
+      },
+      resetSettings: () => {
+        setSettings(DEFAULT_APP_SETTINGS);
       }
     }),
     [settings]

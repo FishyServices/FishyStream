@@ -11,6 +11,7 @@ interface HeroProps {
   content: Doc<"content">;
   onPlay?: (tmdbId: string) => void;
   autoPlayTrailer?: boolean;
+  trailerMuted?: boolean;
 }
 
 function StarRating({ score }: { score: number }) {
@@ -28,10 +29,10 @@ function StarRating({ score }: { score: number }) {
   );
 }
 
-export function Hero({ content, onPlay, autoPlayTrailer = false }: HeroProps) {
+export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = true }: HeroProps) {
   const { isSignedIn } = useUser();
   const [showModal, setShowModal] = useState(false);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(trailerMuted);
   const [showTrailer, setShowTrailer] = useState(autoPlayTrailer && !!content.trailerKey);
   const [loaded, setLoaded] = useState(false);
 
@@ -46,6 +47,10 @@ export function Hero({ content, onPlay, autoPlayTrailer = false }: HeroProps) {
   useEffect(() => {
     setShowTrailer(autoPlayTrailer && !!content.trailerKey);
   }, [autoPlayTrailer, content._id, content.trailerKey]);
+
+  useEffect(() => {
+    setMuted(trailerMuted);
+  }, [trailerMuted, content._id]);
 
   const handleWatchlist = async () => {
     if (!isSignedIn) {

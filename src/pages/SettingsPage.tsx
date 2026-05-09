@@ -2,7 +2,12 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Header } from "@/components/Header";
 import { useAppSettings } from "@/hooks/useAppSettings";
-import { MOVIE_SORT_OPTIONS, TV_SORT_OPTIONS } from "@/lib/appSettings";
+import {
+  DEFAULT_APP_SETTINGS,
+  MOVIE_SORT_OPTIONS,
+  TV_SORT_OPTIONS,
+  type AnimeLanguagePreference
+} from "@/lib/appSettings";
 import {
   STREAM_PROVIDERS,
   getGroupedProviders,
@@ -30,7 +35,16 @@ import {
   Switch,
   ThemeSwitcher
 } from "@fishy/ui";
-import { Check, ChevronsUpDown, MonitorPlay, Palette, PlayCircle, Tv2 } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  MonitorPlay,
+  Palette,
+  PlayCircle,
+  RotateCcw,
+  Tv2,
+  Volume2
+} from "lucide-react";
 
 function SettingRow({
   label,
@@ -143,7 +157,7 @@ function ProviderPicker({
 }
 
 export function SettingsPage() {
-  const { settings, updateSetting } = useAppSettings();
+  const { settings, updateSetting, resetSettings } = useAppSettings();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -151,11 +165,24 @@ export function SettingsPage() {
 
       <main className="page-shell page-stack">
         <div className="mb-8 max-w-3xl space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground sm:text-base">
-            Set the default look, sorting, and playback behavior once. The app uses these choices
-            across home, browse, and watch pages.
-          </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground">Settings</h1>
+              <p className="text-sm text-muted-foreground sm:text-base">
+                Set the default look, sorting, and playback behavior once. The app uses these
+                choices across home, browse, and watch pages.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="shrink-0"
+              onClick={() => resetSettings()}
+              disabled={JSON.stringify(settings) === JSON.stringify(DEFAULT_APP_SETTINGS)}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reset defaults
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)]">
@@ -192,6 +219,23 @@ export function SettingsPage() {
                 </div>
               }
             />
+
+            <SettingRow
+              label="Mute autoplay trailer"
+              description="Keep the featured trailer silent until you explicitly unmute it."
+              control={
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-3 py-2.5">
+                  <Label htmlFor="hero-muted" className="text-sm text-foreground">
+                    Start muted
+                  </Label>
+                  <Switch
+                    id="hero-muted"
+                    checked={settings.heroTrailerMuted}
+                    onCheckedChange={(checked) => updateSetting("heroTrailerMuted", checked)}
+                  />
+                </div>
+              }
+            />
           </Card>
 
           <Card className="surface border-border/70 bg-card/85 p-5 sm:p-6">
@@ -212,6 +256,23 @@ export function SettingsPage() {
                     id="continue-row"
                     checked={settings.showContinueWatchingRow}
                     onCheckedChange={(checked) => updateSetting("showContinueWatchingRow", checked)}
+                  />
+                </div>
+              }
+            />
+
+            <SettingRow
+              label="Content sync tools"
+              description="Show the TMDB sync panel on the home page for quick library refreshes."
+              control={
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-3 py-2.5">
+                  <Label htmlFor="sync-panel" className="text-sm text-foreground">
+                    Show panel
+                  </Label>
+                  <Switch
+                    id="sync-panel"
+                    checked={settings.showSyncPanel}
+                    onCheckedChange={(checked) => updateSetting("showSyncPanel", checked)}
                   />
                 </div>
               }
@@ -289,6 +350,44 @@ export function SettingsPage() {
                     updateSetting("defaultProvider", value as typeof settings.defaultProvider)
                   }
                 />
+              }
+            />
+
+            <SettingRow
+              label="Preferred anime audio"
+              description="Use this when an anime source supports both subtitle and dub playback."
+              control={
+                <Select
+                  value={settings.defaultAnimeLanguage}
+                  onValueChange={(value) =>
+                    updateSetting("defaultAnimeLanguage", value as AnimeLanguagePreference)
+                  }
+                >
+                  <SelectTrigger className="w-full bg-background text-foreground">
+                    <SelectValue placeholder="Choose audio track" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sub">Subtitled first</SelectItem>
+                    <SelectItem value="dub">Dub first</SelectItem>
+                  </SelectContent>
+                </Select>
+              }
+            />
+
+            <SettingRow
+              label="Auto advance episodes"
+              description="Move to the next episode automatically near the end of playback when available."
+              control={
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-3 py-2.5">
+                  <Label htmlFor="auto-advance" className="text-sm text-foreground">
+                    Advance automatically
+                  </Label>
+                  <Switch
+                    id="auto-advance"
+                    checked={settings.autoAdvanceEpisodes}
+                    onCheckedChange={(checked) => updateSetting("autoAdvanceEpisodes", checked)}
+                  />
+                </div>
               }
             />
           </Card>

@@ -2,6 +2,7 @@ import type { ContentSort } from "@/hooks/useContent";
 import type { ProviderKey } from "../../shared/providerCatalog";
 
 export type ThemePreference = "dark" | "light";
+export type AnimeLanguagePreference = "sub" | "dub";
 
 export interface SortOption {
   label: string;
@@ -14,7 +15,11 @@ export interface AppSettings {
   defaultTVSort: ContentSort;
   defaultProvider: ProviderKey | "auto";
   autoPlayHeroTrailer: boolean;
+  heroTrailerMuted: boolean;
   showContinueWatchingRow: boolean;
+  showSyncPanel: boolean;
+  defaultAnimeLanguage: AnimeLanguagePreference;
+  autoAdvanceEpisodes: boolean;
 }
 
 export const MOVIE_SORT_OPTIONS: SortOption[] = [
@@ -39,7 +44,11 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   defaultTVSort: "popular",
   defaultProvider: "auto",
   autoPlayHeroTrailer: false,
-  showContinueWatchingRow: true
+  heroTrailerMuted: true,
+  showContinueWatchingRow: true,
+  showSyncPanel: false,
+  defaultAnimeLanguage: "dub",
+  autoAdvanceEpisodes: false
 };
 
 export const APP_SETTINGS_STORAGE_KEY = "fishystream:settings";

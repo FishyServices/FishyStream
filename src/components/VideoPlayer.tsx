@@ -166,6 +166,7 @@ export function VideoPlayer({
   const [error, setError] = useState<string | null>(null);
   const [currentProgress, setCurrentProgress] = useState(0);
   const isDub = searchParams.get("dub") === "true";
+  const prefersDub = settings.defaultAnimeLanguage === "dub";
 
   const historyInitRef = useRef(false);
   const realtimeDetectedRef = useRef(false);
@@ -287,7 +288,7 @@ export function VideoPlayer({
                 title: content.title,
                 season,
                 episode,
-                dub: animeContent ? isDub : undefined
+                dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
               })
             : await getMovieSources({
                 imdbId: content.imdbId ?? undefined,
@@ -334,9 +335,11 @@ export function VideoPlayer({
     error,
     initialSource,
     isDub,
+    prefersDub,
     settings.defaultProvider,
     sources.length,
-    watchState
+    watchState,
+    searchParams
   ]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
@@ -565,7 +568,7 @@ export function VideoPlayer({
         title: content.title,
         season: tvTargetRef.current.season,
         episode: tvTargetRef.current.episode,
-        dub: animeContent ? isDub : undefined
+        dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
       });
 
       if (!refreshed?.length) {
@@ -686,6 +689,31 @@ export function VideoPlayer({
   const nextEpisodeProgress = Math.max(currentProgress, matchingEpisodeWatchProgress);
   const showNextEpisodeButton =
     content.type === "tv" && hasNextEpisode && nextEpisodeProgress >= 80;
+  const autoAdvancedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (content.type !== "tv") return;
+    if (!settings.autoAdvanceEpisodes) return;
+    if (!showNextEpisodeButton) return;
+    if (nextEpisodeProgress < 98) return;
+
+    const key = `${content._id}:${tvTarget.season}:${tvTarget.episode}`;
+    if (autoAdvancedRef.current === key) return;
+    autoAdvancedRef.current = key;
+    handleNextEpisode();
+  }, [
+    content._id,
+    content.type,
+    nextEpisodeProgress,
+    settings.autoAdvanceEpisodes,
+    showNextEpisodeButton,
+    tvTarget.episode,
+    tvTarget.season
+  ]);
+
+  useEffect(() => {
+    autoAdvancedRef.current = null;
+  }, [content._id, tvTarget.season, tvTarget.episode]);
 
   if (loading) {
     return (

@@ -230,14 +230,17 @@ export function App() {
             content={featuredContent}
             onPlay={handlePlay}
             autoPlayTrailer={settings.autoPlayHeroTrailer}
+            trailerMuted={settings.heroTrailerMuted}
           />
         )}
 
         <div className="relative z-10 -mt-14 pb-10 pt-4 sm:-mt-18">
           {/* Sync panel */}
-          <div className="page-shell-wide">
-            <SyncPanel />
-          </div>
+          {settings.showSyncPanel && (
+            <div className="page-shell-wide">
+              <SyncPanel />
+            </div>
+          )}
 
           {/* Continue Watching */}
           {settings.showContinueWatchingRow &&
