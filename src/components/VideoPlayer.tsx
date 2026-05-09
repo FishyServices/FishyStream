@@ -33,10 +33,7 @@ import {
   isKnownPlayerOrigin,
   postMessageToPlayer
 } from "@/lib/playerProviders";
-import {
-  getGroupedProviders,
-  getProviderByKey
-} from "../../shared/providerCatalog";
+import { getGroupedProviders, getProviderByKey } from "../../shared/providerCatalog";
 import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
@@ -54,17 +51,6 @@ interface StreamSource {
   name: string;
   url: string;
   quality: string;
-}
-
-function shouldWaitForAnimeSeasonMetadata(
-  content: Doc<"content">,
-  animeContent: boolean,
-  seasonNumber: number,
-  currentSeasonData: Doc<"seasons"> | null | undefined
-) {
-  if (!animeContent || content.type !== "tv") return false;
-  if (seasonNumber <= 1) return false;
-  return currentSeasonData === undefined;
 }
 
 function groupSourcesByProviderCategory(sources: StreamSource[]) {
@@ -199,12 +185,6 @@ export function VideoPlayer({
     api.seasons.getSeason,
     content.type === "tv" ? { contentId: content._id, seasonNumber: tvTarget.season } : "skip"
   );
-  const waitingForAnimeSeasonMetadata = shouldWaitForAnimeSeasonMetadata(
-    content,
-    animeContent,
-    tvTarget.season,
-    currentSeasonData
-  );
 
   useEffect(() => {
     setSources([]);
@@ -285,7 +265,6 @@ export function VideoPlayer({
 
   useEffect(() => {
     if (sources.length > 0 || error) return;
-    if (waitingForAnimeSeasonMetadata) return;
 
     const load = async () => {
       if (!content.imdbId && !content.tmdbId) {
@@ -357,9 +336,7 @@ export function VideoPlayer({
     settings.defaultProvider,
     sources.length,
     watchState,
-    searchParams,
-    currentSeasonData?.name,
-    waitingForAnimeSeasonMetadata
+    searchParams
   ]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
@@ -581,9 +558,6 @@ export function VideoPlayer({
 
     try {
       setLoading(true);
-      if (waitingForAnimeSeasonMetadata) {
-        return;
-      }
       const refreshed = await getTVSources({
         imdbId: content.imdbId ?? undefined,
         tmdbId: content.tmdbId ?? undefined,
