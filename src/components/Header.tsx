@@ -14,7 +14,7 @@ import {
   Clock,
   BookMarked
 } from "lucide-react";
-import { Button } from "@fishy/ui";
+import { Badge, Button, Input, Sheet, SheetContent, SheetHeader, SheetTitle } from "@fishy/ui";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -97,34 +97,36 @@ export function Header() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "border-b border-border/70 bg-background/92 shadow-lg backdrop-blur-xl"
-          : "bg-gradient-to-b from-background/82 via-background/32 to-transparent"
+          ? "border-b border-white/8 bg-[color-mix(in_oklab,var(--color-background)_88%,transparent)] shadow-[0_18px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl"
+          : "bg-gradient-to-b from-background/88 via-background/36 to-transparent"
       }`}
     >
       <div className="px-4 sm:px-6 lg:px-10" ref={dropdownRef}>
-        <div className="flex min-h-16 items-center justify-between gap-3">
+        <div className="flex min-h-[4.5rem] items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-8">
-            <Link to="/" className="group flex items-center gap-2.5 shrink-0">
-              <div className="relative h-8 w-8">
-                <div className="absolute inset-0 rotate-6 rounded-lg bg-primary opacity-60 transition-transform group-hover:rotate-12" />
-                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-primary">
+            <Link to="/" className="group flex shrink-0 items-center gap-2.5">
+              <div className="relative h-9 w-9">
+                <div className="absolute inset-0 rotate-6 rounded-xl bg-primary opacity-60 transition-transform group-hover:rotate-12" />
+                <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-primary shadow-[0_12px_30px_color-mix(in_oklab,var(--color-primary)_36%,transparent)]">
                   <span className="font-display text-sm font-bold text-white">F</span>
                 </div>
               </div>
-              <span className="hidden font-display text-lg font-bold tracking-tight sm:block">
-                FishyStream
-              </span>
+              <div className="hidden sm:block">
+                <span className="block font-display text-lg font-bold tracking-tight text-white">
+                  FishyStream
+                </span>
+              </div>
             </Link>
 
-            <nav className="hidden items-center gap-1 lg:flex">
+            <nav className="hidden items-center gap-1 rounded-full border border-white/8 bg-white/[0.04] p-1 lg:flex">
               {navLinks.map((link) => (
                 <div key={link.label} className="relative">
                   {link.dropdown ? (
                     <button
-                      className={`flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                      className={`flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium transition-all ${
                         location.pathname === link.href
-                          ? "bg-white/10 text-white"
-                          : "text-white/70 hover:bg-white/5 hover:text-white"
+                          ? "bg-white text-black"
+                          : "text-white/68 hover:bg-white/7 hover:text-white"
                       }`}
                       onClick={() =>
                         setOpenDropdown(openDropdown === link.label ? null : link.label)
@@ -140,10 +142,10 @@ export function Header() {
                   ) : (
                     <Link
                       to={link.href}
-                      className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                      className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-all ${
                         location.pathname === link.href
-                          ? "bg-white/10 text-white"
-                          : "text-white/70 hover:bg-white/5 hover:text-white"
+                          ? "bg-white text-black"
+                          : "text-white/68 hover:bg-white/7 hover:text-white"
                       }`}
                     >
                       {link.label}
@@ -151,12 +153,12 @@ export function Header() {
                   )}
 
                   {link.dropdown && openDropdown === link.label && (
-                    <div className="absolute left-0 top-full mt-1 w-48 rounded-lg border border-border/80 bg-popover py-1 shadow-lg">
+                    <div className="absolute left-0 top-full mt-2 w-52 rounded-2xl border border-white/10 bg-[color-mix(in_oklab,var(--color-popover)_92%,transparent)] py-2 shadow-[0_18px_40px_rgba(0,0,0,0.36)] backdrop-blur-xl">
                       {link.dropdown.map((item) => (
                         <Link
                           key={item.label}
                           to={item.href}
-                          className="flex items-center px-4 py-2 text-sm text-foreground/74 transition-colors hover:bg-accent hover:text-accent-foreground"
+                          className="mx-1 flex items-center rounded-xl px-4 py-2.5 text-sm text-foreground/74 transition-colors hover:bg-accent hover:text-accent-foreground"
                           onClick={() => setOpenDropdown(null)}
                         >
                           {item.label}
@@ -173,8 +175,8 @@ export function Header() {
             {searchOpen ? (
               <form onSubmit={handleSearch} className="hidden items-center md:flex">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                  <input
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                  <Input
                     ref={searchRef}
                     type="text"
                     placeholder="Search titles, genres..."
@@ -186,7 +188,7 @@ export function Header() {
                         setSearchQuery("");
                       }
                     }}
-                    className="w-56 rounded-full border border-white/20 bg-white/10 py-2 pl-10 pr-10 text-sm text-white placeholder:text-white/40 transition-all focus:border-primary/60 focus:bg-white/15 focus:outline-none sm:w-72"
+                    className="w-56 rounded-full border-white/14 bg-white/[0.08] py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-white/36 focus-visible:border-primary/60 focus-visible:bg-white/[0.12] sm:w-72"
                   />
                   <button
                     type="button"
@@ -205,7 +207,7 @@ export function Header() {
 
             {!searchOpen && (
               <button
-                className="rounded-full p-2 text-white/70 transition-all hover:bg-white/8 hover:text-white"
+                className="rounded-full p-2.5 text-white/70 transition-all hover:bg-white/8 hover:text-white"
                 onClick={() => setSearchOpen(true)}
                 aria-label="Search"
               >
@@ -214,7 +216,7 @@ export function Header() {
             )}
 
             <button
-              className="relative hidden rounded-full p-2 text-white/70 transition-all hover:bg-white/8 hover:text-white sm:inline-flex"
+              className="relative hidden rounded-full p-2.5 text-white/70 transition-all hover:bg-white/8 hover:text-white sm:inline-flex"
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
@@ -224,7 +226,7 @@ export function Header() {
             {isSignedIn ? (
               <div className="relative">
                 <button
-                  className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 transition-all hover:bg-white/8"
+                  className="flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] py-1 pl-1 pr-2 transition-all hover:bg-white/8"
                   onClick={() => setProfileOpen(!profileOpen)}
                 >
                   <img
@@ -247,8 +249,8 @@ export function Header() {
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 overflow-hidden rounded-xl border border-border/80 bg-popover shadow-lg">
-                    <div className="border-b border-border/70 px-4 py-3">
+                  <div className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-[1.35rem] border border-white/10 bg-[color-mix(in_oklab,var(--color-popover)_92%,transparent)] shadow-[0_18px_40px_rgba(0,0,0,0.36)] backdrop-blur-xl">
+                    <div className="border-b border-white/8 px-4 py-3">
                       <p className="truncate text-sm font-medium text-foreground">
                         {user?.firstName} {user?.lastName}
                       </p>
@@ -265,7 +267,7 @@ export function Header() {
                         <Link
                           key={item.label}
                           to={item.href}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground/74 transition-colors hover:bg-accent hover:text-accent-foreground"
+                          className="mx-1 flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-foreground/74 transition-colors hover:bg-accent hover:text-accent-foreground"
                           onClick={() => setProfileOpen(false)}
                         >
                           <item.icon className="h-4 w-4" />
@@ -273,7 +275,7 @@ export function Header() {
                         </Link>
                       ))}
                     </div>
-                    <div className="border-t border-border/70 py-1">
+                    <div className="border-t border-white/8 py-1">
                       <button
                         className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
                         onClick={() => {
@@ -290,7 +292,7 @@ export function Header() {
             ) : (
               <Button
                 size="sm"
-                className="hidden bg-primary text-white hover:bg-primary/90 sm:inline-flex"
+                className="hidden rounded-full bg-primary px-4 text-white hover:bg-primary/90 sm:inline-flex"
                 onClick={() => navigate("/sign-in")}
               >
                 Sign In
@@ -298,11 +300,11 @@ export function Header() {
             )}
 
             <button
-              className="rounded-full p-2 text-white/70 transition-all hover:bg-white/8 hover:text-white lg:hidden"
-              onClick={() => setMobileOpen(!mobileOpen)}
-              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              className="rounded-full p-2.5 text-white/70 transition-all hover:bg-white/8 hover:text-white lg:hidden"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
             >
-              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              <Menu className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -310,14 +312,14 @@ export function Header() {
         {searchOpen && (
           <div className="border-t border-white/8 py-3 md:hidden">
             <form onSubmit={handleSearch} className="relative">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-              <input
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+              <Input
                 ref={searchRef}
                 type="text"
                 placeholder="Search titles, genres..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-2xl border border-white/14 bg-white/8 py-3 pl-11 pr-11 text-sm text-white placeholder:text-white/40 focus:border-primary/60 focus:bg-white/12 focus:outline-none"
+                className="w-full rounded-2xl border-white/14 bg-white/8 py-3 pl-11 pr-11 text-sm text-white placeholder:text-white/40 focus-visible:border-primary/60 focus-visible:bg-white/12"
               />
               <button
                 type="button"
@@ -335,14 +337,21 @@ export function Header() {
         )}
       </div>
 
-      {mobileOpen && (
-        <div className="border-t border-white/8 bg-[hsl(220,20%,4%)/98] backdrop-blur-xl animate-fade-in-up lg:hidden">
-          <div className="px-4 py-4 sm:px-6">
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent
+          side="right"
+          className="w-[22rem] border-l border-white/8 bg-[hsl(220,20%,4%)/98] p-0 text-white backdrop-blur-xl"
+        >
+          <SheetHeader className="border-b border-white/8 px-5 py-4">
+            <SheetTitle className="font-display text-xl text-white">Browse</SheetTitle>
+          </SheetHeader>
+          <div className="px-4 py-4">
             <nav className="flex flex-col gap-2">
               {navLinks.map((link) => (
                 <div key={link.label} className="rounded-2xl border border-white/6 bg-white/[0.02]">
                   <Link
                     to={link.href}
+                    onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3.5 text-sm font-medium transition-colors ${
                       location.pathname === link.href
                         ? "text-white"
@@ -358,6 +367,7 @@ export function Header() {
                         <Link
                           key={item.label}
                           to={item.href}
+                          onClick={() => setMobileOpen(false)}
                           className="rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/65 transition-colors hover:bg-white/[0.08] hover:text-white"
                         >
                           {item.label}
@@ -381,6 +391,7 @@ export function Header() {
                     </div>
                     <Link
                       to="/my-list"
+                      onClick={() => setMobileOpen(false)}
                       className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-white/72 transition-colors hover:bg-white/6 hover:text-white"
                     >
                       <BookMarked className="h-4 w-4" />
@@ -388,6 +399,7 @@ export function Header() {
                     </Link>
                     <Link
                       to="/history"
+                      onClick={() => setMobileOpen(false)}
                       className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-white/72 transition-colors hover:bg-white/6 hover:text-white"
                     >
                       <Clock className="h-4 w-4" />
@@ -411,8 +423,8 @@ export function Header() {
               </div>
             </nav>
           </div>
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
     </header>
   );
 }

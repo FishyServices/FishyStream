@@ -3,13 +3,15 @@
 @source "../node_modules/@fishy/ui/src/**/*.{ts,tsx}";
 
 @theme {
-  --font-display: var(--font-sans);
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;
   --color-warning: oklch(0.78 0.12 85);
 }
 
 @layer base {
   :root {
     --radius: 0.875rem;
+    --home-glow: oklch(0.7 0.12 190 / 0.18);
   }
 
   * {
@@ -36,14 +38,19 @@
     -moz-osx-font-smoothing: grayscale;
     background-image:
       radial-gradient(
-        circle at top left,
-        color-mix(in oklab, var(--color-primary) 22%, transparent),
-        transparent 28%
+        circle at 12% 10%,
+        color-mix(in oklab, var(--color-primary) 26%, transparent),
+        transparent 26%
       ),
       radial-gradient(
-        circle at bottom right,
-        color-mix(in oklab, var(--color-secondary) 72%, transparent),
-        transparent 26%
+        circle at 88% 4%,
+        color-mix(in oklab, var(--color-secondary) 62%, transparent),
+        transparent 22%
+      ),
+      radial-gradient(
+        circle at 50% 110%,
+        color-mix(in oklab, var(--color-primary) 10%, transparent),
+        transparent 35%
       ),
       linear-gradient(
         color-mix(in oklab, var(--color-foreground) 5%, transparent) 1px,
@@ -55,6 +62,7 @@
         transparent 1px
       );
     background-size:
+      auto,
       auto,
       auto,
       32px 32px,
@@ -99,6 +107,20 @@
   .surface-danger {
     @apply rounded-[calc(var(--radius)+0.125rem)] border border-destructive/30 bg-destructive/8;
   }
+
+  .home-panel {
+    @apply relative overflow-hidden rounded-[1.6rem] border border-white/10 bg-white/[0.045] shadow-[0_30px_80px_rgba(0,0,0,0.28)];
+  }
+
+  .home-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 28%),
+      radial-gradient(circle at top right, var(--home-glow), transparent 30%);
+    pointer-events: none;
+  }
 }
 
 @layer utilities {
@@ -122,8 +144,17 @@
     padding-bottom: clamp(3rem, 8vw, 5rem);
   }
 
+  .page-shell-hero {
+    width: min(100% - 1.5rem, 108rem);
+    margin-inline: auto;
+  }
+
   .text-label {
     @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80;
+  }
+
+  .kicker {
+    @apply text-[0.65rem] font-semibold uppercase tracking-[0.26em] text-white/46;
   }
 
   .text-metadata {

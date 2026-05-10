@@ -37,17 +37,23 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
   if (content.length === 0) return null;
 
   return (
-    <section className="group relative isolate overflow-hidden py-2 pb-6 sm:py-3 sm:pb-8">
-      <div className="page-shell-wide relative z-40 mb-4 flex items-center justify-between gap-3">
-        <h2 className="truncate text-lg font-semibold text-foreground sm:text-xl" title={title}>
-          {title}
-        </h2>
+    <section className="group relative isolate overflow-hidden py-2 pb-8 sm:py-3 sm:pb-10">
+      <div className="page-shell-wide relative z-40 mb-5 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="kicker mb-2">Shelf</p>
+          <h2
+            className="truncate font-display text-xl font-bold text-foreground sm:text-2xl"
+            title={title}
+          >
+            {title}
+          </h2>
+        </div>
         {viewAllHref && (
           <button
             onClick={() => navigate(viewAllHref)}
-            className="relative z-40 ml-4 rounded-md px-3 py-2 whitespace-nowrap text-sm text-muted-foreground transition-colors hover:bg-card/80 hover:text-foreground"
+            className="relative z-40 ml-4 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-card/80 hover:text-foreground"
           >
-            View All →
+            View all
           </button>
         )}
       </div>
@@ -56,7 +62,7 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
         <Button
           variant="ghost"
           size="icon"
-          className="absolute left-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-r-md border border-l-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-background xl:flex group-hover:opacity-100"
+          className="absolute left-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-r-2xl border border-l-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-background xl:flex group-hover:opacity-100"
           onClick={() => scroll("left")}
           aria-label={`Scroll ${title} left`}
         >
@@ -66,7 +72,7 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
         <Button
           variant="ghost"
           size="icon"
-          className="absolute right-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-l-md border border-r-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-background xl:flex group-hover:opacity-100"
+          className="absolute right-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-l-2xl border border-r-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-background xl:flex group-hover:opacity-100"
           onClick={() => scroll("right")}
           aria-label={`Scroll ${title} right`}
         >
