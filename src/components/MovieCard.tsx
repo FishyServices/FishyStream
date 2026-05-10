@@ -11,11 +11,19 @@ interface WatchHistoryFields {
   seasonNumber?: number;
   episodeNumber?: number;
   completed?: boolean;
+  source?: string;
+  dub?: boolean;
 }
 
 interface MovieCardProps {
   content: Doc<"content"> & WatchHistoryFields;
-  onPlay?: (tmdbId: string, season?: number, episode?: number) => void;
+  onPlay?: (
+    tmdbId: string,
+    season?: number,
+    episode?: number,
+    source?: string,
+    dub?: boolean
+  ) => void;
   size?: "sm" | "md" | "lg";
   layout?: "rail" | "grid";
 }
@@ -51,7 +59,9 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
       onPlay?.(
         content.tmdbId,
         content.type === "tv" ? (content.seasonNumber ?? 1) : undefined,
-        content.type === "tv" ? (content.episodeNumber ?? 1) : undefined
+        content.type === "tv" ? (content.episodeNumber ?? 1) : undefined,
+        content.source,
+        content.dub
       );
     }
   };

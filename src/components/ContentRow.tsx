@@ -11,12 +11,20 @@ interface WatchHistoryFields {
   episodeNumber?: number;
   completed?: boolean;
   watchedAt?: number;
+  source?: string;
+  dub?: boolean;
 }
 
 interface ContentRowProps {
   title: string;
   content: Array<Doc<"content"> & WatchHistoryFields>;
-  onPlay?: (tmdbId: string, season?: number, episode?: number) => void;
+  onPlay?: (
+    tmdbId: string,
+    season?: number,
+    episode?: number,
+    source?: string,
+    dub?: boolean
+  ) => void;
   viewAllHref?: string;
 }
 

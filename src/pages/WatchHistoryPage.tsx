@@ -12,8 +12,20 @@ export function WatchHistoryPage() {
   const history = useMyWatchHistory();
   const removeFromHistory = useRemoveFromHistory();
 
-  const handlePlay = (tmdbId: string) => {
-    navigate(`/watch/${tmdbId}`);
+  const handlePlay = (
+    tmdbId: string,
+    season?: number,
+    episode?: number,
+    source?: string,
+    dub?: boolean
+  ) => {
+    const params = new URLSearchParams();
+    if (season !== undefined) params.set("season", String(season));
+    if (episode !== undefined) params.set("episode", String(episode));
+    if (source) params.set("source", source);
+    if (dub) params.set("dub", "true");
+    const qs = params.toString();
+    navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
   };
 
   const handleRemove = async (contentId: string) => {

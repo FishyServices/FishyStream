@@ -533,7 +533,9 @@ export function VideoPlayer({
         nextPos,
         nextDur,
         persistedSeason,
-        persistedEpisode
+        persistedEpisode,
+        selectedSourceConfig?.name,
+        animeContent ? isDub : undefined
       );
 
       lastSyncedProgressRef.current = nextProgress;

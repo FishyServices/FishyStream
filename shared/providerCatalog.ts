@@ -351,7 +351,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animeOnly: true,
     animeIdType: "anilist",
     dubSupport: true,
-    progress: { origins: ALL_ORIGINS },
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
     moviePath: (id) => `/stream/ani/${id}/1/sub`,
     tvPath: (id, _season, episode) => `/stream/ani/${id}/${episode}/sub`,
     animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`

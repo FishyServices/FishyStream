@@ -244,10 +244,18 @@ export function App() {
   const { recommendations } = useRecommendations(watchlist, 12);
   const { settings } = useAppSettings();
 
-  const handlePlay = (tmdbId: string, season?: number, episode?: number) => {
+  const handlePlay = (
+    tmdbId: string,
+    season?: number,
+    episode?: number,
+    source?: string,
+    dub?: boolean
+  ) => {
     const params = new URLSearchParams();
     if (season !== undefined) params.set("season", String(season));
     if (episode !== undefined) params.set("episode", String(episode));
+    if (source) params.set("source", source);
+    if (dub) params.set("dub", "true");
     const qs = params.toString();
     navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
   };

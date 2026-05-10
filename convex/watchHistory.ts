@@ -81,7 +81,9 @@ export const getMyWatchHistory = query({
           positionSeconds: item.positionSeconds,
           durationSeconds: item.durationSeconds,
           seasonNumber: item.seasonNumber,
-          episodeNumber: item.episodeNumber
+          episodeNumber: item.episodeNumber,
+          source: item.source,
+          dub: item.dub
         });
       }
     }
@@ -115,7 +117,9 @@ export const getContinueWatching = query({
           positionSeconds: item.positionSeconds,
           durationSeconds: item.durationSeconds,
           seasonNumber: item.seasonNumber,
-          episodeNumber: item.episodeNumber
+          episodeNumber: item.episodeNumber,
+          source: item.source,
+          dub: item.dub
         });
       }
     }
@@ -149,7 +153,9 @@ export const getWatchProgress = query({
       durationSeconds: historyItem?.durationSeconds || 0,
       completed: historyItem?.completed || false,
       seasonNumber: historyItem?.seasonNumber ?? null,
-      episodeNumber: historyItem?.episodeNumber ?? null
+      episodeNumber: historyItem?.episodeNumber ?? null,
+      source: historyItem?.source ?? null,
+      dub: historyItem?.dub ?? null
     };
   }
 });
@@ -172,6 +178,8 @@ async function fetchAllWatchProgress(ctx: QueryCtx, clerkUserId: string) {
     completed: item.completed || false,
     seasonNumber: item.seasonNumber ?? null,
     episodeNumber: item.episodeNumber ?? null,
+    source: item.source ?? null,
+    dub: item.dub ?? null,
     watchedAt: item.watchedAt
   }));
 }
@@ -197,6 +205,8 @@ export const getAllWatchProgressAction = action({
       completed: boolean;
       seasonNumber: number | null;
       episodeNumber: number | null;
+      source: string | null;
+      dub: boolean | null;
       watchedAt: number;
     }>
   > => {
@@ -213,7 +223,9 @@ export const updateProgress = mutation({
     positionSeconds: v.optional(v.number()),
     durationSeconds: v.optional(v.number()),
     seasonNumber: v.optional(v.number()),
-    episodeNumber: v.optional(v.number())
+    episodeNumber: v.optional(v.number()),
+    source: v.optional(v.string()),
+    dub: v.optional(v.boolean())
   },
   handler: async (ctx, args): Promise<void> => {
     const {
@@ -224,7 +236,9 @@ export const updateProgress = mutation({
       positionSeconds,
       durationSeconds,
       seasonNumber,
-      episodeNumber
+      episodeNumber,
+      source,
+      dub
     } = args;
     const userId = await getUserByClerkId(ctx, clerkUserId);
     if (!userId) throw new Error("User not found");
@@ -244,6 +258,8 @@ export const updateProgress = mutation({
         durationSeconds: durationSeconds ?? existing.durationSeconds,
         seasonNumber: seasonNumber ?? existing.seasonNumber,
         episodeNumber: episodeNumber ?? existing.episodeNumber,
+        source: source ?? existing.source,
+        dub: dub ?? existing.dub,
         completed: isCompleted,
         watchedAt: Date.now()
       });
@@ -256,6 +272,8 @@ export const updateProgress = mutation({
         durationSeconds,
         seasonNumber,
         episodeNumber,
+        source,
+        dub,
         completed: isCompleted,
         watchedAt: Date.now()
       });

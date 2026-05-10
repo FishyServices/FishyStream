@@ -100,6 +100,8 @@ export default defineSchema({
     durationSeconds: v.optional(v.number()),
     seasonNumber: v.optional(v.number()),
     episodeNumber: v.optional(v.number()),
+    source: v.optional(v.string()),
+    dub: v.optional(v.boolean()),
     completed: v.boolean(),
     watchedAt: v.number()
   })

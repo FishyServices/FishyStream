@@ -13,6 +13,8 @@ export interface WatchHistoryItem extends Doc<"content"> {
   durationSeconds?: number;
   seasonNumber?: number;
   episodeNumber?: number;
+  source?: string;
+  dub?: boolean;
 }
 
 export function useMyWatchHistory(): WatchHistoryItem[] | undefined {
@@ -47,6 +49,8 @@ export function useContinueWatching(): WatchHistoryItem[] | undefined {
             durationSeconds: progress.durationSeconds,
             seasonNumber: progress.seasonNumber,
             episodeNumber: progress.episodeNumber,
+            source: progress.source,
+            dub: progress.dub,
             watchedAt: Date.now()
           };
         }

@@ -19,6 +19,8 @@ export interface ProgressState {
   completed: boolean;
   seasonNumber?: number;
   episodeNumber?: number;
+  source?: string;
+  dub?: boolean;
 }
 
 interface StoredProgress extends ProgressState {
@@ -35,6 +37,8 @@ type ServerProgress = {
   completed: boolean;
   seasonNumber: number | null;
   episodeNumber: number | null;
+  source: string | null;
+  dub: boolean | null;
   watchedAt: number;
 };
 
@@ -70,7 +74,9 @@ function toProgressState(entry: StoredProgress | ServerProgress): ProgressState 
     durationSeconds: entry.durationSeconds,
     completed: entry.completed,
     seasonNumber: entry.seasonNumber ?? undefined,
-    episodeNumber: entry.episodeNumber ?? undefined
+    episodeNumber: entry.episodeNumber ?? undefined,
+    source: "source" in entry ? (entry.source ?? undefined) : undefined,
+    dub: "dub" in entry ? (entry.dub ?? undefined) : undefined
   };
 }
 
@@ -195,7 +201,9 @@ export function useUpdateProgress() {
           positionSeconds: entry.positionSeconds,
           durationSeconds: entry.durationSeconds,
           seasonNumber: entry.seasonNumber,
-          episodeNumber: entry.episodeNumber
+          episodeNumber: entry.episodeNumber,
+          source: entry.source,
+          dub: entry.dub
         });
 
         pendingRef.current.delete(entry.contentId);
@@ -255,7 +263,9 @@ export function useUpdateProgress() {
       positionSeconds = 0,
       durationSeconds = 0,
       seasonNumber?: number,
-      episodeNumber?: number
+      episodeNumber?: number,
+      source?: string,
+      dub?: boolean
     ) => {
       const entry: StoredProgress = {
         contentId,
@@ -265,6 +275,8 @@ export function useUpdateProgress() {
         durationSeconds: Math.max(0, durationSeconds),
         seasonNumber,
         episodeNumber,
+        source,
+        dub,
         lastUpdated: Date.now(),
         needsSync: true
       };
