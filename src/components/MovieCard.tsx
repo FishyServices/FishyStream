@@ -71,7 +71,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
   return (
     <>
       <div
-        className={`group/card relative ${layout === "rail" ? "snap-start flex-shrink-0" : ""} ${widthClass} cursor-pointer select-none`}
+        className={`group/card relative ${layout === "rail" ? "snap-start shrink-0" : ""} ${widthClass} cursor-pointer select-none`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={(e) => {
@@ -90,7 +90,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
         aria-label={`${content.title} (${content.year})`}
       >
         <div
-          className={`relative aspect-[2/3] rounded-lg overflow-hidden transition-all duration-300 ${
+          className={`relative aspect-2/3 rounded-lg overflow-hidden transition-all duration-300 ${
             hovered
               ? "md:scale-105 md:z-20 md:shadow-2xl md:shadow-black/70 md:ring-1 md:ring-white/20"
               : "shadow-md"
@@ -125,7 +125,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
 
           {/* Progress bar */}
           {hasProgress && !hovered && (
-            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/20">
+            <div className="absolute bottom-0 left-0 right-0 h-0.75 bg-white/20">
               <div
                 className="h-full bg-primary"
                 style={{ width: `${Math.min(100, content.progress!)}%` }}
@@ -135,7 +135,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
 
           {/* Hover overlay */}
           <div
-            className={`absolute inset-0 hidden md:flex bg-gradient-to-t from-black via-black/60 to-black/10 flex-col justify-end p-3 transition-opacity duration-200 ${
+            className={`absolute inset-0 hidden md:flex bg-linear-to-t from-black via-black/60 to-black/10 flex-col justify-end p-3 transition-opacity duration-200 ${
               hovered ? "opacity-100" : "opacity-0"
             }`}
           >
@@ -256,7 +256,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
               <span className="text-xs font-semibold">Play</span>
             </button>
             <button
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/[0.06]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/6"
               onClick={handleWatchlist}
               aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
             >
@@ -267,7 +267,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
               )}
             </button>
             <button
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/[0.06]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/6"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();

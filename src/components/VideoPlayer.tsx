@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@fishy/ui";
-import { useUser } from "@clerk/react";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import type { PlayerEventPayload } from "@/lib/playerProviders";
@@ -147,7 +146,6 @@ export function VideoPlayer({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { user, isSignedIn } = useUser();
   const { settings } = useAppSettings();
 
   const getMovieSources = useAction(api.providers.getMovieSources);
@@ -478,7 +476,6 @@ export function VideoPlayer({
 
       setCurrentProgress(nextProgress);
 
-      if (!isSignedIn || !user) return;
       if (syncInFlight) return;
 
       const isForced = data.event !== "timeupdate";
@@ -518,11 +515,9 @@ export function VideoPlayer({
     content.tmdbId,
     content.type,
     embedUrl,
-    isSignedIn,
     selectedSourceConfig,
     supportsProgressEvents,
-    updateProgress,
-    user
+    updateProgress
   ]);
 
   const handleSourceChange = async (nextUrl: string | null) => {
@@ -812,7 +807,7 @@ export function VideoPlayer({
             )}
 
             <Select value={selectedSource} onValueChange={handleSourceChange}>
-              <SelectTrigger className="w-full border-border/80 bg-card/90 text-sm text-foreground sm:w-[220px]">
+              <SelectTrigger className="w-full border-border/80 bg-card/90 text-sm text-foreground sm:w-55">
                 <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
                 <SelectValue placeholder="Source">
                   {selectedSourceConfig ? selectedSourceConfig.name : undefined}

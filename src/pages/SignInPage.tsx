@@ -186,7 +186,7 @@ function NativeSignInCard() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-7">
+    <div className="w-full max-w-md rounded-[1.75rem] border border-white/10 bg-white/4 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-7">
       <div className="mb-6">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/85">
           Android Sign In
@@ -245,7 +245,7 @@ function NativeSignInCard() {
               autoComplete="email"
               value={emailAddress}
               onChange={(event) => setEmailAddress(event.target.value)}
-              className="h-12 border-white/10 bg-white/[0.04] text-white placeholder:text-white/30"
+              className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
               placeholder="you@example.com"
               required
             />
@@ -262,7 +262,7 @@ function NativeSignInCard() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="h-12 border-white/10 bg-white/[0.04] text-white placeholder:text-white/30"
+                className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
                 placeholder="Your password"
                 required
               />
@@ -289,7 +289,7 @@ function NativeSignInCard() {
               autoComplete="one-time-code"
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              className="h-12 border-white/10 bg-white/[0.04] text-white placeholder:text-white/30"
+              className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
               placeholder="Enter the code from your email"
               required
             />

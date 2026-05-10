@@ -37,7 +37,7 @@ function Footer() {
   return (
     <footer className="mt-14 border-t border-white/6 px-6 py-12 sm:px-10">
       <div className="page-shell-wide grid gap-6 lg:grid-cols-[1.2fr_repeat(3,minmax(0,1fr))]">
-        <Card className="border-white/8 bg-white/[0.03]">
+        <Card className="border-white/8 bg-white/3">
           <CardHeader className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="relative h-10 w-10">
@@ -125,7 +125,7 @@ function SyncPanel() {
   };
 
   return (
-    <Card className="home-panel border-white/10 bg-white/[0.045]">
+    <Card className="home-panel border-white/10 bg-white/4.5">
       <CardContent className="relative z-10 flex flex-col gap-5 p-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-white/74">
@@ -150,7 +150,7 @@ function SyncPanel() {
               key={btn.label}
               size="sm"
               variant="outline"
-              className="rounded-full border-white/12 bg-white/[0.04] text-xs text-white hover:bg-white/[0.08]"
+              className="rounded-full border-white/12 bg-white/4 text-xs text-white hover:bg-white/8"
               disabled={syncing}
               onClick={() => doSync(btn.type, btn.count)}
             >
@@ -188,7 +188,7 @@ function EmptyState() {
 
   return (
     <div className="min-h-screen bg-background px-6 pt-28">
-      <Card className="page-shell home-panel mx-auto max-w-3xl border-white/10 bg-white/[0.045]">
+      <Card className="page-shell home-panel mx-auto max-w-3xl border-white/10 bg-white/4.5">
         <CardContent className="relative z-10 p-8 text-center sm:p-12">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-primary/15">
             <Clapperboard className="h-8 w-8 text-primary" />
@@ -218,7 +218,7 @@ function EmptyState() {
               onClick={() => doSync("tv")}
               disabled={!!syncing}
               variant="secondary"
-              className="rounded-full border border-white/14 bg-white/[0.08] px-6 text-white hover:bg-white/[0.14]"
+              className="rounded-full border border-white/14 bg-white/8 px-6 text-white hover:bg-white/[0.14]"
             >
               {syncing === "tv" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

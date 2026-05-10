@@ -82,11 +82,11 @@ function EpisodePill({
         <img
           src={ep.stillUrl}
           alt={ep.name}
-          className="h-14 w-24 flex-shrink-0 rounded-md bg-muted object-cover"
+          className="h-14 w-24 shrink-0 rounded-md bg-muted object-cover"
           loading="lazy"
         />
       ) : (
-        <div className="flex h-14 w-24 flex-shrink-0 items-center justify-center rounded-md bg-muted">
+        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-md bg-muted">
           <Tv className="h-5 w-5 text-muted-foreground/50" />
         </div>
       )}
@@ -101,7 +101,7 @@ function EpisodePill({
         )}
         {ep.runtime && <p className="mt-1 text-[11px] text-muted-foreground/80">{ep.runtime}m</p>}
       </div>
-      <Play className="mt-4 h-4 w-4 flex-shrink-0 text-transparent transition-colors group-hover:text-muted-foreground" />
+      <Play className="mt-4 h-4 w-4 shrink-0 text-transparent transition-colors group-hover:text-muted-foreground" />
     </button>
   );
 }
@@ -424,14 +424,14 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
         <DialogTitle className="sr-only">{content.title}</DialogTitle>
 
         {/* Hero */}
-        <div className="relative h-[280px] sm:h-[340px] flex-shrink-0">
+        <div className="relative h-70 sm:h-85 shrink-0">
           <img
             src={content.backdropUrl}
             alt={content.title}
             className="w-full h-full object-cover"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-background/35 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-card via-background/35 to-transparent" />
           <button
             className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-border/80 bg-background/78 text-foreground transition-colors hover:bg-background"
             onClick={onClose}
@@ -560,7 +560,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                         }
                       }}
                     >
-                      <SelectTrigger className="w-[10rem] border-border/80 bg-background text-foreground">
+                      <SelectTrigger className="w-40 border-border/80 bg-background text-foreground">
                         <SelectValue placeholder="Season">{`Season ${selectedSeason}`}</SelectValue>
                       </SelectTrigger>
                       <SelectContent className="border-border/80 bg-popover text-popover-foreground">
@@ -615,7 +615,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                 </h3>
                 <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
                   {credits.cast.slice(0, 10).map((actor) => (
-                    <div key={actor.id} className="flex-shrink-0 w-16 text-center">
+                    <div key={actor.id} className="shrink-0 w-16 text-center">
                       {actor.profileUrl ? (
                         <img
                           src={actor.profileUrl}
@@ -660,7 +660,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                       href={`https://youtube.com/watch?v=${video.key}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-shrink-0 w-40 group"
+                      className="shrink-0 w-40 group"
                     >
                       <div className="relative mb-1 aspect-video overflow-hidden rounded-lg bg-muted">
                         <img
@@ -699,7 +699,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                       className="group cursor-pointer"
                       onClick={() => handleRelatedClick(item)}
                     >
-                      <div className="mb-1.5 aspect-[2/3] overflow-hidden rounded-lg bg-muted">
+                      <div className="mb-1.5 aspect-2/3 overflow-hidden rounded-lg bg-muted">
                         <img
                           src={item.posterUrl}
                           alt={item.title}

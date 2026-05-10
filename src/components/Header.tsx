@@ -98,11 +98,11 @@ export function Header() {
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
           ? "border-b border-white/8 bg-[color-mix(in_oklab,var(--color-background)_88%,transparent)] shadow-[0_18px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl"
-          : "bg-gradient-to-b from-background/88 via-background/36 to-transparent"
+          : "bg-linear-to-b from-background/88 via-background/36 to-transparent"
       }`}
     >
       <div className="px-4 sm:px-6 lg:px-10" ref={dropdownRef}>
-        <div className="flex min-h-[4.5rem] items-center justify-between gap-3">
+        <div className="flex min-h-18 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-8">
             <Link to="/" className="group flex shrink-0 items-center gap-2.5">
               <div className="relative h-9 w-9">
@@ -118,7 +118,7 @@ export function Header() {
               </div>
             </Link>
 
-            <nav className="hidden items-center gap-1 rounded-full border border-white/8 bg-white/[0.04] p-1 lg:flex">
+            <nav className="hidden items-center gap-1 rounded-full border border-white/8 bg-white/4 p-1 lg:flex">
               {navLinks.map((link) => (
                 <div key={link.label} className="relative">
                   {link.dropdown ? (
@@ -188,7 +188,7 @@ export function Header() {
                         setSearchQuery("");
                       }
                     }}
-                    className="w-56 rounded-full border-white/14 bg-white/[0.08] py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-white/36 focus-visible:border-primary/60 focus-visible:bg-white/[0.12] sm:w-72"
+                    className="w-56 rounded-full border-white/14 bg-white/8 py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-white/36 focus-visible:border-primary/60 focus-visible:bg-white/12 sm:w-72"
                   />
                   <button
                     type="button"
@@ -226,7 +226,7 @@ export function Header() {
             {isSignedIn ? (
               <div className="relative">
                 <button
-                  className="flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] py-1 pl-1 pr-2 transition-all hover:bg-white/8"
+                  className="flex items-center gap-2 rounded-full border border-white/8 bg-white/3 py-1 pl-1 pr-2 transition-all hover:bg-white/8"
                   onClick={() => setProfileOpen(!profileOpen)}
                 >
                   <img
@@ -340,7 +340,7 @@ export function Header() {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
           side="right"
-          className="w-[22rem] border-l border-white/8 bg-[hsl(220,20%,4%)/98] p-0 text-white backdrop-blur-xl"
+          className="w-88 border-l border-white/8 bg-[hsl(220,20%,4%)/98] p-0 text-white backdrop-blur-xl"
         >
           <SheetHeader className="border-b border-white/8 px-5 py-4">
             <SheetTitle className="font-display text-xl text-white">Browse</SheetTitle>
@@ -348,7 +348,7 @@ export function Header() {
           <div className="px-4 py-4">
             <nav className="flex flex-col gap-2">
               {navLinks.map((link) => (
-                <div key={link.label} className="rounded-2xl border border-white/6 bg-white/[0.02]">
+                <div key={link.label} className="rounded-2xl border border-white/6 bg-white/2">
                   <Link
                     to={link.href}
                     onClick={() => setMobileOpen(false)}
@@ -368,7 +368,7 @@ export function Header() {
                           key={item.label}
                           to={item.href}
                           onClick={() => setMobileOpen(false)}
-                          className="rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-white/65 transition-colors hover:bg-white/[0.08] hover:text-white"
+                          className="rounded-xl bg-white/4 px-3 py-2 text-xs text-white/65 transition-colors hover:bg-white/8 hover:text-white"
                         >
                           {item.label}
                         </Link>
@@ -378,7 +378,7 @@ export function Header() {
                 </div>
               ))}
 
-              <div className="mt-2 rounded-2xl border border-white/6 bg-white/[0.02] p-3">
+              <div className="mt-2 rounded-2xl border border-white/6 bg-white/2 p-3">
                 {isSignedIn ? (
                   <div className="space-y-2">
                     <div className="px-1 pb-2">

@@ -68,7 +68,7 @@ export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = 
   const handlePlay = () => content.tmdbId && onPlay?.(content.tmdbId);
 
   return (
-    <div className="relative w-full h-[78svh] min-h-[540px] sm:h-[90vh] sm:min-h-[640px] max-h-[900px] overflow-hidden">
+    <div className="relative w-full h-[78svh] min-h-135 sm:h-[90vh] sm:min-h-160 max-h-225 overflow-hidden">
       {/* Backdrop */}
       <div
         className={`absolute inset-0 transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"}`}
@@ -92,11 +92,11 @@ export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = 
       </div>
 
       {!loaded && (
-        <div className="absolute inset-0 bg-gradient-to-r from-[hsl(220,20%,8%)] to-[hsl(220,20%,12%)] animate-pulse" />
+        <div className="absolute inset-0 bg-linear-to-r from-[hsl(220,20%,8%)] to-[hsl(220,20%,12%)] animate-pulse" />
       )}
 
-      <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/50 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/20" />
+      <div className="absolute inset-0 bg-linear-to-r from-black/95 via-black/50 to-transparent" />
+      <div className="absolute inset-0 bg-linear-to-t from-background via-transparent to-black/20" />
 
       {/* Content */}
       <div

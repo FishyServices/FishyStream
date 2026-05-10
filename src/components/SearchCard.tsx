@@ -92,7 +92,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
   return (
     <>
       <div
-        className={`group/card relative ${layout === "rail" ? "snap-start flex-shrink-0" : ""} ${widthClass} cursor-pointer select-none`}
+        className={`group/card relative ${layout === "rail" ? "snap-start shrink-0" : ""} ${widthClass} cursor-pointer select-none`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={handleCardClick}
@@ -107,7 +107,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
         aria-label={`${item.title} (${item.year})`}
       >
         <div
-          className={`relative aspect-[2/3] rounded-lg overflow-hidden transition-all duration-300 ${
+          className={`relative aspect-2/3 rounded-lg overflow-hidden transition-all duration-300 ${
             hovered
               ? "md:scale-105 md:z-20 md:shadow-2xl md:shadow-black/70 md:ring-1 md:ring-white/20"
               : "shadow-md"
@@ -128,7 +128,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
 
           {/* Hover overlay */}
           <div
-            className={`absolute inset-0 hidden md:flex bg-gradient-to-t from-black via-black/60 to-black/10 flex-col justify-end p-3 transition-opacity duration-200 ${
+            className={`absolute inset-0 hidden md:flex bg-linear-to-t from-black via-black/60 to-black/10 flex-col justify-end p-3 transition-opacity duration-200 ${
               hovered ? "opacity-100" : "opacity-0"
             }`}
           >
@@ -224,7 +224,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
               <span className="text-xs font-semibold">Play</span>
             </button>
             <button
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/[0.06]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/6"
               onClick={handleWatchlist}
               aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
             >
@@ -235,7 +235,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
               )}
             </button>
             <button
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/[0.06]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/6"
               onClick={(e) => {
                 e.stopPropagation();
                 handleCardClick();
