@@ -47,6 +47,19 @@ type RawProgressPayload = {
   episode?: number | string;
 };
 
+type MegaPlayTimePayload = {
+  event: "time" | "complete" | "error";
+  time?: number | string;
+  duration?: number | string;
+  percent?: number | string;
+};
+
+type MegaPlayWatchingLogPayload = {
+  type: "watching-log";
+  currentTime?: number | string;
+  duration?: number | string;
+};
+
 function toFiniteNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim() !== "") {
@@ -106,6 +119,25 @@ function isRawProgressPayload(value: unknown): value is RawProgressPayload {
   );
 }
 
+function isMegaPlayTimePayload(value: unknown): value is MegaPlayTimePayload {
+  if (!isRecord(value)) return false;
+
+  return (
+    (value.event === "time" || value.event === "complete" || value.event === "error") &&
+    (toFiniteNumber(value.time) !== undefined ||
+      toFiniteNumber(value.duration) !== undefined ||
+      toFiniteNumber(value.percent) !== undefined)
+  );
+}
+
+function isMegaPlayWatchingLogPayload(value: unknown): value is MegaPlayWatchingLogPayload {
+  if (!isRecord(value) || value.type !== "watching-log") return false;
+
+  return (
+    toFiniteNumber(value.currentTime) !== undefined || toFiniteNumber(value.duration) !== undefined
+  );
+}
+
 function normalizeMediaType(value: unknown): "movie" | "tv" {
   return value === "movie" ? "movie" : "tv";
 }
@@ -161,6 +193,41 @@ function rawProgressToPlayerEvent(value: RawProgressPayload): PlayerEventPayload
   };
 }
 
+function megaPlayTimeToPlayerEvent(value: MegaPlayTimePayload): PlayerEventPayload {
+  const currentTime = Math.max(0, toFiniteNumber(value.time) ?? 0);
+  const duration = Math.max(0, toFiniteNumber(value.duration) ?? 0);
+  const progress = toFiniteNumber(value.percent);
+
+  return {
+    type: "PLAYER_EVENT",
+    data: {
+      event: value.event === "complete" ? "ended" : "timeupdate",
+      currentTime,
+      duration,
+      progress: progress ?? calculateProgress(currentTime, duration),
+      mediaType: "tv",
+      timestamp: Date.now()
+    }
+  };
+}
+
+function megaPlayWatchingLogToPlayerEvent(value: MegaPlayWatchingLogPayload): PlayerEventPayload {
+  const currentTime = Math.max(0, toFiniteNumber(value.currentTime) ?? 0);
+  const duration = Math.max(0, toFiniteNumber(value.duration) ?? 0);
+
+  return {
+    type: "PLAYER_EVENT",
+    data: {
+      event: "timeupdate",
+      currentTime,
+      duration,
+      progress: calculateProgress(currentTime, duration),
+      mediaType: "tv",
+      timestamp: Date.now()
+    }
+  };
+}
+
 export function isKnownPlayerOrigin(origin: string): boolean {
   return !!getProviderByOrigin(origin)?.progress;
 }
@@ -187,6 +254,14 @@ export function parsePlayerMessage(raw: unknown, origin?: string): PlayerEventPa
 
   if (isRawProgressPayload(payload)) {
     return rawProgressToPlayerEvent(payload);
+  }
+
+  if (isMegaPlayTimePayload(payload)) {
+    return megaPlayTimeToPlayerEvent(payload);
+  }
+
+  if (isMegaPlayWatchingLogPayload(payload)) {
+    return megaPlayWatchingLogToPlayerEvent(payload);
   }
 
   return null;
