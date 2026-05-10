@@ -1,7 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { Capacitor } from "@capacitor/core";
 import { ClerkProvider, useAuth } from "@clerk/react";
 import { dark } from "@clerk/themes";
+import { applyFishyTheme } from "@fishy/ui";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -20,6 +22,8 @@ import { GlobalWatchlistProvider } from "./hooks/useWatchlist";
 import { WatchProgressProvider } from "./hooks/useWatchProgress";
 import { AppSettingsProvider } from "./hooks/useAppSettings";
 import "./index.css";
+
+const isNativeShell = Capacitor.isNativePlatform();
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
@@ -41,23 +45,30 @@ if (!convexUrl) {
 
 const convex = new ConvexReactClient(convexUrl);
 
+applyFishyTheme({
+  mode: "dark",
+  density:
+    isNativeShell || window.matchMedia("(max-width: 768px)").matches ? "touch" : "comfortable"
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ClerkProvider
       publishableKey={publishableKey}
+      standardBrowser={!isNativeShell}
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
       afterSignOutUrl="/"
       appearance={{
         baseTheme: dark,
         variables: {
-          colorPrimary: "oklch(0.65 0.15 180)",
+          colorPrimary: "oklch(0.62 0.1 182)",
           colorBackground: "rgba(18, 24, 32, 0.96)",
           colorInputBackground: "rgba(255,255,255,0.04)",
           colorInputText: "#f3f7fb",
           colorText: "#f3f7fb",
           colorTextSecondary: "rgba(243,247,251,0.72)",
-          borderRadius: "0.875rem",
+          borderRadius: "0.75rem",
           fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
         }
       }}

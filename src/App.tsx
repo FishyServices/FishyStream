@@ -48,7 +48,6 @@ function Footer() {
               </div>
               <div>
                 <p className="font-display text-lg font-bold text-white">FishyStream</p>
-                <p className="text-xs uppercase tracking-[0.24em] text-white/32">Cinematic queue</p>
               </div>
             </div>
             <CardDescription className="max-w-md text-sm leading-7 text-white/52">

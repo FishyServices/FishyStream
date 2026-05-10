@@ -6,6 +6,7 @@ import {
   useState,
   type PropsWithChildren
 } from "react";
+import { applyFishyTheme } from "@fishy/ui";
 import {
   APP_SETTINGS_STORAGE_KEY,
   DEFAULT_APP_SETTINGS,
@@ -42,8 +43,20 @@ export function AppSettingsProvider({ children }: PropsWithChildren) {
   }, [settings]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = settings.theme;
-    document.documentElement.style.colorScheme = settings.theme;
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+
+    const syncTheme = () => {
+      applyFishyTheme({
+        mode: settings.theme,
+        density: mediaQuery.matches ? "touch" : "comfortable"
+      });
+      document.documentElement.style.colorScheme = settings.theme;
+    };
+
+    syncTheme();
+    mediaQuery.addEventListener("change", syncTheme);
+
+    return () => mediaQuery.removeEventListener("change", syncTheme);
   }, [settings.theme]);
 
   const value = useMemo<AppSettingsContextValue>(
