@@ -162,6 +162,7 @@ export function VideoPlayer({
 
   const getMovieSources = useAction(api.providers.getMovieSources);
   const getTVSources = useAction(api.providers.getTVSources);
+  const syncSeason = useAction(api.tmdb.syncSeason);
   const updateProgress = useUpdateProgress();
   const watchState = useGetProgress(content._id);
   const animeContent = isAnimeContent(content);
@@ -180,6 +181,7 @@ export function VideoPlayer({
   const lastSyncedPositionRef = useRef(0);
   const lastRealtimeSyncAtRef = useRef(0);
   const sourceRequestIdRef = useRef(0);
+  const seasonSyncRequestRef = useRef<string | null>(null);
   const [resumePositionSeconds, setResumePositionSeconds] = useState(0);
 
   const tvTargetRef = useRef({
@@ -202,6 +204,36 @@ export function VideoPlayer({
     tvTarget.season,
     currentSeasonData
   );
+
+  useEffect(() => {
+    if (content.type !== "tv" || !content.tmdbId) return;
+
+    const shouldSyncSeason =
+      currentSeasonData === null || (animeContent && !currentSeasonData?.anilistId);
+    if (!shouldSyncSeason) return;
+
+    const key = `${content._id}:${tvTarget.season}`;
+    if (seasonSyncRequestRef.current === key) return;
+    seasonSyncRequestRef.current = key;
+
+    void syncSeason({
+      tmdbId: content.tmdbId,
+      contentId: content._id,
+      seasonNumber: tvTarget.season
+    }).finally(() => {
+      if (seasonSyncRequestRef.current === key) {
+        seasonSyncRequestRef.current = null;
+      }
+    });
+  }, [
+    animeContent,
+    content._id,
+    content.tmdbId,
+    content.type,
+    currentSeasonData,
+    syncSeason,
+    tvTarget.season
+  ]);
 
   useEffect(() => {
     sourceRequestIdRef.current += 1;
@@ -303,9 +335,11 @@ export function VideoPlayer({
             ? await getTVSources({
                 imdbId: content.imdbId ?? undefined,
                 tmdbId: content.tmdbId ?? undefined,
+                anilistId: currentSeasonData?.anilistId ?? content.anilistId ?? undefined,
                 isAnime: animeContent,
                 title: content.title,
                 seasonTitle: currentSeasonData?.name,
+                year: content.year,
                 season,
                 episode,
                 dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
@@ -594,9 +628,11 @@ export function VideoPlayer({
       const refreshed = await getTVSources({
         imdbId: content.imdbId ?? undefined,
         tmdbId: content.tmdbId ?? undefined,
+        anilistId: currentSeasonData?.anilistId ?? content.anilistId ?? undefined,
         isAnime: animeContent,
         title: content.title,
         seasonTitle: currentSeasonData?.name,
+        year: content.year,
         season: tvTargetRef.current.season,
         episode: tvTargetRef.current.episode,
         dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined

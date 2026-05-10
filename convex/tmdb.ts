@@ -7,6 +7,7 @@ import {
   getCanonicalTotalEpisodes,
   getTvOrderingOverride
 } from "../shared/tvSeasonMappings";
+import { resolveAniListId } from "../shared/anilistResolver";
 
 const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
@@ -371,6 +372,18 @@ function getRating(voteAverage: number, certificationOrRating?: string | null): 
   return "G";
 }
 
+function isAnimeLikeContent(args: {
+  type: "movie" | "tv";
+  genres: string[];
+  originalLanguage?: string;
+}) {
+  if (args.type !== "tv") return false;
+  return (
+    args.originalLanguage?.toLowerCase() === "ja" &&
+    args.genres.some((genre) => genre.toLowerCase() === "animation")
+  );
+}
+
 function getYear(date?: string): number {
   return parseInt(date?.split("-")[0] ?? "2024") || 2024;
 }
@@ -733,6 +746,20 @@ export const syncContent = action({
 
       const md = details as TMDBMovieDetails | null;
       const td = details as TMDBTVDetails | null;
+      const genres = getGenres(details ?? { genre_ids: seed.genreIds });
+      const originalLanguage = details?.original_language ?? seed.originalLanguage;
+      const animeLike = isAnimeLikeContent({
+        type: seed.type,
+        genres,
+        originalLanguage
+      });
+      const resolvedAniListId = animeLike
+        ? await resolveAniListId({
+            title: seed.title,
+            season: 1,
+            year: getYear(seed.releaseDate ?? seed.firstAirDate)
+          })
+        : null;
 
       const logos = seed.type === "movie" ? md?.images?.logos : td?.images?.logos;
       const videos = seed.type === "movie" ? md?.videos?.results : td?.videos?.results;
@@ -741,7 +768,7 @@ export const syncContent = action({
         title: (seed.type === "movie" ? md?.title : td?.name) ?? seed.title,
         description: details?.overview ?? seed.overview ?? "No description available",
         type: seed.type,
-        genre: getGenres(details ?? { genre_ids: seed.genreIds }),
+        genre: genres,
         year: getYear(
           seed.type === "movie"
             ? (md?.release_date ?? seed.releaseDate)
@@ -756,6 +783,7 @@ export const syncContent = action({
         logoUrl: getLogoUrl(logos),
         trailerKey: getTrailerKey(videos),
         tmdbId: String(seed.id),
+        anilistId: resolvedAniListId ?? undefined,
         imdbId:
           (seed.type === "movie"
             ? (md?.imdb_id ?? md?.external_ids?.imdb_id)
@@ -772,7 +800,7 @@ export const syncContent = action({
             : undefined,
         status: seed.type === "movie" ? md?.status : td?.status,
         tagline: seed.type === "movie" ? md?.tagline || undefined : td?.tagline || undefined,
-        originalLanguage: seed.originalLanguage,
+        originalLanguage,
         productionCountries: details?.production_countries?.map((c) => c.name),
         spokenLanguages: details?.spoken_languages?.map((l) => l.name),
         budget: seed.type === "movie" ? md?.budget : undefined,
@@ -810,9 +838,50 @@ export const syncContent = action({
   }
 });
 
+export const backfillAniListIds = action({
+  args: { limit: v.optional(v.number()) },
+  handler: async (
+    ctx,
+    { limit = 100 }
+  ): Promise<{
+    scanned: number;
+    updated: number;
+  }> => {
+    const candidates: Array<{
+      id: string;
+      tmdbId?: string;
+      title: string;
+      year: number;
+    }> = await ctx.runQuery(internal.content.getAnimeMissingAniListIds, { limit });
+    let updated = 0;
+
+    for (const candidate of candidates) {
+      if (!candidate.tmdbId) continue;
+
+      const anilistId = await resolveAniListId({
+        title: candidate.title,
+        season: 1,
+        year: candidate.year
+      });
+
+      if (!anilistId) continue;
+
+      await ctx.runMutation(internal.content.setAniListId, {
+        id: candidate.id as any,
+        anilistId
+      });
+      updated++;
+    }
+
+    return { scanned: candidates.length, updated };
+  }
+});
+
 export const syncSeasons = action({
   args: { tmdbId: v.string(), contentId: v.string(), totalSeasons: v.number() },
   handler: async (ctx, { tmdbId, contentId, totalSeasons }) => {
+    const content = await ctx.runQuery(api.content.getById, { id: contentId as any });
+    const contentTitle = content?.title;
     const override = getTvOrderingOverride(tmdbId);
     if (override?.episodeGroupId) {
       const groupData = await get<{
@@ -833,9 +902,16 @@ export const syncSeasons = action({
       if (groupData?.groups?.length) {
         let groupSynced = 0;
         for (const group of groupData.groups.slice(0, override.canonicalSeasonCount)) {
+          const resolvedAniListId = await resolveAniListId({
+            title: contentTitle,
+            season: Math.max(1, group.order),
+            seasonTitle: group.name,
+            year: content?.year
+          });
           await ctx.runMutation(internal.seasons.upsertSeason, {
             contentId: contentId as any,
             tmdbId,
+            anilistId: resolvedAniListId ?? undefined,
             seasonNumber: Math.max(1, group.order),
             name: group.name,
             overview: undefined,
@@ -862,10 +938,17 @@ export const syncSeasons = action({
     for (let s = 1; s <= Math.min(totalSeasons, 20); s++) {
       const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${s}`);
       if (!data) continue;
+      const resolvedAniListId = await resolveAniListId({
+        title: contentTitle,
+        season: data.season_number,
+        seasonTitle: data.name,
+        year: content?.year
+      });
 
       await ctx.runMutation(internal.seasons.upsertSeason, {
         contentId: contentId as any,
         tmdbId,
+        anilistId: resolvedAniListId ?? undefined,
         seasonNumber: data.season_number,
         name: data.name,
         overview: data.overview || undefined,
@@ -891,6 +974,8 @@ export const syncSeasons = action({
 export const syncSeason = action({
   args: { tmdbId: v.string(), contentId: v.string(), seasonNumber: v.number() },
   handler: async (ctx, { tmdbId, contentId, seasonNumber }) => {
+    const content = await ctx.runQuery(api.content.getById, { id: contentId as any });
+    const contentTitle = content?.title;
     const override = getTvOrderingOverride(tmdbId);
     if (override?.episodeGroupId) {
       const groupData = await get<{
@@ -910,10 +995,17 @@ export const syncSeason = action({
 
       const group = groupData?.groups?.find((entry) => Math.max(1, entry.order) === seasonNumber);
       if (!group) return null;
+      const resolvedAniListId = await resolveAniListId({
+        title: contentTitle,
+        season: seasonNumber,
+        seasonTitle: group.name,
+        year: content?.year
+      });
 
       await ctx.runMutation(internal.seasons.upsertSeason, {
         contentId: contentId as any,
         tmdbId,
+        anilistId: resolvedAniListId ?? undefined,
         seasonNumber,
         name: group.name,
         overview: undefined,
@@ -936,10 +1028,17 @@ export const syncSeason = action({
 
     const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
     if (!data) return null;
+    const resolvedAniListId = await resolveAniListId({
+      title: contentTitle,
+      season: data.season_number,
+      seasonTitle: data.name,
+      year: content?.year
+    });
 
     await ctx.runMutation(internal.seasons.upsertSeason, {
       contentId: contentId as any,
       tmdbId,
+      anilistId: resolvedAniListId ?? undefined,
       seasonNumber: data.season_number,
       name: data.name,
       overview: data.overview || undefined,
@@ -1166,7 +1265,10 @@ export const syncSingleContent = action({
     tmdbId: v.number(),
     type: v.union(v.literal("movie"), v.literal("tv"))
   },
-  handler: async (ctx, { tmdbId, type }): Promise<{
+  handler: async (
+    ctx,
+    { tmdbId, type }
+  ): Promise<{
     alreadyExists: boolean;
     tmdbId: string;
     seasons: number | undefined;
@@ -1183,13 +1285,26 @@ export const syncSingleContent = action({
 
     const md = details as TMDBMovieDetails | null;
     const td = details as TMDBTVDetails | null;
+    const genres = getGenres(details);
+    const animeLike = isAnimeLikeContent({
+      type,
+      genres,
+      originalLanguage: details.original_language
+    });
+    const resolvedAniListId = animeLike
+      ? await resolveAniListId({
+          title: type === "movie" ? md?.title : td?.name,
+          season: 1,
+          year: getYear(type === "movie" ? md?.release_date : td?.first_air_date)
+        })
+      : null;
 
     const now = Date.now();
     const item = {
       title: (type === "movie" ? md?.title : td?.name) || "Unknown Title",
       description: details.overview || "No description available",
       type,
-      genre: getGenres(details),
+      genre: genres,
       year: getYear(type === "movie" ? md?.release_date : td?.first_air_date),
       rating: getRating(details.vote_average),
       voteAverage: details.vote_average,
@@ -1200,6 +1315,7 @@ export const syncSingleContent = action({
       logoUrl: getLogoUrl(type === "movie" ? md?.images?.logos : td?.images?.logos),
       trailerKey: getTrailerKey(type === "movie" ? md?.videos?.results : td?.videos?.results),
       tmdbId: String(tmdbId),
+      anilistId: resolvedAniListId ?? undefined,
       imdbId:
         (type === "movie" ? md?.imdb_id || md?.external_ids?.imdb_id : td?.external_ids?.imdb_id) ||
         undefined,
@@ -1224,6 +1340,12 @@ export const syncSingleContent = action({
     };
 
     await ctx.runMutation(internal.content.upsertBatchFromTMDB, { items: [item] });
+    if (resolvedAniListId && existing?._id) {
+      await ctx.runMutation(internal.content.setAniListId, {
+        id: existing._id,
+        anilistId: resolvedAniListId
+      });
+    }
 
     return {
       alreadyExists: false,

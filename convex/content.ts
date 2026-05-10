@@ -21,6 +21,7 @@ const tmdbContentValidator = v.object({
   trailerKey: v.optional(v.string()),
   imdbId: v.optional(v.string()),
   tmdbId: v.optional(v.string()),
+  anilistId: v.optional(v.string()),
   trending: v.boolean(),
   popular: v.boolean(),
   featured: v.boolean(),
@@ -253,6 +254,7 @@ export const create = mutation({
     backdropUrl: v.string(),
     imdbId: v.optional(v.string()),
     tmdbId: v.optional(v.string()),
+    anilistId: v.optional(v.string()),
     trending: v.boolean(),
     popular: v.boolean(),
     featured: v.boolean(),
@@ -313,6 +315,44 @@ export const getAllTmdbIds = internalQuery({
   handler: async (ctx) => {
     const content = await ctx.db.query("content").take(10000);
     return content.map((c) => ({ tmdbId: c.tmdbId, type: c.type }));
+  }
+});
+
+export const getAnimeMissingAniListIds = internalQuery({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 250 }) => {
+    const content = await ctx.db
+      .query("content")
+      .withIndex("by_type", (q) => q.eq("type", "tv"))
+      .take(5000);
+
+    return content
+      .filter(
+        (item) =>
+          !item.anilistId &&
+          item.originalLanguage?.toLowerCase() === "ja" &&
+          item.genre.some((genre) => genre.toLowerCase() === "animation")
+      )
+      .slice(0, limit)
+      .map((item) => ({
+        id: item._id,
+        tmdbId: item.tmdbId,
+        title: item.title,
+        year: item.year
+      }));
+  }
+});
+
+export const setAniListId = internalMutation({
+  args: {
+    id: v.id("content"),
+    anilistId: v.string()
+  },
+  handler: async (ctx, { id, anilistId }) => {
+    await ctx.db.patch(id, {
+      anilistId,
+      updatedAt: Date.now()
+    });
   }
 });
 

@@ -6,6 +6,7 @@ export const upsertSeason = internalMutation({
   args: {
     contentId: v.id("content"),
     tmdbId: v.string(),
+    anilistId: v.optional(v.string()),
     seasonNumber: v.number(),
     name: v.string(),
     overview: v.optional(v.string()),

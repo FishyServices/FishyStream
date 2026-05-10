@@ -55,6 +55,13 @@ interface ContentModalProps {
   onPlay: (tmdbId: string, season?: number, episode?: number) => void;
 }
 
+function isAnimeContent(content: Doc<"content"> | null) {
+  if (!content || content.type !== "tv") return false;
+
+  const genres = new Set(content.genre.map((g) => g.toLowerCase()));
+  return genres.has("animation") && content.originalLanguage?.toLowerCase() === "ja";
+}
+
 function EpisodePill({
   ep,
   selected,
@@ -111,6 +118,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const { isSignedIn } = useUser();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
+  const animeContent = isAnimeContent(content);
 
   const isInWatchlist = useIsInWatchlist(content?._id);
   const toggleWatchlist = useToggleWatchlist();
@@ -288,7 +296,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       const actualEpisodes = season.episodeCount || season.episodes.length;
       return actualEpisodes !== expectedEpisodes;
     });
+    const hasMissingAniListIds = animeContent && allSeasons.some((season) => !season.anilistId);
     const isSeasonSyncComplete =
+      !hasMissingAniListIds &&
       !hasSeasonShapeMismatch &&
       allSeasons.length >= expectedSeasonCount &&
       Array.from({ length: expectedSeasonCount }, (_, index) => index + 1).every((seasonNumber) =>
@@ -343,11 +353,12 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     const hasEpisodes = actualEpisodes > 0;
     const hasMismatch =
       expectedEpisodes != null && hasEpisodes && actualEpisodes !== expectedEpisodes;
-    const needsSync = !dbSeason || !hasEpisodes || hasMismatch;
+    const needsSync =
+      !dbSeason || !hasEpisodes || hasMismatch || (animeContent && !dbSeason?.anilistId);
 
     if (!needsSync || syncedSeasonKeysRef.current.has(seasonKey)) return;
     requestSeasonSync(selectedSeason, { showLoader: !hasEpisodes });
-  }, [content, dbSeason, isOpen, isSyncing, selectedSeason, syncSeason]);
+  }, [animeContent, content, dbSeason, isOpen, isSyncing, selectedSeason, syncSeason]);
 
   const handleRelatedClick = async (item: TMDBItem) => {
     setRelatedModalItem(item);

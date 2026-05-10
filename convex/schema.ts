@@ -29,6 +29,7 @@ export default defineSchema({
     trailerKey: v.optional(v.string()),
     imdbId: v.optional(v.string()),
     tmdbId: v.optional(v.string()),
+    anilistId: v.optional(v.string()),
     trending: v.boolean(),
     popular: v.boolean(),
     featured: v.boolean(),
@@ -60,6 +61,7 @@ export default defineSchema({
   seasons: defineTable({
     contentId: v.id("content"),
     tmdbId: v.string(),
+    anilistId: v.optional(v.string()),
     seasonNumber: v.number(),
     name: v.string(),
     overview: v.optional(v.string()),
