@@ -137,6 +137,18 @@ function isAnimeContent(content: Doc<"content">) {
   return genres.has("animation") && content.originalLanguage?.toLowerCase() === "ja";
 }
 
+function shouldWaitForAnimeSeasonMetadata(
+  content: Doc<"content">,
+  animeContent: boolean,
+  seasonNumber: number,
+  currentSeasonData: Doc<"seasons"> | null | undefined
+) {
+  if (!animeContent || content.type !== "tv") return false;
+  if (seasonNumber <= 1) return false;
+  if (currentSeasonData === undefined) return true;
+  return currentSeasonData?.seasonNumber !== seasonNumber;
+}
+
 export function VideoPlayer({
   content,
   initialSeason,
@@ -167,6 +179,7 @@ export function VideoPlayer({
   const lastSyncedProgressRef = useRef(0);
   const lastSyncedPositionRef = useRef(0);
   const lastRealtimeSyncAtRef = useRef(0);
+  const sourceRequestIdRef = useRef(0);
   const [resumePositionSeconds, setResumePositionSeconds] = useState(0);
 
   const tvTargetRef = useRef({
@@ -183,8 +196,15 @@ export function VideoPlayer({
     api.seasons.getSeason,
     content.type === "tv" ? { contentId: content._id, seasonNumber: tvTarget.season } : "skip"
   );
+  const waitingForAnimeSeasonMetadata = shouldWaitForAnimeSeasonMetadata(
+    content,
+    animeContent,
+    tvTarget.season,
+    currentSeasonData
+  );
 
   useEffect(() => {
+    sourceRequestIdRef.current += 1;
     setSources([]);
     setSelectedSource("");
     setLoading(true);
@@ -226,6 +246,7 @@ export function VideoPlayer({
       return;
     }
 
+    sourceRequestIdRef.current += 1;
     setSources([]);
     setSelectedSource("");
     setLoading(true);
@@ -263,6 +284,7 @@ export function VideoPlayer({
 
   useEffect(() => {
     if (sources.length > 0 || error) return;
+    if (waitingForAnimeSeasonMetadata) return;
 
     const load = async () => {
       if (!content.imdbId && !content.tmdbId) {
@@ -270,6 +292,9 @@ export function VideoPlayer({
         setLoading(false);
         return;
       }
+
+      const requestId = ++sourceRequestIdRef.current;
+
       try {
         setLoading(true);
         const { season, episode } = tvTargetRef.current;
@@ -290,6 +315,9 @@ export function VideoPlayer({
                 tmdbId: content.tmdbId ?? undefined
               });
 
+        if (requestId !== sourceRequestIdRef.current) {
+          return;
+        }
         if (!fetched?.length) {
           setError("No streaming sources found for this content");
           setLoading(false);
@@ -315,10 +343,14 @@ export function VideoPlayer({
         );
         setSelectedSource(def.url);
       } catch (err) {
+        if (requestId !== sourceRequestIdRef.current) {
+          return;
+        }
         setError(
           `Failed to load streaming sources: ${err instanceof Error ? err.message : String(err)}`
         );
       } finally {
+        if (requestId !== sourceRequestIdRef.current) return;
         setLoading(false);
       }
     };
@@ -334,7 +366,9 @@ export function VideoPlayer({
     settings.defaultProvider,
     sources.length,
     watchState,
-    searchParams
+    searchParams,
+    currentSeasonData?.name,
+    waitingForAnimeSeasonMetadata
   ]);
 
   const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
@@ -553,6 +587,8 @@ export function VideoPlayer({
 
     try {
       setLoading(true);
+      if (waitingForAnimeSeasonMetadata) return;
+      const requestId = ++sourceRequestIdRef.current;
       const refreshed = await getTVSources({
         imdbId: content.imdbId ?? undefined,
         tmdbId: content.tmdbId ?? undefined,
@@ -564,6 +600,9 @@ export function VideoPlayer({
         dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
       });
 
+      if (requestId !== sourceRequestIdRef.current) {
+        return;
+      }
       if (!refreshed?.length) {
         setError("No sources for this episode");
         return;
@@ -598,6 +637,7 @@ export function VideoPlayer({
       params.delete("dub");
     }
     setSearchParams(params, { replace: true });
+    sourceRequestIdRef.current += 1;
     setSources([]);
     setSelectedSource("");
     setLoading(true);
@@ -653,6 +693,7 @@ export function VideoPlayer({
     }
     navigate({ search: params.toString() }, { replace: true });
 
+    sourceRequestIdRef.current += 1;
     setSources([]);
     setLoading(true);
     setError(null);

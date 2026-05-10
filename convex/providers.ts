@@ -43,10 +43,19 @@ function buildAniListSearchCandidates(title: string, season: number, seasonTitle
   const cleanedTitle = title.trim();
   const cleanedSeasonTitle = seasonTitle?.trim();
   const candidates = new Set<string>();
+  const normalizedSeasonTitle = normalizeAniListText(cleanedSeasonTitle);
+  const genericSeasonTitle =
+    !normalizedSeasonTitle ||
+    /^season \d+$/.test(normalizedSeasonTitle) ||
+    /^\d+(st|nd|rd|th) season$/.test(normalizedSeasonTitle) ||
+    /^part \d+$/.test(normalizedSeasonTitle) ||
+    /^cour \d+$/.test(normalizedSeasonTitle);
 
-  if (cleanedSeasonTitle && normalizeAniListText(cleanedSeasonTitle) !== "season") {
-    candidates.add(cleanedSeasonTitle);
+  if (cleanedSeasonTitle && normalizedSeasonTitle !== "season") {
     candidates.add(`${cleanedTitle} ${cleanedSeasonTitle}`);
+    if (!genericSeasonTitle) {
+      candidates.add(cleanedSeasonTitle);
+    }
   }
 
   candidates.add(cleanedTitle);
@@ -91,15 +100,39 @@ function scoreAniListCandidate(media: AniListSearchMedia, title: string, season:
 
   if (!titles.length) return -1;
 
-  let score = media.format === "TV" ? 4 : 0;
+  let score = 0;
+  if (media.format === "TV") score += 12;
+  else if (media.format === "ONA") score += 4;
+  else score -= 6;
+  let matchedBaseTitle = false;
 
   for (const candidate of titles) {
-    if (candidate === baseTitle) score += 12;
-    else if (candidate.startsWith(baseTitle)) score += 8;
-    else if (candidate.includes(baseTitle)) score += 5;
+    if (candidate === baseTitle) {
+      score += 12;
+      matchedBaseTitle = true;
+    } else if (candidate.startsWith(baseTitle)) {
+      score += 8;
+      matchedBaseTitle = true;
+    } else if (candidate.includes(baseTitle)) {
+      score += 5;
+      matchedBaseTitle = true;
+    }
 
     if (seasonTokens.some((token) => candidate.includes(token))) score += 10;
     if (antiSeasonTokens.some((token) => candidate.includes(token))) score -= 8;
+    if (
+      candidate.includes("special") ||
+      candidate.includes("specials") ||
+      candidate.includes("ova") ||
+      candidate.includes("oad") ||
+      candidate.includes("movie")
+    ) {
+      score -= 20;
+    }
+  }
+
+  if (!matchedBaseTitle) {
+    score -= 18;
   }
 
   return score;
@@ -169,10 +202,6 @@ async function resolveAniListId(args: {
         bestScore = score;
         bestMatch = media;
       }
-    }
-
-    if (bestScore >= 18 && bestMatch) {
-      return String(bestMatch.id);
     }
   }
 
