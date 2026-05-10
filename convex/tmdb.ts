@@ -906,7 +906,7 @@ export const syncSeasons = action({
             title: contentTitle,
             season: Math.max(1, group.order),
             seasonTitle: group.name,
-            year: content?.year
+            year: getYear(group.episodes[0]?.air_date ?? undefined)
           });
           await ctx.runMutation(internal.seasons.upsertSeason, {
             contentId: contentId as any,
@@ -942,7 +942,7 @@ export const syncSeasons = action({
         title: contentTitle,
         season: data.season_number,
         seasonTitle: data.name,
-        year: content?.year
+        year: getYear(data.air_date ?? undefined)
       });
 
       await ctx.runMutation(internal.seasons.upsertSeason, {
@@ -999,7 +999,7 @@ export const syncSeason = action({
         title: contentTitle,
         season: seasonNumber,
         seasonTitle: group.name,
-        year: content?.year
+        year: getYear(group.episodes[0]?.air_date ?? undefined)
       });
 
       await ctx.runMutation(internal.seasons.upsertSeason, {
@@ -1032,7 +1032,7 @@ export const syncSeason = action({
       title: contentTitle,
       season: data.season_number,
       seasonTitle: data.name,
-      year: content?.year
+      year: getYear(data.air_date ?? undefined)
     });
 
     await ctx.runMutation(internal.seasons.upsertSeason, {

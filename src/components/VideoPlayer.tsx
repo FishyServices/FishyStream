@@ -149,6 +149,11 @@ function shouldWaitForAnimeSeasonMetadata(
   return currentSeasonData?.seasonNumber !== seasonNumber;
 }
 
+function getSeasonYear(airDate?: string) {
+  const year = Number((airDate ?? "").split("-")[0]);
+  return Number.isFinite(year) && year > 1900 ? year : undefined;
+}
+
 export function VideoPlayer({
   content,
   initialSeason,
@@ -209,7 +214,7 @@ export function VideoPlayer({
     if (content.type !== "tv" || !content.tmdbId) return;
 
     const shouldSyncSeason =
-      currentSeasonData === null || (animeContent && !currentSeasonData?.anilistId);
+      currentSeasonData === null || animeContent || (animeContent && !currentSeasonData?.anilistId);
     if (!shouldSyncSeason) return;
 
     const key = `${content._id}:${tvTarget.season}`;
@@ -339,7 +344,7 @@ export function VideoPlayer({
                 isAnime: animeContent,
                 title: content.title,
                 seasonTitle: currentSeasonData?.name,
-                year: content.year,
+                year: getSeasonYear(currentSeasonData?.airDate) ?? content.year,
                 season,
                 episode,
                 dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
@@ -632,7 +637,7 @@ export function VideoPlayer({
         isAnime: animeContent,
         title: content.title,
         seasonTitle: currentSeasonData?.name,
-        year: content.year,
+        year: getSeasonYear(currentSeasonData?.airDate) ?? content.year,
         season: tvTargetRef.current.season,
         episode: tvTargetRef.current.episode,
         dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
