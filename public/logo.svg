@@ -1,6 +1,22 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Dark rounded background -->
   <rect width="512" height="512" rx="128" fill="#120E16"/>
-  <rect x="92" y="76" width="328" height="360" rx="88" fill="#E21864" transform="rotate(8 92 76)"/>
+  <!-- Colored card shadow (rotated) -->
+  <rect x="92" y="76" width="328" height="360" rx="88" fill="#C4145A" transform="rotate(8 92 76)"/>
+  <!-- Colored card -->
   <rect x="88" y="72" width="328" height="360" rx="88" fill="#F32775"/>
-  <path d="M166 160H354V214H228V274H334V326H228V420H166V160Z" fill="white"/>
+
+  <!-- Fish (small, top-left of card) -->
+  <!-- Fish tail -->
+  <path d="M116 168 L140 144 L140 192 Z" fill="white"/>
+  <!-- Fish body -->
+  <ellipse cx="186" cy="168" rx="52" ry="34" fill="white"/>
+  <!-- Fish eye -->
+  <circle cx="212" cy="160" r="9" fill="#F32775"/>
+  <circle cx="215" cy="157" r="3" fill="#120E16"/>
+  <!-- Fin (top) -->
+  <path d="M168 134 Q186 118 204 134" stroke="white" stroke-width="8" stroke-linecap="round" fill="none"/>
+
+  <!-- Play button (main, centered lower) -->
+  <path d="M184 240 L184 392 L352 316 Z" fill="white"/>
 </svg>
