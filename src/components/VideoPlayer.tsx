@@ -188,6 +188,7 @@ export function VideoPlayer({
   const sourceRequestIdRef = useRef(0);
   const seasonSyncRequestRef = useRef<string | null>(null);
   const [resumePositionSeconds, setResumePositionSeconds] = useState(0);
+  const [freshAnimeSeasonKeys, setFreshAnimeSeasonKeys] = useState<string[]>([]);
 
   const tvTargetRef = useRef({
     season: initialSeason ?? 1,
@@ -203,18 +204,19 @@ export function VideoPlayer({
     api.seasons.getSeason,
     content.type === "tv" ? { contentId: content._id, seasonNumber: tvTarget.season } : "skip"
   );
-  const waitingForAnimeSeasonMetadata = shouldWaitForAnimeSeasonMetadata(
-    content,
-    animeContent,
-    tvTarget.season,
-    currentSeasonData
-  );
+  const currentSeasonKey = content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
+  const hasFreshAnimeSeasonMetadata =
+    !animeContent || !currentSeasonKey || freshAnimeSeasonKeys.includes(currentSeasonKey);
+  const waitingForAnimeSeasonMetadata =
+    shouldWaitForAnimeSeasonMetadata(content, animeContent, tvTarget.season, currentSeasonData) ||
+    (animeContent && !hasFreshAnimeSeasonMetadata);
 
   useEffect(() => {
     if (content.type !== "tv" || !content.tmdbId) return;
 
     const shouldSyncSeason =
-      currentSeasonData === null || animeContent || (animeContent && !currentSeasonData?.anilistId);
+      currentSeasonData === null ||
+      (animeContent && (!hasFreshAnimeSeasonMetadata || !currentSeasonData?.anilistId));
     if (!shouldSyncSeason) return;
 
     const key = `${content._id}:${tvTarget.season}`;
@@ -225,20 +227,46 @@ export function VideoPlayer({
       tmdbId: content.tmdbId,
       contentId: content._id,
       seasonNumber: tvTarget.season
-    }).finally(() => {
-      if (seasonSyncRequestRef.current === key) {
-        seasonSyncRequestRef.current = null;
-      }
-    });
+    })
+      .catch(() => {})
+      .finally(() => {
+        if (animeContent) {
+          setFreshAnimeSeasonKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
+        }
+        if (seasonSyncRequestRef.current === key) {
+          seasonSyncRequestRef.current = null;
+        }
+      });
   }, [
+    currentSeasonKey,
     animeContent,
     content._id,
     content.tmdbId,
     content.type,
     currentSeasonData,
+    hasFreshAnimeSeasonMetadata,
     syncSeason,
     tvTarget.season
   ]);
+
+  useEffect(() => {
+    setFreshAnimeSeasonKeys([]);
+  }, [content._id]);
+
+  useEffect(() => {
+    if (!animeContent || !currentSeasonKey) return;
+    setFreshAnimeSeasonKeys((keys) => keys.filter((key) => key !== currentSeasonKey));
+  }, [animeContent, currentSeasonKey]);
+
+  useEffect(() => {
+    if (!animeContent || !currentSeasonKey || seasonSyncRequestRef.current) return;
+    if (currentSeasonData?.seasonNumber !== tvTarget.season) return;
+    if (!currentSeasonData?.anilistId) return;
+
+    setFreshAnimeSeasonKeys((keys) =>
+      keys.includes(currentSeasonKey) ? keys : [...keys, currentSeasonKey]
+    );
+  }, [animeContent, currentSeasonData, currentSeasonKey, syncSeason, tvTarget.season]);
 
   useEffect(() => {
     sourceRequestIdRef.current += 1;
