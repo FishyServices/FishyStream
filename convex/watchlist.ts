@@ -3,6 +3,25 @@ import { query, mutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 
+type WatchlistContentItem = Doc<"content"> & {
+  watchlistAddedAt: number;
+  watchlistFolder?: string;
+  watchlistNewSeasons: number;
+  watchlistNewEpisodes: number;
+};
+
+type WatchlistNotificationItem = {
+  contentId: Id<"content">;
+  title: string;
+  posterUrl: string;
+  tmdbId?: string;
+  currentSeasonCount: number;
+  currentEpisodeCount: number;
+  newSeasons: number;
+  newEpisodes: number;
+  folder?: string;
+};
+
 async function getUserByClerkIdQuery(
   ctx: QueryCtx,
   clerkUserId: string
@@ -54,7 +73,7 @@ async function getUserByClerkId(
 
 export const getMyWatchlist = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<Doc<"content">[]> => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchlistContentItem[]> => {
     const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -63,12 +82,26 @@ export const getMyWatchlist = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const contentItems: Doc<"content">[] = [];
+    const contentItems: WatchlistContentItem[] = [];
     for (const item of watchlistItems) {
       const content = await ctx.db.get(item.contentId);
-      if (content) contentItems.push(content);
+      if (!content) continue;
+
+      const currentSeasonCount = content.seasons ?? 0;
+      const currentEpisodeCount = content.totalEpisodes ?? 0;
+      const acknowledgedSeasonCount = item.lastAcknowledgedSeasonCount ?? currentSeasonCount;
+      const acknowledgedEpisodeCount = item.lastAcknowledgedEpisodeCount ?? currentEpisodeCount;
+
+      contentItems.push({
+        ...content,
+        watchlistAddedAt: item.addedAt,
+        watchlistFolder: item.folder,
+        watchlistNewSeasons: Math.max(0, currentSeasonCount - acknowledgedSeasonCount),
+        watchlistNewEpisodes: Math.max(0, currentEpisodeCount - acknowledgedEpisodeCount)
+      });
     }
-    return contentItems;
+
+    return contentItems.sort((a, b) => b.watchlistAddedAt - a.watchlistAddedAt);
   }
 });
 
@@ -133,7 +166,15 @@ export const add = mutation({
 
     if (existing) return true;
 
-    await ctx.db.insert("watchlist", { userId, contentId, addedAt: Date.now() });
+    const content = await ctx.db.get(contentId);
+    await ctx.db.insert("watchlist", {
+      userId,
+      contentId,
+      addedAt: Date.now(),
+      folder: undefined,
+      lastAcknowledgedSeasonCount: content?.seasons ?? 0,
+      lastAcknowledgedEpisodeCount: content?.totalEpisodes ?? 0
+    });
     return true;
   }
 });
@@ -154,5 +195,111 @@ export const remove = mutation({
       return true;
     }
     return false;
+  }
+});
+
+export const updateFolder = mutation({
+  args: {
+    clerkUserId: v.string(),
+    contentId: v.id("content"),
+    folder: v.optional(v.string())
+  },
+  handler: async (ctx, { clerkUserId, contentId, folder }): Promise<boolean> => {
+    const userId = await getUserByClerkId(ctx, clerkUserId);
+    if (!userId) return false;
+
+    const existing = await ctx.db
+      .query("watchlist")
+      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
+      .first();
+
+    if (!existing) return false;
+
+    const normalizedFolder = folder?.trim() || undefined;
+    await ctx.db.patch(existing._id, {
+      folder: normalizedFolder
+    });
+    return true;
+  }
+});
+
+export const getUpdates = query({
+  args: { clerkUserId: v.string() },
+  handler: async (ctx, { clerkUserId }): Promise<WatchlistNotificationItem[]> => {
+    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+    if (!userId) return [];
+
+    const watchlistItems = await ctx.db
+      .query("watchlist")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const updates: WatchlistNotificationItem[] = [];
+
+    for (const item of watchlistItems) {
+      const content = await ctx.db.get(item.contentId);
+      if (!content || content.type !== "tv") continue;
+
+      const currentSeasonCount = content.seasons ?? 0;
+      const currentEpisodeCount = content.totalEpisodes ?? 0;
+      const acknowledgedSeasonCount = item.lastAcknowledgedSeasonCount ?? currentSeasonCount;
+      const acknowledgedEpisodeCount = item.lastAcknowledgedEpisodeCount ?? currentEpisodeCount;
+      const newSeasons = Math.max(0, currentSeasonCount - acknowledgedSeasonCount);
+      const newEpisodes = Math.max(0, currentEpisodeCount - acknowledgedEpisodeCount);
+
+      if (newSeasons === 0 && newEpisodes === 0) continue;
+
+      updates.push({
+        contentId: content._id,
+        title: content.title,
+        posterUrl: content.posterUrl,
+        tmdbId: content.tmdbId,
+        currentSeasonCount,
+        currentEpisodeCount,
+        newSeasons,
+        newEpisodes,
+        folder: item.folder
+      });
+    }
+
+    return updates.sort((a, b) => {
+      const aWeight = a.newSeasons * 1000 + a.newEpisodes;
+      const bWeight = b.newSeasons * 1000 + b.newEpisodes;
+      return bWeight - aWeight;
+    });
+  }
+});
+
+export const acknowledgeUpdates = mutation({
+  args: {
+    clerkUserId: v.string(),
+    contentIds: v.optional(v.array(v.id("content")))
+  },
+  handler: async (ctx, { clerkUserId, contentIds }): Promise<number> => {
+    const userId = await getUserByClerkId(ctx, clerkUserId);
+    if (!userId) return 0;
+
+    const watchlistItems = await ctx.db
+      .query("watchlist")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const contentFilter = contentIds ? new Set(contentIds) : null;
+    let updatedCount = 0;
+
+    for (const item of watchlistItems) {
+      if (contentFilter && !contentFilter.has(item.contentId)) continue;
+
+      const content = await ctx.db.get(item.contentId);
+      if (!content || content.type !== "tv") continue;
+
+      await ctx.db.patch(item._id, {
+        lastAcknowledgedSeasonCount: content.seasons ?? 0,
+        lastAcknowledgedEpisodeCount: content.totalEpisodes ?? 0
+      });
+      updatedCount++;
+    }
+
+    return updatedCount;
   }
 });

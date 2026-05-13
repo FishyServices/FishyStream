@@ -99,7 +99,39 @@ export function useToggleWatchlist() {
   return useWatchlistCtx().toggle;
 }
 
-export function useMyWatchlist(): Doc<"content">[] | undefined {
+export type WatchlistItem = Doc<"content"> & {
+  watchlistAddedAt: number;
+  watchlistFolder?: string;
+  watchlistNewSeasons: number;
+  watchlistNewEpisodes: number;
+};
+
+export type WatchlistUpdate = {
+  contentId: Id<"content">;
+  title: string;
+  posterUrl: string;
+  tmdbId?: string;
+  currentSeasonCount: number;
+  currentEpisodeCount: number;
+  newSeasons: number;
+  newEpisodes: number;
+  folder?: string;
+};
+
+export function useMyWatchlist(): WatchlistItem[] | undefined {
   const { user } = useUser();
   return useQuery(api.watchlist.getMyWatchlist, user ? { clerkUserId: user.id } : "skip");
+}
+
+export function useWatchlistUpdates(): WatchlistUpdate[] | undefined {
+  const { user } = useUser();
+  return useQuery(api.watchlist.getUpdates, user ? { clerkUserId: user.id } : "skip");
+}
+
+export function useUpdateWatchlistFolder() {
+  return useMutation(api.watchlist.updateFolder);
+}
+
+export function useAcknowledgeWatchlistUpdates() {
+  return useMutation(api.watchlist.acknowledgeUpdates);
 }

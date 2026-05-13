@@ -15,6 +15,7 @@ import {
   BookMarked
 } from "lucide-react";
 import { Badge, Button, Input, Sheet, SheetContent, SheetHeader, SheetTitle } from "@fishy/ui";
+import { useAcknowledgeWatchlistUpdates, useWatchlistUpdates } from "@/hooks/useWatchlist";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -54,8 +55,12 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const acknowledgeUpdates = useAcknowledgeWatchlistUpdates();
+  const watchlistUpdates = useWatchlistUpdates();
+  const unseenUpdateCount = watchlistUpdates?.length ?? 0;
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -67,6 +72,7 @@ export function Header() {
     setMobileOpen(false);
     setOpenDropdown(null);
     setSearchOpen(false);
+    setNotificationsOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -78,6 +84,7 @@ export function Header() {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setOpenDropdown(null);
         setProfileOpen(false);
+        setNotificationsOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -92,6 +99,14 @@ export function Header() {
     setSearchOpen(false);
     setSearchQuery("");
   };
+
+  useEffect(() => {
+    if (!notificationsOpen || !user || !watchlistUpdates || watchlistUpdates.length === 0) return;
+    void acknowledgeUpdates({
+      clerkUserId: user.id,
+      contentIds: watchlistUpdates.map((item) => item.contentId)
+    }).catch(() => {});
+  }, [acknowledgeUpdates, notificationsOpen, user, watchlistUpdates]);
 
   return (
     <header
@@ -215,13 +230,96 @@ export function Header() {
               </button>
             )}
 
-            <button
-              className="relative hidden rounded-full p-2.5 text-white/70 transition-all hover:bg-white/8 hover:text-white sm:inline-flex"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
-            </button>
+            <div className="relative hidden sm:block">
+              <button
+                className="relative inline-flex rounded-full p-2.5 text-white/70 transition-all hover:bg-white/8 hover:text-white"
+                aria-label="Notifications"
+                onClick={() => setNotificationsOpen((prev) => !prev)}
+              >
+                <Bell className="h-5 w-5" />
+                {unseenUpdateCount > 0 && (
+                  <>
+                    <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
+                    <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] font-bold text-white">
+                      {unseenUpdateCount > 9 ? "9+" : unseenUpdateCount}
+                    </span>
+                  </>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 top-full mt-2 w-84 overflow-hidden rounded-[1.35rem] border border-white/10 bg-[color-mix(in_oklab,var(--color-popover)_92%,transparent)] shadow-[0_18px_40px_rgba(0,0,0,0.36)] backdrop-blur-xl">
+                  <div className="border-b border-white/8 px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-white">Watchlist updates</p>
+                        <p className="text-xs text-white/48">
+                          New seasons and episodes from titles in My List.
+                        </p>
+                      </div>
+                      {unseenUpdateCount > 0 && (
+                        <Badge className="border-primary/25 bg-primary/15 text-primary">
+                          {unseenUpdateCount} new
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="max-h-96 overflow-y-auto p-2">
+                    {watchlistUpdates === undefined ? (
+                      <div className="px-3 py-6 text-center text-sm text-white/45">Loading…</div>
+                    ) : watchlistUpdates.length === 0 ? (
+                      <div className="px-3 py-6 text-center text-sm text-white/45">
+                        No new season or episode updates right now.
+                      </div>
+                    ) : (
+                      watchlistUpdates.map((item) => (
+                        <button
+                          key={item.contentId}
+                          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-white/6"
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            if (item.tmdbId) {
+                              navigate(`/watch/${item.tmdbId}`);
+                            } else {
+                              navigate("/my-list");
+                            }
+                          }}
+                        >
+                          <img
+                            src={item.posterUrl}
+                            alt={item.title}
+                            className="h-16 w-11 rounded-lg object-cover"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-white">{item.title}</p>
+                            <p className="mt-1 text-xs text-white/54">
+                              {item.newSeasons > 0
+                                ? `+${item.newSeasons} season${item.newSeasons > 1 ? "s" : ""}`
+                                : "No new seasons"}
+                              {" · "}
+                              {item.newEpisodes > 0
+                                ? `+${item.newEpisodes} episode${item.newEpisodes > 1 ? "s" : ""}`
+                                : "No new episodes"}
+                            </p>
+                            <p className="mt-1 text-[11px] text-primary/90">
+                              Now at {item.currentSeasonCount} season
+                              {item.currentSeasonCount === 1 ? "" : "s"} /{" "}
+                              {item.currentEpisodeCount} episodes
+                            </p>
+                            {item.folder && (
+                              <p className="mt-1 text-[11px] text-white/38">
+                                Folder: {item.folder}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {isSignedIn ? (
               <div className="relative">

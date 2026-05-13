@@ -89,7 +89,10 @@ export default defineSchema({
   watchlist: defineTable({
     userId: v.id("users"),
     contentId: v.id("content"),
-    addedAt: v.number()
+    addedAt: v.number(),
+    folder: v.optional(v.string()),
+    lastAcknowledgedSeasonCount: v.optional(v.number()),
+    lastAcknowledgedEpisodeCount: v.optional(v.number())
   })
     .index("by_user", ["userId"])
     .index("by_user_content", ["userId", "contentId"]),
