@@ -61,7 +61,48 @@ function SettingRow({
         <p className="text-sm font-semibold text-foreground">{label}</p>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-      <div className="sm:min-w-[13rem] sm:max-w-[18rem]">{control}</div>
+      <div className="sm:min-w-52 sm:max-w-[18rem]">{control}</div>
+    </div>
+  );
+}
+
+function SettingsSection({
+  icon,
+  title,
+  children
+}: {
+  icon: ReactNode;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <Card className="surface border-border/70 bg-card/85 p-5 sm:p-6">
+      <div className="mb-5 flex items-center gap-2">
+        {icon}
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+function ToggleSettingControl({
+  id,
+  label,
+  checked,
+  onCheckedChange
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-3 py-2.5">
+      <Label htmlFor={id} className="text-sm text-foreground">
+        {label}
+      </Label>
+      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
 }
@@ -103,7 +144,7 @@ function ProviderPicker({
       <PopoverContent className="w-[min(32rem,calc(100vw-2rem))] p-0">
         <Command>
           <CommandInput placeholder="Search providers by name or quality" />
-          <CommandList className="max-h-[24rem]">
+          <CommandList className="max-h-96">
             <CommandEmpty>No providers match that search.</CommandEmpty>
             <CommandGroup heading="Recommended">
               <CommandItem
@@ -186,12 +227,7 @@ export function SettingsPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)]">
-          <Card className="surface border-border/70 bg-card/85 p-5 sm:p-6">
-            <div className="mb-5 flex items-center gap-2">
-              <Palette className="h-4 w-4 text-primary" />
-              <h2 className="text-base font-semibold text-foreground">Appearance</h2>
-            </div>
-
+          <SettingsSection icon={<Palette className="h-4 w-4 text-primary" />} title="Appearance">
             <SettingRow
               label="Theme"
               description="Switch FishyStream between a low-light theater view and a bright daytime layout."
@@ -207,16 +243,12 @@ export function SettingsPage() {
               label="Autoplay featured trailer"
               description="Start the hero trailer automatically on the home page when the title has one."
               control={
-                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-3 py-2.5">
-                  <Label htmlFor="hero-trailer" className="text-sm text-foreground">
-                    Enabled
-                  </Label>
-                  <Switch
-                    id="hero-trailer"
-                    checked={settings.autoPlayHeroTrailer}
-                    onCheckedChange={(checked) => updateSetting("autoPlayHeroTrailer", checked)}
-                  />
-                </div>
+                <ToggleSettingControl
+                  id="hero-trailer"
+                  label="Enabled"
+                  checked={settings.autoPlayHeroTrailer}
+                  onCheckedChange={(checked) => updateSetting("autoPlayHeroTrailer", checked)}
+                />
               }
             />
 
@@ -224,40 +256,27 @@ export function SettingsPage() {
               label="Mute autoplay trailer"
               description="Keep the featured trailer silent until you explicitly unmute it."
               control={
-                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-3 py-2.5">
-                  <Label htmlFor="hero-muted" className="text-sm text-foreground">
-                    Start muted
-                  </Label>
-                  <Switch
-                    id="hero-muted"
-                    checked={settings.heroTrailerMuted}
-                    onCheckedChange={(checked) => updateSetting("heroTrailerMuted", checked)}
-                  />
-                </div>
+                <ToggleSettingControl
+                  id="hero-muted"
+                  label="Start muted"
+                  checked={settings.heroTrailerMuted}
+                  onCheckedChange={(checked) => updateSetting("heroTrailerMuted", checked)}
+                />
               }
             />
-          </Card>
+          </SettingsSection>
 
-          <Card className="surface border-border/70 bg-card/85 p-5 sm:p-6">
-            <div className="mb-5 flex items-center gap-2">
-              <PlayCircle className="h-4 w-4 text-primary" />
-              <h2 className="text-base font-semibold text-foreground">Home Page</h2>
-            </div>
-
+          <SettingsSection icon={<PlayCircle className="h-4 w-4 text-primary" />} title="Home Page">
             <SettingRow
               label="Continue watching row"
               description="Keep your in-progress titles pinned near the top of home when signed in."
               control={
-                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-3 py-2.5">
-                  <Label htmlFor="continue-row" className="text-sm text-foreground">
-                    Show row
-                  </Label>
-                  <Switch
-                    id="continue-row"
-                    checked={settings.showContinueWatchingRow}
-                    onCheckedChange={(checked) => updateSetting("showContinueWatchingRow", checked)}
-                  />
-                </div>
+                <ToggleSettingControl
+                  id="continue-row"
+                  label="Show row"
+                  checked={settings.showContinueWatchingRow}
+                  onCheckedChange={(checked) => updateSetting("showContinueWatchingRow", checked)}
+                />
               }
             />
 
@@ -265,26 +284,17 @@ export function SettingsPage() {
               label="Content sync tools"
               description="Show the TMDB sync panel on the home page for quick library refreshes."
               control={
-                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-3 py-2.5">
-                  <Label htmlFor="sync-panel" className="text-sm text-foreground">
-                    Show panel
-                  </Label>
-                  <Switch
-                    id="sync-panel"
-                    checked={settings.showSyncPanel}
-                    onCheckedChange={(checked) => updateSetting("showSyncPanel", checked)}
-                  />
-                </div>
+                <ToggleSettingControl
+                  id="sync-panel"
+                  label="Show panel"
+                  checked={settings.showSyncPanel}
+                  onCheckedChange={(checked) => updateSetting("showSyncPanel", checked)}
+                />
               }
             />
-          </Card>
+          </SettingsSection>
 
-          <Card className="surface border-border/70 bg-card/85 p-5 sm:p-6">
-            <div className="mb-5 flex items-center gap-2">
-              <Tv2 className="h-4 w-4 text-primary" />
-              <h2 className="text-base font-semibold text-foreground">Browse Defaults</h2>
-            </div>
-
+          <SettingsSection icon={<Tv2 className="h-4 w-4 text-primary" />} title="Browse Defaults">
             <SettingRow
               label="Default movie sort"
               description="Used on the Movies page whenever the URL does not already specify a sort."
@@ -332,14 +342,9 @@ export function SettingsPage() {
                 </Select>
               }
             />
-          </Card>
+          </SettingsSection>
 
-          <Card className="surface border-border/70 bg-card/85 p-5 sm:p-6">
-            <div className="mb-5 flex items-center gap-2">
-              <MonitorPlay className="h-4 w-4 text-primary" />
-              <h2 className="text-base font-semibold text-foreground">Playback</h2>
-            </div>
-
+          <SettingsSection icon={<MonitorPlay className="h-4 w-4 text-primary" />} title="Playback">
             <SettingRow
               label="Preferred provider"
               description="Search and pin the provider FishyStream should try first when several embeds are available."
@@ -378,19 +383,15 @@ export function SettingsPage() {
               label="Auto advance episodes"
               description="Move to the next episode automatically near the end of playback when available."
               control={
-                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 px-3 py-2.5">
-                  <Label htmlFor="auto-advance" className="text-sm text-foreground">
-                    Advance automatically
-                  </Label>
-                  <Switch
-                    id="auto-advance"
-                    checked={settings.autoAdvanceEpisodes}
-                    onCheckedChange={(checked) => updateSetting("autoAdvanceEpisodes", checked)}
-                  />
-                </div>
+                <ToggleSettingControl
+                  id="auto-advance"
+                  label="Advance automatically"
+                  checked={settings.autoAdvanceEpisodes}
+                  onCheckedChange={(checked) => updateSetting("autoAdvanceEpisodes", checked)}
+                />
               }
             />
-          </Card>
+          </SettingsSection>
         </div>
       </main>
     </div>

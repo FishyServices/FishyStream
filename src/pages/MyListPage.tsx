@@ -9,7 +9,8 @@ import {
   BookMarked,
   FolderPlus,
   Folder,
-  Trash2
+  Trash2,
+  MoreHorizontal
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
@@ -25,6 +26,9 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   toast
 } from "@fishy/ui";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -49,12 +53,7 @@ export function MyListPage() {
   });
   const [draggedContentId, setDraggedContentId] = useState<Id<"content"> | null>(null);
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<string | null>(null);
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    contentId: Id<"content">;
-    title: string;
-  } | null>(null);
+  const [folderMenuForContentId, setFolderMenuForContentId] = useState<Id<"content"> | null>(null);
   const { recommendations, isLoading: recsLoading } = useRecommendations(
     watchlist,
     12,
@@ -378,7 +377,7 @@ export function MyListPage() {
               groupedWatchlist.map(([groupName, items]) => (
                 <section
                   key={groupName}
-                  className="space-y-4 rounded-[1.75rem] border border-white/6 bg-white/[0.02] p-4"
+                  className="space-y-4 rounded-[1.75rem] border border-white/6 bg-white/2 p-4"
                   onDragOver={(e) => {
                     e.preventDefault();
                   }}
@@ -419,24 +418,76 @@ export function MyListPage() {
                     {items.map((item) => (
                       <div
                         key={item._id}
-                        className={`relative cursor-grab active:cursor-grabbing transition-transform ${draggedContentId === item._id ? "scale-[0.98] opacity-70" : ""}`}
+                        className={`relative cursor-grab active:cursor-grabbing transition-transform ${
+                          draggedContentId === item._id ? "scale-[0.98] opacity-70" : ""
+                        } ${folderMenuForContentId === item._id ? "z-40" : ""}`}
                         draggable
                         onDragStart={() => {
                           setDraggedContentId(item._id);
-                          setContextMenu(null);
                         }}
                         onDragEnd={() => setDraggedContentId(null)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          setContextMenu({
-                            x: e.clientX,
-                            y: e.clientY,
-                            contentId: item._id,
-                            title: item.title
-                          });
-                        }}
                       >
-                        <MovieCard content={item} onPlay={handlePlay} layout="grid" />
+                        <div className="absolute left-2 top-2 z-50">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 rounded-full border border-white/12 bg-black/80 text-white/82 shadow-md hover:bg-black hover:text-white"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setFolderMenuForContentId((current) =>
+                                current === item._id ? null : item._id
+                              );
+                            }}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            aria-label={`Choose folder for ${item.title}`}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                          {folderMenuForContentId === item._id && (
+                            <div
+                              className="absolute left-0 top-11 z-50 w-56 rounded-2xl border border-white/10 bg-popover p-2 shadow-2xl"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                            >
+                              <Button
+                                variant="ghost"
+                                className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
+                                onClick={async () => {
+                                  await handleAssignFolder(item._id, "unsorted");
+                                  setFolderMenuForContentId(null);
+                                }}
+                              >
+                                Unsorted
+                              </Button>
+                              {folderOptions.map((folder) => (
+                                <Button
+                                  key={folder}
+                                  variant="ghost"
+                                  className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
+                                  onClick={async () => {
+                                    await handleAssignFolder(item._id, folder);
+                                    setFolderMenuForContentId(null);
+                                  }}
+                                >
+                                  {folder}
+                                </Button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <MovieCard
+                          content={item}
+                          onPlay={handlePlay}
+                          layout="grid"
+                          suppressHoverEffects={folderMenuForContentId === item._id}
+                        />
                         {(item.watchlistNewSeasons > 0 || item.watchlistNewEpisodes > 0) && (
                           <div className="pointer-events-none absolute right-2 top-2 z-20 rounded-full bg-primary/88 px-2 py-1 text-[10px] font-semibold text-white shadow-lg">
                             +{item.watchlistNewSeasons}S / +{item.watchlistNewEpisodes}E
@@ -460,35 +511,33 @@ export function MyListPage() {
                 <h2 className="text-xl font-semibold text-white">Recommended For You</h2>
               </div>
 
-              {/* Filter buttons */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={typeFilter === "all" ? "default" : "secondary"}
-                  size="sm"
-                  onClick={() => setTypeFilter("all")}
-                  className="rounded-lg"
-                >
-                  All
-                </Button>
-                <Button
-                  variant={typeFilter === "movie" ? "default" : "secondary"}
-                  size="sm"
-                  onClick={() => setTypeFilter("movie")}
-                  className="flex items-center gap-1.5 rounded-lg"
-                >
-                  <Film className="w-3.5 h-3.5" />
-                  Movies
-                </Button>
-                <Button
-                  variant={typeFilter === "tv" ? "default" : "secondary"}
-                  size="sm"
-                  onClick={() => setTypeFilter("tv")}
-                  className="flex items-center gap-1.5 rounded-lg"
-                >
-                  <Tv className="w-3.5 h-3.5" />
-                  TV Shows
-                </Button>
-              </div>
+              <Tabs
+                value={typeFilter}
+                onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}
+              >
+                <TabsList className="h-auto rounded-xl bg-white/6 p-1">
+                  <TabsTrigger
+                    value="all"
+                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                  >
+                    All
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="movie"
+                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                  >
+                    <Film className="w-3.5 h-3.5" />
+                    Movies
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="tv"
+                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                  >
+                    <Tv className="w-3.5 h-3.5" />
+                    TV Shows
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
               {/* Refresh button */}
               <Button
@@ -519,52 +568,6 @@ export function MyListPage() {
           </div>
         )}
       </main>
-
-      {contextMenu && (
-        <>
-          <Button
-            type="button"
-            variant="ghost"
-            className="fixed inset-0 z-40 cursor-default bg-transparent hover:bg-transparent p-0 rounded-none"
-            onClick={() => setContextMenu(null)}
-            aria-label="Close bookmark menu"
-          />
-          <div
-            className="fixed z-50 min-w-64 overflow-hidden rounded-2xl border border-white/10 bg-[color-mix(in_oklab,var(--color-popover)_94%,transparent)] shadow-[0_18px_40px_rgba(0,0,0,0.42)] backdrop-blur-xl"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-          >
-            <div className="border-b border-white/8 px-4 py-3">
-              <p className="truncate text-sm font-medium text-white">{contextMenu.title}</p>
-              <p className="text-xs text-white/45">Add to bookmark folder</p>
-            </div>
-            <div className="p-2">
-              <Button
-                variant="ghost"
-                className="w-full justify-start rounded-xl text-left text-white/72 hover:bg-white/6 hover:text-white"
-                onClick={async () => {
-                  await handleAssignFolder(contextMenu.contentId, "unsorted");
-                  setContextMenu(null);
-                }}
-              >
-                Unsorted
-              </Button>
-              {folderOptions.map((folder) => (
-                <Button
-                  key={folder}
-                  variant="ghost"
-                  className="w-full justify-start rounded-xl text-left text-white/72 hover:bg-white/6 hover:text-white"
-                  onClick={async () => {
-                    await handleAssignFolder(contextMenu.contentId, folder);
-                    setContextMenu(null);
-                  }}
-                >
-                  {folder}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
 
       <Dialog
         open={!!pendingDeleteFolder}

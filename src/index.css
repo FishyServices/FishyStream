@@ -109,7 +109,7 @@
   }
 
   .home-panel {
-    @apply relative overflow-hidden rounded-[1.6rem] border border-white/10 bg-white/[0.045] shadow-[0_30px_80px_rgba(0,0,0,0.28)];
+    @apply relative overflow-hidden rounded-[1.6rem] border border-white/10 bg-white/4.5 shadow-[0_30px_80px_rgba(0,0,0,0.28)];
   }
 
   .home-panel::before {

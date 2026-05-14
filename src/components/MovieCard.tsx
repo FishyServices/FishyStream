@@ -26,9 +26,16 @@ interface MovieCardProps {
   ) => void;
   size?: "sm" | "md" | "lg";
   layout?: "rail" | "grid";
+  suppressHoverEffects?: boolean;
 }
 
-export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: MovieCardProps) {
+export function MovieCard({
+  content,
+  onPlay,
+  size = "md",
+  layout = "rail",
+  suppressHoverEffects = false
+}: MovieCardProps) {
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -77,6 +84,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
 
   const hasProgress = content.progress !== undefined && content.progress > 0;
   const score = content.voteAverage;
+  const hoverActive = hovered && !suppressHoverEffects;
 
   return (
     <>
@@ -101,7 +109,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
       >
         <div
           className={`relative aspect-2/3 rounded-lg overflow-hidden transition-all duration-300 ${
-            hovered
+            hoverActive
               ? "md:scale-105 md:z-20 md:shadow-2xl md:shadow-black/70 md:ring-1 md:ring-white/20"
               : "shadow-md"
           }`}
@@ -121,20 +129,23 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
 
           {/* Top badges */}
           <div className="absolute top-0 left-0 right-0 flex items-start justify-between p-2">
-            {content.new && !hovered && (
+            {content.new && !hoverActive && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 bg-primary text-white rounded-sm">
                 NEW
               </span>
             )}
-            {content.type === "tv" && content.seasonNumber && content.episodeNumber && !hovered && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-black/70 text-white rounded-sm ml-auto">
-                S{content.seasonNumber}·E{content.episodeNumber}
-              </span>
-            )}
+            {content.type === "tv" &&
+              content.seasonNumber &&
+              content.episodeNumber &&
+              !hoverActive && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-black/70 text-white rounded-sm ml-auto">
+                  S{content.seasonNumber}·E{content.episodeNumber}
+                </span>
+              )}
           </div>
 
           {/* Progress bar */}
-          {hasProgress && !hovered && (
+          {hasProgress && !hoverActive && (
             <div className="absolute bottom-0 left-0 right-0 h-0.75 bg-white/20">
               <div
                 className="h-full bg-primary"
@@ -146,7 +157,7 @@ export function MovieCard({ content, onPlay, size = "md", layout = "rail" }: Mov
           {/* Hover overlay */}
           <div
             className={`absolute inset-0 hidden md:flex bg-linear-to-t from-black via-black/60 to-black/10 flex-col justify-end p-3 transition-opacity duration-200 ${
-              hovered ? "opacity-100" : "opacity-0"
+              hoverActive ? "opacity-100" : "opacity-0"
             }`}
           >
             <div className="space-y-2.5">
