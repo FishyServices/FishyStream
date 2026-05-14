@@ -1,5 +1,5 @@
 import { useQuery, useAction } from "convex/react";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 
@@ -219,6 +219,19 @@ export interface ContentCategory {
 
 export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
 
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededUnitInterval(seed: string): number {
+  return hashString(seed) / 4294967295;
+}
+
 export function useAllCategories(): ContentCategory[] {
   const trending = useTrendingContent() ?? [];
   const popular = usePopularContent() ?? [];
@@ -251,25 +264,15 @@ export function useRecommendations(
   typeFilter: "all" | "movie" | "tv" = "all",
   refreshSeed = 0
 ) {
-  const [recommendations, setRecommendations] = useState<Doc<"content">[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const allContent = useQuery(
     api.content.getAll,
     watchlistItems && watchlistItems.length > 0 ? undefined : "skip"
   );
 
-  useEffect(() => {
-    if (!watchlistItems || !allContent) {
-      setRecommendations([]);
-      return;
+  const recommendations = useMemo(() => {
+    if (!watchlistItems || !allContent || watchlistItems.length === 0) {
+      return [];
     }
-
-    if (watchlistItems.length === 0) {
-      setRecommendations([]);
-      return;
-    }
-
-    setIsLoading(true);
 
     const watchlistGenres = new Map<string, number>();
     const watchlistTypes = new Map<string, number>();
@@ -291,14 +294,30 @@ export function useRecommendations(
       filtered = filtered.filter((c: Doc<"content">) => c.type === typeFilter);
     }
 
-    const shuffled = [...filtered].sort(() => Math.random() - 0.5);
+    const watchlistSignature = watchlistItems
+      .map((item) => item._id)
+      .sort()
+      .join("|");
     const poolSize = Math.min(filtered.length, limit * 3 + refreshSeed * 5);
-    const pool = shuffled.slice(0, poolSize);
+    const pool = [...filtered]
+      .sort((a, b) => {
+        const aSeed = seededUnitInterval(
+          `${watchlistSignature}:${typeFilter}:${refreshSeed}:${String(a._id)}`
+        );
+        const bSeed = seededUnitInterval(
+          `${watchlistSignature}:${typeFilter}:${refreshSeed}:${String(b._id)}`
+        );
+        return aSeed - bSeed;
+      })
+      .slice(0, poolSize);
 
-    const scored = pool
+    return pool
       .map((c: Doc<"content">) => {
         let score = 0;
-        score += Math.random() * 15;
+        score +=
+          seededUnitInterval(
+            `${watchlistSignature}:${typeFilter}:${refreshSeed}:score:${String(c._id)}`
+          ) * 15;
         if (c.type === preferredType) score += 2;
         for (const g of c.genre) {
           const genreScore = watchlistGenres.get(g) || 0;
@@ -316,10 +335,10 @@ export function useRecommendations(
       )
       .slice(0, limit)
       .map((s: { content: Doc<"content">; score: number }) => s.content);
-
-    setRecommendations(scored);
-    setIsLoading(false);
   }, [watchlistItems, allContent, limit, typeFilter, refreshSeed]);
+
+  const isLoading =
+    watchlistItems !== undefined && watchlistItems.length > 0 && allContent === undefined;
 
   return { recommendations, isLoading };
 }
