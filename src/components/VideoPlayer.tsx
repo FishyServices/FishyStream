@@ -130,6 +130,10 @@ function shouldApplyProviderResume(
   return true;
 }
 
+function shouldForceProviderStartPosition(providerKey: string | undefined) {
+  return providerKey === "vidfast";
+}
+
 function isAnimeContent(content: Doc<"content">) {
   if (content.type !== "tv") return false;
 
@@ -487,7 +491,15 @@ export function VideoPlayer({
         url.searchParams.set("nextbutton", "false");
         url.searchParams.set("autonext", "false");
       }
-      if (shouldResume && selectedProvider?.progress?.resumeParam) {
+      if (
+        selectedProvider?.progress?.resumeParam &&
+        shouldForceProviderStartPosition(selectedProvider.key)
+      ) {
+        url.searchParams.set(
+          selectedProvider.progress.resumeParam,
+          String(shouldResume ? resumePositionSeconds : 0)
+        );
+      } else if (shouldResume && selectedProvider?.progress?.resumeParam) {
         url.searchParams.set(selectedProvider.progress.resumeParam, String(resumePositionSeconds));
       }
       return url.toString();
