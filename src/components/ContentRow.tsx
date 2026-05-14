@@ -57,12 +57,14 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
           </h2>
         </div>
         {viewAllHref && (
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => navigate(viewAllHref)}
-            className="relative z-40 ml-4 whitespace-nowrap rounded-full border border-white/10 bg-white/3 px-3.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-card/80 hover:text-foreground"
+            className="relative z-40 ml-4 whitespace-nowrap rounded-full border border-white/10 bg-white/3 text-muted-foreground hover:bg-card/80 hover:text-foreground"
           >
             View all
-          </button>
+          </Button>
         )}
       </div>
 

@@ -137,10 +137,12 @@ export function Header() {
               {navLinks.map((link) => (
                 <div key={link.label} className="relative">
                   {link.dropdown ? (
-                    <button
-                      className={`flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium transition-all ${
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium ${
                         location.pathname === link.href
-                          ? "bg-white text-black"
+                          ? "bg-white text-black hover:bg-white/90 hover:text-black"
                           : "text-white/68 hover:bg-white/7 hover:text-white"
                       }`}
                       onClick={() =>
@@ -153,7 +155,7 @@ export function Header() {
                           openDropdown === link.label ? "rotate-180" : ""
                         }`}
                       />
-                    </button>
+                    </Button>
                   ) : (
                     <Link
                       to={link.href}
@@ -205,34 +207,40 @@ export function Header() {
                     }}
                     className="w-56 rounded-full border-white/14 bg-white/8 py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-white/36 focus-visible:border-primary/60 focus-visible:bg-white/12 sm:w-72"
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => {
                       setSearchOpen(false);
                       setSearchQuery("");
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 transition-colors hover:text-white/80"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 text-white/40 hover:text-white/80 hover:bg-transparent"
                     aria-label="Close search"
                   >
                     <X className="h-3.5 w-3.5" />
-                  </button>
+                  </Button>
                 </div>
               </form>
             ) : null}
 
             {!searchOpen && (
-              <button
-                className="rounded-full p-2.5 text-white/70 transition-all hover:bg-white/8 hover:text-white"
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full text-white/70 hover:bg-white/8 hover:text-white"
                 onClick={() => setSearchOpen(true)}
                 aria-label="Search"
               >
                 <Search className="h-5 w-5" />
-              </button>
+              </Button>
             )}
 
             <div className="relative hidden sm:block">
-              <button
-                className="relative inline-flex rounded-full p-2.5 text-white/70 transition-all hover:bg-white/8 hover:text-white"
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative rounded-full text-white/70 hover:bg-white/8 hover:text-white"
                 aria-label="Notifications"
                 onClick={() => setNotificationsOpen((prev) => !prev)}
               >
@@ -245,7 +253,7 @@ export function Header() {
                     </span>
                   </>
                 )}
-              </button>
+              </Button>
 
               {notificationsOpen && (
                 <div className="absolute right-0 top-full mt-2 w-84 overflow-hidden rounded-[1.35rem] border border-white/10 bg-[color-mix(in_oklab,var(--color-popover)_92%,transparent)] shadow-[0_18px_40px_rgba(0,0,0,0.36)] backdrop-blur-xl">
@@ -274,9 +282,10 @@ export function Header() {
                       </div>
                     ) : (
                       watchlistUpdates.map((item) => (
-                        <button
+                        <Button
                           key={item.contentId}
-                          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-white/6"
+                          variant="ghost"
+                          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left h-auto justify-start hover:bg-white/6"
                           onClick={() => {
                             setNotificationsOpen(false);
                             if (item.tmdbId) {
@@ -289,7 +298,7 @@ export function Header() {
                           <img
                             src={item.posterUrl}
                             alt={item.title}
-                            className="h-16 w-11 rounded-lg object-cover"
+                            className="h-16 w-11 rounded-lg object-cover shrink-0"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-white">{item.title}</p>
@@ -313,7 +322,7 @@ export function Header() {
                               </p>
                             )}
                           </div>
-                        </button>
+                        </Button>
                       ))
                     )}
                   </div>
@@ -323,8 +332,9 @@ export function Header() {
 
             {isSignedIn ? (
               <div className="relative">
-                <button
-                  className="flex items-center gap-2 rounded-full border border-white/8 bg-white/3 py-1 pl-1 pr-2 transition-all hover:bg-white/8"
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 rounded-full border border-white/8 bg-white/3 py-1 pl-1 pr-2 hover:bg-white/8 h-auto"
                   onClick={() => setProfileOpen(!profileOpen)}
                 >
                   <img
@@ -344,7 +354,7 @@ export function Header() {
                       profileOpen ? "rotate-180" : ""
                     }`}
                   />
-                </button>
+                </Button>
 
                 {profileOpen && (
                   <div className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-[1.35rem] border border-white/10 bg-[color-mix(in_oklab,var(--color-popover)_92%,transparent)] shadow-[0_18px_40px_rgba(0,0,0,0.36)] backdrop-blur-xl">
@@ -374,15 +384,16 @@ export function Header() {
                       ))}
                     </div>
                     <div className="border-t border-white/8 py-1">
-                      <button
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
+                      <Button
+                        variant="ghost"
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-400 justify-start rounded-none"
                         onClick={() => {
                           signOut();
                           setProfileOpen(false);
                         }}
                       >
                         Sign Out
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -397,13 +408,15 @@ export function Header() {
               </Button>
             )}
 
-            <button
-              className="rounded-full p-2.5 text-white/70 transition-all hover:bg-white/8 hover:text-white lg:hidden"
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full text-white/70 hover:bg-white/8 hover:text-white lg:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -419,17 +432,19 @@ export function Header() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-2xl border-white/14 bg-white/8 py-3 pl-11 pr-11 text-sm text-white placeholder:text-white/40 focus-visible:border-primary/60 focus-visible:bg-white/12"
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => {
                   setSearchOpen(false);
                   setSearchQuery("");
                 }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 transition-colors hover:text-white/80"
+                className="absolute right-4 top-1/2 -translate-y-1/2 h-7 w-7 text-white/40 hover:text-white/80 hover:bg-transparent"
                 aria-label="Close search"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </form>
           </div>
         )}
@@ -503,12 +518,13 @@ export function Header() {
                       <Clock className="h-4 w-4" />
                       Watch History
                     </Link>
-                    <button
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
+                    <Button
+                      variant="ghost"
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-400 justify-start"
                       onClick={() => signOut()}
                     >
                       Sign Out
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <Button

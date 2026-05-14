@@ -178,8 +178,10 @@ export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = 
               <Info className="w-5 h-5 mr-2" />
               More Info
             </Button>
-            <button
-              className="w-11 h-11 rounded-full glass text-white hover:bg-white/15 border border-white/20 flex items-center justify-center transition-all"
+            <Button
+              size="icon"
+              variant="ghost"
+              className="w-11 h-11 rounded-full glass text-white hover:bg-white/15 border border-white/20"
               onClick={handleWatchlist}
               title={isInWatchlist ? "Remove from My List" : "Add to My List"}
             >
@@ -188,24 +190,28 @@ export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = 
               ) : (
                 <Plus className="w-5 h-5" />
               )}
-            </button>
+            </Button>
 
             {content.trailerKey && (
-              <button
-                className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors sm:ml-2"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white sm:ml-2"
                 onClick={() => setShowTrailer(!showTrailer)}
               >
                 {showTrailer ? "Hide Trailer" : "Watch Trailer"}
-              </button>
+              </Button>
             )}
 
             {showTrailer && content.trailerKey && (
-              <button
-                className="w-10 h-10 rounded-full glass text-white/60 hover:text-white flex items-center justify-center"
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-10 h-10 rounded-full glass text-white/60 hover:text-white"
                 onClick={() => setMuted(!muted)}
               >
                 {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </button>
+              </Button>
             )}
           </div>
         </div>

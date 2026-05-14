@@ -905,28 +905,32 @@ export function VideoPlayer({
           <div className="flex items-center gap-2 sm:shrink-0">
             {showDubToggle && (
               <div className="flex items-center rounded-md border border-border/80 bg-card/90 overflow-hidden shrink-0">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleDubToggle(false)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-none px-3 py-1.5 text-xs font-medium ${
                     !isDub
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
                       : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                   }`}
                 >
                   <Mic2 className="w-3 h-3" />
                   SUB
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleDubToggle(true)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-none px-3 py-1.5 text-xs font-medium ${
                     isDub
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
                       : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                   }`}
                 >
                   <Mic2 className="w-3 h-3" />
                   DUB
-                </button>
+                </Button>
               </div>
             )}
 

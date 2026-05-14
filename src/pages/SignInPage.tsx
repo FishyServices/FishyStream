@@ -203,30 +203,30 @@ function NativeSignInCard() {
 
       {!requiresVerification && (
         <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-black/20 p-1">
-          <button
+          <Button
             type="button"
-            className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-              mode === "password" ? "bg-white text-black" : "text-white/65 hover:text-white"
-            }`}
+            variant={mode === "password" ? "default" : "ghost"}
+            size="sm"
+            className={`rounded-xl ${mode === "password" ? "bg-white text-black hover:bg-white/90" : "text-white/65 hover:text-white"}`}
             onClick={() => {
               setMode("password");
               setErrorMessage(null);
             }}
           >
             Password
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-              mode === "email-code" ? "bg-white text-black" : "text-white/65 hover:text-white"
-            }`}
+            variant={mode === "email-code" ? "default" : "ghost"}
+            size="sm"
+            className={`rounded-xl ${mode === "email-code" ? "bg-white text-black hover:bg-white/90" : "text-white/65 hover:text-white"}`}
             onClick={() => {
               setMode("email-code");
               setErrorMessage(null);
             }}
           >
             Email Code
-          </button>
+          </Button>
         </div>
       )}
 

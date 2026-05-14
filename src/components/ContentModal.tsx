@@ -79,8 +79,9 @@ function EpisodePill({
   onClick: () => void;
 }) {
   return (
-    <button
-      className={`group flex w-full items-start gap-3 rounded-lg p-3 text-left transition-all hover:bg-accent ${
+    <Button
+      variant="ghost"
+      className={`group flex w-full items-start gap-3 rounded-lg p-3 text-left h-auto justify-start ${
         selected ? "bg-accent ring-1 ring-primary/40" : ""
       }`}
       onClick={onClick}
@@ -109,7 +110,7 @@ function EpisodePill({
         {ep.runtime && <p className="mt-1 text-[11px] text-muted-foreground/80">{ep.runtime}m</p>}
       </div>
       <Play className="mt-4 h-4 w-4 shrink-0 text-transparent transition-colors group-hover:text-muted-foreground" />
-    </button>
+    </Button>
   );
 }
 
@@ -443,12 +444,14 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             loading="lazy"
           />
           <div className="absolute inset-0 bg-linear-to-t from-card via-background/35 to-transparent" />
-          <button
-            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-border/80 bg-background/78 text-foreground transition-colors hover:bg-background"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-3 top-3 z-10 h-8 w-8 rounded-full border border-border/80 bg-background/78 text-foreground hover:bg-background"
             onClick={onClose}
           >
             <X className="w-4 h-4" />
-          </button>
+          </Button>
           <div className="absolute bottom-0 left-0 right-0 p-5">
             <h2 className="font-display text-2xl sm:text-3xl font-black text-white mb-3 leading-tight">
               {content.title}
@@ -462,8 +465,10 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                 Play
                 {isTV ? ` S${selectedSeason} E${selectedEpisode}` : ""}
               </Button>
-              <button
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-border/80 bg-background/60 text-foreground transition-colors hover:bg-background"
+              <Button
+                variant="ghost"
+                size="icon"
+                className="flex h-10 w-10 rounded-full border border-border/80 bg-background/60 text-foreground hover:bg-background"
                 onClick={handleWatchlist}
                 title={isInWatchlist ? "Remove from My List" : "Add to My List"}
               >
@@ -472,7 +477,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                 ) : (
                   <Plus className="w-5 h-5 text-foreground" />
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

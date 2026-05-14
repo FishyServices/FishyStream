@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import type { TMDBItem } from "@/hooks/useContent";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
-import { toast } from "@fishy/ui";
+import { Button, toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -134,15 +134,18 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
           >
             <div className="space-y-2.5">
               <div className="flex items-center gap-2">
-                <button
-                  className="w-9 h-9 rounded-full bg-white flex items-center justify-center shrink-0 hover:bg-white/90 transition-colors shadow-lg"
+                <Button
+                  size="icon"
+                  className="w-9 h-9 rounded-full bg-white text-black hover:bg-white/90 shadow-lg shrink-0"
                   onClick={handlePlay}
                   aria-label={`Play ${item.title}`}
                 >
                   <Play className="w-4 h-4 fill-black text-black ml-0.5" />
-                </button>
-                <button
-                  className="w-8 h-8 rounded-full border border-white/40 glass flex items-center justify-center shrink-0 hover:border-white/70 transition-colors"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 rounded-full border border-white/40 glass shrink-0 hover:border-white/70"
                   onClick={handleWatchlist}
                   aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
                 >
@@ -151,9 +154,11 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
                   ) : (
                     <Plus className="w-3.5 h-3.5 text-white" />
                   )}
-                </button>
-                <button
-                  className="w-8 h-8 rounded-full border border-white/40 glass flex items-center justify-center shrink-0 ml-auto hover:border-white/70 transition-colors"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 rounded-full border border-white/40 glass shrink-0 ml-auto hover:border-white/70"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleCardClick();
@@ -161,7 +166,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
                   aria-label="More info"
                 >
                   <ChevronDown className="w-3.5 h-3.5 text-white" />
-                </button>
+                </Button>
               </div>
 
               <div>
@@ -215,16 +220,18 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              className="flex h-9 flex-1 items-center justify-center gap-2 rounded-full bg-white text-black transition-colors"
+            <Button
+              className="flex h-9 flex-1 items-center justify-center gap-2 rounded-full bg-white text-black hover:bg-white/90"
               onClick={handlePlay}
               aria-label={`Play ${item.title}`}
             >
               <Play className="h-4 w-4 fill-black text-black" />
               <span className="text-xs font-semibold">Play</span>
-            </button>
-            <button
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/6"
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full border border-white/16 bg-white/6"
               onClick={handleWatchlist}
               aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
             >
@@ -233,9 +240,11 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
               ) : (
                 <Plus className="h-4 w-4 text-white" />
               )}
-            </button>
-            <button
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/6"
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full border border-white/16 bg-white/6"
               onClick={(e) => {
                 e.stopPropagation();
                 handleCardClick();
@@ -243,7 +252,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
               aria-label="More info"
             >
               <ChevronDown className="h-4 w-4 text-white" />
-            </button>
+            </Button>
           </div>
         </div>
       </div>

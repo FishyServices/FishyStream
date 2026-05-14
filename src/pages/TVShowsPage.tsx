@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Tv2, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Tv2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { usePaginatedContent, type ContentSort } from "@/hooks/useContent";
 import { TV_SORT_OPTIONS } from "@/lib/appSettings";
-import { Button } from "@fishy/ui";
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@fishy/ui";
 
 const GENRES = [
   "All",
@@ -26,7 +26,6 @@ export function TVShowsPage() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [sortOpen, setSortOpen] = useState(false);
   const [pageHistory, setPageHistory] = useState<string[]>([]);
 
   const genre = searchParams.get("genre") ?? "All";
@@ -100,48 +99,39 @@ export function TVShowsPage() {
             {shows && <p className="mt-1 text-sm text-muted-foreground">{totalCount} titles</p>}
           </div>
           <div className="relative self-start">
-            <button
-              className="flex items-center gap-2 rounded-lg border border-border bg-card/70 px-3 py-2 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-              onClick={() => setSortOpen(!sortOpen)}
+            <Select
+              value={sort}
+              onValueChange={(value) => {
+                if (!value) return;
+                setSearchParams((p) => {
+                  p.set("sort", value);
+                  p.delete("cursor");
+                  return p;
+                });
+              }}
             >
-              <Filter className="w-3.5 h-3.5" />
-              {currentSort.label}
-              <ChevronDown
-                className={`w-3.5 h-3.5 transition-transform ${sortOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            {sortOpen && (
-              <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-lg border border-border/80 bg-popover py-1 shadow-lg">
+              <SelectTrigger className="flex items-center gap-2 rounded-lg border border-border bg-card/70 text-sm text-foreground/80">
+                <Filter className="w-3.5 h-3.5 shrink-0" />
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
                 {TV_SORT_OPTIONS.map((s) => (
-                  <button
-                    key={s.value}
-                    className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-accent ${s.value === sort ? "font-semibold text-primary" : "text-foreground/75"}`}
-                    onClick={() => {
-                      setSearchParams((p) => {
-                        p.set("sort", s.value);
-                        p.delete("cursor");
-                        return p;
-                      });
-                      setSortOpen(false);
-                    }}
-                  >
+                  <SelectItem key={s.value} value={s.value}>
                     {s.label}
-                  </button>
+                  </SelectItem>
                 ))}
-              </div>
-            )}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         <div className="-mx-1 mb-6 flex gap-2 overflow-x-auto scrollbar-hide px-1 pb-4">
           {GENRES.map((g) => (
-            <button
+            <Button
               key={g}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                genre === g
-                  ? "bg-primary text-white"
-                  : "border border-border bg-card/65 text-foreground/72 hover:border-primary/30 hover:text-foreground"
-              }`}
+              variant={genre === g ? "default" : "outline"}
+              size="sm"
+              className="shrink-0 rounded-full"
               onClick={() =>
                 setSearchParams((p) => {
                   g === "All" ? p.delete("genre") : p.set("genre", g);
@@ -151,7 +141,7 @@ export function TVShowsPage() {
               }
             >
               {g}
-            </button>
+            </Button>
           ))}
         </div>
 

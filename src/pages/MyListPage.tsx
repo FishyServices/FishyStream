@@ -522,9 +522,10 @@ export function MyListPage() {
 
       {contextMenu && (
         <>
-          <button
+          <Button
             type="button"
-            className="fixed inset-0 z-40 cursor-default bg-transparent"
+            variant="ghost"
+            className="fixed inset-0 z-40 cursor-default bg-transparent hover:bg-transparent p-0 rounded-none"
             onClick={() => setContextMenu(null)}
             aria-label="Close bookmark menu"
           />

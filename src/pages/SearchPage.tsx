@@ -4,6 +4,7 @@ import { Loader2, Search, X, Tv, Film } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useSearchAll } from "@/hooks/useContent";
 import { SearchCard } from "@/components/SearchCard";
+import { Button, Input } from "@fishy/ui";
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -30,8 +31,8 @@ export function SearchPage() {
         <div className="max-w-2xl mb-10">
           <h1 className="font-display text-3xl font-black text-white mb-5">Search</h1>
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-            <input
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30 pointer-events-none" />
+            <Input
               type="text"
               placeholder="Search movies, TV shows, genres..."
               value={input}
@@ -40,12 +41,16 @@ export function SearchPage() {
               className="w-full bg-white/8 border border-white/12 focus:border-primary/50 rounded-xl py-3.5 pl-12 pr-12 text-white placeholder:text-white/30 focus:outline-none focus:bg-white/12 transition-all text-sm"
             />
             {input && (
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => handleInput("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 text-white/30 hover:text-white/70 hover:bg-transparent"
+                aria-label="Clear search"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             )}
           </div>
         </div>
