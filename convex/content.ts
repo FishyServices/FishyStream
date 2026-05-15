@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
@@ -228,8 +229,70 @@ export const getSimilar = query({
 
 export const getPaginated = query({
   args: {
-    type: v.optional(v.union(v.literal("movie"), v.literal("tv"))),
-    genre: v.optional(v.string()),
+    type: v.union(v.literal("movie"), v.literal("tv")),
+    sortBy: v.optional(
+      v.union(
+        v.literal("trending"),
+        v.literal("popular"),
+        v.literal("new"),
+        v.literal("rating"),
+        v.literal("year")
+      )
+    ),
+    paginationOpts: paginationOptsValidator
+  },
+  handler: async (ctx, { type, sortBy = "popular", paginationOpts }) => {
+    let results;
+
+    switch (sortBy) {
+      case "trending":
+        results = await ctx.db
+          .query("content")
+          .withIndex("by_type_trending", (q) => q.eq("type", type))
+          .order("desc")
+          .paginate(paginationOpts);
+        break;
+      case "new":
+        results = await ctx.db
+          .query("content")
+          .withIndex("by_type_new", (q) => q.eq("type", type))
+          .order("desc")
+          .paginate(paginationOpts);
+        break;
+      case "rating":
+        results = await ctx.db
+          .query("content")
+          .withIndex("by_type_vote_average", (q) => q.eq("type", type))
+          .order("desc")
+          .paginate(paginationOpts);
+        break;
+      case "year":
+        results = await ctx.db
+          .query("content")
+          .withIndex("by_type_year", (q) => q.eq("type", type))
+          .order("desc")
+          .paginate(paginationOpts);
+        break;
+      default:
+        results = await ctx.db
+          .query("content")
+          .withIndex("by_type_popular", (q) => q.eq("type", type))
+          .order("desc")
+          .paginate(paginationOpts);
+        break;
+    }
+
+    return {
+      ...results,
+      page: results.page.map(toContentCardItem)
+    };
+  }
+});
+
+export const getPaginatedByGenre = query({
+  args: {
+    type: v.union(v.literal("movie"), v.literal("tv")),
+    genre: v.string(),
     sortBy: v.optional(
       v.union(
         v.literal("trending"),
@@ -242,44 +305,13 @@ export const getPaginated = query({
     cursor: v.optional(v.string()),
     limit: v.optional(v.number())
   },
-  handler: async (ctx, { type, genre, sortBy = "popular", cursor, limit = 48 }) => {
-    const pageSize = limit ?? 48;
+  handler: async (ctx, { type, genre, sortBy = "popular", cursor, limit = 24 }) => {
+    let items = await ctx.db
+      .query("content")
+      .withIndex("by_type", (q) => q.eq("type", type))
+      .take(300);
 
-    if ((sortBy === "trending" || sortBy === "popular") && !genre && type) {
-      const prioritized = await ctx.db
-        .query("content")
-        .withIndex(sortBy === "trending" ? "by_trending" : "by_popular", (q) => q.eq(sortBy, true))
-        .filter((q) => q.eq(q.field("type"), type))
-        .take(1024);
-
-      const nonPrioritized = await ctx.db
-        .query("content")
-        .withIndex("by_type", (q) => q.eq("type", type))
-        .filter((q) => q.eq(q.field(sortBy), false))
-        .take(1024);
-
-      const items = [...prioritized, ...nonPrioritized];
-      const start = cursor ? items.findIndex((c) => c._id === cursor) + 1 : 0;
-      const page = items.slice(start, start + pageSize);
-      const nextCursor = page.length === pageSize ? page[page.length - 1]?._id : undefined;
-
-      return { items: page.map(toContentCardItem), nextCursor, totalCount: items.length };
-    }
-
-    let items: Doc<"content">[];
-
-    if (type) {
-      items = await ctx.db
-        .query("content")
-        .withIndex("by_type", (q) => q.eq("type", type))
-        .take(1024);
-    } else {
-      items = await ctx.db.query("content").take(1024);
-    }
-
-    if (genre) {
-      items = items.filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()));
-    }
+    items = items.filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()));
 
     switch (sortBy) {
       case "trending":
@@ -296,11 +328,12 @@ export const getPaginated = query({
         break;
       default:
         items = items.filter((c) => c.popular).concat(items.filter((c) => !c.popular));
+        break;
     }
 
     const start = cursor ? items.findIndex((c) => c._id === cursor) + 1 : 0;
-    const page = items.slice(start, start + pageSize);
-    const nextCursor = page.length === pageSize ? page[page.length - 1]?._id : undefined;
+    const page = items.slice(start, start + limit);
+    const nextCursor = page.length === limit ? page[page.length - 1]?._id : undefined;
 
     return { items: page.map(toContentCardItem), nextCursor, totalCount: items.length };
   }

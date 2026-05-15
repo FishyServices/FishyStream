@@ -1,4 +1,4 @@
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useAction, usePaginatedQuery } from "convex/react";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
@@ -23,6 +23,18 @@ export interface PaginatedResult {
   items: ContentListItem[];
   nextCursor?: string;
   totalCount: number;
+}
+
+export interface BrowsePageResult {
+  items: ContentListItem[];
+  currentPage: number;
+  totalPages?: number;
+  totalCount?: number;
+  hasNextPage: boolean;
+  canGoBack: boolean;
+  isLoading: boolean;
+  goNext: () => void;
+  goPrevious: () => void;
 }
 
 export interface TMDBItem {
@@ -273,13 +285,71 @@ export function useAllCategories(): ContentCategory[] {
 }
 
 export function usePaginatedContent(
-  type: "movie" | "tv" | undefined,
+  type: "movie" | "tv",
   genre: string | undefined,
   sortBy: ContentSort,
-  cursor: string | undefined,
   limit = 24
-) {
-  return useQuery(api.content.getPaginated, { type, genre, sortBy, cursor, limit });
+): BrowsePageResult {
+  const [pageIndex, setPageIndex] = useState(0);
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [genre, limit, sortBy, type]);
+
+  const indexed = usePaginatedQuery(
+    api.content.getPaginated,
+    genre ? "skip" : { type, sortBy },
+    { initialNumItems: limit }
+  );
+  const genrePage = useQuery(
+    api.content.getPaginatedByGenre,
+    genre ? { type, genre, sortBy, cursor: undefined, limit } : "skip"
+  );
+
+  if (genre) {
+    return {
+      items: genrePage?.items ?? [],
+      currentPage: 1,
+      totalPages: genrePage ? Math.ceil(genrePage.totalCount / limit) : undefined,
+      totalCount: genrePage?.totalCount,
+      hasNextPage: !!genrePage?.nextCursor,
+      canGoBack: false,
+      isLoading: genrePage === undefined,
+      goNext: () => {},
+      goPrevious: () => {}
+    };
+  }
+
+  const items = indexed.results;
+  const start = pageIndex * limit;
+  const visibleItems = items.slice(start, start + limit);
+  const hasLoadedNextPage = start + limit < items.length;
+  const hasNextPage = hasLoadedNextPage || indexed.status === "CanLoadMore";
+  const isLoading = indexed.status === "LoadingFirstPage";
+
+  const goNext = () => {
+    if (hasLoadedNextPage) {
+      setPageIndex((current) => current + 1);
+      return;
+    }
+
+    if (indexed.status === "CanLoadMore") {
+      indexed.loadMore(limit);
+      setPageIndex((current) => current + 1);
+    }
+  };
+
+  return {
+    items: visibleItems,
+    currentPage: pageIndex + 1,
+    totalPages: undefined,
+    totalCount: undefined,
+    hasNextPage,
+    canGoBack: pageIndex > 0,
+    isLoading,
+    goNext,
+    goPrevious: () => setPageIndex((current) => Math.max(0, current - 1))
+  };
 }
 
 export function useRecommendations(

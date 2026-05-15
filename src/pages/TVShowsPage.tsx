@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Tv2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -26,30 +25,14 @@ export function TVShowsPage() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [pageHistory, setPageHistory] = useState<string[]>([]);
-
   const genre = searchParams.get("genre") ?? "All";
   const sortParam = searchParams.get("sort");
   const sort: ContentSort =
     sortParam && VALID_SORTS.has(sortParam as ContentSort)
       ? (sortParam as ContentSort)
       : settings.defaultTVSort;
-  const cursor = searchParams.get("cursor") ?? undefined;
-
-  const paginated = usePaginatedContent(
-    "tv",
-    genre !== "All" ? genre : undefined,
-    sort,
-    cursor,
-    24
-  );
-
-  const shows = paginated?.items;
-  const hasNextPage = !!paginated?.nextCursor;
-  const totalCount = paginated?.totalCount ?? 0;
-
-  const currentPage = pageHistory.length + 1;
-  const totalPages = Math.ceil(totalCount / 24);
+  const paginated = usePaginatedContent("tv", genre !== "All" ? genre : undefined, sort, 24);
+  const shows = paginated.items;
 
   const currentSort =
     TV_SORT_OPTIONS.find((s) => s.value === sort) ??
@@ -62,33 +45,6 @@ export function TVShowsPage() {
     navigate(`/watch/${tmdbId}${p.toString() ? "?" + p : ""}`);
   };
 
-  const handleNext = () => {
-    if (paginated?.nextCursor) {
-      setPageHistory((prev) => [...prev, cursor ?? ""]);
-      setSearchParams((p) => {
-        p.set("cursor", paginated.nextCursor!);
-        return p;
-      });
-    }
-  };
-
-  const handlePrevious = () => {
-    if (pageHistory.length > 0) {
-      const prevCursor = pageHistory[pageHistory.length - 1];
-      setPageHistory((prev) => prev.slice(0, -1));
-      setSearchParams((p) => {
-        if (prevCursor) {
-          p.set("cursor", prevCursor);
-        } else {
-          p.delete("cursor");
-        }
-        return p;
-      });
-    }
-  };
-
-  const canGoBack = pageHistory.length > 0;
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -96,7 +52,9 @@ export function TVShowsPage() {
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="font-display text-3xl font-black text-foreground">TV Shows</h1>
-            {shows && <p className="mt-1 text-sm text-muted-foreground">{totalCount} titles</p>}
+            {paginated.totalCount !== undefined && (
+              <p className="mt-1 text-sm text-muted-foreground">{paginated.totalCount} titles</p>
+            )}
           </div>
           <div className="relative self-start">
             <Select
@@ -135,7 +93,6 @@ export function TVShowsPage() {
               onClick={() =>
                 setSearchParams((p) => {
                   g === "All" ? p.delete("genre") : p.set("genre", g);
-                  p.delete("cursor");
                   return p;
                 })
               }
@@ -145,7 +102,7 @@ export function TVShowsPage() {
           ))}
         </div>
 
-        {shows === undefined ? (
+        {paginated.isLoading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
@@ -166,21 +123,21 @@ export function TVShowsPage() {
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
               <Button
                 variant="outline"
-                onClick={handlePrevious}
-                disabled={!canGoBack}
+                onClick={paginated.goPrevious}
+                disabled={!paginated.canGoBack}
                 className="flex w-full items-center justify-center gap-2 sm:w-auto"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Previous
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {currentPage}
-                {totalPages > 0 ? ` of ${totalPages}` : ""}
+                Page {paginated.currentPage}
+                {paginated.totalPages ? ` of ${paginated.totalPages}` : ""}
               </span>
               <Button
                 variant="outline"
-                onClick={handleNext}
-                disabled={!hasNextPage}
+                onClick={paginated.goNext}
+                disabled={!paginated.hasNextPage}
                 className="flex w-full items-center justify-center gap-2 sm:w-auto"
               >
                 Next
