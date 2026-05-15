@@ -73,7 +73,9 @@ export const getTVSources = action({
                   seasonTitle,
                   year
                 })
-              : null) ?? anilistId ?? null;
+              : null) ??
+            anilistId ??
+            null;
         }
         animeId = resolvedAniListId;
       }
