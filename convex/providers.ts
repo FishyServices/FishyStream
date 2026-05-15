@@ -55,7 +55,7 @@ export const getTVSources = action({
     { imdbId, tmdbId, anilistId, season, episode, isAnime, title, seasonTitle, year, dub }
   ): Promise<StreamSource[]> => {
     const sources: StreamSource[] = [];
-    let resolvedAniListId: string | null | undefined = anilistId;
+    let resolvedAniListId: string | null | undefined = undefined;
 
     for (const provider of STREAM_PROVIDERS) {
       if (provider.animeOnly && !isAnime) continue;
@@ -65,7 +65,15 @@ export const getTVSources = action({
 
       if (isAnime && provider.getAnimeTVUrl && provider.animeIdType === "anilist") {
         if (resolvedAniListId === undefined) {
-          resolvedAniListId = await resolveAniListId({ title, season, seasonTitle, year });
+          resolvedAniListId =
+            (title
+              ? await resolveAniListId({
+                  title,
+                  season,
+                  seasonTitle,
+                  year
+                })
+              : null) ?? anilistId ?? null;
         }
         animeId = resolvedAniListId;
       }

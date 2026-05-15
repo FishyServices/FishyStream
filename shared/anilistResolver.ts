@@ -27,6 +27,18 @@ function getSeasonOrdinal(season: number) {
   return `${season}th`;
 }
 
+function getSeasonWord(season: number) {
+  const words: Record<number, string> = {
+    1: "first",
+    2: "second",
+    3: "third",
+    4: "fourth",
+    5: "fifth",
+    6: "sixth"
+  };
+  return words[season];
+}
+
 function buildAniListSearchCandidates(title: string, season: number, seasonTitle?: string) {
   const cleanedTitle = title.trim();
   const cleanedSeasonTitle = seasonTitle?.trim();
@@ -60,23 +72,46 @@ function buildAniListSearchCandidates(title: string, season: number, seasonTitle
   return [...candidates].filter(Boolean);
 }
 
+function extractTaggedSeasonNumbers(
+  candidate: string,
+  patterns: RegExp[],
+  transform?: (value: number) => number
+) {
+  const values = new Set<number>();
+
+  for (const pattern of patterns) {
+    for (const match of candidate.matchAll(pattern)) {
+      const value = Number(match[1]);
+      if (!Number.isFinite(value) || value <= 0) continue;
+      values.add(transform ? transform(value) : value);
+    }
+  }
+
+  return values;
+}
+
+function getSeasonSignals(candidate: string) {
+  const explicitSeasonNumbers = extractTaggedSeasonNumbers(candidate, [
+    /\bseason\s+(\d+)\b/g,
+    /\b(\d+)(?:st|nd|rd|th)\s+season\b/g
+  ]);
+  const wordMatches = ["first", "second", "third", "fourth", "fifth", "sixth"] as const;
+
+  wordMatches.forEach((word, index) => {
+    if (candidate.includes(`${word} season`)) {
+      explicitSeasonNumbers.add(index + 1);
+    }
+  });
+
+  return {
+    explicitSeasonNumbers,
+    partNumbers: extractTaggedSeasonNumbers(candidate, [/\bpart\s+(\d+)\b/g]),
+    courNumbers: extractTaggedSeasonNumbers(candidate, [/\bcour\s+(\d+)\b/g])
+  };
+}
+
 function scoreAniListCandidate(media: AniListSearchMedia, title: string, season: number) {
   const baseTitle = normalizeAniListText(title);
-  const ordinal = getSeasonOrdinal(season);
-  const seasonTokens =
-    season <= 1
-      ? ["1st season", "first season", "season 1"]
-      : [
-          `${ordinal} season`,
-          `season ${season}`,
-          `${season} season`,
-          `${ordinal}`,
-          `part ${season}`
-        ];
-  const antiSeasonTokens =
-    season <= 1
-      ? ["2nd season", "3rd season", "4th season", "season 2", "season 3", "season 4"]
-      : [];
   const titles = [
     media.title?.romaji,
     media.title?.english,
@@ -106,8 +141,27 @@ function scoreAniListCandidate(media: AniListSearchMedia, title: string, season:
       matchedBaseTitle = true;
     }
 
-    if (seasonTokens.some((token) => candidate.includes(token))) score += 10;
-    if (antiSeasonTokens.some((token) => candidate.includes(token))) score -= 8;
+    const { explicitSeasonNumbers, partNumbers, courNumbers } = getSeasonSignals(candidate);
+    const hasExplicitSeasonMatch = explicitSeasonNumbers.has(season);
+    const hasExplicitSeasonMismatch =
+      explicitSeasonNumbers.size > 0 && !explicitSeasonNumbers.has(season);
+
+    if (hasExplicitSeasonMatch) score += 14;
+    if (hasExplicitSeasonMismatch) score -= 24;
+
+    if (!hasExplicitSeasonMatch && !hasExplicitSeasonMismatch) {
+      if (partNumbers.has(season)) score += 4;
+      if (courNumbers.has(season)) score += 3;
+    } else {
+      if (partNumbers.has(season)) score += 1;
+      if (courNumbers.has(season)) score += 1;
+    }
+
+    const seasonWord = getSeasonWord(season);
+    if (seasonWord && candidate.includes(`${seasonWord} season`)) {
+      score += 6;
+    }
+
     if (
       candidate.includes("special") ||
       candidate.includes("specials") ||
