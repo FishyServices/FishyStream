@@ -5,7 +5,7 @@ import { useAction } from "convex/react";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { ContentRow } from "@/components/ContentRow";
-import { useFeaturedContent, useAllCategories, useRecommendations } from "@/hooks/useContent";
+import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useMyWatchlist } from "@/hooks/useWatchlist";
@@ -236,8 +236,9 @@ function EmptyState() {
 export function App() {
   const { isLoaded, isSignedIn } = useUser();
   const navigate = useNavigate();
-  const categories = useAllCategories();
-  const featuredContent = useFeaturedContent();
+  const homepage = useHomepageContent();
+  const categories = homepage?.categories ?? [];
+  const featuredContent = homepage?.featured;
   const continueWatching = useContinueWatching() ?? [];
   const watchlist = useMyWatchlist();
   const { recommendations } = useRecommendations(watchlist, 12);

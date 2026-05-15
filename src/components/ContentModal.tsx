@@ -38,6 +38,7 @@ import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
 } from "../../shared/tvSeasonMappings";
+import type { ContentListItem } from "@/hooks/useContent";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -48,18 +49,33 @@ interface WatchHistoryFields {
   durationSeconds?: number;
 }
 
+type ModalContent = (Doc<"content"> | ContentListItem) & WatchHistoryFields;
+
 interface ContentModalProps {
-  content: (Doc<"content"> & WatchHistoryFields) | null;
+  content: ModalContent | null;
   isOpen: boolean;
   onClose: () => void;
   onPlay: (tmdbId: string, season?: number, episode?: number) => void;
 }
 
-function isAnimeContent(content: Doc<"content"> | null) {
+function hasFullContent(
+  content: ModalContent | null
+): content is Doc<"content"> & WatchHistoryFields {
+  return !!content && "description" in content && "backdropUrl" in content;
+}
+
+function isAnimeContent(
+  content: (Pick<Doc<"content">, "type" | "genre"> & { originalLanguage?: string }) | null
+) {
   if (!content || content.type !== "tv") return false;
 
   const genres = new Set(content.genre.map((g) => g.toLowerCase()));
   return genres.has("animation") && content.originalLanguage?.toLowerCase() === "ja";
+}
+
+function getSeasonCount(content: ModalContent | null): number | undefined {
+  const candidate = content as Partial<Doc<"content">> | null;
+  return typeof candidate?.seasons === "number" ? candidate.seasons : undefined;
 }
 
 function EpisodePill({
@@ -115,25 +131,35 @@ function EpisodePill({
 }
 
 export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalProps) {
+  const fullContent = useQuery(
+    api.content.getById,
+    isOpen && content && !hasFullContent(content) ? { id: content._id } : "skip"
+  );
+  const resolvedContent: ModalContent | null = fullContent
+    ? { ...fullContent, ...content }
+    : content;
+  const detailContent = hasFullContent(resolvedContent) ? resolvedContent : null;
   const navigate = useNavigate();
   const { isSignedIn } = useUser();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
-  const animeContent = isAnimeContent(content);
+  const animeContent = isAnimeContent(detailContent ?? resolvedContent);
 
-  const isInWatchlist = useIsInWatchlist(content?._id);
+  const isInWatchlist = useIsInWatchlist(resolvedContent?._id);
   const toggleWatchlist = useToggleWatchlist();
 
   const dbSeason = useQuery(
     api.seasons.getSeason,
-    isOpen && content && content.type === "tv" && content._id
-      ? { contentId: content._id, seasonNumber: selectedSeason }
+    isOpen && resolvedContent && resolvedContent.type === "tv" && resolvedContent._id
+      ? { contentId: resolvedContent._id, seasonNumber: selectedSeason }
       : "skip"
   );
 
   const allSeasons = useQuery(
     api.seasons.getSeasonsByContent,
-    isOpen && content && content.type === "tv" && content._id ? { contentId: content._id } : "skip"
+    isOpen && resolvedContent && resolvedContent.type === "tv" && resolvedContent._id
+      ? { contentId: resolvedContent._id }
+      : "skip"
   );
 
   const syncSeason = useAction(api.tmdb.syncSeason);
@@ -147,14 +173,14 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const backgroundSyncKeyRef = useRef<string | null>(null);
   const syncedSeasonKeysRef = useRef(new Set<string>());
 
-  const tmdbIdNum = content?.tmdbId
-    ? typeof content.tmdbId === "number"
-      ? content.tmdbId
-      : parseInt(content.tmdbId, 10) || undefined
+  const tmdbIdNum = resolvedContent?.tmdbId
+    ? typeof resolvedContent.tmdbId === "number"
+      ? resolvedContent.tmdbId
+      : parseInt(resolvedContent.tmdbId, 10) || undefined
     : undefined;
-  const { credits } = useContentCredits(tmdbIdNum, content?.type, isOpen);
-  const { videos } = useContentVideos(tmdbIdNum, content?.type, isOpen);
-  const { related } = useRelatedContent(tmdbIdNum, content?.type, 8, isOpen);
+  const { credits } = useContentCredits(tmdbIdNum, resolvedContent?.type, isOpen);
+  const { videos } = useContentVideos(tmdbIdNum, resolvedContent?.type, isOpen);
+  const { related } = useRelatedContent(tmdbIdNum, resolvedContent?.type, 8, isOpen);
 
   const syncSingleContent = useAction(api.tmdb.syncSingleContent);
   const [relatedModalItem, setRelatedModalItem] = useState<TMDBItem | null>(null);
@@ -178,9 +204,16 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     seasonNumber: number,
     options?: { force?: boolean; showLoader?: boolean }
   ) => {
-    if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
+    if (
+      !resolvedContent ||
+      resolvedContent.type !== "tv" ||
+      !resolvedContent._id ||
+      !resolvedContent.tmdbId
+    ) {
+      return;
+    }
 
-    const seasonKey = `${content._id}:${seasonNumber}`;
+    const seasonKey = `${resolvedContent._id}:${seasonNumber}`;
     if (options?.force) {
       syncedSeasonKeysRef.current.delete(seasonKey);
     }
@@ -193,8 +226,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     }
 
     void syncSeason({
-      tmdbId: String(content.tmdbId),
-      contentId: content._id,
+      tmdbId: String(resolvedContent.tmdbId),
+      contentId: resolvedContent._id,
       seasonNumber
     })
       .then((result) => {
@@ -219,22 +252,29 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   };
 
   useEffect(() => {
-    if (!content || !isOpen) {
+    if (!isOpen) {
       setEpisodeLoadError(null);
       setSeasonCountOverride(undefined);
       syncedSeasonKeysRef.current.clear();
       backgroundSyncKeyRef.current = null;
     }
-  }, [content, isOpen]);
+  }, [resolvedContent, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
       refreshedTvKeyRef.current = null;
       return;
     }
-    if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
-    const tmdbId = String(content.tmdbId);
-    const refreshKey = `${content._id}:${tmdbId}`;
+    if (
+      !resolvedContent ||
+      resolvedContent.type !== "tv" ||
+      !resolvedContent._id ||
+      !resolvedContent.tmdbId
+    ) {
+      return;
+    }
+    const tmdbId = String(resolvedContent.tmdbId);
+    const refreshKey = `${resolvedContent._id}:${tmdbId}`;
     if (isRefreshingTv || refreshedTvKeyRef.current === refreshKey) return;
 
     let cancelled = false;
@@ -244,19 +284,22 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     syncSingleContent({ tmdbId: Number(tmdbId), type: "tv" })
       .then((refreshed) => {
         if (cancelled) return;
-        const totalSeasons = getCanonicalSeasonCount(tmdbId, refreshed?.seasons ?? content.seasons);
+        const totalSeasons = getCanonicalSeasonCount(
+          tmdbId,
+          refreshed?.seasons ?? getSeasonCount(resolvedContent)
+        );
         if (refreshed?.seasons != null) {
           setSeasonCountOverride(refreshed.seasons);
         }
 
-        const backgroundSyncKey = `${content._id}:${tmdbId}:${totalSeasons}`;
+        const backgroundSyncKey = `${resolvedContent._id}:${tmdbId}:${totalSeasons}`;
         if (backgroundSyncKeyRef.current !== backgroundSyncKey) {
           backgroundSyncKeyRef.current = backgroundSyncKey;
           setIsBackgroundSyncing(true);
 
           void syncSeasons({
             tmdbId,
-            contentId: content._id,
+            contentId: resolvedContent._id,
             totalSeasons
           })
             .catch(() => {
@@ -279,16 +322,23 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     return () => {
       cancelled = true;
     };
-  }, [content, isOpen, isRefreshingTv, syncSeasons, syncSingleContent]);
+  }, [resolvedContent, isOpen, isRefreshingTv, syncSeasons, syncSingleContent]);
 
   useEffect(() => {
-    if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
+    if (
+      !resolvedContent ||
+      resolvedContent.type !== "tv" ||
+      !resolvedContent._id ||
+      !resolvedContent.tmdbId
+    ) {
+      return;
+    }
     if (!isOpen || isRefreshingTv || isBackgroundSyncing || allSeasons === undefined) return;
 
-    const tmdbId = String(content.tmdbId);
+    const tmdbId = String(resolvedContent.tmdbId);
     const expectedSeasonCount = getCanonicalSeasonCount(
       tmdbId,
-      seasonCountOverride ?? content.seasons
+      seasonCountOverride ?? getSeasonCount(resolvedContent)
     );
     const syncedSeasonNumbers = new Set(allSeasons.map((season) => season.seasonNumber));
     const hasSeasonShapeMismatch = allSeasons.some((season) => {
@@ -308,7 +358,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
     if (isSeasonSyncComplete) return;
 
-    const backgroundSyncKey = `${content._id}:${tmdbId}:${expectedSeasonCount}`;
+    const backgroundSyncKey = `${resolvedContent._id}:${tmdbId}:${expectedSeasonCount}`;
     if (backgroundSyncKeyRef.current === backgroundSyncKey) return;
 
     let cancelled = false;
@@ -317,7 +367,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
     syncSeasons({
       tmdbId,
-      contentId: content._id,
+      contentId: resolvedContent._id,
       totalSeasons: expectedSeasonCount
     })
       .catch(() => {
@@ -336,7 +386,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     };
   }, [
     allSeasons,
-    content,
+    resolvedContent,
     isBackgroundSyncing,
     isOpen,
     isRefreshingTv,
@@ -345,11 +395,18 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   ]);
 
   useEffect(() => {
-    if (!content || content.type !== "tv" || !content._id || !content.tmdbId) return;
+    if (
+      !resolvedContent ||
+      resolvedContent.type !== "tv" ||
+      !resolvedContent._id ||
+      !resolvedContent.tmdbId
+    ) {
+      return;
+    }
     if (!isOpen || isSyncing) return;
 
-    const seasonKey = `${content._id}:${selectedSeason}`;
-    const expectedEpisodes = getCanonicalSeasonEpisodeCount(content.tmdbId, selectedSeason);
+    const seasonKey = `${resolvedContent._id}:${selectedSeason}`;
+    const expectedEpisodes = getCanonicalSeasonEpisodeCount(resolvedContent.tmdbId, selectedSeason);
     const actualEpisodes = dbSeason ? dbSeason.episodeCount || dbSeason.episodes.length : 0;
     const hasEpisodes = actualEpisodes > 0;
     const hasMismatch =
@@ -359,7 +416,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
     if (!needsSync || syncedSeasonKeysRef.current.has(seasonKey)) return;
     requestSeasonSync(selectedSeason, { showLoader: !hasEpisodes });
-  }, [animeContent, content, dbSeason, isOpen, isSyncing, selectedSeason, syncSeason]);
+  }, [animeContent, resolvedContent, dbSeason, isOpen, isSyncing, selectedSeason, syncSeason]);
 
   const handleRelatedClick = async (item: TMDBItem) => {
     setRelatedModalItem(item);
@@ -374,12 +431,12 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const userHasSelectedRef = useRef(false);
 
   useEffect(() => {
-    if (!content) return;
-    if (content.type === "tv" && !userHasSelectedRef.current) {
-      setSelectedSeason(content.seasonNumber ?? 1);
-      setSelectedEpisode(content.episodeNumber ?? 1);
+    if (!resolvedContent) return;
+    if (resolvedContent.type === "tv" && !userHasSelectedRef.current) {
+      setSelectedSeason(resolvedContent.seasonNumber ?? 1);
+      setSelectedEpisode(resolvedContent.episodeNumber ?? 1);
     }
-  }, [content]);
+  }, [resolvedContent]);
 
   const handleSeasonChange = (season: number) => {
     userHasSelectedRef.current = true;
@@ -392,12 +449,18 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     setSelectedEpisode(ep);
   };
 
-  if (!content) return null;
+  if (!resolvedContent) return null;
 
-  const isTV = content.type === "tv";
+  const isHydratingContent = isOpen && !hasFullContent(content) && fullContent === undefined;
+  const contentData = resolvedContent;
+  const knownSeasonCount = getSeasonCount(contentData);
+  const heroImageUrl =
+    detailContent?.backdropUrl ?? ("posterUrl" in contentData ? contentData.posterUrl : undefined);
+
+  const isTV = contentData.type === "tv";
   const totalSeasons = getCanonicalSeasonCount(
-    content.tmdbId,
-    seasonCountOverride ?? content.seasons
+    contentData.tmdbId,
+    seasonCountOverride ?? knownSeasonCount
   );
   const episodes = dbSeason?.episodes ?? [];
 
@@ -407,7 +470,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       return;
     }
     try {
-      await toggleWatchlist(content._id);
+      await toggleWatchlist(contentData._id);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Failed to update list");
@@ -415,9 +478,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   };
 
   const handlePlay = (ep?: number) => {
-    if (content.tmdbId) {
+    if (contentData.tmdbId) {
       onPlay(
-        content.tmdbId,
+        contentData.tmdbId,
         isTV ? selectedSeason : undefined,
         isTV ? (ep ?? selectedEpisode) : undefined
       );
@@ -433,16 +496,26 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       }}
     >
       <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden border-border/80 bg-card p-0 text-card-foreground">
-        <DialogTitle className="sr-only">{content.title}</DialogTitle>
+        <DialogTitle className="sr-only">{contentData.title}</DialogTitle>
 
         {/* Hero */}
         <div className="relative h-70 sm:h-85 shrink-0">
-          <img
-            src={content.backdropUrl}
-            alt={content.title}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
+          {isHydratingContent && !heroImageUrl ? (
+            <div className="flex h-full w-full items-center justify-center bg-muted/60">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : heroImageUrl ? (
+            <img
+              src={heroImageUrl}
+              alt={contentData.title}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-muted/60">
+              <Film className="h-10 w-10 text-muted-foreground/60" />
+            </div>
+          )}
           <div className="absolute inset-0 bg-linear-to-t from-card via-background/35 to-transparent" />
           <Button
             variant="ghost"
@@ -454,7 +527,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
           </Button>
           <div className="absolute bottom-0 left-0 right-0 p-5">
             <h2 className="font-display text-2xl sm:text-3xl font-black text-white mb-3 leading-tight">
-              {content.title}
+              {contentData.title}
             </h2>
             <div className="flex items-center gap-3">
               <Button
@@ -485,28 +558,33 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
         {/* Body */}
         <div className="overflow-y-auto flex-1 scrollbar-thin">
           <div className="p-5 space-y-6">
+            {isHydratingContent && (
+              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                Loading full details…
+              </div>
+            )}
             {/* Meta row */}
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              {content.voteAverage && content.voteAverage > 0 && (
+              {contentData.voteAverage && contentData.voteAverage > 0 && (
                 <span className="flex items-center gap-1 text-yellow-400 font-semibold">
                   <Star className="w-4 h-4 fill-yellow-400" />
-                  {content.voteAverage.toFixed(1)}
+                  {contentData.voteAverage.toFixed(1)}
                 </span>
               )}
               <span className="flex items-center gap-1 text-muted-foreground">
                 <Calendar className="w-3.5 h-3.5" />
-                {content.year}
+                {contentData.year}
               </span>
-              {content.duration && (
+              {detailContent?.duration && (
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="w-3.5 h-3.5" />
-                  {content.duration}
+                  {detailContent.duration}
                 </span>
               )}
               <span
-                className={`font-semibold text-xs px-2 py-0.5 rounded border border-current rating-${content.rating}`}
+                className={`font-semibold text-xs px-2 py-0.5 rounded border border-current rating-${contentData.rating}`}
               >
-                {content.rating}
+                {contentData.rating}
               </span>
               <span className="flex items-center gap-1 text-muted-foreground/90">
                 {isTV ? <Tv className="w-3.5 h-3.5" /> : <Film className="w-3.5 h-3.5" />}
@@ -515,14 +593,16 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             </div>
 
             {/* Description */}
-            {content.description && (
-              <p className="text-sm leading-relaxed text-muted-foreground">{content.description}</p>
+            {detailContent?.description && (
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {detailContent.description}
+              </p>
             )}
 
             {/* Genre pills */}
-            {content.genre.length > 0 && (
+            {contentData.genre.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {content.genre.map((g) => (
+                {contentData.genre.map((g) => (
                   <span
                     key={g}
                     className="rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground"
@@ -534,18 +614,21 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             )}
 
             {/* Progress */}
-            {content.progress !== undefined && content.progress > 0 && (
+            {contentData.progress !== undefined && contentData.progress > 0 && (
               <div className="rounded-lg border border-border bg-muted/65 p-3">
                 <div className="mb-2 flex justify-between text-xs text-muted-foreground">
                   <span>
-                    {isTV && content.seasonNumber
-                      ? `Season ${content.seasonNumber}, Ep ${content.episodeNumber}`
+                    {isTV && contentData.seasonNumber
+                      ? `Season ${contentData.seasonNumber}, Ep ${contentData.episodeNumber}`
                       : "Progress"}
                   </span>
-                  <span>{Math.round(content.progress)}%</span>
+                  <span>{Math.round(contentData.progress)}%</span>
                 </div>
                 <div className="h-1 overflow-hidden rounded-full bg-border/80">
-                  <div className="h-full bg-primary" style={{ width: `${content.progress}%` }} />
+                  <div
+                    className="h-full bg-primary"
+                    style={{ width: `${contentData.progress}%` }}
+                  />
                 </div>
               </div>
             )}
@@ -564,8 +647,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                         const cachedSeason = allSeasons?.find((ds) => ds.seasonNumber === season);
                         const cachedEpisodes =
                           cachedSeason?.episodeCount || cachedSeason?.episodes.length || 0;
-                        const expectedEpisodes = content?.tmdbId
-                          ? getCanonicalSeasonEpisodeCount(content.tmdbId, season)
+                        const expectedEpisodes = contentData.tmdbId
+                          ? getCanonicalSeasonEpisodeCount(contentData.tmdbId, season)
                           : undefined;
                         const needsSync =
                           !cachedSeason ||

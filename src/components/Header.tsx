@@ -34,7 +34,12 @@ import {
   SheetHeader,
   SheetTitle
 } from "@fishy/ui";
-import { useAcknowledgeWatchlistUpdates, useWatchlistUpdates } from "@/hooks/useWatchlist";
+import {
+  useAcknowledgeWatchlistUpdates,
+  useWatchlistUpdateCount,
+  useWatchlistUpdatesOnDemand,
+  type WatchlistUpdate
+} from "@/hooks/useWatchlist";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -74,10 +79,12 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [watchlistUpdates, setWatchlistUpdates] = useState<WatchlistUpdate[] | null>(null);
+  const [loadingWatchlistUpdates, setLoadingWatchlistUpdates] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const acknowledgeUpdates = useAcknowledgeWatchlistUpdates();
-  const watchlistUpdates = useWatchlistUpdates();
-  const unseenUpdateCount = watchlistUpdates?.length ?? 0;
+  const fetchWatchlistUpdates = useWatchlistUpdatesOnDemand();
+  const unseenUpdateCount = useWatchlistUpdateCount() ?? 0;
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -112,6 +119,38 @@ export function Header() {
       contentIds: watchlistUpdates.map((item) => item.contentId)
     }).catch(() => {});
   }, [acknowledgeUpdates, notificationsOpen, user, watchlistUpdates]);
+
+  useEffect(() => {
+    if (!notificationsOpen) {
+      setWatchlistUpdates(null);
+      setLoadingWatchlistUpdates(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingWatchlistUpdates(true);
+
+    void fetchWatchlistUpdates()
+      .then((updates) => {
+        if (!cancelled) {
+          setWatchlistUpdates(updates);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWatchlistUpdates([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingWatchlistUpdates(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchWatchlistUpdates, notificationsOpen]);
 
   return (
     <header
@@ -275,7 +314,7 @@ export function Header() {
                 </div>
 
                 <ScrollArea className="max-h-96 p-2">
-                  {watchlistUpdates === undefined ? (
+                  {loadingWatchlistUpdates || watchlistUpdates === null ? (
                     <div className="px-3 py-6 text-center text-sm text-white/45">Loading…</div>
                   ) : watchlistUpdates.length === 0 ? (
                     <div className="px-3 py-6 text-center text-sm text-white/45">

@@ -1,6 +1,6 @@
 import { Play, Plus, Check, ChevronDown, Star } from "lucide-react";
 import { useState } from "react";
-import type { Doc } from "../../convex/_generated/dataModel";
+import type { ContentListItem } from "@/hooks/useContent";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
@@ -16,7 +16,7 @@ interface WatchHistoryFields {
 }
 
 interface MovieCardProps {
-  content: Doc<"content"> & WatchHistoryFields;
+  content: ContentListItem & WatchHistoryFields;
   onPlay?: (
     tmdbId: string,
     season?: number,

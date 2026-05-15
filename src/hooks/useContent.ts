@@ -1,10 +1,26 @@
 import { useQuery, useAction } from "convex/react";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
-import type { Doc } from "../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
+
+export type ContentListItem = Pick<
+  Doc<"content">,
+  | "_id"
+  | "_creationTime"
+  | "title"
+  | "type"
+  | "genre"
+  | "year"
+  | "rating"
+  | "voteAverage"
+  | "popular"
+  | "posterUrl"
+  | "tmdbId"
+  | "new"
+>;
 
 export interface PaginatedResult {
-  items: Doc<"content">[];
+  items: ContentListItem[];
   nextCursor?: string;
   totalCount: number;
 }
@@ -29,6 +45,10 @@ export function useFeaturedContent() {
   return useQuery(api.content.getFeatured);
 }
 
+export function useHomepageContent() {
+  return useQuery(api.content.getHomepage);
+}
+
 export function useTrendingContent() {
   return useQuery(api.content.getTrending);
 }
@@ -51,6 +71,10 @@ export function useTVShows(limit?: number) {
 
 export function useContentByTmdbId(tmdbId: string | undefined) {
   return useQuery(api.content.getByTmdbId, tmdbId ? { tmdbId } : "skip");
+}
+
+export function useContentById(id: Id<"content"> | undefined) {
+  return useQuery(api.content.getById, id ? { id } : "skip");
 }
 
 export function useContentByGenre(genre: string, limit?: number) {
@@ -214,7 +238,7 @@ export function useSearchAll(query: string) {
 export interface ContentCategory {
   id: string;
   title: string;
-  content: Doc<"content">[];
+  content: ContentListItem[];
 }
 
 export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
@@ -259,7 +283,7 @@ export function usePaginatedContent(
 }
 
 export function useRecommendations(
-  watchlistItems: Doc<"content">[] | undefined,
+  watchlistItems: ContentListItem[] | undefined,
   limit = 12,
   typeFilter: "all" | "movie" | "tv" = "all",
   refreshSeed = 0
@@ -288,10 +312,10 @@ export function useRecommendations(
       Array.from(watchlistTypes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "movie";
 
     const watchlistIds = new Set(watchlistItems.map((w) => w._id));
-    let filtered = allContent.filter((c: Doc<"content">) => !watchlistIds.has(c._id));
+    let filtered = allContent.filter((c: ContentListItem) => !watchlistIds.has(c._id));
 
     if (typeFilter !== "all") {
-      filtered = filtered.filter((c: Doc<"content">) => c.type === typeFilter);
+      filtered = filtered.filter((c: ContentListItem) => c.type === typeFilter);
     }
 
     const watchlistSignature = watchlistItems
@@ -312,7 +336,7 @@ export function useRecommendations(
       .slice(0, poolSize);
 
     return pool
-      .map((c: Doc<"content">) => {
+      .map((c: ContentListItem) => {
         let score = 0;
         score +=
           seededUnitInterval(
@@ -329,12 +353,12 @@ export function useRecommendations(
       })
       .sort(
         (
-          a: { content: Doc<"content">; score: number },
-          b: { content: Doc<"content">; score: number }
+          a: { content: ContentListItem; score: number },
+          b: { content: ContentListItem; score: number }
         ) => b.score - a.score
       )
       .slice(0, limit)
-      .map((s: { content: Doc<"content">; score: number }) => s.content);
+      .map((s: { content: ContentListItem; score: number }) => s.content);
   }, [watchlistItems, allContent, limit, typeFilter, refreshSeed]);
 
   const isLoading =

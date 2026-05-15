@@ -3,7 +3,21 @@ import { query, mutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 
-type WatchlistContentItem = Doc<"content"> & {
+type WatchlistContentItem = Pick<
+  Doc<"content">,
+  | "_id"
+  | "_creationTime"
+  | "title"
+  | "type"
+  | "genre"
+  | "year"
+  | "rating"
+  | "voteAverage"
+  | "popular"
+  | "posterUrl"
+  | "tmdbId"
+  | "new"
+> & {
   watchlistAddedAt: number;
   watchlistFolder?: string;
   watchlistNewSeasons: number;
@@ -21,6 +35,34 @@ type WatchlistNotificationItem = {
   newEpisodes: number;
   folder?: string;
 };
+
+function toWatchlistContentItem(
+  content: Doc<"content">,
+  item: Doc<"watchlist">,
+  currentSeasonCount: number,
+  currentEpisodeCount: number,
+  acknowledgedSeasonCount: number,
+  acknowledgedEpisodeCount: number
+): WatchlistContentItem {
+  return {
+    _id: content._id,
+    _creationTime: content._creationTime,
+    title: content.title,
+    type: content.type,
+    genre: content.genre,
+    year: content.year,
+    rating: content.rating,
+    voteAverage: content.voteAverage,
+    popular: content.popular,
+    posterUrl: content.posterUrl,
+    tmdbId: content.tmdbId,
+    new: content.new,
+    watchlistAddedAt: item.addedAt,
+    watchlistFolder: item.folder,
+    watchlistNewSeasons: Math.max(0, currentSeasonCount - acknowledgedSeasonCount),
+    watchlistNewEpisodes: Math.max(0, currentEpisodeCount - acknowledgedEpisodeCount)
+  };
+}
 
 async function getCurrentTvCountsForQuery(
   ctx: QueryCtx,
@@ -171,13 +213,16 @@ export const getMyWatchlist = query({
       const acknowledgedSeasonCount = item.lastAcknowledgedSeasonCount ?? currentSeasonCount;
       const acknowledgedEpisodeCount = item.lastAcknowledgedEpisodeCount ?? currentEpisodeCount;
 
-      contentItems.push({
-        ...content,
-        watchlistAddedAt: item.addedAt,
-        watchlistFolder: item.folder,
-        watchlistNewSeasons: Math.max(0, currentSeasonCount - acknowledgedSeasonCount),
-        watchlistNewEpisodes: Math.max(0, currentEpisodeCount - acknowledgedEpisodeCount)
-      });
+      contentItems.push(
+        toWatchlistContentItem(
+          content,
+          item,
+          currentSeasonCount,
+          currentEpisodeCount,
+          acknowledgedSeasonCount,
+          acknowledgedEpisodeCount
+        )
+      );
     }
 
     return contentItems.sort((a, b) => b.watchlistAddedAt - a.watchlistAddedAt);
@@ -350,6 +395,40 @@ export const getUpdates = query({
       const bWeight = b.newSeasons * 1000 + b.newEpisodes;
       return bWeight - aWeight;
     });
+  }
+});
+
+export const getUpdateCount = query({
+  args: { clerkUserId: v.string() },
+  handler: async (ctx, { clerkUserId }): Promise<number> => {
+    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+    if (!userId) return 0;
+
+    const watchlistItems = await ctx.db
+      .query("watchlist")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    let count = 0;
+
+    for (const item of watchlistItems) {
+      const content = await ctx.db.get(item.contentId);
+      if (!content || content.type !== "tv") continue;
+
+      const currentCounts = await getCurrentTvCountsForQuery(ctx, content);
+      const currentSeasonCount = currentCounts.seasons;
+      const currentEpisodeCount = currentCounts.episodes;
+      const acknowledgedSeasonCount = item.lastAcknowledgedSeasonCount ?? currentSeasonCount;
+      const acknowledgedEpisodeCount = item.lastAcknowledgedEpisodeCount ?? currentEpisodeCount;
+      const newSeasons = Math.max(0, currentSeasonCount - acknowledgedSeasonCount);
+      const newEpisodes = Math.max(0, currentEpisodeCount - acknowledgedEpisodeCount);
+
+      if (newSeasons > 0 || newEpisodes > 0) {
+        count++;
+      }
+    }
+
+    return count;
   }
 });
 
