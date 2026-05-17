@@ -38,7 +38,7 @@ import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
 } from "../../shared/tvSeasonMappings";
-import type { ContentListItem } from "@/hooks/useContent";
+import type { ContentDetail, ContentMeta } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -49,7 +49,7 @@ interface WatchHistoryFields {
   durationSeconds?: number;
 }
 
-type ModalContent = (Doc<"content"> | ContentListItem) & WatchHistoryFields;
+type ModalContent = (ContentDetail | ContentMeta) & WatchHistoryFields;
 
 interface ContentModalProps {
   content: ModalContent | null;
@@ -60,12 +60,12 @@ interface ContentModalProps {
 
 function hasFullContent(
   content: ModalContent | null
-): content is Doc<"content"> & WatchHistoryFields {
+): content is ContentDetail & WatchHistoryFields {
   return !!content && "description" in content && "backdropUrl" in content;
 }
 
 function isAnimeContent(
-  content: (Pick<Doc<"content">, "type" | "genre"> & { originalLanguage?: string }) | null
+  content: { type: "movie" | "tv"; genre: string[]; originalLanguage?: string } | null
 ) {
   if (!content || content.type !== "tv") return false;
 
@@ -74,7 +74,7 @@ function isAnimeContent(
 }
 
 function getSeasonCount(content: ModalContent | null): number | undefined {
-  const candidate = content as Partial<Doc<"content">> | null;
+  const candidate = content as Partial<ContentDetail> | null;
   return typeof candidate?.seasons === "number" ? candidate.seasons : undefined;
 }
 
@@ -184,7 +184,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
   const syncSingleContent = useAction(api.tmdb.syncSingleContent);
   const [relatedModalItem, setRelatedModalItem] = useState<TMDBItem | null>(null);
-  const [relatedDbContent, setRelatedDbContent] = useState<Doc<"content"> | null | undefined>(
+  const [relatedDbContent, setRelatedDbContent] = useState<ContentDetail | null | undefined>(
     undefined
   );
   const [relatedSyncing, setRelatedSyncing] = useState(false);

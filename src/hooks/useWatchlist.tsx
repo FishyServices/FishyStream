@@ -4,12 +4,9 @@ import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type {
-  WatchlistItemMeta as SharedWatchlistItemMeta,
-  WatchlistUpdateMeta as SharedWatchlistUpdateMeta
+  WatchlistItemMeta,
+  WatchlistUpdateMeta
 } from "../../shared/contentMetadata";
-
-export type WatchlistItem = SharedWatchlistItemMeta;
-export type WatchlistUpdate = SharedWatchlistUpdateMeta;
 
 const LS_KEY = "watchlist_ids";
 
@@ -106,12 +103,12 @@ export function useToggleWatchlist() {
   return useWatchlistCtx().toggle;
 }
 
-export function useMyWatchlist(): SharedWatchlistItemMeta[] | undefined {
+export function useMyWatchlist(): WatchlistItemMeta[] | undefined {
   const { user } = useUser();
   return useQuery(api.watchlist.getMyWatchlist, user ? { clerkUserId: user.id } : "skip");
 }
 
-export function useWatchlistUpdates(): SharedWatchlistUpdateMeta[] | undefined {
+export function useWatchlistUpdates(): WatchlistUpdateMeta[] | undefined {
   const { user } = useUser();
   return useQuery(api.watchlist.getUpdates, user ? { clerkUserId: user.id } : "skip");
 }

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { SeasonMetaSummary } from "../shared/contentMetadata";
+import { toSeasonMetaSummary, type SeasonMetaSummary } from "../shared/contentMetadata";
 
 export const upsertSeason = internalMutation({
   args: {
@@ -67,16 +67,7 @@ export const getSeasonsMetaByContent = query({
       .withIndex("by_content", (q) => q.eq("contentId", contentId))
       .collect();
 
-    return seasons.map((season) => ({
-      _id: season._id,
-      contentId: season.contentId,
-      seasonNumber: season.seasonNumber,
-      name: season.name,
-      airDate: season.airDate,
-      episodeCount: season.episodeCount,
-      anilistId: season.anilistId,
-      storedEpisodeCount: season.episodes.length
-    }));
+    return seasons.map(toSeasonMetaSummary);
   }
 });
 

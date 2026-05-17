@@ -37,9 +37,10 @@ import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
 } from "../../shared/tvSeasonMappings";
+import type { ContentDetail } from "../../shared/contentMetadata";
 
 interface VideoPlayerProps {
-  content: Doc<"content">;
+  content: ContentDetail;
   initialSeason?: number;
   initialEpisode?: number;
   initialSource?: string;
@@ -80,7 +81,7 @@ function safeEp(v: number | null | undefined) {
 }
 
 function isMatchingEpisodeProgress(
-  content: Doc<"content">,
+  content: ContentDetail,
   watchState: ReturnType<typeof useGetProgress>,
   season: number,
   episode: number
@@ -91,7 +92,7 @@ function isMatchingEpisodeProgress(
 }
 
 function getResumePositionSeconds(
-  content: Doc<"content">,
+  content: ContentDetail,
   watchState: ReturnType<typeof useGetProgress>,
   lastSyncedPosition: number,
   season: number,
@@ -103,7 +104,7 @@ function getResumePositionSeconds(
 }
 
 function pickResumePositionSeconds(
-  content: Doc<"content">,
+  content: ContentDetail,
   watchState: ReturnType<typeof useGetProgress>,
   lastSyncedPosition: number,
   season: number,
@@ -116,7 +117,7 @@ function pickResumePositionSeconds(
 
 function shouldApplyProviderResume(
   providerKey: string | undefined,
-  contentType: Doc<"content">["type"]
+  contentType: ContentDetail["type"]
 ) {
   if (!providerKey) return false;
   if (providerKey === "vidking" && contentType === "tv") {
@@ -134,7 +135,7 @@ function shouldForceProviderStartPosition(providerKey: string | undefined) {
   return providerKey === "vidfast";
 }
 
-function isAnimeContent(content: Doc<"content">) {
+function isAnimeContent(content: ContentDetail) {
   if (content.type !== "tv") return false;
 
   const genres = new Set(content.genre.map((g) => g.toLowerCase()));
@@ -142,7 +143,7 @@ function isAnimeContent(content: Doc<"content">) {
 }
 
 function shouldWaitForAnimeSeasonMetadata(
-  content: Doc<"content">,
+  content: ContentDetail,
   animeContent: boolean,
   seasonNumber: number,
   currentSeasonData: Doc<"seasons"> | null | undefined

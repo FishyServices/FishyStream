@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 import { query, mutation, action } from "./_generated/server";
 import { api } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
-import { toContentMeta, type WatchHistoryItemMeta } from "../shared/contentMetadata";
+import { toWatchHistoryItemMeta, type WatchHistoryItemMeta } from "../shared/contentMetadata";
 
 async function getUserByClerkIdQuery(
   ctx: QueryCtx,
@@ -60,7 +60,7 @@ function normalizeProgress(progress: number): number {
 
 export const getMyWatchHistory = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
     const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -74,8 +74,8 @@ export const getMyWatchHistory = query({
     for (const item of historyItems) {
       const content = await ctx.db.get(item.contentId);
       if (content) {
-        result.push({
-          ...toContentMeta(content),
+        result.push(toWatchHistoryItemMeta({
+          ...content,
           progress: item.progress,
           completed: item.completed,
           watchedAt: item.watchedAt,
@@ -85,7 +85,7 @@ export const getMyWatchHistory = query({
           episodeNumber: item.episodeNumber,
           source: item.source,
           dub: item.dub
-        });
+        }));
       }
     }
     return result;
@@ -94,7 +94,7 @@ export const getMyWatchHistory = query({
 
 export const getContinueWatching = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
     const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -110,8 +110,8 @@ export const getContinueWatching = query({
     for (const item of historyItems) {
       const content = await ctx.db.get(item.contentId);
       if (content) {
-        result.push({
-          ...toContentMeta(content),
+        result.push(toWatchHistoryItemMeta({
+          ...content,
           progress: item.progress,
           completed: item.completed,
           watchedAt: item.watchedAt,
@@ -121,7 +121,7 @@ export const getContinueWatching = query({
           episodeNumber: item.episodeNumber,
           source: item.source,
           dub: item.dub
-        });
+        }));
       }
     }
     return result;

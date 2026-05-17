@@ -37,9 +37,9 @@ import {
 import {
   useAcknowledgeWatchlistUpdates,
   useWatchlistUpdateCount,
-  useWatchlistUpdatesOnDemand,
-  type WatchlistUpdate
+  useWatchlistUpdatesOnDemand
 } from "@/hooks/useWatchlist";
+import type { WatchlistUpdateMeta } from "../../shared/contentMetadata";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -79,7 +79,7 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [watchlistUpdates, setWatchlistUpdates] = useState<WatchlistUpdate[] | null>(null);
+  const [watchlistUpdates, setWatchlistUpdates] = useState<WatchlistUpdateMeta[] | null>(null);
   const [loadingWatchlistUpdates, setLoadingWatchlistUpdates] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const acknowledgeUpdates = useAcknowledgeWatchlistUpdates();

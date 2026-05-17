@@ -1,17 +1,12 @@
 import { useQuery, useAction, usePaginatedQuery } from "convex/react";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
-import type { Doc, Id } from "../../convex/_generated/dataModel";
+import type { Id } from "../../convex/_generated/dataModel";
 import type {
   ContentCategoryMeta,
   ContentMeta,
   FeaturedContentMeta
 } from "../../shared/contentMetadata";
-
-export type ContentListItem = ContentMeta;
-export type FeaturedListItem = FeaturedContentMeta;
-export type ContentCategory = ContentCategoryMeta;
-export type { ContentMeta, FeaturedContentMeta, ContentCategoryMeta };
 
 export interface PaginatedResult {
   items: ContentMeta[];

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { MovieCard } from "./MovieCard";
-import type { ContentListItem } from "@/hooks/useContent";
+import type { ContentMeta } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -17,7 +17,7 @@ interface WatchHistoryFields {
 
 interface ContentRowProps {
   title: string;
-  content: Array<ContentListItem & WatchHistoryFields>;
+  content: Array<ContentMeta & WatchHistoryFields>;
   onPlay?: (
     tmdbId: string,
     season?: number,

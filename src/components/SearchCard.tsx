@@ -8,7 +8,7 @@ import { Button, toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import type { Doc } from "../../convex/_generated/dataModel";
+import type { ContentDetail } from "../../shared/contentMetadata";
 
 interface SearchCardProps {
   item: TMDBItem;
@@ -20,7 +20,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const [dbContent, setDbContent] = useState<Doc<"content"> | null | undefined>(undefined);
+  const [dbContent, setDbContent] = useState<ContentDetail | null | undefined>(undefined);
   const { isSignedIn } = useUser();
   const navigate = useNavigate();
 

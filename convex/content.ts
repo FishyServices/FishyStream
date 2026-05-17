@@ -3,9 +3,13 @@ import { paginationOptsValidator } from "convex/server";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import {
+  toContentIdReference,
   toContentMeta,
+  toContentDetail,
   toFeaturedContentMeta,
+  type ContentIdReference,
   type ContentMeta,
+  type ContentDetail,
   type FeaturedContentMeta,
 } from "../shared/contentMetadata";
 
@@ -151,34 +155,32 @@ export const getTVShows = query({
 
 export const getById = query({
   args: { id: v.id("content") },
-  handler: async (ctx, { id }): Promise<Doc<"content"> | null> => {
-    return await ctx.db.get(id);
+  handler: async (ctx, { id }): Promise<ContentDetail | null> => {
+    const content = await ctx.db.get(id);
+    return content ? toContentDetail(content) : null;
   }
 });
 
 export const getByTmdbId = query({
   args: { tmdbId: v.string() },
-  handler: async (ctx, { tmdbId }): Promise<Doc<"content"> | null> => {
-    return await ctx.db
+  handler: async (ctx, { tmdbId }): Promise<ContentDetail | null> => {
+    const content = await ctx.db
       .query("content")
       .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
       .first();
+    return content ? toContentDetail(content) : null;
   }
 });
 
 export const getIdByTmdbId = query({
   args: { tmdbId: v.string() },
-  handler: async (ctx, { tmdbId }): Promise<Pick<Doc<"content">, "_id" | "tmdbId"> | null> => {
+  handler: async (ctx, { tmdbId }): Promise<ContentIdReference | null> => {
     const content = await ctx.db
       .query("content")
       .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
       .first();
 
-    if (!content) return null;
-    return {
-      _id: content._id,
-      tmdbId: content.tmdbId
-    };
+    return content ? toContentIdReference(content) : null;
   }
 });
 

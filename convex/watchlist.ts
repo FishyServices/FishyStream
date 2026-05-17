@@ -3,27 +3,11 @@ import { query, mutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import {
-  toContentMeta,
+  toWatchlistItemMeta,
+  toWatchlistUpdateMeta,
   type WatchlistItemMeta,
   type WatchlistUpdateMeta
 } from "../shared/contentMetadata";
-
-function toWatchlistContentItem(
-  content: Doc<"content">,
-  item: Doc<"watchlist">,
-  currentSeasonCount: number,
-  currentEpisodeCount: number,
-  acknowledgedSeasonCount: number,
-  acknowledgedEpisodeCount: number
-): WatchlistItemMeta {
-  return {
-    ...toContentMeta(content),
-    watchlistAddedAt: item.addedAt,
-    watchlistFolder: item.folder,
-    watchlistNewSeasons: Math.max(0, currentSeasonCount - acknowledgedSeasonCount),
-    watchlistNewEpisodes: Math.max(0, currentEpisodeCount - acknowledgedEpisodeCount)
-  };
-}
 
 function getCurrentTvCounts(content: Doc<"content">): { seasons: number; episodes: number } {
   return {
@@ -122,14 +106,13 @@ export const getMyWatchlist = query({
       } = getWatchlistDelta(item, content);
 
       contentItems.push(
-        toWatchlistContentItem(
-          content,
-          item,
-          currentSeasonCount,
-          currentEpisodeCount,
-          acknowledgedSeasonCount,
-          acknowledgedEpisodeCount
-        )
+        toWatchlistItemMeta({
+          ...content,
+          watchlistAddedAt: item.addedAt,
+          watchlistFolder: item.folder,
+          watchlistNewSeasons: Math.max(0, currentSeasonCount - acknowledgedSeasonCount),
+          watchlistNewEpisodes: Math.max(0, currentEpisodeCount - acknowledgedEpisodeCount)
+        })
       );
     }
 
@@ -278,7 +261,7 @@ export const getUpdates = query({
 
       if (newSeasons === 0 && newEpisodes === 0) continue;
 
-      updates.push({
+      updates.push(toWatchlistUpdateMeta({
         contentId: content._id,
         title: content.title,
         posterUrl: content.posterUrl,
@@ -288,7 +271,7 @@ export const getUpdates = query({
         newSeasons,
         newEpisodes,
         folder: item.folder
-      });
+      }));
     }
 
     return updates.sort((a, b) => {
