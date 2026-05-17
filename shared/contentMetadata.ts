@@ -44,12 +44,6 @@ export interface ContentDetail extends FeaturedContentMeta {
   revenue?: number;
 }
 
-export interface ContentCategoryMeta {
-  id: string;
-  title: string;
-  content: ContentMeta[];
-}
-
 export interface WatchlistItemMeta extends ContentMeta {
   watchlistAddedAt: number;
   watchlistFolder?: string;
@@ -92,12 +86,7 @@ export interface SeasonMetaSummary {
   storedEpisodeCount: number;
 }
 
-export interface ContentIdReference {
-  _id: ContentId;
-  tmdbId?: string;
-}
-
-type ContentMetaSource = {
+export interface ContentSummaryRecord {
   _id: ContentId;
   _creationTime: number;
   title: string;
@@ -110,9 +99,9 @@ type ContentMetaSource = {
   posterUrl: string;
   tmdbId?: string;
   new: boolean;
-};
+}
 
-type FeaturedContentMetaSource = ContentMetaSource & {
+interface FeaturedContentRecord extends ContentSummaryRecord {
   description: string;
   backdropUrl: string;
   logoUrl?: string;
@@ -122,9 +111,9 @@ type FeaturedContentMetaSource = ContentMetaSource & {
   trending: boolean;
   tagline?: string;
   originalLanguage?: string;
-};
+}
 
-type ContentDetailSource = FeaturedContentMetaSource & {
+interface ContentDetailRecord extends FeaturedContentRecord {
   imdbId?: string;
   anilistId?: string;
   voteCount?: number;
@@ -135,9 +124,9 @@ type ContentDetailSource = FeaturedContentMetaSource & {
   spokenLanguages?: string[];
   budget?: number;
   revenue?: number;
-};
+}
 
-type WatchHistoryMetaSource = ContentMetaSource & {
+interface WatchHistoryRecord extends ContentSummaryRecord {
   progress: number;
   completed: boolean;
   watchedAt: number;
@@ -147,16 +136,16 @@ type WatchHistoryMetaSource = ContentMetaSource & {
   episodeNumber?: number;
   source?: string;
   dub?: boolean;
-};
+}
 
-type WatchlistItemMetaSource = ContentMetaSource & {
+interface WatchlistItemRecord extends ContentSummaryRecord {
   watchlistAddedAt: number;
   watchlistFolder?: string;
   watchlistNewSeasons: number;
   watchlistNewEpisodes: number;
-};
+}
 
-type WatchlistUpdateMetaSource = {
+interface WatchlistUpdateRecord {
   contentId: ContentId;
   title: string;
   posterUrl: string;
@@ -166,9 +155,9 @@ type WatchlistUpdateMetaSource = {
   newSeasons: number;
   newEpisodes: number;
   folder?: string;
-};
+}
 
-type SeasonMetaSummarySource = {
+interface SeasonSummaryRecord {
   _id: SeasonId;
   contentId: ContentId;
   seasonNumber: number;
@@ -177,9 +166,9 @@ type SeasonMetaSummarySource = {
   episodeCount: number;
   anilistId?: string;
   episodes: { length: number };
-};
+}
 
-export function toContentMeta(content: ContentMetaSource): ContentMeta {
+export function toContentMeta(content: ContentSummaryRecord): ContentMeta {
   return {
     _id: content._id,
     _creationTime: content._creationTime,
@@ -196,7 +185,24 @@ export function toContentMeta(content: ContentMetaSource): ContentMeta {
   };
 }
 
-export function toFeaturedContentMeta(content: FeaturedContentMetaSource): FeaturedContentMeta {
+export function toContentMetaSnapshot(
+  content: ContentSummaryRecord
+): Omit<ContentSummaryRecord, "_id" | "_creationTime"> {
+  return {
+    title: content.title,
+    type: content.type,
+    genre: content.genre,
+    year: content.year,
+    rating: content.rating,
+    voteAverage: content.voteAverage,
+    popular: content.popular,
+    posterUrl: content.posterUrl,
+    tmdbId: content.tmdbId,
+    new: content.new
+  };
+}
+
+export function toFeaturedContentMeta(content: FeaturedContentRecord): FeaturedContentMeta {
   return {
     ...toContentMeta(content),
     description: content.description,
@@ -211,7 +217,7 @@ export function toFeaturedContentMeta(content: FeaturedContentMetaSource): Featu
   };
 }
 
-export function toContentDetail(content: ContentDetailSource): ContentDetail {
+export function toContentDetail(content: ContentDetailRecord): ContentDetail {
   return {
     ...toFeaturedContentMeta(content),
     imdbId: content.imdbId,
@@ -227,17 +233,7 @@ export function toContentDetail(content: ContentDetailSource): ContentDetail {
   };
 }
 
-export function toContentIdReference(content: {
-  _id: ContentId;
-  tmdbId?: string;
-}): ContentIdReference {
-  return {
-    _id: content._id,
-    tmdbId: content.tmdbId
-  };
-}
-
-export function toWatchHistoryItemMeta(content: WatchHistoryMetaSource): WatchHistoryItemMeta {
+export function toWatchHistoryItemMeta(content: WatchHistoryRecord): WatchHistoryItemMeta {
   return {
     ...toContentMeta(content),
     progress: content.progress,
@@ -252,7 +248,7 @@ export function toWatchHistoryItemMeta(content: WatchHistoryMetaSource): WatchHi
   };
 }
 
-export function toWatchlistItemMeta(content: WatchlistItemMetaSource): WatchlistItemMeta {
+export function toWatchlistItemMeta(content: WatchlistItemRecord): WatchlistItemMeta {
   return {
     ...toContentMeta(content),
     watchlistAddedAt: content.watchlistAddedAt,
@@ -262,7 +258,7 @@ export function toWatchlistItemMeta(content: WatchlistItemMetaSource): Watchlist
   };
 }
 
-export function toWatchlistUpdateMeta(content: WatchlistUpdateMetaSource): WatchlistUpdateMeta {
+export function toWatchlistUpdateMeta(content: WatchlistUpdateRecord): WatchlistUpdateMeta {
   return {
     contentId: content.contentId,
     title: content.title,
@@ -276,7 +272,7 @@ export function toWatchlistUpdateMeta(content: WatchlistUpdateMetaSource): Watch
   };
 }
 
-export function toSeasonMetaSummary(content: SeasonMetaSummarySource): SeasonMetaSummary {
+export function toSeasonMetaSummary(content: SeasonSummaryRecord): SeasonMetaSummary {
   return {
     _id: content._id,
     contentId: content.contentId,

@@ -59,7 +59,7 @@ export const upsertSeason = internalMutation({
   }
 });
 
-export const getSeasonsMetaByContent = query({
+export const listSeasonSummariesByContent = query({
   args: { contentId: v.id("content") },
   handler: async (ctx, { contentId }): Promise<SeasonMetaSummary[]> => {
     const seasons = await ctx.db
@@ -71,17 +71,7 @@ export const getSeasonsMetaByContent = query({
   }
 });
 
-export const getSeasonsByContent = query({
-  args: { contentId: v.id("content") },
-  handler: async (ctx, { contentId }): Promise<Doc<"seasons">[]> => {
-    return await ctx.db
-      .query("seasons")
-      .withIndex("by_content", (q) => q.eq("contentId", contentId))
-      .collect();
-  }
-});
-
-export const getSeason = query({
+export const getSeasonByContentAndNumber = query({
   args: { contentId: v.id("content"), seasonNumber: v.number() },
   handler: async (ctx, { contentId, seasonNumber }): Promise<Doc<"seasons"> | null> => {
     return await ctx.db

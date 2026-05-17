@@ -132,7 +132,7 @@ function EpisodePill({
 
 export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalProps) {
   const fullContent = useQuery(
-    api.content.getById,
+    api.content.getContentById,
     isOpen && content && !hasFullContent(content) ? { id: content._id } : "skip"
   );
   const resolvedContent: ModalContent | null = fullContent
@@ -149,14 +149,14 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const toggleWatchlist = useToggleWatchlist();
 
   const dbSeason = useQuery(
-    api.seasons.getSeason,
+    api.seasons.getSeasonByContentAndNumber,
     isOpen && resolvedContent && resolvedContent.type === "tv" && resolvedContent._id
       ? { contentId: resolvedContent._id, seasonNumber: selectedSeason }
       : "skip"
   );
 
   const allSeasons = useQuery(
-    api.seasons.getSeasonsMetaByContent,
+    api.seasons.listSeasonSummariesByContent,
     isOpen && resolvedContent && resolvedContent.type === "tv" && resolvedContent._id
       ? { contentId: resolvedContent._id }
       : "skip"
@@ -190,7 +190,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const [relatedSyncing, setRelatedSyncing] = useState(false);
 
   const relatedContentQuery = useQuery(
-    api.content.getByTmdbId,
+    api.content.getContentByTmdbId,
     relatedModalItem ? { tmdbId: String(relatedModalItem.tmdbId) } : "skip"
   );
 

@@ -170,8 +170,8 @@ export function VideoPlayer({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { settings } = useAppSettings();
 
-  const getMovieSources = useAction(api.providers.getMovieSources);
-  const getTVSources = useAction(api.providers.getTVSources);
+  const getMovieSources = useAction(api.providers.listMovieSources);
+  const getTVSources = useAction(api.providers.listTvSources);
   const syncSeason = useAction(api.tmdb.syncSeason);
   const updateProgress = useUpdateProgress();
   const watchState = useGetProgress(content._id);
@@ -206,7 +206,7 @@ export function VideoPlayer({
   });
 
   const currentSeasonData = useQuery(
-    api.seasons.getSeason,
+    api.seasons.getSeasonByContentAndNumber,
     content.type === "tv" ? { contentId: content._id, seasonNumber: tvTarget.season } : "skip"
   );
   const currentSeasonKey = content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;

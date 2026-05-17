@@ -467,137 +467,6 @@ export const searchTVShows = action({
   }
 });
 
-export const getMovieDetails = action({
-  args: { tmdbId: v.number() },
-  handler: async (_ctx, { tmdbId }) => {
-    const movie = await get<TMDBMovieDetails>(`/movie/${tmdbId}`, {
-      append_to_response: "external_ids,videos,images"
-    });
-    if (!movie) return null;
-    return {
-      tmdbId: movie.id,
-      imdbId: movie.imdb_id || movie.external_ids?.imdb_id,
-      title: movie.title,
-      description: movie.overview || "No description available",
-      tagline: movie.tagline,
-      posterUrl: getPosterUrl(movie.poster_path),
-      backdropUrl: getBackdropUrl(movie.backdrop_path),
-      logoUrl: getLogoUrl(movie.images?.logos),
-      trailerKey: getTrailerKey(movie.videos?.results),
-      year: getYear(movie.release_date),
-      genre: getGenres(movie),
-      rating: getRating(movie.vote_average),
-      voteAverage: movie.vote_average,
-      duration: formatRuntime(movie.runtime),
-      status: movie.status,
-      budget: movie.budget,
-      revenue: movie.revenue
-    };
-  }
-});
-
-export const getTVDetails = action({
-  args: { tmdbId: v.number() },
-  handler: async (_ctx, { tmdbId }) => {
-    const show = await get<TMDBTVDetails>(`/tv/${tmdbId}`, {
-      append_to_response: "external_ids,videos,images"
-    });
-    if (!show) return null;
-    return {
-      tmdbId: show.id,
-      imdbId: show.external_ids?.imdb_id,
-      title: show.name,
-      description: show.overview || "No description available",
-      tagline: show.tagline,
-      posterUrl: getPosterUrl(show.poster_path),
-      backdropUrl: getBackdropUrl(show.backdrop_path),
-      logoUrl: getLogoUrl(show.images?.logos),
-      trailerKey: getTrailerKey(show.videos?.results),
-      year: getYear(show.first_air_date),
-      genre: getGenres(show),
-      rating: getRating(show.vote_average),
-      voteAverage: show.vote_average,
-      seasons: getCanonicalSeasonCount(show.id, show.number_of_seasons),
-      totalEpisodes: getCanonicalTotalEpisodes(show.id, show.number_of_episodes),
-      status: show.status
-    };
-  }
-});
-
-export const getSeasonDetails = action({
-  args: { tmdbId: v.string(), seasonNumber: v.number() },
-  handler: async (_ctx, { tmdbId, seasonNumber }) => {
-    const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
-    if (!data) return null;
-    return {
-      seasonNumber: data.season_number,
-      name: data.name,
-      overview: data.overview,
-      posterUrl: getPosterUrl(data.poster_path),
-      airDate: data.air_date ?? undefined,
-      episodes: (data.episodes ?? []).map((ep) => ({
-        episodeNumber: ep.episode_number,
-        name: ep.name,
-        overview: ep.overview,
-        stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
-        airDate: ep.air_date ?? undefined,
-        runtime: ep.runtime ?? undefined,
-        voteAverage: ep.vote_average
-      }))
-    };
-  }
-});
-
-export const getTrendingMovies = action({
-  args: { page: v.optional(v.number()) },
-  handler: async (_ctx, { page = 1 }) => {
-    const data = await get<{ results: TMDBMovieListItem[] }>(`/trending/movie/week`, {
-      page: String(page)
-    });
-    if (!data?.results) return [];
-    return data.results.slice(0, 20).map((movie) => ({
-      tmdbId: movie.id,
-      title: movie.title,
-      description: movie.overview || "No description available",
-      posterUrl: getPosterUrl(movie.poster_path),
-      backdropUrl: getBackdropUrl(movie.backdrop_path),
-      year: getYear(movie.release_date),
-      genre: getGenres(movie),
-      rating: getRating(movie.vote_average),
-      voteAverage: movie.vote_average
-    }));
-  }
-});
-
-export const getPopularTVShows = action({
-  args: { page: v.optional(v.number()) },
-  handler: async (_ctx, { page = 1 }) => {
-    const data = await get<{ results: TMDBTVListItem[] }>(`/tv/popular`, {
-      page: String(page)
-    });
-    if (!data?.results) return [];
-    const top = data.results.slice(0, 20);
-    return await mapInBatches(top, 5, async (show) => {
-      const details = await get<TMDBTVDetails>(`/tv/${show.id}`, {
-        append_to_response: "external_ids"
-      });
-      return {
-        tmdbId: show.id,
-        title: show.name,
-        description: details?.overview || show.overview || "No description available",
-        posterUrl: getPosterUrl(details?.poster_path ?? show.poster_path),
-        backdropUrl: getBackdropUrl(details?.backdrop_path ?? show.backdrop_path),
-        year: getYear(details?.first_air_date ?? show.first_air_date),
-        genre: getGenres(details || show),
-        rating: getRating(details?.vote_average ?? show.vote_average),
-        seasons: getCanonicalSeasonCount(show.id, details?.number_of_seasons),
-        imdbId: details?.external_ids?.imdb_id,
-        voteAverage: show.vote_average
-      };
-    });
-  }
-});
-
 // ─── Internal Sync ────────────────────────────────────────────────────────────
 
 type SyncType = "movies" | "tv";
@@ -880,7 +749,7 @@ export const backfillAniListIds = action({
 export const syncSeasons = action({
   args: { tmdbId: v.string(), contentId: v.string(), totalSeasons: v.number() },
   handler: async (ctx, { tmdbId, contentId, totalSeasons }) => {
-    const content = await ctx.runQuery(api.content.getById, { id: contentId as any });
+    const content = await ctx.runQuery(api.content.getContentById, { id: contentId as any });
     const contentTitle = content?.title;
     const override = getTvOrderingOverride(tmdbId);
     if (override?.episodeGroupId) {
@@ -974,7 +843,7 @@ export const syncSeasons = action({
 export const syncSeason = action({
   args: { tmdbId: v.string(), contentId: v.string(), seasonNumber: v.number() },
   handler: async (ctx, { tmdbId, contentId, seasonNumber }) => {
-    const content = await ctx.runQuery(api.content.getById, { id: contentId as any });
+    const content = await ctx.runQuery(api.content.getContentById, { id: contentId as any });
     const contentTitle = content?.title;
     const override = getTvOrderingOverride(tmdbId);
     if (override?.episodeGroupId) {
@@ -1057,120 +926,6 @@ export const syncSeason = action({
     });
 
     return { seasonNumber: data.season_number, episodeCount: data.episodes?.length ?? 0 };
-  }
-});
-
-// ─── IMDb Scraper ────────────────────────────────────────────
-
-interface IMDbMetadata {
-  title?: string;
-  year?: number | null;
-  runtime?: number | null;
-  age_rating?: string;
-  imdb_rating?: number | null;
-  votes?: number | null;
-  plot?: string;
-  poster_url?: string;
-  trailer_url?: string;
-  genre?: string[];
-  cast?: string[];
-  directors?: string[];
-}
-
-const userAgents = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15"
-];
-
-function getRandomUserAgent(): string {
-  return userAgents[Math.floor(Math.random() * userAgents.length)] ?? userAgents[0]!;
-}
-
-async function fetchWithTimeout(
-  url: string,
-  options: RequestInit,
-  timeoutMs: number
-): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
-    return res;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-export const getIMDbMetadata = action({
-  args: { imdbId: v.string(), type: v.optional(v.union(v.literal("movie"), v.literal("tv"))) },
-  handler: async (_ctx, { imdbId, type }): Promise<IMDbMetadata | null> => {
-    try {
-      const trailerResponse = await fetch(
-        `https://fed-trailers.pstream.mov/${type === "movie" ? "movie" : "tv"}/${imdbId}`
-      );
-      if (trailerResponse.ok) {
-        const trailerData = await trailerResponse.json();
-        if (trailerData.trailer?.embed_url) {
-          return { trailer_url: trailerData.trailer.embed_url };
-        }
-      }
-    } catch {}
-
-    try {
-      const delay = Math.floor(Math.random() * (197 - 69) + 69);
-      await new Promise((r) => setTimeout(r, delay));
-
-      const url = `https://www.imdb.com/title/${imdbId}/`;
-      const res = await fetchWithTimeout(
-        url,
-        {
-          headers: {
-            "User-Agent": getRandomUserAgent(),
-            Accept: "text/html",
-            "Accept-Language": "en-US,en;q=0.9"
-          }
-        },
-        10000
-      );
-
-      if (!res.ok) return null;
-
-      const html = await res.text();
-
-      const jsonLdMatch = html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/);
-      if (jsonLdMatch?.[1]) {
-        try {
-          const jsonLd = JSON.parse(jsonLdMatch[1]);
-          return {
-            title: jsonLd.name,
-            year: jsonLd.datePublished ? parseInt(jsonLd.datePublished.split("-")[0]) : null,
-            runtime: jsonLd.duration ? parseInt(jsonLd.duration.replace(/[^0-9]/g, "")) : null,
-            age_rating: jsonLd.contentRating,
-            imdb_rating: jsonLd.aggregateRating?.ratingValue
-              ? parseFloat(jsonLd.aggregateRating.ratingValue)
-              : null,
-            votes: jsonLd.aggregateRating?.reviewCount
-              ? parseInt(jsonLd.aggregateRating.reviewCount.replace(/,/g, ""))
-              : null,
-            plot: jsonLd.description,
-            poster_url: jsonLd.image,
-            genre: jsonLd.genre
-              ? Array.isArray(jsonLd.genre)
-                ? jsonLd.genre
-                : [jsonLd.genre]
-              : [],
-            cast: jsonLd.actor?.map((a: any) => a.name).slice(0, 10),
-            directors: jsonLd.director?.map((d: any) => d.name)
-          };
-        } catch {}
-      }
-
-      return null;
-    } catch {
-      return null;
-    }
   }
 });
 
@@ -1355,43 +1110,5 @@ export const syncSingleContent = action({
       seasons: item.seasons,
       totalEpisodes: item.totalEpisodes
     };
-  }
-});
-
-export const findByExternalId = action({
-  args: { imdbId: v.string() },
-  handler: async (_ctx, { imdbId }) => {
-    const data = await get<{
-      movie_results: Array<{ id: number; title: string }>;
-      tv_results: Array<{ id: number; name: string }>;
-    }>(`/find/${imdbId}`, { external_source: "imdb_id" });
-
-    if (data?.movie_results?.[0]) {
-      return { type: "movie" as const, tmdbId: data.movie_results[0].id };
-    }
-    if (data?.tv_results?.[0]) {
-      return { type: "tv" as const, tmdbId: data.tv_results[0].id };
-    }
-    return null;
-  }
-});
-
-export const getLogo = action({
-  args: { tmdbId: v.number(), type: v.union(v.literal("movie"), v.literal("tv")) },
-  handler: async (_ctx, { tmdbId, type }) => {
-    const endpoint = type === "movie" ? `/movie/${tmdbId}/images` : `/tv/${tmdbId}/images`;
-    const data = await get<{ logos?: TMDBLogo[] }>(endpoint, {
-      include_image_language: "en,null"
-    });
-
-    if (!data?.logos?.length) return undefined;
-
-    const enLogo = data.logos
-      .filter((l) => l.iso_639_1 === "en")
-      .sort((a, b) => b.vote_average - a.vote_average)[0];
-
-    const bestLogo = enLogo || data.logos.sort((a, b) => b.vote_average - a.vote_average)[0];
-
-    return bestLogo ? `${TMDB_IMAGE_BASE}/original${bestLogo.file_path}` : undefined;
   }
 });

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { useConvex, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -34,11 +34,11 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
 
   const [ids, setIds] = useState<Set<string>>(() => new Set(lsGet()));
 
-  const addMutation = useMutation(api.watchlist.add);
-  const removeMutation = useMutation(api.watchlist.remove);
+  const addMutation = useMutation(api.watchlist.addWatchlistEntry);
+  const removeMutation = useMutation(api.watchlist.removeWatchlistEntry);
 
   const serverIds = useQuery(
-    api.watchlist.getAllWatchlistContentIds,
+    api.watchlist.listWatchlistContentIds,
     user ? { clerkUserId: user.id } : "skip"
   );
 
@@ -102,33 +102,18 @@ export function useToggleWatchlist() {
 
 export function useMyWatchlist(): WatchlistItemMeta[] | undefined {
   const { user } = useUser();
-  return useQuery(api.watchlist.getMyWatchlist, user ? { clerkUserId: user.id } : "skip");
+  return useQuery(api.watchlist.listWatchlist, user ? { clerkUserId: user.id } : "skip");
 }
 
 export function useWatchlistUpdates(): WatchlistUpdateMeta[] | undefined {
   const { user } = useUser();
-  return useQuery(api.watchlist.getUpdates, user ? { clerkUserId: user.id } : "skip");
-}
-
-export function useWatchlistUpdateCount(): number | undefined {
-  const { user } = useUser();
-  return useQuery(api.watchlist.getUpdateCount, user ? { clerkUserId: user.id } : "skip");
-}
-
-export function useWatchlistUpdatesOnDemand() {
-  const { user } = useUser();
-  const convex = useConvex();
-
-  return useCallback(async () => {
-    if (!user) return [];
-    return convex.query(api.watchlist.getUpdates, { clerkUserId: user.id });
-  }, [convex, user]);
+  return useQuery(api.watchlist.listWatchlistUpdates, user ? { clerkUserId: user.id } : "skip");
 }
 
 export function useUpdateWatchlistFolder() {
-  return useMutation(api.watchlist.updateFolder);
+  return useMutation(api.watchlist.setWatchlistFolder);
 }
 
 export function useAcknowledgeWatchlistUpdates() {
-  return useMutation(api.watchlist.acknowledgeUpdates);
+  return useMutation(api.watchlist.acknowledgeWatchlistUpdates);
 }

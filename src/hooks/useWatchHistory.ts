@@ -8,13 +8,13 @@ import type { WatchHistoryItemMeta } from "../../shared/contentMetadata";
 
 export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
   const { user } = useUser();
-  return useQuery(api.watchHistory.getMyWatchHistory, user ? { clerkUserId: user.id } : "skip");
+  return useQuery(api.watchHistory.listWatchHistory, user ? { clerkUserId: user.id } : "skip");
 }
 
 export function useContinueWatching(): WatchHistoryItemMeta[] | undefined {
   const { user } = useUser();
   const serverData = useQuery(
-    api.watchHistory.getContinueWatching,
+    api.watchHistory.listContinueWatching,
     user ? { clerkUserId: user.id } : "skip"
   );
   const localProgress = useWatchProgressContext();
@@ -52,7 +52,7 @@ export function useContinueWatching(): WatchHistoryItemMeta[] | undefined {
 
 export function useRemoveFromHistory() {
   const { user } = useUser();
-  const mutation = useMutation(api.watchHistory.removeFromHistory);
+  const mutation = useMutation(api.watchHistory.removeWatchHistoryEntry);
 
   return useCallback(
     (contentId: Id<"content">) => {

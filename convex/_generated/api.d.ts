@@ -9,10 +9,10 @@
  */
 
 import type * as content from "../content.js";
+import type * as lib_users from "../lib/users.js";
 import type * as providers from "../providers.js";
 import type * as seasons from "../seasons.js";
 import type * as tmdb from "../tmdb.js";
-import type * as users from "../users.js";
 import type * as watchHistory from "../watchHistory.js";
 import type * as watchlist from "../watchlist.js";
 
@@ -24,10 +24,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   content: typeof content;
+  "lib/users": typeof lib_users;
   providers: typeof providers;
   seasons: typeof seasons;
   tmdb: typeof tmdb;
-  users: typeof users;
   watchHistory: typeof watchHistory;
   watchlist: typeof watchlist;
 }>;

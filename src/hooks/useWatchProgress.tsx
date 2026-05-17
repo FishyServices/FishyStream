@@ -7,7 +7,7 @@ import {
   useCallback,
   type ReactNode
 } from "react";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useConvex } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -95,7 +95,7 @@ const Ctx = createContext<ProgressCtx | undefined>(undefined);
 
 export function WatchProgressProvider({ children }: { children: ReactNode }) {
   const { user } = useUser();
-  const fetchAll = useAction(api.watchHistory.getAllWatchProgressAction);
+  const convex = useConvex();
   const fetchedRef = useRef(false);
 
   const [map, setMap] = useState<ProgressMap>(() => {
@@ -116,7 +116,8 @@ export function WatchProgressProvider({ children }: { children: ReactNode }) {
     if (!user || fetchedRef.current) return;
     fetchedRef.current = true;
 
-    fetchAll({ clerkUserId: user.id })
+    convex
+      .query(api.watchHistory.listWatchProgressEntries, { clerkUserId: user.id })
       .then((serverItems) => {
         const localEntries = new Map(lsGetAll().map((entry) => [entry.contentId, entry]));
         const mergedEntries = new Map(localEntries);
@@ -138,7 +139,7 @@ export function WatchProgressProvider({ children }: { children: ReactNode }) {
         setMap(new Map(mergedList.map((entry) => [entry.contentId, toProgressState(entry)])));
       })
       .catch(() => {});
-  }, [fetchAll, user]);
+  }, [convex, user]);
 
   const setEntry = useCallback((id: string, state: ProgressState) => {
     setMap((prev) => {
@@ -166,7 +167,7 @@ export function useWatchProgressContext(): ProgressMap | undefined {
 export function useUpdateProgress() {
   const { user } = useUser();
   const ctx = useContext(Ctx);
-  const dbSync = useMutation(api.watchHistory.updateProgress);
+  const dbSync = useMutation(api.watchHistory.saveWatchProgress);
 
   const pendingRef = useRef<Map<string, StoredProgress>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

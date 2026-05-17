@@ -1,13 +1,14 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx, MutationCtx } from "./_generated/server";
 import {
+  toContentMetaSnapshot,
   toWatchlistItemMeta,
   toWatchlistUpdateMeta,
   type WatchlistItemMeta,
   type WatchlistUpdateMeta
 } from "../shared/contentMetadata";
+import { findOrCreateUserIdByClerkId, findUserIdByClerkIdQuery } from "./lib/users";
 
 function getCurrentTvCounts(content: Doc<"content">): { seasons: number; episodes: number } {
   return {
@@ -33,59 +34,23 @@ function getWatchlistDelta(item: Doc<"watchlist">, content: Doc<"content">) {
   };
 }
 
-async function getUserByClerkIdQuery(
-  ctx: QueryCtx,
-  clerkUserId: string
-): Promise<Id<"users"> | null> {
-  let user = await ctx.db
-    .query("users")
-    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
-    .first();
-
-  if (user) return user._id;
-
-  const allUsers = await ctx.db.query("users").take(500);
-  const legacyUser = allUsers.find(
-    (u) => u.clerkUserId.endsWith(`|${clerkUserId}`) || u.clerkUserId === clerkUserId
+function hasWatchlistSnapshot(item: Doc<"watchlist">) {
+  return !!(
+    item.title &&
+    item.contentType &&
+    item.genre &&
+    item.rating &&
+    item.posterUrl &&
+    item.year !== undefined &&
+    item.popular !== undefined &&
+    item.new !== undefined
   );
-
-  return legacyUser?._id ?? null;
 }
 
-async function getUserByClerkId(
-  ctx: MutationCtx,
-  clerkUserId: string
-): Promise<Id<"users"> | null> {
-  let user = await ctx.db
-    .query("users")
-    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
-    .first();
-
-  if (user) return user._id;
-
-  const allUsers = await ctx.db.query("users").take(500);
-  const legacyUser = allUsers.find(
-    (u) => u.clerkUserId.endsWith(`|${clerkUserId}`) || u.clerkUserId === clerkUserId
-  );
-
-  if (legacyUser) {
-    await ctx.db.patch(legacyUser._id, { clerkUserId });
-    return legacyUser._id;
-  }
-
-  const userId = await ctx.db.insert("users", {
-    clerkUserId,
-    email: undefined,
-    name: undefined,
-    createdAt: Date.now()
-  });
-  return userId;
-}
-
-export const getMyWatchlist = query({
+export const listWatchlist = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchlistItemMeta[]> => {
-    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+    const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
     const watchlistItems = await ctx.db
@@ -95,19 +60,34 @@ export const getMyWatchlist = query({
 
     const contentItems: WatchlistItemMeta[] = [];
     for (const item of watchlistItems) {
-      const content = await ctx.db.get(item.contentId);
-      if (!content) continue;
+      const content = hasWatchlistSnapshot(item) ? null : await ctx.db.get(item.contentId);
+      if (!content && !hasWatchlistSnapshot(item)) continue;
 
       const {
         currentSeasonCount,
         currentEpisodeCount,
         acknowledgedSeasonCount,
         acknowledgedEpisodeCount
-      } = getWatchlistDelta(item, content);
+      } = getWatchlistDelta(item, content ?? ({ seasons: 0, totalEpisodes: 0 } as Doc<"content">));
 
       contentItems.push(
         toWatchlistItemMeta({
-          ...content,
+          ...(content
+            ? content
+            : {
+                _id: item.contentId,
+                _creationTime: item._creationTime,
+                title: item.title!,
+                type: item.contentType!,
+                genre: item.genre!,
+                year: item.year!,
+                rating: item.rating!,
+                voteAverage: item.voteAverage,
+                popular: item.popular!,
+                posterUrl: item.posterUrl!,
+                tmdbId: item.tmdbId,
+                new: item.new!
+              }),
           watchlistAddedAt: item.addedAt,
           watchlistFolder: item.folder,
           watchlistNewSeasons: Math.max(0, currentSeasonCount - acknowledgedSeasonCount),
@@ -120,25 +100,10 @@ export const getMyWatchlist = query({
   }
 });
 
-export const isInWatchlist = query({
-  args: { clerkUserId: v.string(), contentId: v.id("content") },
-  handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
-    if (!userId) return false;
-
-    const existing = await ctx.db
-      .query("watchlist")
-      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
-      .first();
-
-    return !!existing;
-  }
-});
-
-export const getAllWatchlistContentIds = query({
+export const listWatchlistContentIds = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<string[]> => {
-    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+    const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
     const watchlistItems = await ctx.db
@@ -150,28 +115,10 @@ export const getAllWatchlistContentIds = query({
   }
 });
 
-export const areInWatchlist = query({
-  args: { clerkUserId: v.string(), contentIds: v.array(v.id("content")) },
-  handler: async (ctx, { clerkUserId, contentIds }): Promise<string[]> => {
-    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
-    if (!userId) return [];
-
-    const inWatchlist: string[] = [];
-    for (const contentId of contentIds) {
-      const existing = await ctx.db
-        .query("watchlist")
-        .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
-        .first();
-      if (existing) inWatchlist.push(contentId);
-    }
-    return inWatchlist;
-  }
-});
-
-export const add = mutation({
+export const addWatchlistEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const userId = await getUserByClerkId(ctx, clerkUserId);
+    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
     if (!userId) return false;
 
     const existing = await ctx.db
@@ -188,6 +135,7 @@ export const add = mutation({
       contentId,
       addedAt: Date.now(),
       folder: undefined,
+      ...(content ? toContentMetaSnapshot(content) : {}),
       lastAcknowledgedSeasonCount: currentCounts.seasons,
       lastAcknowledgedEpisodeCount: currentCounts.episodes
     });
@@ -195,10 +143,10 @@ export const add = mutation({
   }
 });
 
-export const remove = mutation({
+export const removeWatchlistEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const userId = await getUserByClerkId(ctx, clerkUserId);
+    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
     if (!userId) return false;
 
     const existing = await ctx.db
@@ -214,14 +162,14 @@ export const remove = mutation({
   }
 });
 
-export const updateFolder = mutation({
+export const setWatchlistFolder = mutation({
   args: {
     clerkUserId: v.string(),
     contentId: v.id("content"),
     folder: v.optional(v.string())
   },
   handler: async (ctx, { clerkUserId, contentId, folder }): Promise<boolean> => {
-    const userId = await getUserByClerkId(ctx, clerkUserId);
+    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
     if (!userId) return false;
 
     const existing = await ctx.db
@@ -239,10 +187,10 @@ export const updateFolder = mutation({
   }
 });
 
-export const getUpdates = query({
+export const listWatchlistUpdates = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchlistUpdateMeta[]> => {
-    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+    const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
     const watchlistItems = await ctx.db
@@ -284,41 +232,13 @@ export const getUpdates = query({
   }
 });
 
-export const getUpdateCount = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<number> => {
-    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
-    if (!userId) return 0;
-
-    const watchlistItems = await ctx.db
-      .query("watchlist")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-
-    let count = 0;
-
-    for (const item of watchlistItems) {
-      const content = await ctx.db.get(item.contentId);
-      if (!content || content.type !== "tv") continue;
-
-      const { newSeasons, newEpisodes } = getWatchlistDelta(item, content);
-
-      if (newSeasons > 0 || newEpisodes > 0) {
-        count++;
-      }
-    }
-
-    return count;
-  }
-});
-
-export const acknowledgeUpdates = mutation({
+export const acknowledgeWatchlistUpdates = mutation({
   args: {
     clerkUserId: v.string(),
     contentIds: v.optional(v.array(v.id("content")))
   },
   handler: async (ctx, { clerkUserId, contentIds }): Promise<number> => {
-    const userId = await getUserByClerkId(ctx, clerkUserId);
+    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
     if (!userId) return 0;
 
     const watchlistItems = await ctx.db

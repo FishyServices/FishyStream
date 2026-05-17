@@ -11,7 +11,7 @@ interface StreamSource {
   quality: string;
 }
 
-export const getMovieSources = action({
+export const listMovieSources = action({
   args: {
     imdbId: v.optional(v.string()),
     tmdbId: v.optional(v.string())
@@ -37,7 +37,7 @@ export const getMovieSources = action({
   }
 });
 
-export const getTVSources = action({
+export const listTvSources = action({
   args: {
     imdbId: v.optional(v.string()),
     isAnime: v.optional(v.boolean()),
@@ -97,49 +97,5 @@ export const getTVSources = action({
     }
 
     return sources;
-  }
-});
-
-function frameBlockingHeader(value: string | null): boolean {
-  if (!value) return false;
-  const normalized = value.toLowerCase();
-  return (
-    normalized.includes("deny") ||
-    normalized.includes("sameorigin") ||
-    normalized.includes("same-origin")
-  );
-}
-
-export const checkSource = action({
-  args: { url: v.string() },
-  handler: async (_ctx, { url }): Promise<{ available: boolean; url: string }> => {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch(url, {
-        method: "GET",
-        redirect: "follow",
-        signal: controller.signal,
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
-      });
-
-      clearTimeout(timeout);
-
-      const xFrameOptions = response.headers.get("x-frame-options");
-      const csp = response.headers.get("content-security-policy");
-      const blockedByFrameOptions = frameBlockingHeader(xFrameOptions);
-      const blockedByCsp = csp?.toLowerCase().includes("frame-ancestors 'self'") || false;
-
-      return {
-        available:
-          response.ok || response.status === 405 ? !blockedByFrameOptions && !blockedByCsp : false,
-        url
-      };
-    } catch {
-      return { available: false, url };
-    }
   }
 });

@@ -1,13 +1,11 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import { query, internalMutation, internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import {
-  toContentIdReference,
   toContentMeta,
   toContentDetail,
   toFeaturedContentMeta,
-  type ContentIdReference,
   type ContentMeta,
   type ContentDetail,
   type FeaturedContentMeta
@@ -48,17 +46,7 @@ const tmdbContentValidator = v.object({
   updatedAt: v.number()
 });
 
-export const getFeatured = query({
-  handler: async (ctx): Promise<FeaturedContentMeta | null> => {
-    const content = await ctx.db
-      .query("content")
-      .withIndex("by_featured", (q) => q.eq("featured", true))
-      .first();
-    return content ? toFeaturedContentMeta(content) : null;
-  }
-});
-
-export const getHomepage = query({
+export const getHomepageContent = query({
   args: {},
   handler: async (ctx) => {
     const [featured, trending, popular, newReleases, movies, tvShows] = await Promise.all([
@@ -101,17 +89,7 @@ export const getHomepage = query({
   }
 });
 
-export const getTrending = query({
-  handler: async (ctx): Promise<ContentMeta[]> => {
-    const items = await ctx.db
-      .query("content")
-      .withIndex("by_trending", (q) => q.eq("trending", true))
-      .take(24);
-    return items.map(toContentMeta);
-  }
-});
-
-export const getPopular = query({
+export const listPopularContent = query({
   handler: async (ctx): Promise<ContentMeta[]> => {
     const items = await ctx.db
       .query("content")
@@ -121,7 +99,7 @@ export const getPopular = query({
   }
 });
 
-export const getNewReleases = query({
+export const listNewReleaseContent = query({
   handler: async (ctx): Promise<ContentMeta[]> => {
     const items = await ctx.db
       .query("content")
@@ -131,29 +109,7 @@ export const getNewReleases = query({
   }
 });
 
-export const getMovies = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 60 }): Promise<ContentMeta[]> => {
-    const items = await ctx.db
-      .query("content")
-      .withIndex("by_type", (q) => q.eq("type", "movie"))
-      .take(limit);
-    return items.map(toContentMeta);
-  }
-});
-
-export const getTVShows = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 60 }): Promise<ContentMeta[]> => {
-    const items = await ctx.db
-      .query("content")
-      .withIndex("by_type", (q) => q.eq("type", "tv"))
-      .take(limit);
-    return items.map(toContentMeta);
-  }
-});
-
-export const getById = query({
+export const getContentById = query({
   args: { id: v.id("content") },
   handler: async (ctx, { id }): Promise<ContentDetail | null> => {
     const content = await ctx.db.get(id);
@@ -161,7 +117,7 @@ export const getById = query({
   }
 });
 
-export const getByTmdbId = query({
+export const getContentByTmdbId = query({
   args: { tmdbId: v.string() },
   handler: async (ctx, { tmdbId }): Promise<ContentDetail | null> => {
     const content = await ctx.db
@@ -172,71 +128,7 @@ export const getByTmdbId = query({
   }
 });
 
-export const getIdByTmdbId = query({
-  args: { tmdbId: v.string() },
-  handler: async (ctx, { tmdbId }): Promise<ContentIdReference | null> => {
-    const content = await ctx.db
-      .query("content")
-      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
-      .first();
-
-    return content ? toContentIdReference(content) : null;
-  }
-});
-
-export const getByGenre = query({
-  args: { genre: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx, { genre, limit = 24 }): Promise<ContentMeta[]> => {
-    const candidates = await ctx.db.query("content").take(300);
-    return candidates
-      .filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()))
-      .slice(0, limit)
-      .map(toContentMeta);
-  }
-});
-
-export const search = query({
-  args: { query: v.string() },
-  handler: async (ctx, { query: q }): Promise<ContentMeta[]> => {
-    if (!q.trim()) return [];
-
-    const results = await ctx.db
-      .query("content")
-      .withSearchIndex("search_title", (s) => s.search("title", q))
-      .take(20);
-
-    return results.map(toContentMeta);
-  }
-});
-
-export const getByIds = query({
-  args: { ids: v.array(v.id("content")) },
-  handler: async (ctx, { ids }): Promise<ContentMeta[]> => {
-    const results = await Promise.all(ids.map((id) => ctx.db.get(id)));
-    return results.filter(Boolean).map((content) => toContentMeta(content as Doc<"content">));
-  }
-});
-
-export const getSimilar = query({
-  args: { contentId: v.id("content"), limit: v.optional(v.number()) },
-  handler: async (ctx, { contentId, limit = 12 }): Promise<ContentMeta[]> => {
-    const source = await ctx.db.get(contentId);
-    if (!source) return [];
-
-    const all = await ctx.db
-      .query("content")
-      .withIndex("by_type", (q) => q.eq("type", source.type))
-      .take(200);
-
-    return all
-      .filter((c) => c._id !== contentId && c.genre.some((g) => source.genre.includes(g)))
-      .sort((a, b) => (b.voteAverage ?? 0) - (a.voteAverage ?? 0))
-      .slice(0, limit)
-      .map(toContentMeta);
-  }
-});
-
-export const getPaginated = query({
+export const listContentPage = query({
   args: {
     type: v.union(v.literal("movie"), v.literal("tv")),
     sortBy: v.optional(
@@ -298,7 +190,7 @@ export const getPaginated = query({
   }
 });
 
-export const getPaginatedByGenre = query({
+export const listContentPageByGenre = query({
   args: {
     type: v.union(v.literal("movie"), v.literal("tv")),
     genre: v.string(),
@@ -315,28 +207,55 @@ export const getPaginatedByGenre = query({
     limit: v.optional(v.number())
   },
   handler: async (ctx, { type, genre, sortBy = "popular", page = 1, limit = 24 }) => {
-    let items = await ctx.db
-      .query("content")
-      .withIndex("by_type", (q) => q.eq("type", type))
-      .take(300);
+    const takeCount = Math.max(page * limit * 6, 180);
+    let items;
+
+    switch (sortBy) {
+      case "trending":
+        items = await ctx.db
+          .query("content")
+          .withIndex("by_type_trending", (q) => q.eq("type", type))
+          .order("desc")
+          .take(takeCount);
+        break;
+      case "new":
+        items = await ctx.db
+          .query("content")
+          .withIndex("by_type_new", (q) => q.eq("type", type))
+          .order("desc")
+          .take(takeCount);
+        break;
+      case "rating":
+        items = await ctx.db
+          .query("content")
+          .withIndex("by_type_vote_average", (q) => q.eq("type", type))
+          .order("desc")
+          .take(takeCount);
+        break;
+      case "year":
+        items = await ctx.db
+          .query("content")
+          .withIndex("by_type_year", (q) => q.eq("type", type))
+          .order("desc")
+          .take(takeCount);
+        break;
+      default:
+        items = await ctx.db
+          .query("content")
+          .withIndex("by_type_popular", (q) => q.eq("type", type))
+          .order("desc")
+          .take(takeCount);
+        break;
+    }
 
     items = items.filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()));
 
     switch (sortBy) {
       case "trending":
-        items = items.filter((c) => c.trending).concat(items.filter((c) => !c.trending));
-        break;
       case "new":
-        items = items.filter((c) => c.new).concat(items.filter((c) => !c.new));
-        break;
       case "rating":
-        items.sort((a, b) => (b.voteAverage ?? 0) - (a.voteAverage ?? 0));
-        break;
       case "year":
-        items.sort((a, b) => b.year - a.year);
-        break;
       default:
-        items = items.filter((c) => c.popular).concat(items.filter((c) => !c.popular));
         break;
     }
 
@@ -347,55 +266,6 @@ export const getPaginatedByGenre = query({
       start + limit < items.length ? pageItems[pageItems.length - 1]?._id : undefined;
 
     return { items: pageItems.map(toContentMeta), nextCursor, totalCount: items.length };
-  }
-});
-
-export const create = mutation({
-  args: {
-    title: v.string(),
-    description: v.string(),
-    type: v.union(v.literal("movie"), v.literal("tv")),
-    genre: v.array(v.string()),
-    year: v.number(),
-    rating: v.string(),
-    duration: v.optional(v.string()),
-    seasons: v.optional(v.number()),
-    posterUrl: v.string(),
-    backdropUrl: v.string(),
-    imdbId: v.optional(v.string()),
-    tmdbId: v.optional(v.string()),
-    anilistId: v.optional(v.string()),
-    trending: v.boolean(),
-    popular: v.boolean(),
-    featured: v.boolean(),
-    new: v.boolean()
-  },
-  handler: async (ctx, args): Promise<Doc<"content">["_id"]> => {
-    const now = Date.now();
-    return await ctx.db.insert("content", { ...args, createdAt: now, updatedAt: now });
-  }
-});
-
-export const update = mutation({
-  args: {
-    id: v.id("content"),
-    trending: v.optional(v.boolean()),
-    popular: v.optional(v.boolean()),
-    featured: v.optional(v.boolean()),
-    new: v.optional(v.boolean()),
-    posterUrl: v.optional(v.string()),
-    backdropUrl: v.optional(v.string())
-  },
-  handler: async (ctx, args): Promise<void> => {
-    const { id, ...updates } = args;
-    await ctx.db.patch(id, { ...updates, updatedAt: Date.now() });
-  }
-});
-
-export const remove = mutation({
-  args: { id: v.id("content") },
-  handler: async (ctx, { id }): Promise<void> => {
-    await ctx.db.delete(id);
   }
 });
 
@@ -486,14 +356,6 @@ export const setAniListId = internalMutation({
   }
 });
 
-export const getAll = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 120 }): Promise<ContentMeta[]> => {
-    const items = await ctx.db.query("content").take(limit);
-    return items.map(toContentMeta);
-  }
-});
-
 function hashString(value: string): number {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i += 1) {
@@ -507,7 +369,7 @@ function seededUnitInterval(seed: string): number {
   return hashString(seed) / 4294967295;
 }
 
-export const getRecommendations = query({
+export const listRecommendedContent = query({
   args: {
     watchlistIds: v.array(v.id("content")),
     limit: v.optional(v.number()),

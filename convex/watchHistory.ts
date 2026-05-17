@@ -1,56 +1,33 @@
 import { v } from "convex/values";
-import { query, mutation, action } from "./_generated/server";
-import { api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import type { QueryCtx, MutationCtx } from "./_generated/server";
-import { toWatchHistoryItemMeta, type WatchHistoryItemMeta } from "../shared/contentMetadata";
+import { query, mutation } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
+import {
+  toContentMetaSnapshot,
+  toWatchHistoryItemMeta,
+  type WatchHistoryItemMeta
+} from "../shared/contentMetadata";
+import { findOrCreateUserIdByClerkId, findUserIdByClerkIdQuery } from "./lib/users";
 
-async function getUserByClerkIdQuery(
-  ctx: QueryCtx,
-  clerkUserId: string
-): Promise<Id<"users"> | null> {
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
-    .first();
-
-  if (user) return user._id;
-
-  const legacyUsers = await ctx.db.query("users").take(500);
-  const legacyUser = legacyUsers.find(
-    (u) => u.clerkUserId.endsWith(`|${clerkUserId}`) || u.clerkUserId === clerkUserId
+function hasHistorySnapshot(item: {
+  title?: string;
+  contentType?: "movie" | "tv";
+  genre?: string[];
+  year?: number;
+  rating?: string;
+  popular?: boolean;
+  posterUrl?: string;
+  new?: boolean;
+}) {
+  return !!(
+    item.title &&
+    item.contentType &&
+    item.genre &&
+    item.rating &&
+    item.posterUrl &&
+    item.year !== undefined &&
+    item.popular !== undefined &&
+    item.new !== undefined
   );
-  return legacyUser?._id ?? null;
-}
-
-async function getUserByClerkId(
-  ctx: MutationCtx,
-  clerkUserId: string
-): Promise<Id<"users"> | null> {
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
-    .first();
-
-  if (user) return user._id;
-
-  const legacyUsers = await ctx.db.query("users").take(500);
-  const legacyUser = legacyUsers.find(
-    (u) => u.clerkUserId.endsWith(`|${clerkUserId}`) || u.clerkUserId === clerkUserId
-  );
-
-  if (legacyUser) {
-    await ctx.db.patch(legacyUser._id, { clerkUserId });
-    return legacyUser._id;
-  }
-
-  const userId = await ctx.db.insert("users", {
-    clerkUserId,
-    email: undefined,
-    name: undefined,
-    createdAt: Date.now()
-  });
-  return userId;
 }
 
 function normalizeProgress(progress: number): number {
@@ -58,10 +35,10 @@ function normalizeProgress(progress: number): number {
   return Math.max(0, Math.min(progress, 100));
 }
 
-export const getMyWatchHistory = query({
+export const listWatchHistory = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
-    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+    const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
     const historyItems = await ctx.db
@@ -72,32 +49,47 @@ export const getMyWatchHistory = query({
 
     const result = [];
     for (const item of historyItems) {
-      const content = await ctx.db.get(item.contentId);
-      if (content) {
-        result.push(
-          toWatchHistoryItemMeta({
-            ...content,
-            progress: item.progress,
-            completed: item.completed,
-            watchedAt: item.watchedAt,
-            positionSeconds: item.positionSeconds,
-            durationSeconds: item.durationSeconds,
-            seasonNumber: item.seasonNumber,
-            episodeNumber: item.episodeNumber,
-            source: item.source,
-            dub: item.dub
-          })
-        );
-      }
+      const content = hasHistorySnapshot(item) ? null : await ctx.db.get(item.contentId);
+      if (!content && !hasHistorySnapshot(item)) continue;
+
+      result.push(
+        toWatchHistoryItemMeta({
+          ...(content
+            ? content
+            : {
+                _id: item.contentId,
+                _creationTime: item._creationTime,
+                title: item.title!,
+                type: item.contentType!,
+                genre: item.genre!,
+                year: item.year!,
+                rating: item.rating!,
+                voteAverage: item.voteAverage,
+                popular: item.popular!,
+                posterUrl: item.posterUrl!,
+                tmdbId: item.tmdbId,
+                new: item.new!
+              }),
+          progress: item.progress,
+          completed: item.completed,
+          watchedAt: item.watchedAt,
+          positionSeconds: item.positionSeconds,
+          durationSeconds: item.durationSeconds,
+          seasonNumber: item.seasonNumber,
+          episodeNumber: item.episodeNumber,
+          source: item.source,
+          dub: item.dub
+        })
+      );
     }
     return result;
   }
 });
 
-export const getContinueWatching = query({
+export const listContinueWatching = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
-    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+    const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
     const historyItems = await ctx.db
@@ -110,63 +102,45 @@ export const getContinueWatching = query({
 
     const result = [];
     for (const item of historyItems) {
-      const content = await ctx.db.get(item.contentId);
-      if (content) {
-        result.push(
-          toWatchHistoryItemMeta({
-            ...content,
-            progress: item.progress,
-            completed: item.completed,
-            watchedAt: item.watchedAt,
-            positionSeconds: item.positionSeconds,
-            durationSeconds: item.durationSeconds,
-            seasonNumber: item.seasonNumber,
-            episodeNumber: item.episodeNumber,
-            source: item.source,
-            dub: item.dub
-          })
-        );
-      }
+      const content = hasHistorySnapshot(item) ? null : await ctx.db.get(item.contentId);
+      if (!content && !hasHistorySnapshot(item)) continue;
+
+      result.push(
+        toWatchHistoryItemMeta({
+          ...(content
+            ? content
+            : {
+                _id: item.contentId,
+                _creationTime: item._creationTime,
+                title: item.title!,
+                type: item.contentType!,
+                genre: item.genre!,
+                year: item.year!,
+                rating: item.rating!,
+                voteAverage: item.voteAverage,
+                popular: item.popular!,
+                posterUrl: item.posterUrl!,
+                tmdbId: item.tmdbId,
+                new: item.new!
+              }),
+          progress: item.progress,
+          completed: item.completed,
+          watchedAt: item.watchedAt,
+          positionSeconds: item.positionSeconds,
+          durationSeconds: item.durationSeconds,
+          seasonNumber: item.seasonNumber,
+          episodeNumber: item.episodeNumber,
+          source: item.source,
+          dub: item.dub
+        })
+      );
     }
     return result;
   }
 });
 
-export const getWatchProgress = query({
-  args: { clerkUserId: v.string(), contentId: v.id("content") },
-  handler: async (ctx, { clerkUserId, contentId }) => {
-    const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
-    if (!userId) {
-      return {
-        progress: 0,
-        positionSeconds: 0,
-        durationSeconds: 0,
-        completed: false,
-        seasonNumber: null,
-        episodeNumber: null
-      };
-    }
-
-    const historyItem = await ctx.db
-      .query("watchHistory")
-      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
-      .first();
-
-    return {
-      progress: historyItem?.progress || 0,
-      positionSeconds: historyItem?.positionSeconds || 0,
-      durationSeconds: historyItem?.durationSeconds || 0,
-      completed: historyItem?.completed || false,
-      seasonNumber: historyItem?.seasonNumber ?? null,
-      episodeNumber: historyItem?.episodeNumber ?? null,
-      source: historyItem?.source ?? null,
-      dub: historyItem?.dub ?? null
-    };
-  }
-});
-
 async function fetchAllWatchProgress(ctx: QueryCtx, clerkUserId: string) {
-  const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
+  const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
   if (!userId) return [];
 
   const historyItems = await ctx.db
@@ -189,37 +163,14 @@ async function fetchAllWatchProgress(ctx: QueryCtx, clerkUserId: string) {
   }));
 }
 
-export const getAllWatchProgress = query({
+export const listWatchProgressEntries = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }) => {
     return fetchAllWatchProgress(ctx, clerkUserId);
   }
 });
 
-export const getAllWatchProgressAction = action({
-  args: { clerkUserId: v.string() },
-  handler: async (
-    ctx,
-    { clerkUserId }
-  ): Promise<
-    Array<{
-      contentId: string;
-      progress: number;
-      positionSeconds: number;
-      durationSeconds: number;
-      completed: boolean;
-      seasonNumber: number | null;
-      episodeNumber: number | null;
-      source: string | null;
-      dub: boolean | null;
-      watchedAt: number;
-    }>
-  > => {
-    return ctx.runQuery(api.watchHistory.getAllWatchProgress, { clerkUserId });
-  }
-});
-
-export const updateProgress = mutation({
+export const saveWatchProgress = mutation({
   args: {
     clerkUserId: v.string(),
     contentId: v.id("content"),
@@ -245,7 +196,7 @@ export const updateProgress = mutation({
       source,
       dub
     } = args;
-    const userId = await getUserByClerkId(ctx, clerkUserId);
+    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
     if (!userId) throw new Error("User not found");
 
     const normalizedProgress = normalizeProgress(progress);
@@ -257,7 +208,9 @@ export const updateProgress = mutation({
       .first();
 
     if (existing) {
+      const snapshot = hasHistorySnapshot(existing) ? null : await ctx.db.get(contentId);
       await ctx.db.patch(existing._id, {
+        ...(snapshot ? toContentMetaSnapshot(snapshot) : {}),
         progress: normalizedProgress,
         positionSeconds: positionSeconds ?? existing.positionSeconds,
         durationSeconds: durationSeconds ?? existing.durationSeconds,
@@ -269,9 +222,11 @@ export const updateProgress = mutation({
         watchedAt: Date.now()
       });
     } else {
+      const content = await ctx.db.get(contentId);
       await ctx.db.insert("watchHistory", {
         userId,
         contentId,
+        ...(content ? toContentMetaSnapshot(content) : {}),
         progress: normalizedProgress,
         positionSeconds,
         durationSeconds,
@@ -286,35 +241,10 @@ export const updateProgress = mutation({
   }
 });
 
-export const markAsCompleted = mutation({
-  args: { clerkUserId: v.string(), contentId: v.id("content") },
-  handler: async (ctx, { clerkUserId, contentId }): Promise<void> => {
-    const userId = await getUserByClerkId(ctx, clerkUserId);
-    if (!userId) throw new Error("User not found");
-
-    const existing = await ctx.db
-      .query("watchHistory")
-      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, { progress: 100, completed: true, watchedAt: Date.now() });
-    } else {
-      await ctx.db.insert("watchHistory", {
-        userId,
-        contentId,
-        progress: 100,
-        completed: true,
-        watchedAt: Date.now()
-      });
-    }
-  }
-});
-
-export const removeFromHistory = mutation({
+export const removeWatchHistoryEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const userId = await getUserByClerkId(ctx, clerkUserId);
+    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
     if (!userId) return false;
 
     const existing = await ctx.db

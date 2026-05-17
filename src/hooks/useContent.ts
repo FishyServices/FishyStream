@@ -1,18 +1,7 @@
 import { useQuery, useAction, usePaginatedQuery, useConvex } from "convex/react";
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
-import type {
-  ContentCategoryMeta,
-  ContentMeta,
-  FeaturedContentMeta
-} from "../../shared/contentMetadata";
-
-export interface PaginatedResult {
-  items: ContentMeta[];
-  nextCursor?: string;
-  totalCount: number;
-}
+import type { ContentMeta } from "../../shared/contentMetadata";
 
 export interface BrowsePageResult {
   items: ContentMeta[];
@@ -42,44 +31,20 @@ export interface TMDBItem {
   type: "movie" | "tv";
 }
 
-export function useFeaturedContent() {
-  return useQuery(api.content.getFeatured);
-}
-
 export function useHomepageContent() {
-  return useQuery(api.content.getHomepage);
-}
-
-export function useTrendingContent() {
-  return useQuery(api.content.getTrending);
+  return useQuery(api.content.getHomepageContent);
 }
 
 export function usePopularContent() {
-  return useQuery(api.content.getPopular);
+  return useQuery(api.content.listPopularContent);
 }
 
 export function useNewReleases() {
-  return useQuery(api.content.getNewReleases);
-}
-
-export function useMovies(limit?: number) {
-  return useQuery(api.content.getMovies, { limit });
-}
-
-export function useTVShows(limit?: number) {
-  return useQuery(api.content.getTVShows, { limit });
+  return useQuery(api.content.listNewReleaseContent);
 }
 
 export function useContentByTmdbId(tmdbId: string | undefined) {
-  return useQuery(api.content.getByTmdbId, tmdbId ? { tmdbId } : "skip");
-}
-
-export function useContentById(id: Id<"content"> | undefined) {
-  return useQuery(api.content.getById, id ? { id } : "skip");
-}
-
-export function useContentByGenre(genre: string, limit?: number) {
-  return useQuery(api.content.getByGenre, genre ? { genre, limit } : "skip");
+  return useQuery(api.content.getContentByTmdbId, tmdbId ? { tmdbId } : "skip");
 }
 
 export function useRelatedContent(
@@ -238,22 +203,6 @@ export function useSearchAll(query: string) {
 
 export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
 
-export function useAllCategories(): ContentCategoryMeta[] {
-  const trending = useTrendingContent() ?? [];
-  const popular = usePopularContent() ?? [];
-  const newReleases = useNewReleases() ?? [];
-  const movies = useMovies(24) ?? [];
-  const tvShows = useTVShows(24) ?? [];
-
-  return [
-    { id: "trending", title: "Trending Now 🔥", content: trending },
-    { id: "popular", title: "Popular on FishyStream", content: popular },
-    { id: "new", title: "New Releases", content: newReleases },
-    { id: "movies", title: "Movies", content: movies },
-    { id: "tvshows", title: "TV Shows", content: tvShows }
-  ].filter((c) => c.content.length > 0);
-}
-
 export function usePaginatedContent(
   type: "movie" | "tv",
   genre: string | undefined,
@@ -263,11 +212,15 @@ export function usePaginatedContent(
 ): BrowsePageResult {
   const normalizedPage = Math.max(1, Math.floor(page));
 
-  const indexed = usePaginatedQuery(api.content.getPaginated, genre ? "skip" : { type, sortBy }, {
-    initialNumItems: normalizedPage * limit
-  });
+  const indexed = usePaginatedQuery(
+    api.content.listContentPage,
+    genre ? "skip" : { type, sortBy },
+    {
+      initialNumItems: normalizedPage * limit
+    }
+  );
   const genrePage = useQuery(
-    api.content.getPaginatedByGenre,
+    api.content.listContentPageByGenre,
     genre ? { type, genre, sortBy, page: normalizedPage, limit } : "skip"
   );
 
@@ -335,7 +288,7 @@ export function useRecommendations(
     setIsLoading(true);
 
     void convex
-      .query(api.content.getRecommendations, {
+      .query(api.content.listRecommendedContent, {
         watchlistIds: watchlistItems.map((item) => item._id),
         limit,
         typeFilter,
@@ -363,8 +316,4 @@ export function useRecommendations(
   }, [convex, limit, refreshSeed, typeFilter, watchlistItems]);
 
   return { recommendations, isLoading };
-}
-
-export function useAllContent() {
-  return useQuery(api.content.getAll, { limit: 120 });
 }
