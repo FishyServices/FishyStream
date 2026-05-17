@@ -288,32 +288,37 @@ export function usePaginatedContent(
   type: "movie" | "tv",
   genre: string | undefined,
   sortBy: ContentSort,
-  limit = 24
+  limit = 24,
+  page = 1
 ): BrowsePageResult {
-  const [pageIndex, setPageIndex] = useState(0);
-
-  useEffect(() => {
-    setPageIndex(0);
-  }, [genre, limit, sortBy, type]);
+  const normalizedPage = Math.max(1, Math.floor(page));
 
   const indexed = usePaginatedQuery(
     api.content.getPaginated,
     genre ? "skip" : { type, sortBy },
-    { initialNumItems: limit }
+    { initialNumItems: normalizedPage * limit }
   );
   const genrePage = useQuery(
     api.content.getPaginatedByGenre,
-    genre ? { type, genre, sortBy, cursor: undefined, limit } : "skip"
+    genre ? { type, genre, sortBy, page: normalizedPage, limit } : "skip"
   );
+
+  useEffect(() => {
+    if (genre) return;
+    const requiredItems = normalizedPage * limit;
+    if (indexed.results.length >= requiredItems) return;
+    if (indexed.status !== "CanLoadMore") return;
+    indexed.loadMore(requiredItems - indexed.results.length);
+  }, [genre, indexed, limit, normalizedPage]);
 
   if (genre) {
     return {
       items: genrePage?.items ?? [],
-      currentPage: 1,
+      currentPage: normalizedPage,
       totalPages: genrePage ? Math.ceil(genrePage.totalCount / limit) : undefined,
       totalCount: genrePage?.totalCount,
       hasNextPage: !!genrePage?.nextCursor,
-      canGoBack: false,
+      canGoBack: normalizedPage > 1,
       isLoading: genrePage === undefined,
       goNext: () => {},
       goPrevious: () => {}
@@ -321,34 +326,22 @@ export function usePaginatedContent(
   }
 
   const items = indexed.results;
-  const start = pageIndex * limit;
+  const start = (normalizedPage - 1) * limit;
   const visibleItems = items.slice(start, start + limit);
-  const hasLoadedNextPage = start + limit < items.length;
+  const hasLoadedNextPage = normalizedPage * limit < items.length;
   const hasNextPage = hasLoadedNextPage || indexed.status === "CanLoadMore";
-  const isLoading = indexed.status === "LoadingFirstPage";
-
-  const goNext = () => {
-    if (hasLoadedNextPage) {
-      setPageIndex((current) => current + 1);
-      return;
-    }
-
-    if (indexed.status === "CanLoadMore") {
-      indexed.loadMore(limit);
-      setPageIndex((current) => current + 1);
-    }
-  };
+  const isLoading = indexed.status === "LoadingFirstPage" || (normalizedPage > 1 && !visibleItems.length);
 
   return {
     items: visibleItems,
-    currentPage: pageIndex + 1,
+    currentPage: normalizedPage,
     totalPages: undefined,
     totalCount: undefined,
     hasNextPage,
-    canGoBack: pageIndex > 0,
+    canGoBack: normalizedPage > 1,
     isLoading,
-    goNext,
-    goPrevious: () => setPageIndex((current) => Math.max(0, current - 1))
+    goNext: () => {},
+    goPrevious: () => {}
   };
 }
 

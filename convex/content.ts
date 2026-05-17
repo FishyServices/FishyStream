@@ -302,10 +302,10 @@ export const getPaginatedByGenre = query({
         v.literal("year")
       )
     ),
-    cursor: v.optional(v.string()),
+    page: v.optional(v.number()),
     limit: v.optional(v.number())
   },
-  handler: async (ctx, { type, genre, sortBy = "popular", cursor, limit = 24 }) => {
+  handler: async (ctx, { type, genre, sortBy = "popular", page = 1, limit = 24 }) => {
     let items = await ctx.db
       .query("content")
       .withIndex("by_type", (q) => q.eq("type", type))
@@ -331,11 +331,13 @@ export const getPaginatedByGenre = query({
         break;
     }
 
-    const start = cursor ? items.findIndex((c) => c._id === cursor) + 1 : 0;
-    const page = items.slice(start, start + limit);
-    const nextCursor = page.length === limit ? page[page.length - 1]?._id : undefined;
+    const normalizedPage = Math.max(1, Math.floor(page));
+    const start = (normalizedPage - 1) * limit;
+    const pageItems = items.slice(start, start + limit);
+    const nextCursor =
+      start + limit < items.length ? pageItems[pageItems.length - 1]?._id : undefined;
 
-    return { items: page.map(toContentCardItem), nextCursor, totalCount: items.length };
+    return { items: pageItems.map(toContentCardItem), nextCursor, totalCount: items.length };
   }
 });
 

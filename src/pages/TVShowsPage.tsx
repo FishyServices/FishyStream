@@ -21,28 +21,56 @@ const GENRES = [
 ];
 const VALID_SORTS = new Set<ContentSort>(TV_SORT_OPTIONS.map((sort) => sort.value));
 
+function parsePageParam(value: string | null) {
+  const page = Number(value);
+  return Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
+}
+
 export function TVShowsPage() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
   const [searchParams, setSearchParams] = useSearchParams();
   const genre = searchParams.get("genre") ?? "All";
+  const page = parsePageParam(searchParams.get("page"));
   const sortParam = searchParams.get("sort");
   const sort: ContentSort =
     sortParam && VALID_SORTS.has(sortParam as ContentSort)
       ? (sortParam as ContentSort)
       : settings.defaultTVSort;
-  const paginated = usePaginatedContent("tv", genre !== "All" ? genre : undefined, sort, 24);
+  const paginated = usePaginatedContent("tv", genre !== "All" ? genre : undefined, sort, 24, page);
   const shows = paginated.items;
-
-  const currentSort =
-    TV_SORT_OPTIONS.find((s) => s.value === sort) ??
-    TV_SORT_OPTIONS.find((s) => s.value === settings.defaultTVSort) ??
-    TV_SORT_OPTIONS[0]!;
   const handlePlay = (tmdbId: string, season?: number, episode?: number) => {
     const p = new URLSearchParams();
     if (season) p.set("season", String(season));
     if (episode) p.set("episode", String(episode));
     navigate(`/watch/${tmdbId}${p.toString() ? "?" + p : ""}`);
+  };
+
+  const updateBrowseParams = (updates: {
+    sort?: string;
+    genre?: string;
+    page?: number;
+  }) => {
+    setSearchParams((p) => {
+      if (updates.sort !== undefined) {
+        p.set("sort", updates.sort);
+      }
+      if (updates.genre !== undefined) {
+        if (updates.genre === "All") {
+          p.delete("genre");
+        } else {
+          p.set("genre", updates.genre);
+        }
+      }
+      if (updates.page !== undefined) {
+        if (updates.page <= 1) {
+          p.delete("page");
+        } else {
+          p.set("page", String(updates.page));
+        }
+      }
+      return p;
+    });
   };
 
   return (
@@ -61,11 +89,7 @@ export function TVShowsPage() {
               value={sort}
               onValueChange={(value) => {
                 if (!value) return;
-                setSearchParams((p) => {
-                  p.set("sort", value);
-                  p.delete("cursor");
-                  return p;
-                });
+                updateBrowseParams({ sort: value, page: 1 });
               }}
             >
               <SelectTrigger className="flex items-center gap-2 rounded-lg border border-border bg-card/70 text-sm text-foreground/80">
@@ -90,12 +114,7 @@ export function TVShowsPage() {
               variant={genre === g ? "default" : "outline"}
               size="sm"
               className="shrink-0 rounded-full"
-              onClick={() =>
-                setSearchParams((p) => {
-                  g === "All" ? p.delete("genre") : p.set("genre", g);
-                  return p;
-                })
-              }
+              onClick={() => updateBrowseParams({ genre: g, page: 1 })}
             >
               {g}
             </Button>
@@ -123,7 +142,7 @@ export function TVShowsPage() {
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
               <Button
                 variant="outline"
-                onClick={paginated.goPrevious}
+                onClick={() => updateBrowseParams({ page: page - 1 })}
                 disabled={!paginated.canGoBack}
                 className="flex w-full items-center justify-center gap-2 sm:w-auto"
               >
@@ -136,7 +155,7 @@ export function TVShowsPage() {
               </span>
               <Button
                 variant="outline"
-                onClick={paginated.goNext}
+                onClick={() => updateBrowseParams({ page: page + 1 })}
                 disabled={!paginated.hasNextPage}
                 className="flex w-full items-center justify-center gap-2 sm:w-auto"
               >
