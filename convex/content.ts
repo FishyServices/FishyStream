@@ -456,9 +456,9 @@ export const setAniListId = internalMutation({
 });
 
 export const getAll = query({
-  args: {},
-  handler: async (ctx): Promise<ContentCardItem[]> => {
-    const items = await ctx.db.query("content").take(300);
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 120 }): Promise<ContentCardItem[]> => {
+    const items = await ctx.db.query("content").take(limit);
     return items.map(toContentCardItem);
   }
 });

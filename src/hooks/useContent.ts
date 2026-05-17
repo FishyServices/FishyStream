@@ -360,7 +360,7 @@ export function useRecommendations(
 ) {
   const allContent = useQuery(
     api.content.getAll,
-    watchlistItems && watchlistItems.length > 0 ? undefined : "skip"
+    watchlistItems && watchlistItems.length > 0 ? { limit: 120 } : "skip"
   );
 
   const recommendations = useMemo(() => {
@@ -438,5 +438,5 @@ export function useRecommendations(
 }
 
 export function useAllContent() {
-  return useQuery(api.content.getAll);
+  return useQuery(api.content.getAll, { limit: 120 });
 }

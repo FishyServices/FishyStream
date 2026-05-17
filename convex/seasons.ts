@@ -34,10 +34,26 @@ export const upsertSeason = internalMutation({
       .first();
 
     const now = Date.now();
+    const existingEpisodeCount = existing?.episodeCount ?? existing?.episodes.length ?? 0;
     if (existing) {
       await ctx.db.patch(existing._id, { ...args, updatedAt: now });
     } else {
       await ctx.db.insert("seasons", { ...args, createdAt: now, updatedAt: now });
+    }
+
+    const content = await ctx.db.get(args.contentId);
+    if (content) {
+      const nextSeasonCount = Math.max(content.seasons ?? 0, args.seasonNumber);
+      const nextEpisodeTotal = Math.max(
+        0,
+        (content.totalEpisodes ?? 0) - existingEpisodeCount + args.episodeCount
+      );
+
+      await ctx.db.patch(args.contentId, {
+        seasons: nextSeasonCount,
+        totalEpisodes: nextEpisodeTotal,
+        updatedAt: now
+      });
     }
   }
 });
