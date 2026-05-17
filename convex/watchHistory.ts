@@ -3,39 +3,7 @@ import { query, mutation, action } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
-
-type WatchHistoryContentItem = Pick<
-  Doc<"content">,
-  | "_id"
-  | "_creationTime"
-  | "title"
-  | "type"
-  | "genre"
-  | "year"
-  | "rating"
-  | "voteAverage"
-  | "popular"
-  | "posterUrl"
-  | "tmdbId"
-  | "new"
->;
-
-function toWatchHistoryContentItem(content: Doc<"content">): WatchHistoryContentItem {
-  return {
-    _id: content._id,
-    _creationTime: content._creationTime,
-    title: content.title,
-    type: content.type,
-    genre: content.genre,
-    year: content.year,
-    rating: content.rating,
-    voteAverage: content.voteAverage,
-    popular: content.popular,
-    posterUrl: content.posterUrl,
-    tmdbId: content.tmdbId,
-    new: content.new
-  };
-}
+import { toContentMeta, type WatchHistoryItemMeta } from "../shared/contentMetadata";
 
 async function getUserByClerkIdQuery(
   ctx: QueryCtx,
@@ -107,7 +75,7 @@ export const getMyWatchHistory = query({
       const content = await ctx.db.get(item.contentId);
       if (content) {
         result.push({
-          ...toWatchHistoryContentItem(content),
+          ...toContentMeta(content),
           progress: item.progress,
           completed: item.completed,
           watchedAt: item.watchedAt,
@@ -143,7 +111,7 @@ export const getContinueWatching = query({
       const content = await ctx.db.get(item.contentId);
       if (content) {
         result.push({
-          ...toWatchHistoryContentItem(content),
+          ...toContentMeta(content),
           progress: item.progress,
           completed: item.completed,
           watchedAt: item.watchedAt,

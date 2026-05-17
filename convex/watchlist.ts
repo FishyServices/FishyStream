@@ -2,39 +2,11 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
-
-type WatchlistContentItem = Pick<
-  Doc<"content">,
-  | "_id"
-  | "_creationTime"
-  | "title"
-  | "type"
-  | "genre"
-  | "year"
-  | "rating"
-  | "voteAverage"
-  | "popular"
-  | "posterUrl"
-  | "tmdbId"
-  | "new"
-> & {
-  watchlistAddedAt: number;
-  watchlistFolder?: string;
-  watchlistNewSeasons: number;
-  watchlistNewEpisodes: number;
-};
-
-type WatchlistNotificationItem = {
-  contentId: Id<"content">;
-  title: string;
-  posterUrl: string;
-  tmdbId?: string;
-  currentSeasonCount: number;
-  currentEpisodeCount: number;
-  newSeasons: number;
-  newEpisodes: number;
-  folder?: string;
-};
+import {
+  toContentMeta,
+  type WatchlistItemMeta,
+  type WatchlistUpdateMeta
+} from "../shared/contentMetadata";
 
 function toWatchlistContentItem(
   content: Doc<"content">,
@@ -43,20 +15,9 @@ function toWatchlistContentItem(
   currentEpisodeCount: number,
   acknowledgedSeasonCount: number,
   acknowledgedEpisodeCount: number
-): WatchlistContentItem {
+): WatchlistItemMeta {
   return {
-    _id: content._id,
-    _creationTime: content._creationTime,
-    title: content.title,
-    type: content.type,
-    genre: content.genre,
-    year: content.year,
-    rating: content.rating,
-    voteAverage: content.voteAverage,
-    popular: content.popular,
-    posterUrl: content.posterUrl,
-    tmdbId: content.tmdbId,
-    new: content.new,
+    ...toContentMeta(content),
     watchlistAddedAt: item.addedAt,
     watchlistFolder: item.folder,
     watchlistNewSeasons: Math.max(0, currentSeasonCount - acknowledgedSeasonCount),
@@ -139,7 +100,7 @@ async function getUserByClerkId(
 
 export const getMyWatchlist = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchlistContentItem[]> => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchlistItemMeta[]> => {
     const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -148,7 +109,7 @@ export const getMyWatchlist = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const contentItems: WatchlistContentItem[] = [];
+    const contentItems: WatchlistItemMeta[] = [];
     for (const item of watchlistItems) {
       const content = await ctx.db.get(item.contentId);
       if (!content) continue;
@@ -297,7 +258,7 @@ export const updateFolder = mutation({
 
 export const getUpdates = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchlistNotificationItem[]> => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchlistUpdateMeta[]> => {
     const userId = await getUserByClerkIdQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -306,7 +267,7 @@ export const getUpdates = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const updates: WatchlistNotificationItem[] = [];
+    const updates: WatchlistUpdateMeta[] = [];
 
     for (const item of watchlistItems) {
       const content = await ctx.db.get(item.contentId);

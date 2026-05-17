@@ -2,31 +2,25 @@ import { useQuery, useAction, usePaginatedQuery } from "convex/react";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import type {
+  ContentCategoryMeta,
+  ContentMeta,
+  FeaturedContentMeta
+} from "../../shared/contentMetadata";
 
-export type ContentListItem = Pick<
-  Doc<"content">,
-  | "_id"
-  | "_creationTime"
-  | "title"
-  | "type"
-  | "genre"
-  | "year"
-  | "rating"
-  | "voteAverage"
-  | "popular"
-  | "posterUrl"
-  | "tmdbId"
-  | "new"
->;
+export type ContentListItem = ContentMeta;
+export type FeaturedListItem = FeaturedContentMeta;
+export type ContentCategory = ContentCategoryMeta;
+export type { ContentMeta, FeaturedContentMeta, ContentCategoryMeta };
 
 export interface PaginatedResult {
-  items: ContentListItem[];
+  items: ContentMeta[];
   nextCursor?: string;
   totalCount: number;
 }
 
 export interface BrowsePageResult {
-  items: ContentListItem[];
+  items: ContentMeta[];
   currentPage: number;
   totalPages?: number;
   totalCount?: number;
@@ -247,12 +241,6 @@ export function useSearchAll(query: string) {
   return { results, loading, error };
 }
 
-export interface ContentCategory {
-  id: string;
-  title: string;
-  content: ContentListItem[];
-}
-
 export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
 
 function hashString(value: string): number {
@@ -268,7 +256,7 @@ function seededUnitInterval(seed: string): number {
   return hashString(seed) / 4294967295;
 }
 
-export function useAllCategories(): ContentCategory[] {
+export function useAllCategories(): ContentCategoryMeta[] {
   const trending = useTrendingContent() ?? [];
   const popular = usePopularContent() ?? [];
   const newReleases = useNewReleases() ?? [];
@@ -293,11 +281,9 @@ export function usePaginatedContent(
 ): BrowsePageResult {
   const normalizedPage = Math.max(1, Math.floor(page));
 
-  const indexed = usePaginatedQuery(
-    api.content.getPaginated,
-    genre ? "skip" : { type, sortBy },
-    { initialNumItems: normalizedPage * limit }
-  );
+  const indexed = usePaginatedQuery(api.content.getPaginated, genre ? "skip" : { type, sortBy }, {
+    initialNumItems: normalizedPage * limit
+  });
   const genrePage = useQuery(
     api.content.getPaginatedByGenre,
     genre ? { type, genre, sortBy, page: normalizedPage, limit } : "skip"
@@ -330,7 +316,8 @@ export function usePaginatedContent(
   const visibleItems = items.slice(start, start + limit);
   const hasLoadedNextPage = normalizedPage * limit < items.length;
   const hasNextPage = hasLoadedNextPage || indexed.status === "CanLoadMore";
-  const isLoading = indexed.status === "LoadingFirstPage" || (normalizedPage > 1 && !visibleItems.length);
+  const isLoading =
+    indexed.status === "LoadingFirstPage" || (normalizedPage > 1 && !visibleItems.length);
 
   return {
     items: visibleItems,
@@ -346,7 +333,7 @@ export function usePaginatedContent(
 }
 
 export function useRecommendations(
-  watchlistItems: ContentListItem[] | undefined,
+  watchlistItems: ContentMeta[] | undefined,
   limit = 12,
   typeFilter: "all" | "movie" | "tv" = "all",
   refreshSeed = 0
@@ -375,10 +362,10 @@ export function useRecommendations(
       Array.from(watchlistTypes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "movie";
 
     const watchlistIds = new Set(watchlistItems.map((w) => w._id));
-    let filtered = allContent.filter((c: ContentListItem) => !watchlistIds.has(c._id));
+    let filtered = allContent.filter((c: ContentMeta) => !watchlistIds.has(c._id));
 
     if (typeFilter !== "all") {
-      filtered = filtered.filter((c: ContentListItem) => c.type === typeFilter);
+      filtered = filtered.filter((c: ContentMeta) => c.type === typeFilter);
     }
 
     const watchlistSignature = watchlistItems
@@ -399,7 +386,7 @@ export function useRecommendations(
       .slice(0, poolSize);
 
     return pool
-      .map((c: ContentListItem) => {
+      .map((c: ContentMeta) => {
         let score = 0;
         score +=
           seededUnitInterval(
@@ -415,13 +402,11 @@ export function useRecommendations(
         return { content: c, score };
       })
       .sort(
-        (
-          a: { content: ContentListItem; score: number },
-          b: { content: ContentListItem; score: number }
-        ) => b.score - a.score
+        (a: { content: ContentMeta; score: number }, b: { content: ContentMeta; score: number }) =>
+          b.score - a.score
       )
       .slice(0, limit)
-      .map((s: { content: ContentListItem; score: number }) => s.content);
+      .map((s: { content: ContentMeta; score: number }) => s.content);
   }, [watchlistItems, allContent, limit, typeFilter, refreshSeed]);
 
   const isLoading =

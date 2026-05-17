@@ -645,7 +645,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                         const season = Number(value);
                         handleSeasonChange(season);
                         const cachedSeason = allSeasons?.find((ds) => ds.seasonNumber === season);
-                        const cachedEpisodes = cachedSeason?.episodeCount || cachedSeason?.storedEpisodeCount || 0;
+                        const cachedEpisodes =
+                          cachedSeason?.episodeCount || cachedSeason?.storedEpisodeCount || 0;
                         const expectedEpisodes = contentData.tmdbId
                           ? getCanonicalSeasonEpisodeCount(contentData.tmdbId, season)
                           : undefined;

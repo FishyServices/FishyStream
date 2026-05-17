@@ -4,26 +4,14 @@ import { useCallback, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useWatchProgressContext } from "./useWatchProgress";
-import type { ContentListItem } from "./useContent";
+import type { WatchHistoryItemMeta } from "../../shared/contentMetadata";
 
-export interface WatchHistoryItem extends ContentListItem {
-  progress: number;
-  completed: boolean;
-  watchedAt: number;
-  positionSeconds?: number;
-  durationSeconds?: number;
-  seasonNumber?: number;
-  episodeNumber?: number;
-  source?: string;
-  dub?: boolean;
-}
-
-export function useMyWatchHistory(): WatchHistoryItem[] | undefined {
+export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
   const { user } = useUser();
   return useQuery(api.watchHistory.getMyWatchHistory, user ? { clerkUserId: user.id } : "skip");
 }
 
-export function useContinueWatching(): WatchHistoryItem[] | undefined {
+export function useContinueWatching(): WatchHistoryItemMeta[] | undefined {
   const { user } = useUser();
   const serverData = useQuery(
     api.watchHistory.getContinueWatching,

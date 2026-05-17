@@ -3,7 +3,13 @@ import { useConvex, useQuery, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { ContentListItem } from "./useContent";
+import type {
+  WatchlistItemMeta as SharedWatchlistItemMeta,
+  WatchlistUpdateMeta as SharedWatchlistUpdateMeta
+} from "../../shared/contentMetadata";
+
+export type WatchlistItem = SharedWatchlistItemMeta;
+export type WatchlistUpdate = SharedWatchlistUpdateMeta;
 
 const LS_KEY = "watchlist_ids";
 
@@ -100,31 +106,12 @@ export function useToggleWatchlist() {
   return useWatchlistCtx().toggle;
 }
 
-export type WatchlistItem = ContentListItem & {
-  watchlistAddedAt: number;
-  watchlistFolder?: string;
-  watchlistNewSeasons: number;
-  watchlistNewEpisodes: number;
-};
-
-export type WatchlistUpdate = {
-  contentId: Id<"content">;
-  title: string;
-  posterUrl: string;
-  tmdbId?: string;
-  currentSeasonCount: number;
-  currentEpisodeCount: number;
-  newSeasons: number;
-  newEpisodes: number;
-  folder?: string;
-};
-
-export function useMyWatchlist(): WatchlistItem[] | undefined {
+export function useMyWatchlist(): SharedWatchlistItemMeta[] | undefined {
   const { user } = useUser();
   return useQuery(api.watchlist.getMyWatchlist, user ? { clerkUserId: user.id } : "skip");
 }
 
-export function useWatchlistUpdates(): WatchlistUpdate[] | undefined {
+export function useWatchlistUpdates(): SharedWatchlistUpdateMeta[] | undefined {
   const { user } = useUser();
   return useQuery(api.watchlist.getUpdates, user ? { clerkUserId: user.id } : "skip");
 }

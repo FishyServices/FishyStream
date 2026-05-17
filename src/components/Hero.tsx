@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { Play, Info, Plus, Check, Volume2, VolumeX, ChevronDown } from "lucide-react";
 import { Button } from "@fishy/ui";
-import type { Doc } from "../../convex/_generated/dataModel";
 import { ContentModal } from "./ContentModal";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
 import { toast } from "@fishy/ui";
+import type { FeaturedContentMeta } from "../../shared/contentMetadata";
 
 interface HeroProps {
-  content: Doc<"content">;
+  content: FeaturedContentMeta;
   onPlay?: (tmdbId: string) => void;
   autoPlayTrailer?: boolean;
   trailerMuted?: boolean;
