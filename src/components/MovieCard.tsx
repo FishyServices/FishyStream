@@ -221,9 +221,7 @@ export function MovieCard({
                   )}
                 </div>
                 {genrePreview && (
-                  <p className="mt-0.5 truncate text-[10px] text-white/40">
-                    {genrePreview}
-                  </p>
+                  <p className="mt-0.5 truncate text-[10px] text-white/40">{genrePreview}</p>
                 )}
                 {hasProgress && (
                   <div className="mt-2">
@@ -264,9 +262,7 @@ export function MovieCard({
               </p>
             )}
             {genrePreview && (
-              <p className="mt-1 line-clamp-1 text-[10px] text-white/40">
-                {genrePreview}
-              </p>
+              <p className="mt-1 line-clamp-1 text-[10px] text-white/40">{genrePreview}</p>
             )}
           </div>
 

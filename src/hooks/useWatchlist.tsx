@@ -54,6 +54,9 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
     if (!serverIds) return;
     setIds((prev) => {
       const merged = new Set([...prev, ...serverIds]);
+      if (merged.size === prev.size && Array.from(merged).every((id) => prev.has(id))) {
+        return prev;
+      }
       lsSet([...merged]);
       return merged;
     });

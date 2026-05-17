@@ -293,8 +293,9 @@ export function useRecommendations(
 
   return {
     recommendations: recommendations ?? [],
-    isLoading: stableWatchlistIds !== undefined && stableWatchlistIds.length > 0
-      ? recommendations === undefined
-      : false
+    isLoading:
+      stableWatchlistIds !== undefined && stableWatchlistIds.length > 0
+        ? recommendations === undefined
+        : false
   };
 }
