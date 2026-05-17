@@ -1,6 +1,7 @@
 import { useQuery, useAction, usePaginatedQuery, useConvex } from "convex/react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import type { ContentMeta } from "../../shared/contentMetadata";
 
 export interface BrowsePageResult {
@@ -268,52 +269,32 @@ export function usePaginatedContent(
 }
 
 export function useRecommendations(
-  watchlistItems: ContentMeta[] | undefined,
+  watchlistIds: Id<"content">[] | undefined,
   limit = 12,
   typeFilter: "all" | "movie" | "tv" = "all",
   refreshSeed = 0
 ) {
-  const convex = useConvex();
-  const [recommendations, setRecommendations] = useState<ContentMeta[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const stableWatchlistIds = useMemo(
+    () => (watchlistIds ? [...watchlistIds].sort() : undefined),
+    [watchlistIds]
+  );
 
-  useEffect(() => {
-    if (!watchlistItems || watchlistItems.length === 0) {
-      setRecommendations([]);
-      setIsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoading(true);
-
-    void convex
-      .query(api.content.listRecommendedContent, {
-        watchlistIds: watchlistItems.map((item) => item._id),
-        limit,
-        typeFilter,
-        refreshSeed
-      })
-      .then((items) => {
-        if (!cancelled) {
-          setRecommendations(items);
+  const recommendations = useQuery(
+    api.content.listRecommendedContent,
+    stableWatchlistIds && stableWatchlistIds.length > 0
+      ? {
+          watchlistIds: stableWatchlistIds,
+          limit,
+          typeFilter,
+          refreshSeed
         }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setRecommendations([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      });
+      : "skip"
+  );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [convex, limit, refreshSeed, typeFilter, watchlistItems]);
-
-  return { recommendations, isLoading };
+  return {
+    recommendations: recommendations ?? [],
+    isLoading: stableWatchlistIds !== undefined && stableWatchlistIds.length > 0
+      ? recommendations === undefined
+      : false
+  };
 }

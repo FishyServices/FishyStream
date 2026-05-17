@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import {
   toContentMetaSnapshot,
@@ -14,7 +14,6 @@ function hasHistorySnapshot(item: {
   genre?: string[];
   year?: number;
   rating?: string;
-  popular?: boolean;
   posterUrl?: string;
   new?: boolean;
 }) {
@@ -25,7 +24,6 @@ function hasHistorySnapshot(item: {
     item.rating &&
     item.posterUrl &&
     item.year !== undefined &&
-    item.popular !== undefined &&
     item.new !== undefined
   );
 }
@@ -58,14 +56,12 @@ export const listWatchHistory = query({
             ? content
             : {
                 _id: item.contentId,
-                _creationTime: item._creationTime,
                 title: item.title!,
                 type: item.contentType!,
                 genre: item.genre!,
                 year: item.year!,
                 rating: item.rating!,
                 voteAverage: item.voteAverage,
-                popular: item.popular!,
                 posterUrl: item.posterUrl!,
                 tmdbId: item.tmdbId,
                 new: item.new!
@@ -111,14 +107,12 @@ export const listContinueWatching = query({
             ? content
             : {
                 _id: item.contentId,
-                _creationTime: item._creationTime,
                 title: item.title!,
                 type: item.contentType!,
                 genre: item.genre!,
                 year: item.year!,
                 rating: item.rating!,
                 voteAverage: item.voteAverage,
-                popular: item.popular!,
                 posterUrl: item.posterUrl!,
                 tmdbId: item.tmdbId,
                 new: item.new!
@@ -257,5 +251,33 @@ export const removeWatchHistoryEntry = mutation({
       return true;
     }
     return false;
+  }
+});
+
+export const compactWatchHistorySnapshots = internalMutation({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 5000 }) => {
+    const items = await ctx.db.query("watchHistory").take(limit);
+    let updated = 0;
+
+    for (const item of items) {
+      const content = await ctx.db.get(item.contentId);
+      if (!content) continue;
+
+      await ctx.db.patch(item._id, {
+        contentType: content.type,
+        title: content.title,
+        genre: content.genre.slice(0, 2),
+        year: content.year,
+        rating: content.rating,
+        voteAverage: content.voteAverage,
+        posterUrl: content.posterUrl,
+        tmdbId: content.tmdbId,
+        new: content.new
+      });
+      updated += 1;
+    }
+
+    return updated;
   }
 });

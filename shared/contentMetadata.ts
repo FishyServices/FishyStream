@@ -6,20 +6,21 @@ export type ContentType = "movie" | "tv";
 
 export interface ContentMeta {
   _id: ContentId;
-  _creationTime: number;
   title: string;
   type: ContentType;
-  genre: string[];
+  genre?: string[];
   year: number;
-  rating: string;
+  rating?: string;
   voteAverage?: number;
-  popular: boolean;
   posterUrl: string;
   tmdbId?: string;
-  new: boolean;
+  new?: boolean;
 }
 
-export interface FeaturedContentMeta extends ContentMeta {
+export interface FeaturedContentMeta extends Omit<ContentMeta, "genre" | "rating" | "new"> {
+  genre: string[];
+  rating: string;
+  new: boolean;
   description: string;
   backdropUrl: string;
   logoUrl?: string;
@@ -88,14 +89,12 @@ export interface SeasonMetaSummary {
 
 export interface ContentSummaryRecord {
   _id: ContentId;
-  _creationTime: number;
   title: string;
   type: ContentType;
   genre: string[];
   year: number;
   rating: string;
   voteAverage?: number;
-  popular: boolean;
   posterUrl: string;
   tmdbId?: string;
   new: boolean;
@@ -171,31 +170,24 @@ interface SeasonSummaryRecord {
 export function toContentMeta(content: ContentSummaryRecord): ContentMeta {
   return {
     _id: content._id,
-    _creationTime: content._creationTime,
     title: content.title,
     type: content.type,
-    genre: content.genre,
     year: content.year,
-    rating: content.rating,
-    voteAverage: content.voteAverage,
-    popular: content.popular,
     posterUrl: content.posterUrl,
-    tmdbId: content.tmdbId,
-    new: content.new
+    tmdbId: content.tmdbId
   };
 }
 
 export function toContentMetaSnapshot(
   content: ContentSummaryRecord
-): Omit<ContentSummaryRecord, "_id" | "_creationTime"> {
+): Omit<ContentSummaryRecord, "_id"> {
   return {
     title: content.title,
     type: content.type,
-    genre: content.genre,
+    genre: content.genre.slice(0, 2),
     year: content.year,
     rating: content.rating,
     voteAverage: content.voteAverage,
-    popular: content.popular,
     posterUrl: content.posterUrl,
     tmdbId: content.tmdbId,
     new: content.new
@@ -204,7 +196,16 @@ export function toContentMetaSnapshot(
 
 export function toFeaturedContentMeta(content: FeaturedContentRecord): FeaturedContentMeta {
   return {
-    ...toContentMeta(content),
+    _id: content._id,
+    title: content.title,
+    type: content.type,
+    genre: content.genre,
+    year: content.year,
+    rating: content.rating,
+    voteAverage: content.voteAverage,
+    posterUrl: content.posterUrl,
+    tmdbId: content.tmdbId,
+    new: content.new,
     description: content.description,
     backdropUrl: content.backdropUrl,
     logoUrl: content.logoUrl,

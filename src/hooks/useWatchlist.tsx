@@ -1,5 +1,13 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { useQuery, useMutation } from "convex/react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  type ReactNode
+} from "react";
+import { useConvex, useQuery, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -100,6 +108,11 @@ export function useToggleWatchlist() {
   return useWatchlistCtx().toggle;
 }
 
+export function useWatchlistContentIds(): Id<"content">[] {
+  const { set } = useWatchlistCtx();
+  return useMemo(() => Array.from(set) as Id<"content">[], [set]);
+}
+
 export function useMyWatchlist(): WatchlistItemMeta[] | undefined {
   const { user } = useUser();
   return useQuery(api.watchlist.listWatchlist, user ? { clerkUserId: user.id } : "skip");
@@ -108,6 +121,16 @@ export function useMyWatchlist(): WatchlistItemMeta[] | undefined {
 export function useWatchlistUpdates(): WatchlistUpdateMeta[] | undefined {
   const { user } = useUser();
   return useQuery(api.watchlist.listWatchlistUpdates, user ? { clerkUserId: user.id } : "skip");
+}
+
+export function useWatchlistUpdatesOnDemand() {
+  const { user } = useUser();
+  const convex = useConvex();
+
+  return useCallback(async () => {
+    if (!user) return [];
+    return convex.query(api.watchlist.listWatchlistUpdates, { clerkUserId: user.id });
+  }, [convex, user]);
 }
 
 export function useUpdateWatchlistFolder() {

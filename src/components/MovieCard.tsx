@@ -85,6 +85,7 @@ export function MovieCard({
   const hasProgress = content.progress !== undefined && content.progress > 0;
   const score = content.voteAverage;
   const hoverActive = hovered && !suppressHoverEffects;
+  const genrePreview = content.genre?.slice(0, 2).join(" · ");
 
   return (
     <>
@@ -207,9 +208,7 @@ export function MovieCard({
                     S{content.seasonNumber} · E{content.episodeNumber}
                   </p>
                 )}
-                <div className="flex items-center gap-2 mt-1 text-xs text-white/60">
-                  <span className={`font-semibold rating-${content.rating}`}>{content.rating}</span>
-                  <span>·</span>
+                <div className="mt-1 flex items-center gap-2 text-xs text-white/60">
                   <span>{content.year}</span>
                   {score && score > 0 && (
                     <>
@@ -221,9 +220,9 @@ export function MovieCard({
                     </>
                   )}
                 </div>
-                {content.genre.length > 0 && (
-                  <p className="text-[10px] text-white/40 mt-0.5 truncate">
-                    {content.genre.slice(0, 2).join(" · ")}
+                {genrePreview && (
+                  <p className="mt-0.5 truncate text-[10px] text-white/40">
+                    {genrePreview}
                   </p>
                 )}
                 {hasProgress && (
@@ -251,7 +250,6 @@ export function MovieCard({
               {content.title}
             </h3>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/58">
-              <span className={`font-semibold rating-${content.rating}`}>{content.rating}</span>
               <span>{content.year}</span>
               {score && score > 0 && (
                 <span className="flex items-center gap-1">
@@ -265,9 +263,9 @@ export function MovieCard({
                 S{content.seasonNumber} · E{content.episodeNumber}
               </p>
             )}
-            {content.genre.length > 0 && (
+            {genrePreview && (
               <p className="mt-1 line-clamp-1 text-[10px] text-white/40">
-                {content.genre.slice(0, 2).join(" · ")}
+                {genrePreview}
               </p>
             )}
           </div>

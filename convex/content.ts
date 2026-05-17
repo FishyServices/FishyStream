@@ -46,6 +46,8 @@ const tmdbContentValidator = v.object({
   updatedAt: v.number()
 });
 
+const HOMEPAGE_ROW_LIMIT = 12;
+
 export const getHomepageContent = query({
   args: {},
   handler: async (ctx) => {
@@ -57,23 +59,23 @@ export const getHomepageContent = query({
       ctx.db
         .query("content")
         .withIndex("by_trending", (q) => q.eq("trending", true))
-        .take(24),
+        .take(HOMEPAGE_ROW_LIMIT),
       ctx.db
         .query("content")
         .withIndex("by_popular", (q) => q.eq("popular", true))
-        .take(24),
+        .take(HOMEPAGE_ROW_LIMIT),
       ctx.db
         .query("content")
         .withIndex("by_new", (q) => q.eq("new", true))
-        .take(24),
+        .take(HOMEPAGE_ROW_LIMIT),
       ctx.db
         .query("content")
         .withIndex("by_type", (q) => q.eq("type", "movie"))
-        .take(24),
+        .take(HOMEPAGE_ROW_LIMIT),
       ctx.db
         .query("content")
         .withIndex("by_type", (q) => q.eq("type", "tv"))
-        .take(24)
+        .take(HOMEPAGE_ROW_LIMIT)
     ]);
 
     return {

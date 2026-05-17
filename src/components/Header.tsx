@@ -34,7 +34,10 @@ import {
   SheetHeader,
   SheetTitle
 } from "@fishy/ui";
-import { useAcknowledgeWatchlistUpdates, useWatchlistUpdates } from "@/hooks/useWatchlist";
+import {
+  useAcknowledgeWatchlistUpdates,
+  useWatchlistUpdatesOnDemand
+} from "@/hooks/useWatchlist";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -74,10 +77,13 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [watchlistUpdates, setWatchlistUpdates] = useState<
+    Awaited<ReturnType<ReturnType<typeof useWatchlistUpdatesOnDemand>>> | null
+  >(null);
+  const [loadingWatchlistUpdates, setLoadingWatchlistUpdates] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const acknowledgeUpdates = useAcknowledgeWatchlistUpdates();
-  const watchlistUpdates = useWatchlistUpdates();
-  const loadingWatchlistUpdates = isSignedIn && watchlistUpdates === undefined;
+  const fetchWatchlistUpdates = useWatchlistUpdatesOnDemand();
   const unseenUpdateCount = watchlistUpdates?.length ?? 0;
 
   useEffect(() => {
@@ -113,6 +119,34 @@ export function Header() {
       contentIds: watchlistUpdates.map((item) => item.contentId)
     }).catch(() => {});
   }, [acknowledgeUpdates, notificationsOpen, user, watchlistUpdates]);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+
+    let cancelled = false;
+    setLoadingWatchlistUpdates(true);
+
+    void fetchWatchlistUpdates()
+      .then((updates) => {
+        if (!cancelled) {
+          setWatchlistUpdates(updates);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWatchlistUpdates([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingWatchlistUpdates(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchWatchlistUpdates, notificationsOpen]);
 
   return (
     <header

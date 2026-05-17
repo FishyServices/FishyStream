@@ -65,11 +65,11 @@ function hasFullContent(
 }
 
 function isAnimeContent(
-  content: { type: "movie" | "tv"; genre: string[]; originalLanguage?: string } | null
+  content: { type: "movie" | "tv"; genre?: string[]; originalLanguage?: string } | null
 ) {
   if (!content || content.type !== "tv") return false;
 
-  const genres = new Set(content.genre.map((g) => g.toLowerCase()));
+  const genres = new Set((content.genre ?? []).map((g) => g.toLowerCase()));
   return genres.has("animation") && content.originalLanguage?.toLowerCase() === "ja";
 }
 
@@ -600,9 +600,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             )}
 
             {/* Genre pills */}
-            {contentData.genre.length > 0 && (
+            {(contentData.genre?.length ?? 0) > 0 && (
               <div className="flex flex-wrap gap-2">
-                {contentData.genre.map((g) => (
+                {(contentData.genre ?? []).map((g) => (
                   <span
                     key={g}
                     className="rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground"

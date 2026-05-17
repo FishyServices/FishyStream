@@ -1,4 +1,3 @@
-import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Capacitor } from "@capacitor/core";
 import { ClerkProvider, useAuth } from "@clerk/react";
@@ -52,50 +51,48 @@ applyFishyTheme({
 });
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ClerkProvider
-      publishableKey={publishableKey}
-      signInUrl="/sign-in"
-      signUpUrl="/sign-up"
-      afterSignOutUrl="/"
-      appearance={{
-        baseTheme: dark,
-        variables: {
-          colorPrimary: "oklch(0.62 0.1 182)",
-          colorBackground: "rgba(18, 24, 32, 0.96)",
-          colorInputBackground: "rgba(255,255,255,0.04)",
-          colorInputText: "#f3f7fb",
-          colorText: "#f3f7fb",
-          colorTextSecondary: "rgba(243,247,251,0.72)",
-          borderRadius: "0.75rem",
-          fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
-        }
-      }}
-    >
-      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <AppSettingsProvider>
-          <GlobalWatchlistProvider>
-            <WatchProgressProvider>
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/sign-in/*" element={<SignInPage />} />
-                  <Route path="/sign-up/*" element={<SignUpPage />} />
-                  <Route path="/watch/:id" element={<WatchPage />} />
-                  <Route path="/movies" element={<MoviesPage />} />
-                  <Route path="/tv-shows" element={<TVShowsPage />} />
-                  <Route path="/new-releases" element={<NewReleasesPage />} />
-                  <Route path="/my-list" element={<MyListPage />} />
-                  <Route path="/history" element={<WatchHistoryPage />} />
-                  <Route path="/search" element={<SearchPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/" element={<App />} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </BrowserRouter>
-            </WatchProgressProvider>
-          </GlobalWatchlistProvider>
-        </AppSettingsProvider>
-      </ConvexProviderWithClerk>
-    </ClerkProvider>
-  </StrictMode>
+  <ClerkProvider
+    publishableKey={publishableKey}
+    signInUrl="/sign-in"
+    signUpUrl="/sign-up"
+    afterSignOutUrl="/"
+    appearance={{
+      baseTheme: dark,
+      variables: {
+        colorPrimary: "oklch(0.62 0.1 182)",
+        colorBackground: "rgba(18, 24, 32, 0.96)",
+        colorInputBackground: "rgba(255,255,255,0.04)",
+        colorInputText: "#f3f7fb",
+        colorText: "#f3f7fb",
+        colorTextSecondary: "rgba(243,247,251,0.72)",
+        borderRadius: "0.75rem",
+        fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
+      }
+    }}
+  >
+    <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+      <AppSettingsProvider>
+        <GlobalWatchlistProvider>
+          <WatchProgressProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/sign-in/*" element={<SignInPage />} />
+                <Route path="/sign-up/*" element={<SignUpPage />} />
+                <Route path="/watch/:id" element={<WatchPage />} />
+                <Route path="/movies" element={<MoviesPage />} />
+                <Route path="/tv-shows" element={<TVShowsPage />} />
+                <Route path="/new-releases" element={<NewReleasesPage />} />
+                <Route path="/my-list" element={<MyListPage />} />
+                <Route path="/history" element={<WatchHistoryPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/" element={<App />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </WatchProgressProvider>
+        </GlobalWatchlistProvider>
+      </AppSettingsProvider>
+    </ConvexProviderWithClerk>
+  </ClerkProvider>
 );

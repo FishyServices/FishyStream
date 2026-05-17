@@ -8,7 +8,7 @@ import { ContentRow } from "@/components/ContentRow";
 import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
-import { useMyWatchlist } from "@/hooks/useWatchlist";
+import { useWatchlistContentIds } from "@/hooks/useWatchlist";
 import { api } from "../convex/_generated/api";
 import {
   ArrowRight,
@@ -31,7 +31,6 @@ import {
   Toaster,
   toast
 } from "@fishy/ui";
-import type { Doc } from "../convex/_generated/dataModel";
 
 function Footer() {
   return (
@@ -240,8 +239,8 @@ export function App() {
   const categories = homepage?.categories ?? [];
   const featuredContent = homepage?.featured;
   const continueWatching = useContinueWatching() ?? [];
-  const watchlist = useMyWatchlist();
-  const { recommendations } = useRecommendations(watchlist, 12);
+  const watchlistIds = useWatchlistContentIds();
+  const { recommendations } = useRecommendations(watchlistIds, 12);
   const { settings } = useAppSettings();
 
   const handlePlay = (
