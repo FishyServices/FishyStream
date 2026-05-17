@@ -3,10 +3,7 @@ import { useConvex, useQuery, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type {
-  WatchlistItemMeta,
-  WatchlistUpdateMeta
-} from "../../shared/contentMetadata";
+import type { WatchlistItemMeta, WatchlistUpdateMeta } from "../../shared/contentMetadata";
 
 const LS_KEY = "watchlist_ids";
 

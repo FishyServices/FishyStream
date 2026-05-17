@@ -40,16 +40,18 @@ export function MoviesPage() {
     sortParam && VALID_SORTS.has(sortParam as ContentSort)
       ? (sortParam as ContentSort)
       : settings.defaultMovieSort;
-  const paginated = usePaginatedContent("movie", genre !== "All" ? genre : undefined, sort, 24, page);
+  const paginated = usePaginatedContent(
+    "movie",
+    genre !== "All" ? genre : undefined,
+    sort,
+    24,
+    page
+  );
   const movies = paginated.items;
 
   const handlePlay = (tmdbId: string) => navigate(`/watch/${tmdbId}`);
 
-  const updateBrowseParams = (updates: {
-    sort?: string;
-    genre?: string;
-    page?: number;
-  }) => {
+  const updateBrowseParams = (updates: { sort?: string; genre?: string; page?: number }) => {
     setSearchParams((p) => {
       if (updates.sort !== undefined) {
         p.set("sort", updates.sort);

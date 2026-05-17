@@ -10,7 +10,7 @@ import {
   type ContentIdReference,
   type ContentMeta,
   type ContentDetail,
-  type FeaturedContentMeta,
+  type FeaturedContentMeta
 } from "../shared/contentMetadata";
 
 const tmdbContentValidator = v.object({
@@ -453,6 +453,26 @@ export const getAnimeMissingAniListIds = internalQuery({
   }
 });
 
+export const getSyncMetadataByTmdbId = internalQuery({
+  args: { tmdbId: v.string() },
+  handler: async (ctx, { tmdbId }) => {
+    const content = await ctx.db
+      .query("content")
+      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
+      .first();
+
+    if (!content) return null;
+
+    return {
+      _id: content._id,
+      trending: content.trending,
+      popular: content.popular,
+      featured: content.featured,
+      new: content.new
+    };
+  }
+});
+
 export const setAniListId = internalMutation({
   args: {
     id: v.id("content"),
@@ -471,5 +491,98 @@ export const getAll = query({
   handler: async (ctx, { limit = 120 }): Promise<ContentMeta[]> => {
     const items = await ctx.db.query("content").take(limit);
     return items.map(toContentMeta);
+  }
+});
+
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededUnitInterval(seed: string): number {
+  return hashString(seed) / 4294967295;
+}
+
+export const getRecommendations = query({
+  args: {
+    watchlistIds: v.array(v.id("content")),
+    limit: v.optional(v.number()),
+    typeFilter: v.optional(v.union(v.literal("all"), v.literal("movie"), v.literal("tv"))),
+    refreshSeed: v.optional(v.number())
+  },
+  handler: async (
+    ctx,
+    { watchlistIds, limit = 12, typeFilter = "all", refreshSeed = 0 }
+  ): Promise<ContentMeta[]> => {
+    if (watchlistIds.length === 0) return [];
+
+    const watchlistItems = (await Promise.all(watchlistIds.map((id) => ctx.db.get(id)))).filter(
+      Boolean
+    ) as Doc<"content">[];
+
+    if (watchlistItems.length === 0) return [];
+
+    const watchlistGenres = new Map<string, number>();
+    const watchlistTypes = new Map<string, number>();
+
+    for (const item of watchlistItems) {
+      watchlistTypes.set(item.type, (watchlistTypes.get(item.type) || 0) + 1);
+      for (const genre of item.genre) {
+        watchlistGenres.set(genre, (watchlistGenres.get(genre) || 0) + 1);
+      }
+    }
+
+    const preferredType =
+      Array.from(watchlistTypes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "movie";
+    const watchlistIdSet = new Set(watchlistItems.map((item) => item._id));
+    const watchlistSignature = watchlistItems
+      .map((item) => String(item._id))
+      .sort()
+      .join("|");
+
+    const candidateSource =
+      typeFilter === "all"
+        ? await ctx.db.query("content").take(180)
+        : await ctx.db
+            .query("content")
+            .withIndex("by_type", (q) => q.eq("type", typeFilter))
+            .take(180);
+
+    const filtered = candidateSource.filter((item) => !watchlistIdSet.has(item._id));
+    const poolSize = Math.min(filtered.length, limit * 3 + refreshSeed * 5);
+    const pool = [...filtered]
+      .sort((a, b) => {
+        const aSeed = seededUnitInterval(
+          `${watchlistSignature}:${typeFilter}:${refreshSeed}:${String(a._id)}`
+        );
+        const bSeed = seededUnitInterval(
+          `${watchlistSignature}:${typeFilter}:${refreshSeed}:${String(b._id)}`
+        );
+        return aSeed - bSeed;
+      })
+      .slice(0, poolSize);
+
+    return pool
+      .map((item) => {
+        let score = 0;
+        score +=
+          seededUnitInterval(
+            `${watchlistSignature}:${typeFilter}:${refreshSeed}:score:${String(item._id)}`
+          ) * 15;
+        if (item.type === preferredType) score += 2;
+        for (const genre of item.genre) {
+          score += (watchlistGenres.get(genre) || 0) * 1.5;
+        }
+        if (item.popular) score += 1;
+        if (item.voteAverage && item.voteAverage > 7) score += 0.5;
+        return { item, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(({ item }) => toContentMeta(item));
   }
 });

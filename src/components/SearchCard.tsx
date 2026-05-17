@@ -6,7 +6,7 @@ import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
-import { useQuery, useAction } from "convex/react";
+import { useAction, useConvex } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { ContentDetail } from "../../shared/contentMetadata";
 
@@ -21,28 +21,38 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [dbContent, setDbContent] = useState<ContentDetail | null | undefined>(undefined);
+  const [isResolvingContent, setIsResolvingContent] = useState(false);
   const { isSignedIn } = useUser();
   const navigate = useNavigate();
+  const convex = useConvex();
 
   const syncSingleContent = useAction(api.tmdb.syncSingleContent);
-
-  const dbContentId = useQuery(
-    api.content.getIdByTmdbId,
-    isSignedIn || showModal ? { tmdbId: String(item.tmdbId) } : "skip"
-  );
-  const dbContentQuery = useQuery(
-    api.content.getById,
-    showModal && dbContentId?._id ? { id: dbContentId._id } : "skip"
-  );
-
-  useEffect(() => {
-    if (dbContentQuery) {
-      setDbContent(dbContentQuery);
-    }
-  }, [dbContentQuery]);
-
-  const isInWatchlist = useIsInWatchlist(dbContentId?._id);
+  const isInWatchlist = useIsInWatchlist(dbContent?._id);
   const toggleWatchlist = useToggleWatchlist();
+
+  const ensureDbContent = async () => {
+    if (dbContent) return dbContent;
+    if (isResolvingContent) return null;
+
+    setIsResolvingContent(true);
+    try {
+      let existing = await convex.query(api.content.getByTmdbId, {
+        tmdbId: String(item.tmdbId)
+      });
+
+      if (!existing) {
+        await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
+        existing = await convex.query(api.content.getByTmdbId, {
+          tmdbId: String(item.tmdbId)
+        });
+      }
+
+      setDbContent(existing);
+      return existing;
+    } finally {
+      setIsResolvingContent(false);
+    }
+  };
 
   const handleWatchlist = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -52,18 +62,14 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
       return;
     }
 
-    if (!dbContentId?._id) {
-      try {
-        await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
-        toast.info("Syncing content... Please try again in a moment");
-      } catch {
-        toast.error("Failed to sync content");
-      }
+    const content = await ensureDbContent();
+    if (!content?._id) {
+      toast.error("Failed to load content");
       return;
     }
 
     try {
-      await toggleWatchlist(dbContentId._id);
+      await toggleWatchlist(content._id);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Failed to update watchlist");
@@ -77,11 +83,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
   };
 
   const handleCardClick = async () => {
-    if (!dbContentId?._id) {
-      try {
-        await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
-      } catch {}
-    }
+    await ensureDbContent();
     setShowModal(true);
   };
 

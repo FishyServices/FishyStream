@@ -262,9 +262,7 @@ export function toWatchlistItemMeta(content: WatchlistItemMetaSource): Watchlist
   };
 }
 
-export function toWatchlistUpdateMeta(
-  content: WatchlistUpdateMetaSource
-): WatchlistUpdateMeta {
+export function toWatchlistUpdateMeta(content: WatchlistUpdateMetaSource): WatchlistUpdateMeta {
   return {
     contentId: content.contentId,
     title: content.title,

@@ -74,18 +74,20 @@ export const getMyWatchHistory = query({
     for (const item of historyItems) {
       const content = await ctx.db.get(item.contentId);
       if (content) {
-        result.push(toWatchHistoryItemMeta({
-          ...content,
-          progress: item.progress,
-          completed: item.completed,
-          watchedAt: item.watchedAt,
-          positionSeconds: item.positionSeconds,
-          durationSeconds: item.durationSeconds,
-          seasonNumber: item.seasonNumber,
-          episodeNumber: item.episodeNumber,
-          source: item.source,
-          dub: item.dub
-        }));
+        result.push(
+          toWatchHistoryItemMeta({
+            ...content,
+            progress: item.progress,
+            completed: item.completed,
+            watchedAt: item.watchedAt,
+            positionSeconds: item.positionSeconds,
+            durationSeconds: item.durationSeconds,
+            seasonNumber: item.seasonNumber,
+            episodeNumber: item.episodeNumber,
+            source: item.source,
+            dub: item.dub
+          })
+        );
       }
     }
     return result;
@@ -110,18 +112,20 @@ export const getContinueWatching = query({
     for (const item of historyItems) {
       const content = await ctx.db.get(item.contentId);
       if (content) {
-        result.push(toWatchHistoryItemMeta({
-          ...content,
-          progress: item.progress,
-          completed: item.completed,
-          watchedAt: item.watchedAt,
-          positionSeconds: item.positionSeconds,
-          durationSeconds: item.durationSeconds,
-          seasonNumber: item.seasonNumber,
-          episodeNumber: item.episodeNumber,
-          source: item.source,
-          dub: item.dub
-        }));
+        result.push(
+          toWatchHistoryItemMeta({
+            ...content,
+            progress: item.progress,
+            completed: item.completed,
+            watchedAt: item.watchedAt,
+            positionSeconds: item.positionSeconds,
+            durationSeconds: item.durationSeconds,
+            seasonNumber: item.seasonNumber,
+            episodeNumber: item.episodeNumber,
+            source: item.source,
+            dub: item.dub
+          })
+        );
       }
     }
     return result;

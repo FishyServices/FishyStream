@@ -1281,7 +1281,9 @@ export const syncSingleContent = action({
 
     if (!details) return null;
 
-    const existing: any = await ctx.runQuery(api.content.getByTmdbId, { tmdbId: String(tmdbId) });
+    const existing = await ctx.runQuery(internal.content.getSyncMetadataByTmdbId, {
+      tmdbId: String(tmdbId)
+    });
 
     const md = details as TMDBMovieDetails | null;
     const td = details as TMDBTVDetails | null;

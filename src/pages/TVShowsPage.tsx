@@ -46,11 +46,7 @@ export function TVShowsPage() {
     navigate(`/watch/${tmdbId}${p.toString() ? "?" + p : ""}`);
   };
 
-  const updateBrowseParams = (updates: {
-    sort?: string;
-    genre?: string;
-    page?: number;
-  }) => {
+  const updateBrowseParams = (updates: { sort?: string; genre?: string; page?: number }) => {
     setSearchParams((p) => {
       if (updates.sort !== undefined) {
         p.set("sort", updates.sort);

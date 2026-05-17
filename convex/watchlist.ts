@@ -261,17 +261,19 @@ export const getUpdates = query({
 
       if (newSeasons === 0 && newEpisodes === 0) continue;
 
-      updates.push(toWatchlistUpdateMeta({
-        contentId: content._id,
-        title: content.title,
-        posterUrl: content.posterUrl,
-        tmdbId: content.tmdbId,
-        currentSeasonCount,
-        currentEpisodeCount,
-        newSeasons,
-        newEpisodes,
-        folder: item.folder
-      }));
+      updates.push(
+        toWatchlistUpdateMeta({
+          contentId: content._id,
+          title: content.title,
+          posterUrl: content.posterUrl,
+          tmdbId: content.tmdbId,
+          currentSeasonCount,
+          currentEpisodeCount,
+          newSeasons,
+          newEpisodes,
+          folder: item.folder
+        })
+      );
     }
 
     return updates.sort((a, b) => {
