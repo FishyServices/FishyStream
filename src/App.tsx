@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useUser } from "@clerk/react";
 import { useNavigate } from "react-router-dom";
-import { useAction } from "convex/react";
+import { useAction, useConvexAuth } from "convex/react";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { ContentRow } from "@/components/ContentRow";
 import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
-import { useWatchlistContentIds } from "@/hooks/useWatchlist";
+import { useWatchlistContentIds, useWatchlistHydrated } from "@/hooks/useWatchlist";
 import { api } from "../convex/_generated/api";
 import {
   ArrowRight,
@@ -234,13 +234,8 @@ function EmptyState() {
 
 export function App() {
   const { isLoaded, isSignedIn } = useUser();
+  const { isLoading: isConvexAuthLoading } = useConvexAuth();
   const navigate = useNavigate();
-  const homepage = useHomepageContent();
-  const categories = homepage?.categories ?? [];
-  const featuredContent = homepage?.featured;
-  const continueWatching = useContinueWatching() ?? [];
-  const watchlistIds = useWatchlistContentIds();
-  const { recommendations } = useRecommendations(watchlistIds, 12);
   const { settings } = useAppSettings();
 
   const handlePlay = (
@@ -258,6 +253,56 @@ export function App() {
     const qs = params.toString();
     navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
   };
+
+  if (!isLoaded || isConvexAuthLoading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Toaster position="top-right" richColors />
+        <Header />
+        <main className="flex min-h-[calc(100vh-5rem)] items-center justify-center px-6 pt-24">
+          <div className="flex items-center gap-3 text-sm text-white/58">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Loading homepage…</span>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <HomepageContent
+      handlePlay={handlePlay}
+      isSignedIn={isSignedIn}
+      settings={settings}
+    />
+  );
+}
+
+function HomepageContent({
+  handlePlay,
+  isSignedIn,
+  settings
+}: {
+  handlePlay: (
+    tmdbId: string,
+    season?: number,
+    episode?: number,
+    source?: string,
+    dub?: boolean
+  ) => void;
+  isSignedIn: boolean | undefined;
+  settings: ReturnType<typeof useAppSettings>["settings"];
+}) {
+  const homepage = useHomepageContent();
+  const categories = homepage?.categories ?? [];
+  const featuredContent = homepage?.featured;
+  const continueWatching = useContinueWatching() ?? [];
+  const watchlistHydrated = useWatchlistHydrated();
+  const watchlistIds = useWatchlistContentIds();
+  const { recommendations } = useRecommendations(
+    watchlistHydrated ? watchlistIds : undefined,
+    12
+  );
 
   const hasContent = featuredContent || categories.some((c) => c.content.length > 0);
   if (!hasContent)
@@ -291,7 +336,6 @@ export function App() {
           )}
 
           {settings.showContinueWatchingRow &&
-            isLoaded &&
             isSignedIn &&
             continueWatching.length > 0 && (
               <ContentRow

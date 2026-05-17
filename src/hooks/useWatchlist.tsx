@@ -7,7 +7,7 @@ import {
   useMemo,
   type ReactNode
 } from "react";
-import { useConvex, useQuery, useMutation } from "convex/react";
+import { useConvex, useConvexAuth, useQuery, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -33,22 +33,35 @@ function lsSet(ids: string[]) {
 type WatchlistCtx = {
   set: Set<string>;
   toggle: (id: Id<"content">) => Promise<void>;
+  hydrated: boolean;
 };
 
 const Ctx = createContext<WatchlistCtx | undefined>(undefined);
 
 export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const { user } = useUser();
+  const { isLoading: isConvexAuthLoading } = useConvexAuth();
 
   const [ids, setIds] = useState<Set<string>>(() => new Set(lsGet()));
+  const [hydrated, setHydrated] = useState(() => !user);
 
   const addMutation = useMutation(api.watchlist.addWatchlistEntry);
   const removeMutation = useMutation(api.watchlist.removeWatchlistEntry);
 
   const serverIds = useQuery(
     api.watchlist.listWatchlistContentIds,
-    user ? { clerkUserId: user.id } : "skip"
+    user && !isConvexAuthLoading ? { clerkUserId: user.id } : "skip"
   );
+
+  useEffect(() => {
+    if (!user) {
+      setHydrated(true);
+      return;
+    }
+    if (isConvexAuthLoading) return;
+    if (serverIds === undefined) return;
+    setHydrated(true);
+  }, [user, serverIds, isConvexAuthLoading]);
 
   useEffect(() => {
     if (!serverIds) return;
@@ -93,7 +106,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
     [ids, user, addMutation, removeMutation]
   );
 
-  return <Ctx.Provider value={{ set: ids, toggle }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ set: ids, toggle, hydrated }}>{children}</Ctx.Provider>;
 }
 
 function useWatchlistCtx(): WatchlistCtx {
@@ -114,6 +127,10 @@ export function useToggleWatchlist() {
 export function useWatchlistContentIds(): Id<"content">[] {
   const { set } = useWatchlistCtx();
   return useMemo(() => Array.from(set) as Id<"content">[], [set]);
+}
+
+export function useWatchlistHydrated(): boolean {
+  return useWatchlistCtx().hydrated;
 }
 
 export function useMyWatchlist(): WatchlistItemMeta[] | undefined {

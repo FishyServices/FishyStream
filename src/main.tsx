@@ -1,10 +1,10 @@
 import { createRoot } from "react-dom/client";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { ClerkProvider, useAuth } from "@clerk/react";
 import { dark } from "@clerk/themes";
 import { applyFishyTheme } from "@fishy/ui";
-import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { ConvexReactClient } from "convex/react";
+import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { App } from "./App";
 import { SignInPage } from "./pages/SignInPage";
@@ -50,27 +50,47 @@ applyFishyTheme({
     isNativeShell || window.matchMedia("(max-width: 768px)").matches ? "touch" : "comfortable"
 });
 
-createRoot(document.getElementById("root")!).render(
-  <ClerkProvider
-    publishableKey={publishableKey}
-    signInUrl="/sign-in"
-    signUpUrl="/sign-up"
-    afterSignOutUrl="/"
-    appearance={{
-      baseTheme: dark,
-      variables: {
-        colorPrimary: "oklch(0.62 0.1 182)",
-        colorBackground: "rgba(18, 24, 32, 0.96)",
-        colorInputBackground: "rgba(255,255,255,0.04)",
-        colorInputText: "#f3f7fb",
-        colorText: "#f3f7fb",
-        colorTextSecondary: "rgba(243,247,251,0.72)",
-        borderRadius: "0.75rem",
-        fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
+function useStableConvexClerkAuth() {
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  const fetchAccessToken = useCallback(
+    async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
+      try {
+        return await getTokenRef.current({
+          template: "convex",
+          skipCache: forceRefreshToken
+        });
+      } catch {
+        return null;
       }
-    }}
-  >
-    <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+    },
+    []
+  );
+
+  return useMemo(
+    () => ({
+      isLoading: !isLoaded,
+      isAuthenticated: isSignedIn ?? false,
+      fetchAccessToken
+    }),
+    [fetchAccessToken, isLoaded, isSignedIn]
+  );
+}
+
+function AppShell() {
+  const auth = useAuth();
+
+  if (!auth.isLoaded) {
+    return null;
+  }
+
+  return (
+    <ConvexProviderWithAuth client={convex} useAuth={useStableConvexClerkAuth}>
       <AppSettingsProvider>
         <GlobalWatchlistProvider>
           <WatchProgressProvider>
@@ -93,6 +113,30 @@ createRoot(document.getElementById("root")!).render(
           </WatchProgressProvider>
         </GlobalWatchlistProvider>
       </AppSettingsProvider>
-    </ConvexProviderWithClerk>
+    </ConvexProviderWithAuth>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(
+  <ClerkProvider
+    publishableKey={publishableKey}
+    signInUrl="/sign-in"
+    signUpUrl="/sign-up"
+    afterSignOutUrl="/"
+    appearance={{
+      baseTheme: dark,
+      variables: {
+        colorPrimary: "oklch(0.62 0.1 182)",
+        colorBackground: "rgba(18, 24, 32, 0.96)",
+        colorInputBackground: "rgba(255,255,255,0.04)",
+        colorInputText: "#f3f7fb",
+        colorText: "#f3f7fb",
+        colorTextSecondary: "rgba(243,247,251,0.72)",
+        borderRadius: "0.75rem",
+        fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
+      }
+    }}
+  >
+    <AppShell />
   </ClerkProvider>
 );
