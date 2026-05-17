@@ -26,7 +26,14 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
 
   const syncSingleContent = useAction(api.tmdb.syncSingleContent);
 
-  const dbContentQuery = useQuery(api.content.getByTmdbId, { tmdbId: String(item.tmdbId) });
+  const dbContentId = useQuery(
+    api.content.getIdByTmdbId,
+    isSignedIn || showModal ? { tmdbId: String(item.tmdbId) } : "skip"
+  );
+  const dbContentQuery = useQuery(
+    api.content.getById,
+    showModal && dbContentId?._id ? { id: dbContentId._id } : "skip"
+  );
 
   useEffect(() => {
     if (dbContentQuery) {
@@ -34,7 +41,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
     }
   }, [dbContentQuery]);
 
-  const isInWatchlist = useIsInWatchlist(dbContent?._id);
+  const isInWatchlist = useIsInWatchlist(dbContentId?._id);
   const toggleWatchlist = useToggleWatchlist();
 
   const handleWatchlist = async (e: React.MouseEvent) => {
@@ -45,7 +52,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
       return;
     }
 
-    if (!dbContent?._id) {
+    if (!dbContentId?._id) {
       try {
         await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
         toast.info("Syncing content... Please try again in a moment");
@@ -56,7 +63,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
     }
 
     try {
-      await toggleWatchlist(dbContent._id);
+      await toggleWatchlist(dbContentId._id);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Failed to update watchlist");
@@ -70,7 +77,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
   };
 
   const handleCardClick = async () => {
-    if (!dbContent) {
+    if (!dbContentId?._id) {
       try {
         await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
       } catch {}

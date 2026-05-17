@@ -2,6 +2,13 @@ import { v } from "convex/values";
 import { query, internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
+type SeasonMeta = Pick<
+  Doc<"seasons">,
+  "_id" | "contentId" | "seasonNumber" | "name" | "airDate" | "episodeCount" | "anilistId"
+> & {
+  storedEpisodeCount: number;
+};
+
 export const upsertSeason = internalMutation({
   args: {
     contentId: v.id("content"),
@@ -55,6 +62,27 @@ export const upsertSeason = internalMutation({
         updatedAt: now
       });
     }
+  }
+});
+
+export const getSeasonsMetaByContent = query({
+  args: { contentId: v.id("content") },
+  handler: async (ctx, { contentId }): Promise<SeasonMeta[]> => {
+    const seasons = await ctx.db
+      .query("seasons")
+      .withIndex("by_content", (q) => q.eq("contentId", contentId))
+      .collect();
+
+    return seasons.map((season) => ({
+      _id: season._id,
+      contentId: season.contentId,
+      seasonNumber: season.seasonNumber,
+      name: season.name,
+      airDate: season.airDate,
+      episodeCount: season.episodeCount,
+      anilistId: season.anilistId,
+      storedEpisodeCount: season.episodes.length
+    }));
   }
 });
 

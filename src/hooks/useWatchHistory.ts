@@ -2,10 +2,11 @@ import { useQuery, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { useCallback, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
-import type { Doc, Id } from "../../convex/_generated/dataModel";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useWatchProgressContext } from "./useWatchProgress";
+import type { ContentListItem } from "./useContent";
 
-export interface WatchHistoryItem extends Doc<"content"> {
+export interface WatchHistoryItem extends ContentListItem {
   progress: number;
   completed: boolean;
   watchedAt: number;

@@ -156,7 +156,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   );
 
   const allSeasons = useQuery(
-    api.seasons.getSeasonsByContent,
+    api.seasons.getSeasonsMetaByContent,
     isOpen && resolvedContent && resolvedContent.type === "tv" && resolvedContent._id
       ? { contentId: resolvedContent._id }
       : "skip"
@@ -344,7 +344,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     const hasSeasonShapeMismatch = allSeasons.some((season) => {
       const expectedEpisodes = getCanonicalSeasonEpisodeCount(tmdbId, season.seasonNumber);
       if (expectedEpisodes == null) return false;
-      const actualEpisodes = season.episodeCount || season.episodes.length;
+      const actualEpisodes = season.episodeCount || season.storedEpisodeCount;
       return actualEpisodes !== expectedEpisodes;
     });
     const hasMissingAniListIds = animeContent && allSeasons.some((season) => !season.anilistId);
@@ -645,8 +645,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                         const season = Number(value);
                         handleSeasonChange(season);
                         const cachedSeason = allSeasons?.find((ds) => ds.seasonNumber === season);
-                        const cachedEpisodes =
-                          cachedSeason?.episodeCount || cachedSeason?.episodes.length || 0;
+                        const cachedEpisodes = cachedSeason?.episodeCount || cachedSeason?.storedEpisodeCount || 0;
                         const expectedEpisodes = contentData.tmdbId
                           ? getCanonicalSeasonEpisodeCount(contentData.tmdbId, season)
                           : undefined;

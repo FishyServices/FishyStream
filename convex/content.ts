@@ -177,6 +177,22 @@ export const getByTmdbId = query({
   }
 });
 
+export const getIdByTmdbId = query({
+  args: { tmdbId: v.string() },
+  handler: async (ctx, { tmdbId }): Promise<Pick<Doc<"content">, "_id" | "tmdbId"> | null> => {
+    const content = await ctx.db
+      .query("content")
+      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
+      .first();
+
+    if (!content) return null;
+    return {
+      _id: content._id,
+      tmdbId: content.tmdbId
+    };
+  }
+});
+
 export const getByGenre = query({
   args: { genre: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { genre, limit = 24 }): Promise<Doc<"content">[]> => {
