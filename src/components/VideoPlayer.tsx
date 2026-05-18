@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import type { Doc } from "../../convex/_generated/dataModel";
 import {
   ArrowLeft,
   Loader2,
@@ -146,7 +145,13 @@ function shouldWaitForAnimeSeasonMetadata(
   content: ContentDetail,
   animeContent: boolean,
   seasonNumber: number,
-  currentSeasonData: Doc<"seasons"> | null | undefined
+  currentSeasonData:
+    | {
+        seasonNumber: number;
+        anilistId?: string;
+      }
+    | null
+    | undefined
 ) {
   if (!animeContent || content.type !== "tv") return false;
   if (seasonNumber <= 1) return false;
@@ -206,7 +211,7 @@ export function VideoPlayer({
   });
 
   const currentSeasonData = useQuery(
-    api.seasons.getSeasonByContentAndNumber,
+    api.seasons.getSeasonPlaybackMeta,
     content.type === "tv" ? { contentId: content._id, seasonNumber: tvTarget.season } : "skip"
   );
   const currentSeasonKey = content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
@@ -739,11 +744,7 @@ export function VideoPlayer({
       getCanonicalSeasonEpisodeCount(content.tmdbId, currentSeason) ?? 0;
 
     const maxEpisodes =
-      Math.max(
-        currentSeasonData?.episodeCount ?? 0,
-        currentSeasonData?.episodes?.length ?? 0,
-        canonicalEpisodeCount
-      ) || 999;
+      Math.max(currentSeasonData?.episodeCount ?? 0, canonicalEpisodeCount) || 999;
 
     let nextSeason = currentSeason;
     let nextEpisode = currentEpisode + 1;
@@ -791,11 +792,7 @@ export function VideoPlayer({
     const canonicalEpisodeCount =
       getCanonicalSeasonEpisodeCount(content.tmdbId, tvTarget.season) ?? 0;
     const seasonEpisodeCount =
-      Math.max(
-        currentSeasonData?.episodeCount ?? 0,
-        currentSeasonData?.episodes?.length ?? 0,
-        canonicalEpisodeCount
-      ) || undefined;
+      Math.max(currentSeasonData?.episodeCount ?? 0, canonicalEpisodeCount) || undefined;
     if (seasonEpisodeCount == null) return false;
     return tvTarget.episode < seasonEpisodeCount;
   })();

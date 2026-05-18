@@ -269,13 +269,7 @@ export function App() {
     );
   }
 
-  return (
-    <HomepageContent
-      handlePlay={handlePlay}
-      isSignedIn={isSignedIn}
-      settings={settings}
-    />
-  );
+  return <HomepageContent handlePlay={handlePlay} isSignedIn={isSignedIn} settings={settings} />;
 }
 
 function HomepageContent({
@@ -299,10 +293,7 @@ function HomepageContent({
   const continueWatching = useContinueWatching() ?? [];
   const watchlistHydrated = useWatchlistHydrated();
   const watchlistIds = useWatchlistContentIds();
-  const { recommendations } = useRecommendations(
-    watchlistHydrated ? watchlistIds : undefined,
-    12
-  );
+  const { recommendations } = useRecommendations(watchlistHydrated ? watchlistIds : undefined, 12);
 
   const hasContent = featuredContent || categories.some((c) => c.content.length > 0);
   if (!hasContent)
@@ -335,16 +326,14 @@ function HomepageContent({
             </div>
           )}
 
-          {settings.showContinueWatchingRow &&
-            isSignedIn &&
-            continueWatching.length > 0 && (
-              <ContentRow
-                title="Continue Watching"
-                content={continueWatching}
-                onPlay={handlePlay}
-                viewAllHref="/history"
-              />
-            )}
+          {settings.showContinueWatchingRow && isSignedIn && continueWatching.length > 0 && (
+            <ContentRow
+              title="Continue Watching"
+              content={continueWatching}
+              onPlay={handlePlay}
+              viewAllHref="/history"
+            />
+          )}
 
           {recommendations.length > 0 && (
             <ContentRow

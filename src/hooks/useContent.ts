@@ -22,14 +22,9 @@ export interface TMDBItem {
   title: string;
   posterUrl: string;
   year: number;
-  description?: string;
-  backdropUrl?: string;
   genre?: string[];
   rating?: string;
   voteAverage?: number;
-  popularity?: number;
-  seasons?: number;
-  imdbId?: string;
   type: "movie" | "tv";
 }
 
@@ -112,7 +107,6 @@ export function useContentCredits(
       order: number;
     }>;
     directors: string[];
-    writers: string[];
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const getCredits = useAction(api.tmdb.getCredits);
@@ -203,7 +197,7 @@ export function useSearchAll(query: string) {
         const combined = [
           ...movies.map((m) => ({ ...m, type: "movie" as const })),
           ...shows.map((s) => ({ ...s, type: "tv" as const }))
-        ].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+        ];
         setResults(combined as TMDBItem[]);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Search failed");

@@ -161,7 +161,9 @@ function seededUnitInterval(seed: string) {
 
 export const getHomepageContent = query({
   args: {},
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx
+  ): Promise<{
     featured: FeaturedContentMeta | null;
     categories: Array<{ id: string; title: string; content: ContentMeta[] }>;
   }> => {
@@ -420,9 +422,9 @@ export const listRecommendedContent = query({
   ): Promise<ContentMeta[]> => {
     if (watchlistIds.length === 0) return [];
 
-    const watchlistItems = (
-      await Promise.all(watchlistIds.map((id) => ctx.db.get(id)))
-    ).filter(Boolean) as Doc<"content">[];
+    const watchlistItems = (await Promise.all(watchlistIds.map((id) => ctx.db.get(id)))).filter(
+      Boolean
+    ) as Doc<"content">[];
     if (watchlistItems.length === 0) return [];
 
     const watchlistGenres = new Map<string, number>();

@@ -25,16 +25,16 @@ function sortSeasons(rows: Doc<"seasons">[]) {
   return [...rows].sort((a, b) => a.seasonNumber - b.seasonNumber);
 }
 
-async function syncContentSeasonAggregates(
-  ctx: MutationCtx,
-  contentId: Id<"content">
-) {
+async function syncContentSeasonAggregates(ctx: MutationCtx, contentId: Id<"content">) {
   const content = await ctx.db.get(contentId);
   if (!content) return;
 
   const seasons = sortSeasons(await readSeasonRows(ctx, contentId));
   const totalSeasons = seasons.length > 0 ? Math.max(...seasons.map((row) => row.seasonNumber)) : 0;
-  const totalEpisodes = seasons.reduce((sum, season) => sum + (season.episodeCount || season.episodes.length), 0);
+  const totalEpisodes = seasons.reduce(
+    (sum, season) => sum + (season.episodeCount || season.episodes.length),
+    0
+  );
 
   await ctx.db.patch(contentId, {
     seasons: totalSeasons,
@@ -92,6 +92,29 @@ export const getSeasonByContentAndNumber = query({
         q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
       )
       .first();
+  }
+});
+
+export const getSeasonPlaybackMeta = query({
+  args: { contentId: v.id("content"), seasonNumber: v.number() },
+  handler: async (ctx, { contentId, seasonNumber }) => {
+    const season = await ctx.db
+      .query("seasons")
+      .withIndex("by_content_season", (q) =>
+        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
+      )
+      .first();
+
+    if (!season) return null;
+
+    return {
+      contentId: season.contentId,
+      seasonNumber: season.seasonNumber,
+      name: season.name,
+      airDate: season.airDate,
+      episodeCount: season.episodeCount,
+      anilistId: season.anilistId
+    };
   }
 });
 

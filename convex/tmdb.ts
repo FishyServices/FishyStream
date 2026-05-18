@@ -425,14 +425,11 @@ export const searchMovies = action({
       .map((movie) => ({
         tmdbId: movie.id,
         title: movie.title,
-        description: movie.overview || "No description available",
         posterUrl: getPosterUrl(movie.poster_path),
-        backdropUrl: getBackdropUrl(movie.backdrop_path),
         year: getYear(movie.release_date),
         genre: getGenres(movie),
         rating: getRating(movie.vote_average),
-        voteAverage: movie.vote_average,
-        popularity: movie.popularity
+        voteAverage: movie.vote_average
       }));
   }
 });
@@ -445,23 +442,15 @@ export const searchTVShows = action({
     });
     if (!data?.results) return [];
     const sorted = data.results.sort((a, b) => b.popularity - a.popularity).slice(0, 20);
-    return await mapInBatches(sorted, 5, async (show) => {
-      const details = await get<TMDBTVDetails>(`/tv/${show.id}`, {
-        append_to_response: "external_ids"
-      });
+    return sorted.map((show) => {
       return {
         tmdbId: show.id,
         title: show.name,
-        description: details?.overview || show.overview || "No description available",
-        posterUrl: getPosterUrl(details?.poster_path ?? show.poster_path),
-        backdropUrl: getBackdropUrl(details?.backdrop_path ?? show.backdrop_path),
-        year: getYear(details?.first_air_date ?? show.first_air_date),
-        genre: getGenres(details || show),
-        rating: getRating(details?.vote_average ?? show.vote_average),
-        voteAverage: show.vote_average,
-        seasons: getCanonicalSeasonCount(show.id, details?.number_of_seasons),
-        imdbId: details?.external_ids?.imdb_id,
-        popularity: show.popularity
+        posterUrl: getPosterUrl(show.poster_path),
+        year: getYear(show.first_air_date),
+        genre: getGenres(show),
+        rating: getRating(show.vote_average),
+        voteAverage: show.vote_average
       };
     });
   }
@@ -956,10 +945,7 @@ export const getCredits = action({
         profileUrl: c.profile_path ? `${TMDB_IMAGE_BASE}/w185${c.profile_path}` : undefined,
         order: c.order
       })),
-      directors: data.crew.filter((c) => c.job === "Director").map((c) => c.name),
-      writers: data.crew
-        .filter((c) => c.job === "Writer" || c.job === "Screenplay")
-        .map((c) => c.name)
+      directors: data.crew.filter((c) => c.job === "Director").map((c) => c.name)
     };
   }
 });

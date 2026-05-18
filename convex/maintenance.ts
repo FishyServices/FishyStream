@@ -27,10 +27,7 @@ export const rebuildSeasonAggregates = action({
     contentId: v.optional(v.id("content")),
     limit: v.optional(v.number())
   },
-  handler: async (
-    ctx,
-    args
-  ): Promise<number> => {
+  handler: async (ctx, args): Promise<number> => {
     return await ctx.runMutation(internal.seasons.rebuildContentSeasonAggregates, args);
   }
 });
