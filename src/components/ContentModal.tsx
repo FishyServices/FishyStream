@@ -26,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@fishy/ui";
-import type { Doc } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useAction } from "convex/react";
@@ -39,7 +38,12 @@ import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
 } from "../../shared/tvSeasonMappings";
-import type { ContentCard, ContentDetail, SeasonMetaSummary } from "../../shared/contentMetadata";
+import type {
+  ContentDetail,
+  ContentId,
+  ContentType,
+  SeasonMetaSummary
+} from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -50,7 +54,30 @@ interface WatchHistoryFields {
   durationSeconds?: number;
 }
 
-type ModalContent = (ContentDetail | ContentCard) & WatchHistoryFields;
+interface SeasonEpisodeView {
+  overview?: string;
+  episodes: Array<{
+    episodeNumber: number;
+    name: string;
+    overview?: string;
+    stillUrl?: string;
+    runtime?: number;
+  }>;
+}
+
+type LeanModalContent = {
+  _id: ContentId;
+  title: string;
+  type: ContentType;
+  year?: number;
+  posterUrl: string;
+  tmdbId?: string;
+  voteAverage?: number;
+  genre?: string[];
+  new?: boolean;
+} & WatchHistoryFields;
+
+type ModalContent = (ContentDetail | LeanModalContent) & WatchHistoryFields;
 
 interface ContentModalProps {
   content: ModalContent | null;
@@ -133,11 +160,11 @@ function EpisodePill({
 
 export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalProps) {
   const [seasonReloadKey, setSeasonReloadKey] = useState(0);
-  const [contentReloadKey, setContentReloadKey] = useState(0);
+  const [relatedReloadKey, setRelatedReloadKey] = useState(0);
   const fullContent = useOneShotConvexQuery<ContentDetail | null>(
     isOpen && !!content && !hasFullContent(content),
     (convex) => convex.query(api.content.getContentDetailById, { id: content!._id }),
-    [content?._id, isOpen, contentReloadKey]
+    [content?._id, isOpen]
   );
   const resolvedContent: ModalContent | null = fullContent
     ? { ...fullContent, ...content }
@@ -152,10 +179,10 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const isInWatchlist = useIsInWatchlist(resolvedContent?._id);
   const toggleWatchlist = useToggleWatchlist();
 
-  const dbSeason = useOneShotConvexQuery<Doc<"seasons"> | null>(
+  const dbSeason = useOneShotConvexQuery<SeasonEpisodeView | null>(
     isOpen && !!resolvedContent && resolvedContent.type === "tv",
     (convex) =>
-      convex.query(api.seasons.getSeasonEpisodeList, {
+      convex.query(api.seasons.getSeasonEpisodeView, {
         contentId: resolvedContent!._id,
         seasonNumber: selectedSeason
       }),
@@ -204,7 +231,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       convex.query(api.content.getContentDetailByTmdbId, {
         tmdbId: String(relatedModalItem!.tmdbId)
       }),
-    [relatedModalItem?.tmdbId]
+    [relatedModalItem?.tmdbId, relatedReloadKey]
   );
 
   useEffect(() => {
@@ -212,6 +239,13 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       setRelatedDbContent(relatedContentQuery);
     }
   }, [relatedContentQuery]);
+
+  useEffect(() => {
+    if (!relatedModalItem) {
+      setRelatedDbContent(undefined);
+      setRelatedSyncing(false);
+    }
+  }, [relatedModalItem]);
 
   const requestSeasonSync = (
     seasonNumber: number,
@@ -300,7 +334,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     syncSingleContent({ tmdbId: Number(tmdbId), type: "tv" })
       .then((refreshed) => {
         if (cancelled) return;
-        setContentReloadKey((value) => value + 1);
         const totalSeasons = getCanonicalSeasonCount(
           tmdbId,
           refreshed?.seasons ?? getSeasonCount(resolvedContent)
@@ -433,17 +466,22 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     if (!isOpen || isSyncing) return;
 
     const seasonKey = `${resolvedContent._id}:${selectedSeason}`;
+    const selectedSeasonSummary = allSeasons?.find((season) => season.seasonNumber === selectedSeason);
     const expectedEpisodes = getCanonicalSeasonEpisodeCount(resolvedContent.tmdbId, selectedSeason);
-    const actualEpisodes = dbSeason ? dbSeason.episodeCount || dbSeason.episodes.length : 0;
+    const actualEpisodes =
+      selectedSeasonSummary?.episodeCount ||
+      selectedSeasonSummary?.storedEpisodeCount ||
+      dbSeason?.episodes.length ||
+      0;
     const hasEpisodes = actualEpisodes > 0;
     const hasMismatch =
       expectedEpisodes != null && hasEpisodes && actualEpisodes !== expectedEpisodes;
     const needsSync =
-      !dbSeason || !hasEpisodes || hasMismatch || (animeContent && !dbSeason?.anilistId);
+      !dbSeason || !hasEpisodes || hasMismatch || (animeContent && !selectedSeasonSummary?.anilistId);
 
     if (!needsSync || syncedSeasonKeysRef.current.has(seasonKey)) return;
     requestSeasonSync(selectedSeason, { showLoader: !hasEpisodes });
-  }, [animeContent, resolvedContent, dbSeason, isOpen, isSyncing, selectedSeason, syncSeason]);
+  }, [animeContent, allSeasons, resolvedContent, dbSeason, isOpen, isSyncing, selectedSeason, syncSeason]);
 
   const handleRelatedClick = async (item: TMDBItem) => {
     setRelatedModalItem(item);
@@ -451,6 +489,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     setRelatedSyncing(true);
     try {
       await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
+      setRelatedReloadKey((value) => value + 1);
     } catch {}
     setRelatedSyncing(false);
   };
@@ -490,6 +529,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     seasonCountOverride ?? knownSeasonCount
   );
   const episodes = dbSeason?.episodes ?? [];
+  const ratingLabel: string | undefined = detailContent?.rating;
 
   const handleWatchlist = async () => {
     if (!isSignedIn) {
@@ -608,11 +648,13 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                   {detailContent.duration}
                 </span>
               )}
-              <span
-                className={`font-semibold text-xs px-2 py-0.5 rounded border border-current rating-${contentData.rating}`}
-              >
-                {contentData.rating}
-              </span>
+              {ratingLabel && (
+                <span
+                  className={`font-semibold text-xs px-2 py-0.5 rounded border border-current rating-${ratingLabel}`}
+                >
+                  {ratingLabel}
+                </span>
+              )}
               <span className="flex items-center gap-1 text-muted-foreground/90">
                 {isTV ? <Tv className="w-3.5 h-3.5" /> : <Film className="w-3.5 h-3.5" />}
                 {isTV ? `${totalSeasons} Season${totalSeasons > 1 ? "s" : ""}` : "Movie"}

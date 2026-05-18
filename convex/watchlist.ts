@@ -3,8 +3,10 @@ import { mutation, query, internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
+  toWatchlistGridItem,
   toWatchlistItemMeta,
   toWatchlistUpdateMeta,
+  type WatchlistGridItem,
   type WatchlistItemMeta,
   type WatchlistUpdateMeta
 } from "../shared/contentMetadata";
@@ -83,7 +85,7 @@ async function getUserIdForMutation(ctx: MutationCtx, clerkUserId: string) {
 
 export const listWatchlist = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchlistItemMeta[]> => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchlistGridItem[]> => {
     const userId = await getUserIdForQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -93,7 +95,7 @@ export const listWatchlist = query({
       .order("desc")
       .collect();
 
-    const result: WatchlistItemMeta[] = [];
+    const result: WatchlistGridItem[] = [];
     for (const item of items) {
       let content: Doc<"content"> | null = null;
       if (!hasContentSnapshot(item)) {
@@ -101,7 +103,19 @@ export const listWatchlist = query({
         if (!content) continue;
       }
 
-      result.push(toSnapshotBackedWatchlistItem(item, content));
+      const row = toSnapshotBackedWatchlistItem(item, content);
+      result.push(
+        toWatchlistGridItem({
+          _id: row._id,
+          title: row.title,
+          type: row.type,
+          posterUrl: row.posterUrl,
+          tmdbId: row.tmdbId,
+          watchlistFolder: row.watchlistFolder,
+          watchlistNewSeasons: row.watchlistNewSeasons,
+          watchlistNewEpisodes: row.watchlistNewEpisodes
+        })
+      );
     }
 
     return result;

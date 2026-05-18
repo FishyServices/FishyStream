@@ -95,6 +95,31 @@ export const getSeasonEpisodeList = query({
   }
 });
 
+export const getSeasonEpisodeView = query({
+  args: { contentId: v.id("content"), seasonNumber: v.number() },
+  handler: async (ctx, { contentId, seasonNumber }) => {
+    const season = await ctx.db
+      .query("seasons")
+      .withIndex("by_content_season", (q) =>
+        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
+      )
+      .first();
+
+    if (!season) return null;
+
+    return {
+      overview: season.overview,
+      episodes: season.episodes.map((episode) => ({
+        episodeNumber: episode.episodeNumber,
+        name: episode.name,
+        overview: episode.overview,
+        stillUrl: episode.stillUrl,
+        runtime: episode.runtime
+      }))
+    };
+  }
+});
+
 export const getSeasonPlaybackMeta = query({
   args: { contentId: v.id("content"), seasonNumber: v.number() },
   handler: async (ctx, { contentId, seasonNumber }) => {

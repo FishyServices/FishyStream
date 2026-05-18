@@ -4,7 +4,7 @@ import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
-import type { ContentCard } from "../../shared/contentMetadata";
+import type { ContentCard, ContentId, ContentType } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -15,8 +15,20 @@ interface WatchHistoryFields {
   dub?: boolean;
 }
 
+type CardLikeContent = {
+  _id: ContentId;
+  title: string;
+  type: ContentType;
+  year?: number;
+  posterUrl: string;
+  tmdbId?: string;
+  voteAverage?: number;
+  genre?: string[];
+  new?: boolean;
+} & WatchHistoryFields;
+
 interface MovieCardProps {
-  content: ContentCard & WatchHistoryFields;
+  content: CardLikeContent;
   onPlay?: (
     tmdbId: string,
     season?: number,
@@ -106,7 +118,7 @@ export function MovieCard({
             setShowModal(true);
           }
         }}
-        aria-label={`${content.title} (${content.year})`}
+        aria-label={content.year ? `${content.title} (${content.year})` : content.title}
       >
         <div
           className={`relative aspect-2/3 rounded-lg overflow-hidden transition-all duration-300 ${
@@ -209,10 +221,10 @@ export function MovieCard({
                   </p>
                 )}
                 <div className="mt-1 flex items-center gap-2 text-xs text-white/60">
-                  <span>{content.year}</span>
+                  {content.year && <span>{content.year}</span>}
                   {score && score > 0 && (
                     <>
-                      <span>·</span>
+                      {content.year && <span>·</span>}
                       <span className="flex items-center gap-0.5">
                         <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
                         {score.toFixed(1)}
@@ -248,7 +260,7 @@ export function MovieCard({
               {content.title}
             </h3>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/58">
-              <span>{content.year}</span>
+              {content.year && <span>{content.year}</span>}
               {score && score > 0 && (
                 <span className="flex items-center gap-1">
                   <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />

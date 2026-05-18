@@ -148,6 +148,17 @@ export interface WatchlistItemMeta extends ContentCard {
   watchlistNewEpisodes: number;
 }
 
+export interface WatchlistGridItem {
+  _id: ContentId;
+  title: string;
+  type: ContentType;
+  posterUrl: string;
+  tmdbId?: string;
+  watchlistFolder?: string;
+  watchlistNewSeasons: number;
+  watchlistNewEpisodes: number;
+}
+
 export interface WatchlistUpdateMeta {
   contentId: ContentId;
   title: string;
@@ -289,6 +300,31 @@ export function toWatchlistItemMeta(content: WatchlistItemRecord): WatchlistItem
   return {
     ...toContentCard(content),
     watchlistAddedAt: content.watchlistAddedAt,
+    watchlistFolder: content.watchlistFolder,
+    watchlistNewSeasons: content.watchlistNewSeasons,
+    watchlistNewEpisodes: content.watchlistNewEpisodes
+  };
+}
+
+export function toWatchlistGridItem(
+  content: Pick<
+    WatchlistItemRecord,
+    | "_id"
+    | "title"
+    | "type"
+    | "posterUrl"
+    | "tmdbId"
+    | "watchlistFolder"
+    | "watchlistNewSeasons"
+    | "watchlistNewEpisodes"
+  >
+): WatchlistGridItem {
+  return {
+    _id: content._id,
+    title: content.title,
+    type: content.type,
+    posterUrl: content.posterUrl,
+    tmdbId: content.tmdbId,
     watchlistFolder: content.watchlistFolder,
     watchlistNewSeasons: content.watchlistNewSeasons,
     watchlistNewEpisodes: content.watchlistNewEpisodes

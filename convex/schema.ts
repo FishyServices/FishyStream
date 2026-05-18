@@ -167,15 +167,5 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_content", ["userId", "contentId"])
     .index("by_user_watched_at", ["userId", "watchedAt"])
-    .index("by_user_completed_watched_at", ["userId", "completed", "watchedAt"]),
-
-  ratings: defineTable({
-    userId: v.id("users"),
-    contentId: v.id("content"),
-    rating: v.number(),
-    ratedAt: v.number()
-  })
-    .index("by_user", ["userId"])
-    .index("by_content", ["contentId"])
-    .index("by_user_content", ["userId", "contentId"])
+    .index("by_user_completed_watched_at", ["userId", "completed", "watchedAt"])
 });

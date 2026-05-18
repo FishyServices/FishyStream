@@ -55,6 +55,7 @@ export function MyListPage() {
   const [draggedContentId, setDraggedContentId] = useState<Id<"content"> | null>(null);
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<string | null>(null);
   const [folderMenuForContentId, setFolderMenuForContentId] = useState<Id<"content"> | null>(null);
+  const [canDragCards, setCanDragCards] = useState(false);
   const { recommendations, isLoading: recsLoading } = useRecommendations(
     12,
     typeFilter,
@@ -64,6 +65,17 @@ export function MyListPage() {
   useEffect(() => {
     setWatchlist(watchlistData);
   }, [watchlistData]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+
+    const mediaQuery = window.matchMedia("(min-width: 768px) and (pointer: fine)");
+    const update = () => setCanDragCards(mediaQuery.matches);
+    update();
+
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
 
   const folderNames = useMemo(() => {
     if (!watchlist) return [];
@@ -435,8 +447,9 @@ export function MyListPage() {
                         className={`relative cursor-grab active:cursor-grabbing transition-transform ${
                           draggedContentId === item._id ? "scale-[0.98] opacity-70" : ""
                         } ${folderMenuForContentId === item._id ? "z-40" : ""}`}
-                        draggable
+                        draggable={canDragCards}
                         onDragStart={() => {
+                          if (!canDragCards) return;
                           setDraggedContentId(item._id);
                         }}
                         onDragEnd={() => setDraggedContentId(null)}
