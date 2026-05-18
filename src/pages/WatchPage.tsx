@@ -1,12 +1,12 @@
 import { useParams, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { useContentByTmdbId } from "@/hooks/useContent";
+import { useContentPlaybackByTmdbId } from "@/hooks/useContent";
 
 export function WatchPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const content = useContentByTmdbId(id);
+  const content = useContentPlaybackByTmdbId(id);
 
   const initialSeason = searchParams.get("season");
   const initialEpisode = searchParams.get("episode");

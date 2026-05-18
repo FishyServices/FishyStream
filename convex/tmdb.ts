@@ -738,7 +738,9 @@ export const backfillAniListIds = action({
 export const syncSeasons = action({
   args: { tmdbId: v.string(), contentId: v.string(), totalSeasons: v.number() },
   handler: async (ctx, { tmdbId, contentId, totalSeasons }) => {
-    const content = await ctx.runQuery(api.content.getContentById, { id: contentId as any });
+    const content = await ctx.runQuery(api.content.getContentSyncContextById, {
+      id: contentId as any
+    });
     const contentTitle = content?.title;
     const override = getTvOrderingOverride(tmdbId);
     if (override?.episodeGroupId) {
@@ -832,7 +834,9 @@ export const syncSeasons = action({
 export const syncSeason = action({
   args: { tmdbId: v.string(), contentId: v.string(), seasonNumber: v.number() },
   handler: async (ctx, { tmdbId, contentId, seasonNumber }) => {
-    const content = await ctx.runQuery(api.content.getContentById, { id: contentId as any });
+    const content = await ctx.runQuery(api.content.getContentSyncContextById, {
+      id: contentId as any
+    });
     const contentTitle = content?.title;
     const override = getTvOrderingOverride(tmdbId);
     if (override?.episodeGroupId) {

@@ -4,7 +4,7 @@ import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
-import type { ContentMeta } from "../../shared/contentMetadata";
+import type { ContentCard } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -16,7 +16,7 @@ interface WatchHistoryFields {
 }
 
 interface MovieCardProps {
-  content: ContentMeta & WatchHistoryFields;
+  content: ContentCard & WatchHistoryFields;
   onPlay?: (
     tmdbId: string,
     season?: number,

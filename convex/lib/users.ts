@@ -49,6 +49,7 @@ export async function findOrCreateUserIdByClerkId(
     clerkUserId,
     email: undefined,
     name: undefined,
+    watchlistContentIds: [],
     createdAt: Date.now()
   });
 }

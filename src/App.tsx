@@ -8,7 +8,6 @@ import { ContentRow } from "@/components/ContentRow";
 import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
-import { useWatchlistContentIds, useWatchlistHydrated } from "@/hooks/useWatchlist";
 import { api } from "../convex/_generated/api";
 import {
   ArrowRight,
@@ -291,9 +290,7 @@ function HomepageContent({
   const categories = homepage?.categories ?? [];
   const featuredContent = homepage?.featured;
   const continueWatching = useContinueWatching() ?? [];
-  const watchlistHydrated = useWatchlistHydrated();
-  const watchlistIds = useWatchlistContentIds();
-  const { recommendations } = useRecommendations(watchlistHydrated ? watchlistIds : undefined, 12);
+  const { recommendations } = useRecommendations(12);
 
   const hasContent = featuredContent || categories.some((c) => c.content.length > 0);
   if (!hasContent)

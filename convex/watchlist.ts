@@ -114,6 +114,11 @@ export const listWatchlistContentIds = query({
     const userId = await getUserIdForQuery(ctx, clerkUserId);
     if (!userId) return [];
 
+    const user = await ctx.db.get(userId);
+    if (user?.watchlistContentIds) {
+      return user.watchlistContentIds;
+    }
+
     const items = await ctx.db
       .query("watchlist")
       .withIndex("by_user_added_at", (q) => q.eq("userId", userId))
@@ -148,6 +153,11 @@ export const addWatchlistEntry = mutation({
       lastAcknowledgedSeasonCount: counts.seasons,
       lastAcknowledgedEpisodeCount: counts.episodes
     });
+    const user = await ctx.db.get(userId);
+    if (user) {
+      const nextIds = Array.from(new Set([...(user.watchlistContentIds ?? []), contentId]));
+      await ctx.db.patch(userId, { watchlistContentIds: nextIds });
+    }
 
     return true;
   }
@@ -166,6 +176,12 @@ export const removeWatchlistEntry = mutation({
     if (!existing) return false;
 
     await ctx.db.delete(existing._id);
+    const user = await ctx.db.get(userId);
+    if (user?.watchlistContentIds) {
+      await ctx.db.patch(userId, {
+        watchlistContentIds: user.watchlistContentIds.filter((id) => id !== contentId)
+      });
+    }
     return true;
   }
 });

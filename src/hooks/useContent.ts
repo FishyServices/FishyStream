@@ -1,12 +1,17 @@
-import { useQuery, useAction } from "convex/react";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useAction } from "convex/react";
+import { useEffect, useState, useRef } from "react";
+import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
-import type { ContentDetail, ContentMeta, FeaturedContentMeta } from "../../shared/contentMetadata";
+import type {
+  ContentCard,
+  ContentDetail,
+  ContentFeatured,
+  ContentPlayback
+} from "../../shared/contentMetadata";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 export interface BrowsePageResult {
-  items: ContentMeta[];
+  items: ContentCard[];
   currentPage: number;
   totalPages?: number;
   totalCount?: number;
@@ -30,31 +35,39 @@ export interface TMDBItem {
 
 export function useHomepageContent() {
   return useOneShotConvexQuery<{
-    featured: FeaturedContentMeta | null;
-    categories: Array<{ id: string; title: string; content: ContentMeta[] }>;
-  }>(true, (convex) => convex.query(api.content.getHomepageContent, {}), []);
+    featured: ContentFeatured | null;
+    categories: Array<{ id: string; title: string; content: ContentCard[] }>;
+  }>(true, (convex) => convex.query(api.content.getHomepageView, {}), []);
 }
 
 export function usePopularContent() {
-  return useOneShotConvexQuery<ContentMeta[]>(
+  return useOneShotConvexQuery<ContentCard[]>(
     true,
-    (convex) => convex.query(api.content.listPopularContent, {}),
+    (convex) => convex.query(api.content.listPopularCards, {}),
     []
   );
 }
 
 export function useNewReleases() {
-  return useOneShotConvexQuery<ContentMeta[]>(
+  return useOneShotConvexQuery<ContentCard[]>(
     true,
-    (convex) => convex.query(api.content.listNewReleaseContent, {}),
+    (convex) => convex.query(api.content.listNewReleaseCards, {}),
     []
   );
 }
 
-export function useContentByTmdbId(tmdbId: string | undefined) {
+export function useContentPlaybackByTmdbId(tmdbId: string | undefined) {
+  return useOneShotConvexQuery<ContentPlayback | null>(
+    !!tmdbId,
+    (convex) => convex.query(api.content.getContentPlaybackByTmdbId, { tmdbId: tmdbId! }),
+    [tmdbId]
+  );
+}
+
+export function useContentDetailByTmdbId(tmdbId: string | undefined) {
   return useOneShotConvexQuery<ContentDetail | null>(
     !!tmdbId,
-    (convex) => convex.query(api.content.getContentByTmdbId, { tmdbId: tmdbId! }),
+    (convex) => convex.query(api.content.getContentDetailByTmdbId, { tmdbId: tmdbId! }),
     [tmdbId]
   );
 }
@@ -223,7 +236,7 @@ export function usePaginatedContent(
 ): BrowsePageResult {
   const normalizedPage = Math.max(1, Math.floor(page));
   const pageData = useOneShotConvexQuery<{
-    items: ContentMeta[];
+    items: ContentCard[];
     currentPage: number;
     totalPages?: number;
     totalCount?: number;
@@ -231,7 +244,7 @@ export function usePaginatedContent(
   }>(
     true,
     (convex) =>
-      convex.query(api.content.getBrowsePage, {
+      convex.query(api.content.getBrowseCardsPage, {
         type,
         genre,
         sortBy,
@@ -255,33 +268,26 @@ export function usePaginatedContent(
 }
 
 export function useRecommendations(
-  watchlistIds: Id<"content">[] | undefined,
   limit = 12,
   typeFilter: "all" | "movie" | "tv" = "all",
   refreshSeed = 0
 ) {
-  const stableWatchlistIds = useMemo(
-    () => (watchlistIds ? [...watchlistIds].sort() : undefined),
-    [watchlistIds]
-  );
+  const { user } = useUser();
 
-  const recommendations = useOneShotConvexQuery<ContentMeta[]>(
-    !!stableWatchlistIds && stableWatchlistIds.length > 0,
+  const recommendations = useOneShotConvexQuery<ContentCard[]>(
+    !!user,
     (convex) =>
-      convex.query(api.content.listRecommendedContent, {
-        watchlistIds: stableWatchlistIds!,
+      convex.query(api.content.listRecommendedCards, {
+        clerkUserId: user!.id,
         limit,
         typeFilter,
         refreshSeed
       }),
-    [stableWatchlistIds, limit, typeFilter, refreshSeed]
+    [user?.id, limit, typeFilter, refreshSeed]
   );
 
   return {
     recommendations: recommendations ?? [],
-    isLoading:
-      stableWatchlistIds !== undefined && stableWatchlistIds.length > 0
-        ? recommendations === undefined
-        : false
+    isLoading: !!user ? recommendations === undefined : false
   };
 }

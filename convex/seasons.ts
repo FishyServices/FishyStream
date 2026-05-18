@@ -83,7 +83,7 @@ export const listSeasonSummariesByContent = query({
   }
 });
 
-export const getSeasonByContentAndNumber = query({
+export const getSeasonEpisodeList = query({
   args: { contentId: v.id("content"), seasonNumber: v.number() },
   handler: async (ctx, { contentId, seasonNumber }): Promise<Doc<"seasons"> | null> => {
     return await ctx.db

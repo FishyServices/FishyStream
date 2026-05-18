@@ -36,13 +36,13 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
 
     setIsResolvingContent(true);
     try {
-      let existing = await convex.query(api.content.getContentByTmdbId, {
+      let existing = await convex.query(api.content.getContentDetailByTmdbId, {
         tmdbId: String(item.tmdbId)
       });
 
       if (!existing) {
         await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
-        existing = await convex.query(api.content.getContentByTmdbId, {
+        existing = await convex.query(api.content.getContentDetailByTmdbId, {
           tmdbId: String(item.tmdbId)
         });
       }

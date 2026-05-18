@@ -36,10 +36,10 @@ import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
 } from "../../shared/tvSeasonMappings";
-import type { ContentDetail } from "../../shared/contentMetadata";
+import type { ContentPlayback } from "../../shared/contentMetadata";
 
 interface VideoPlayerProps {
-  content: ContentDetail;
+  content: ContentPlayback;
   initialSeason?: number;
   initialEpisode?: number;
   initialSource?: string;
@@ -80,7 +80,7 @@ function safeEp(v: number | null | undefined) {
 }
 
 function isMatchingEpisodeProgress(
-  content: ContentDetail,
+  content: ContentPlayback,
   watchState: ReturnType<typeof useGetProgress>,
   season: number,
   episode: number
@@ -91,7 +91,7 @@ function isMatchingEpisodeProgress(
 }
 
 function getResumePositionSeconds(
-  content: ContentDetail,
+  content: ContentPlayback,
   watchState: ReturnType<typeof useGetProgress>,
   lastSyncedPosition: number,
   season: number,
@@ -103,7 +103,7 @@ function getResumePositionSeconds(
 }
 
 function pickResumePositionSeconds(
-  content: ContentDetail,
+  content: ContentPlayback,
   watchState: ReturnType<typeof useGetProgress>,
   lastSyncedPosition: number,
   season: number,
@@ -116,7 +116,7 @@ function pickResumePositionSeconds(
 
 function shouldApplyProviderResume(
   providerKey: string | undefined,
-  contentType: ContentDetail["type"]
+  contentType: ContentPlayback["type"]
 ) {
   if (!providerKey) return false;
   if (providerKey === "vidking" && contentType === "tv") {
@@ -134,7 +134,7 @@ function shouldForceProviderStartPosition(providerKey: string | undefined) {
   return providerKey === "vidfast";
 }
 
-function isAnimeContent(content: ContentDetail) {
+function isAnimeContent(content: ContentPlayback) {
   if (content.type !== "tv") return false;
 
   const genres = new Set(content.genre.map((g) => g.toLowerCase()));
@@ -142,7 +142,7 @@ function isAnimeContent(content: ContentDetail) {
 }
 
 function shouldWaitForAnimeSeasonMetadata(
-  content: ContentDetail,
+  content: ContentPlayback,
   animeContent: boolean,
   seasonNumber: number,
   currentSeasonData:

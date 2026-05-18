@@ -39,7 +39,7 @@ import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
 } from "../../shared/tvSeasonMappings";
-import type { ContentDetail, ContentMeta, SeasonMetaSummary } from "../../shared/contentMetadata";
+import type { ContentCard, ContentDetail, SeasonMetaSummary } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -50,7 +50,7 @@ interface WatchHistoryFields {
   durationSeconds?: number;
 }
 
-type ModalContent = (ContentDetail | ContentMeta) & WatchHistoryFields;
+type ModalContent = (ContentDetail | ContentCard) & WatchHistoryFields;
 
 interface ContentModalProps {
   content: ModalContent | null;
@@ -136,7 +136,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const [contentReloadKey, setContentReloadKey] = useState(0);
   const fullContent = useOneShotConvexQuery<ContentDetail | null>(
     isOpen && !!content && !hasFullContent(content),
-    (convex) => convex.query(api.content.getContentById, { id: content!._id }),
+    (convex) => convex.query(api.content.getContentDetailById, { id: content!._id }),
     [content?._id, isOpen, contentReloadKey]
   );
   const resolvedContent: ModalContent | null = fullContent
@@ -155,7 +155,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const dbSeason = useOneShotConvexQuery<Doc<"seasons"> | null>(
     isOpen && !!resolvedContent && resolvedContent.type === "tv",
     (convex) =>
-      convex.query(api.seasons.getSeasonByContentAndNumber, {
+      convex.query(api.seasons.getSeasonEpisodeList, {
         contentId: resolvedContent!._id,
         seasonNumber: selectedSeason
       }),
@@ -201,7 +201,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const relatedContentQuery = useOneShotConvexQuery<ContentDetail | null>(
     !!relatedModalItem,
     (convex) =>
-      convex.query(api.content.getContentByTmdbId, {
+      convex.query(api.content.getContentDetailByTmdbId, {
         tmdbId: String(relatedModalItem!.tmdbId)
       }),
     [relatedModalItem?.tmdbId]

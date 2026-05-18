@@ -32,6 +32,7 @@ export default defineSchema({
     email: v.optional(v.string()),
     name: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
+    watchlistContentIds: v.optional(v.array(v.id("content"))),
     createdAt: v.number()
   }).index("by_clerk_user_id", ["clerkUserId"]),
 
@@ -86,6 +87,36 @@ export default defineSchema({
       searchField: "title",
       filterFields: ["type", "genre"]
     }),
+
+  contentCards: defineTable({
+    contentId: v.id("content"),
+    title: v.string(),
+    type: mediaType,
+    genre: v.array(v.string()),
+    year: v.number(),
+    rating: v.string(),
+    voteAverage: v.optional(v.number()),
+    posterUrl: v.string(),
+    tmdbId: v.optional(v.string()),
+    new: v.boolean(),
+    trending: v.boolean(),
+    popular: v.boolean(),
+    featured: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number()
+  })
+    .index("by_content", ["contentId"])
+    .index("by_tmdb_id", ["tmdbId"])
+    .index("by_type", ["type"])
+    .index("by_trending", ["trending"])
+    .index("by_popular", ["popular"])
+    .index("by_featured", ["featured"])
+    .index("by_new", ["new"])
+    .index("by_type_trending", ["type", "trending"])
+    .index("by_type_popular", ["type", "popular"])
+    .index("by_type_new", ["type", "new"])
+    .index("by_type_year", ["type", "year"])
+    .index("by_type_vote_average", ["type", "voteAverage"]),
 
   seasons: defineTable({
     contentId: v.id("content"),

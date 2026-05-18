@@ -1,15 +1,17 @@
-import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import {
+  toContentCard,
+  toContentCardRow,
   toContentDetail,
-  toContentMeta,
-  toFeaturedContentMeta,
+  toContentFeatured,
+  toContentPlayback,
   type ContentDetail,
-  type ContentMeta,
-  type FeaturedContentMeta
+  type ContentCard,
+  type ContentFeatured,
+  type ContentPlayback
 } from "../shared/contentMetadata";
 
 const contentTypeValidator = v.union(v.literal("movie"), v.literal("tv"));
@@ -65,39 +67,130 @@ async function readSortedContent(
   type: "movie" | "tv",
   sortBy: BrowseSort,
   takeCount: number
-) {
+) : Promise<ContentCard[]> {
+  let cardRows;
   switch (sortBy) {
     case "trending":
-      return await ctx.db
+      cardRows = await ctx.db
+        .query("contentCards")
+        .withIndex("by_type_trending", (q) => q.eq("type", type))
+        .order("desc")
+        .take(takeCount);
+      break;
+    case "new":
+      cardRows = await ctx.db
+        .query("contentCards")
+        .withIndex("by_type_new", (q) => q.eq("type", type))
+        .order("desc")
+        .take(takeCount);
+      break;
+    case "rating":
+      cardRows = await ctx.db
+        .query("contentCards")
+        .withIndex("by_type_vote_average", (q) => q.eq("type", type))
+        .order("desc")
+        .take(takeCount);
+      break;
+    case "year":
+      cardRows = await ctx.db
+        .query("contentCards")
+        .withIndex("by_type_year", (q) => q.eq("type", type))
+        .order("desc")
+        .take(takeCount);
+      break;
+    default:
+      cardRows = await ctx.db
+        .query("contentCards")
+        .withIndex("by_type_popular", (q) => q.eq("type", type))
+        .order("desc")
+        .take(takeCount);
+      break;
+  }
+
+  if (cardRows.length > 0) {
+    return cardRows.map(toContentCardRow);
+  }
+
+  let items;
+  switch (sortBy) {
+    case "trending":
+      items = await ctx.db
         .query("content")
         .withIndex("by_type_trending", (q) => q.eq("type", type))
         .order("desc")
         .take(takeCount);
+      break;
     case "new":
-      return await ctx.db
+      items = await ctx.db
         .query("content")
         .withIndex("by_type_new", (q) => q.eq("type", type))
         .order("desc")
         .take(takeCount);
+      break;
     case "rating":
-      return await ctx.db
+      items = await ctx.db
         .query("content")
         .withIndex("by_type_vote_average", (q) => q.eq("type", type))
         .order("desc")
         .take(takeCount);
+      break;
     case "year":
-      return await ctx.db
+      items = await ctx.db
         .query("content")
         .withIndex("by_type_year", (q) => q.eq("type", type))
         .order("desc")
         .take(takeCount);
+      break;
     default:
-      return await ctx.db
+      items = await ctx.db
         .query("content")
         .withIndex("by_type_popular", (q) => q.eq("type", type))
         .order("desc")
         .take(takeCount);
+      break;
   }
+
+  return items.map(toContentCard);
+}
+
+async function readFlaggedCards(
+  ctx: QueryCtx,
+  flag: "trending" | "popular" | "new",
+  takeCount: number
+): Promise<ContentCard[]> {
+  const cardRows = await ctx.db
+    .query("contentCards")
+    .withIndex(`by_${flag}` as "by_trending" | "by_popular" | "by_new", (q) => q.eq(flag, true))
+    .take(takeCount);
+
+  if (cardRows.length > 0) {
+    return cardRows.map(toContentCardRow);
+  }
+
+  const items = await ctx.db
+    .query("content")
+    .withIndex(`by_${flag}` as "by_trending" | "by_popular" | "by_new", (q) => q.eq(flag, true))
+    .take(takeCount);
+
+  return items.map(toContentCard);
+}
+
+async function readTypeCards(ctx: QueryCtx, type: "movie" | "tv", takeCount: number) {
+  const cardRows = await ctx.db
+    .query("contentCards")
+    .withIndex("by_type", (q) => q.eq("type", type))
+    .take(takeCount);
+
+  if (cardRows.length > 0) {
+    return cardRows.map(toContentCardRow);
+  }
+
+  const items = await ctx.db
+    .query("content")
+    .withIndex("by_type", (q) => q.eq("type", type))
+    .take(takeCount);
+
+  return items.map(toContentCard);
 }
 
 function normalizePage(page?: number) {
@@ -138,7 +231,7 @@ async function getBrowsePageData(
   const hasNextPage = genre ? start + limit < items.length : items.length > page * limit;
 
   return {
-    items: pageItems.map(toContentMeta),
+    items: pageItems,
     currentPage: page,
     totalPages: genre ? Math.max(1, Math.ceil(items.length / limit)) : undefined,
     totalCount: genre ? items.length : undefined,
@@ -159,77 +252,54 @@ function seededUnitInterval(seed: string) {
   return hashString(seed) / 4294967295;
 }
 
-export const getHomepageContent = query({
+export const getHomepageView = query({
   args: {},
   handler: async (
     ctx
   ): Promise<{
-    featured: FeaturedContentMeta | null;
-    categories: Array<{ id: string; title: string; content: ContentMeta[] }>;
+    featured: ContentFeatured | null;
+    categories: Array<{ id: string; title: string; content: ContentCard[] }>;
   }> => {
     const [featured, trending, popular, newReleases, movies, tvShows] = await Promise.all([
       ctx.db
         .query("content")
         .withIndex("by_featured", (q) => q.eq("featured", true))
         .first(),
-      ctx.db
-        .query("content")
-        .withIndex("by_trending", (q) => q.eq("trending", true))
-        .take(HOMEPAGE_ROW_LIMIT),
-      ctx.db
-        .query("content")
-        .withIndex("by_popular", (q) => q.eq("popular", true))
-        .take(HOMEPAGE_ROW_LIMIT),
-      ctx.db
-        .query("content")
-        .withIndex("by_new", (q) => q.eq("new", true))
-        .take(HOMEPAGE_ROW_LIMIT),
-      ctx.db
-        .query("content")
-        .withIndex("by_type", (q) => q.eq("type", "movie"))
-        .take(HOMEPAGE_ROW_LIMIT),
-      ctx.db
-        .query("content")
-        .withIndex("by_type", (q) => q.eq("type", "tv"))
-        .take(HOMEPAGE_ROW_LIMIT)
+      readFlaggedCards(ctx, "trending", HOMEPAGE_ROW_LIMIT),
+      readFlaggedCards(ctx, "popular", HOMEPAGE_ROW_LIMIT),
+      readFlaggedCards(ctx, "new", HOMEPAGE_ROW_LIMIT),
+      readTypeCards(ctx, "movie", HOMEPAGE_ROW_LIMIT),
+      readTypeCards(ctx, "tv", HOMEPAGE_ROW_LIMIT)
     ]);
 
     return {
-      featured: featured ? toFeaturedContentMeta(featured) : null,
+      featured: featured ? toContentFeatured(featured) : null,
       categories: [
-        { id: "trending", title: "Trending Now 🔥", content: trending.map(toContentMeta) },
-        { id: "popular", title: "Popular on FishyStream", content: popular.map(toContentMeta) },
-        { id: "new", title: "New Releases", content: newReleases.map(toContentMeta) },
-        { id: "movies", title: "Movies", content: movies.map(toContentMeta) },
-        { id: "tvshows", title: "TV Shows", content: tvShows.map(toContentMeta) }
+        { id: "trending", title: "Trending Now 🔥", content: trending },
+        { id: "popular", title: "Popular on FishyStream", content: popular },
+        { id: "new", title: "New Releases", content: newReleases },
+        { id: "movies", title: "Movies", content: movies },
+        { id: "tvshows", title: "TV Shows", content: tvShows }
       ].filter((row) => row.content.length > 0)
     };
   }
 });
 
-export const listPopularContent = query({
+export const listPopularCards = query({
   args: {},
-  handler: async (ctx): Promise<ContentMeta[]> => {
-    const items = await ctx.db
-      .query("content")
-      .withIndex("by_popular", (q) => q.eq("popular", true))
-      .take(24);
-    return items.map(toContentMeta);
+  handler: async (ctx): Promise<ContentCard[]> => {
+    return await readFlaggedCards(ctx, "popular", 24);
   }
 });
 
-export const listNewReleaseContent = query({
+export const listNewReleaseCards = query({
   args: {},
-  handler: async (ctx): Promise<ContentMeta[]> => {
-    const items = await ctx.db
-      .query("content")
-      .withIndex("by_new", (q) => q.eq("new", true))
-      .take(24);
-    return items.map(toContentMeta);
+  handler: async (ctx): Promise<ContentCard[]> => {
+    return await readFlaggedCards(ctx, "new", 24);
   }
 });
 
-export const getContentById = query({
+export const getContentDetailById = query({
   args: { id: v.id("content") },
   handler: async (ctx, { id }): Promise<ContentDetail | null> => {
     const item = await ctx.db.get(id);
@@ -237,7 +307,7 @@ export const getContentById = query({
   }
 });
 
-export const getContentByTmdbId = query({
+export const getContentDetailByTmdbId = query({
   args: { tmdbId: v.string() },
   handler: async (ctx, { tmdbId }): Promise<ContentDetail | null> => {
     const item = await ctx.db
@@ -248,75 +318,7 @@ export const getContentByTmdbId = query({
   }
 });
 
-export const listContentPage = query({
-  args: {
-    type: contentTypeValidator,
-    sortBy: v.optional(browseSortValidator),
-    paginationOpts: paginationOptsValidator
-  },
-  handler: async (ctx, { type, sortBy = "popular", paginationOpts }) => {
-    let results;
-    switch (sortBy) {
-      case "trending":
-        results = await ctx.db
-          .query("content")
-          .withIndex("by_type_trending", (q) => q.eq("type", type))
-          .order("desc")
-          .paginate(paginationOpts);
-        break;
-      case "new":
-        results = await ctx.db
-          .query("content")
-          .withIndex("by_type_new", (q) => q.eq("type", type))
-          .order("desc")
-          .paginate(paginationOpts);
-        break;
-      case "rating":
-        results = await ctx.db
-          .query("content")
-          .withIndex("by_type_vote_average", (q) => q.eq("type", type))
-          .order("desc")
-          .paginate(paginationOpts);
-        break;
-      case "year":
-        results = await ctx.db
-          .query("content")
-          .withIndex("by_type_year", (q) => q.eq("type", type))
-          .order("desc")
-          .paginate(paginationOpts);
-        break;
-      default:
-        results = await ctx.db
-          .query("content")
-          .withIndex("by_type_popular", (q) => q.eq("type", type))
-          .order("desc")
-          .paginate(paginationOpts);
-        break;
-    }
-
-    return { ...results, page: results.page.map(toContentMeta) };
-  }
-});
-
-export const listContentPageByGenre = query({
-  args: {
-    type: contentTypeValidator,
-    genre: v.string(),
-    sortBy: v.optional(browseSortValidator),
-    page: v.optional(v.number()),
-    limit: v.optional(v.number())
-  },
-  handler: async (ctx, args) => {
-    const result = await getBrowsePageData(ctx, args);
-    return {
-      items: result.items,
-      nextCursor: result.hasNextPage ? result.items[result.items.length - 1]?._id : undefined,
-      totalCount: result.totalCount
-    };
-  }
-});
-
-export const getBrowsePage = query({
+export const getBrowseCardsPage = query({
   args: {
     type: contentTypeValidator,
     genre: v.optional(v.string()),
@@ -341,8 +343,51 @@ export const upsertBatchFromTMDB = internalMutation({
 
       if (existing) {
         await ctx.db.patch(existing._id, { ...item, updatedAt: Date.now() });
+        const existingCard = await ctx.db
+          .query("contentCards")
+          .withIndex("by_content", (q) => q.eq("contentId", existing._id))
+          .first();
+        const card = {
+          contentId: existing._id,
+          title: item.title,
+          type: item.type,
+          genre: item.genre.slice(0, 3),
+          year: item.year,
+          rating: item.rating,
+          voteAverage: item.voteAverage,
+          posterUrl: item.posterUrl,
+          tmdbId: item.tmdbId,
+          new: item.new,
+          trending: item.trending,
+          popular: item.popular,
+          featured: item.featured,
+          createdAt: existing.createdAt,
+          updatedAt: Date.now()
+        };
+        if (existingCard) {
+          await ctx.db.patch(existingCard._id, card);
+        } else {
+          await ctx.db.insert("contentCards", card);
+        }
       } else {
-        await ctx.db.insert("content", item);
+        const contentId = await ctx.db.insert("content", item);
+        await ctx.db.insert("contentCards", {
+          contentId,
+          title: item.title,
+          type: item.type,
+          genre: item.genre.slice(0, 3),
+          year: item.year,
+          rating: item.rating,
+          voteAverage: item.voteAverage,
+          posterUrl: item.posterUrl,
+          tmdbId: item.tmdbId,
+          new: item.new,
+          trending: item.trending,
+          popular: item.popular,
+          featured: item.featured,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt
+        });
       }
       count += 1;
     }
@@ -355,6 +400,55 @@ export const getAllTmdbIds = internalQuery({
   handler: async (ctx) => {
     const rows = await ctx.db.query("content").take(10000);
     return rows.map((row) => ({ tmdbId: row.tmdbId, type: row.type }));
+  }
+});
+
+export const rebuildContentCards = internalMutation({
+  args: {
+    contentId: v.optional(v.id("content")),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, { contentId, limit = 1000 }) => {
+    const rows = contentId
+      ? ((await ctx.db.get(contentId)) ? [await ctx.db.get(contentId)] : [])
+      : await ctx.db.query("content").take(limit);
+
+    let updated = 0;
+    for (const row of rows) {
+      if (!row) continue;
+
+      const existingCard = await ctx.db
+        .query("contentCards")
+        .withIndex("by_content", (q) => q.eq("contentId", row._id))
+        .first();
+
+      const card = {
+        contentId: row._id,
+        title: row.title,
+        type: row.type,
+        genre: row.genre.slice(0, 3),
+        year: row.year,
+        rating: row.rating,
+        voteAverage: row.voteAverage,
+        posterUrl: row.posterUrl,
+        tmdbId: row.tmdbId,
+        new: row.new,
+        trending: row.trending,
+        popular: row.popular,
+        featured: row.featured,
+        createdAt: row.createdAt,
+        updatedAt: Date.now()
+      };
+
+      if (existingCard) {
+        await ctx.db.patch(existingCard._id, card);
+      } else {
+        await ctx.db.insert("contentCards", card);
+      }
+      updated += 1;
+    }
+
+    return updated;
   }
 });
 
@@ -402,6 +496,79 @@ export const getSyncMetadataByTmdbId = internalQuery({
   }
 });
 
+export const getContentSyncContextById = query({
+  args: { id: v.id("content") },
+  handler: async (ctx, { id }) => {
+    const item = await ctx.db.get(id);
+    if (!item) return null;
+
+    return {
+      _id: item._id,
+      title: item.title,
+      type: item.type,
+      tmdbId: item.tmdbId,
+      year: item.year
+    };
+  }
+});
+
+export const getContentPlaybackByTmdbId = query({
+  args: { tmdbId: v.string() },
+  handler: async (ctx, { tmdbId }): Promise<ContentPlayback | null> => {
+    const item = await ctx.db
+      .query("content")
+      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
+      .first();
+    return item ? toContentPlayback(item) : null;
+  }
+});
+
+async function getRecommendationSeed(ctx: QueryCtx, clerkUserId: string) {
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
+    .first();
+  if (!user) return null;
+
+  const items = await ctx.db
+    .query("watchlist")
+    .withIndex("by_user_added_at", (q) => q.eq("userId", user._id))
+    .order("desc")
+    .take(24);
+
+  if (items.length === 0) {
+    return { watchlistIds: [] as Id<"content">[], preferredType: "movie" as const, genres: [] };
+  }
+
+  const watchlistIds = items.map((item) => item.contentId);
+  const watchlistTypes = new Map<"movie" | "tv", number>();
+  const watchlistGenres = new Map<string, number>();
+
+  for (const item of items) {
+    const type = item.contentType;
+    if (type) {
+      watchlistTypes.set(type, (watchlistTypes.get(type) || 0) + 1);
+    }
+    for (const genre of item.genre ?? []) {
+      watchlistGenres.set(genre, (watchlistGenres.get(genre) || 0) + 1);
+    }
+  }
+
+  const preferredType =
+    Array.from(watchlistTypes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "movie";
+  const genres = Array.from(watchlistGenres.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([genre]) => genre);
+
+  return { watchlistIds, preferredType, genres };
+}
+
+export const getRecommendationSeedByUser = query({
+  args: { clerkUserId: v.string() },
+  handler: async (ctx, { clerkUserId }) => await getRecommendationSeed(ctx, clerkUserId)
+});
+
 export const setAniListId = internalMutation({
   args: { id: v.id("content"), anilistId: v.string() },
   handler: async (ctx, { id, anilistId }) => {
@@ -409,62 +576,82 @@ export const setAniListId = internalMutation({
   }
 });
 
-export const listRecommendedContent = query({
+export const listRecommendedCards = query({
   args: {
-    watchlistIds: v.array(v.id("content")),
+    clerkUserId: v.string(),
     limit: v.optional(v.number()),
     typeFilter: v.optional(v.union(v.literal("all"), v.literal("movie"), v.literal("tv"))),
     refreshSeed: v.optional(v.number())
   },
   handler: async (
     ctx,
-    { watchlistIds, limit = 12, typeFilter = "all", refreshSeed = 0 }
-  ): Promise<ContentMeta[]> => {
-    if (watchlistIds.length === 0) return [];
+    { clerkUserId, limit = 12, typeFilter = "all", refreshSeed = 0 }
+  ): Promise<ContentCard[]> => {
+    const seed = await getRecommendationSeed(ctx, clerkUserId);
+    if (!seed || seed.watchlistIds.length === 0) return [];
 
-    const watchlistItems = (await Promise.all(watchlistIds.map((id) => ctx.db.get(id)))).filter(
-      Boolean
-    ) as Doc<"content">[];
-    if (watchlistItems.length === 0) return [];
-
-    const watchlistGenres = new Map<string, number>();
-    const watchlistTypes = new Map<string, number>();
-    for (const item of watchlistItems) {
-      watchlistTypes.set(item.type, (watchlistTypes.get(item.type) || 0) + 1);
-      for (const genre of item.genre) {
-        watchlistGenres.set(genre, (watchlistGenres.get(genre) || 0) + 1);
-      }
-    }
-
-    const preferredType =
-      Array.from(watchlistTypes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "movie";
-    const watchlistIdSet = new Set<Id<"content">>(watchlistItems.map((item) => item._id));
-    const watchlistSignature = watchlistItems
-      .map((item) => String(item._id))
+    const watchlistIdSet = new Set<Id<"content">>(seed.watchlistIds);
+    const watchlistSignature = seed.watchlistIds
+      .map((item: Id<"content">) => String(item))
       .sort()
       .join("|");
-    const candidateFetchLimit = Math.max(limit * 4, 48);
+    const candidateFetchLimit = Math.max(limit * 2, 24);
+    const preferredType = seed.preferredType;
+    const preferredGenres = new Set(seed.genres);
 
-    const candidates =
+    const cardCandidates =
       typeFilter === "all"
         ? await ctx.db
-            .query("content")
+            .query("contentCards")
             .withIndex("by_type", (q) => q.eq("type", preferredType as "movie" | "tv"))
             .take(candidateFetchLimit)
         : await ctx.db
-            .query("content")
+            .query("contentCards")
             .withIndex("by_type", (q) => q.eq("type", typeFilter))
             .take(candidateFetchLimit);
 
-    const filtered = candidates.filter((item) => !watchlistIdSet.has(item._id));
+    if (cardCandidates.length === 0) {
+      const contentCandidates =
+        typeFilter === "all"
+          ? await ctx.db
+              .query("content")
+              .withIndex("by_type", (q) => q.eq("type", preferredType as "movie" | "tv"))
+              .take(candidateFetchLimit)
+          : await ctx.db
+              .query("content")
+              .withIndex("by_type", (q) => q.eq("type", typeFilter))
+              .take(candidateFetchLimit);
+
+      return [...contentCandidates]
+        .filter((item) => !watchlistIdSet.has(item._id))
+        .map((item) => {
+          let score = 0;
+          score +=
+            seededUnitInterval(
+              `${watchlistSignature}:${typeFilter}:${refreshSeed}:score:${String(item._id)}`
+            ) * 15;
+          if (item.type === preferredType) score += 2;
+          for (const genre of item.genre) {
+            if (preferredGenres.has(genre)) score += 1.5;
+          }
+          if (item.popular) score += 1;
+          if (item.voteAverage && item.voteAverage > 7) score += 0.5;
+          return { item, score };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map(({ item }) => toContentCard(item));
+    }
+
+    const filtered = cardCandidates.filter((item) => !watchlistIdSet.has(item.contentId));
     const poolSize = Math.min(filtered.length, limit * 2 + refreshSeed * 4);
     const pool = [...filtered]
       .sort((a, b) => {
         const aSeed = seededUnitInterval(
-          `${watchlistSignature}:${typeFilter}:${refreshSeed}:${String(a._id)}`
+          `${watchlistSignature}:${typeFilter}:${refreshSeed}:${String(a.contentId)}`
         );
         const bSeed = seededUnitInterval(
-          `${watchlistSignature}:${typeFilter}:${refreshSeed}:${String(b._id)}`
+          `${watchlistSignature}:${typeFilter}:${refreshSeed}:${String(b.contentId)}`
         );
         return aSeed - bSeed;
       })
@@ -475,11 +662,11 @@ export const listRecommendedContent = query({
         let score = 0;
         score +=
           seededUnitInterval(
-            `${watchlistSignature}:${typeFilter}:${refreshSeed}:score:${String(item._id)}`
+            `${watchlistSignature}:${typeFilter}:${refreshSeed}:score:${String(item.contentId)}`
           ) * 15;
         if (item.type === preferredType) score += 2;
         for (const genre of item.genre) {
-          score += (watchlistGenres.get(genre) || 0) * 1.5;
+          if (preferredGenres.has(genre)) score += 1.5;
         }
         if (item.popular) score += 1;
         if (item.voteAverage && item.voteAverage > 7) score += 0.5;
@@ -487,6 +674,6 @@ export const listRecommendedContent = query({
       })
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map(({ item }) => toContentMeta(item));
+      .map(({ item }) => toContentCardRow(item));
   }
 });

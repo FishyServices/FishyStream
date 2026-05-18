@@ -5,10 +5,10 @@ import { ContentModal } from "./ContentModal";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
 import { toast } from "@fishy/ui";
-import type { FeaturedContentMeta } from "../../shared/contentMetadata";
+import type { ContentFeatured } from "../../shared/contentMetadata";
 
 interface HeroProps {
-  content: FeaturedContentMeta;
+  content: ContentFeatured;
   onPlay?: (tmdbId: string) => void;
   autoPlayTrailer?: boolean;
   trailerMuted?: boolean;

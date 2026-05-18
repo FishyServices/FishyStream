@@ -56,7 +56,6 @@ export function MyListPage() {
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<string | null>(null);
   const [folderMenuForContentId, setFolderMenuForContentId] = useState<Id<"content"> | null>(null);
   const { recommendations, isLoading: recsLoading } = useRecommendations(
-    watchlist?.map((item) => item._id),
     12,
     typeFilter,
     refreshSeed
