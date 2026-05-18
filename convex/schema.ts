@@ -1,6 +1,31 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const mediaType = v.union(v.literal("movie"), v.literal("tv"));
+
+const contentSnapshotFields = {
+  contentType: v.optional(mediaType),
+  title: v.optional(v.string()),
+  genre: v.optional(v.array(v.string())),
+  year: v.optional(v.number()),
+  rating: v.optional(v.string()),
+  voteAverage: v.optional(v.number()),
+  posterUrl: v.optional(v.string()),
+  tmdbId: v.optional(v.string()),
+  new: v.optional(v.boolean()),
+  snapshotUpdatedAt: v.optional(v.number())
+};
+
+const episodeValidator = v.object({
+  episodeNumber: v.number(),
+  name: v.string(),
+  overview: v.optional(v.string()),
+  stillUrl: v.optional(v.string()),
+  airDate: v.optional(v.string()),
+  runtime: v.optional(v.number()),
+  voteAverage: v.optional(v.number())
+});
+
 export default defineSchema({
   users: defineTable({
     clerkUserId: v.string(),
@@ -13,7 +38,7 @@ export default defineSchema({
   content: defineTable({
     title: v.string(),
     description: v.string(),
-    type: v.union(v.literal("movie"), v.literal("tv")),
+    type: mediaType,
     genre: v.array(v.string()),
     year: v.number(),
     rating: v.string(),
@@ -44,20 +69,19 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number()
   })
+    .index("by_tmdb_id", ["tmdbId"])
+    .index("by_imdb_id", ["imdbId"])
     .index("by_type", ["type"])
+    .index("by_trending", ["trending"])
+    .index("by_popular", ["popular"])
+    .index("by_featured", ["featured"])
+    .index("by_new", ["new"])
+    .index("by_popularity", ["popularity"])
     .index("by_type_trending", ["type", "trending"])
     .index("by_type_popular", ["type", "popular"])
     .index("by_type_new", ["type", "new"])
     .index("by_type_year", ["type", "year"])
     .index("by_type_vote_average", ["type", "voteAverage"])
-    .index("by_trending", ["trending"])
-    .index("by_popular", ["popular"])
-    .index("by_featured", ["featured"])
-    .index("by_new", ["new"])
-    .index("by_genre", ["genre"])
-    .index("by_imdb_id", ["imdbId"])
-    .index("by_tmdb_id", ["tmdbId"])
-    .index("by_popularity", ["popularity"])
     .searchIndex("search_title", {
       searchField: "title",
       filterFields: ["type", "genre"]
@@ -73,17 +97,7 @@ export default defineSchema({
     posterUrl: v.optional(v.string()),
     airDate: v.optional(v.string()),
     episodeCount: v.number(),
-    episodes: v.array(
-      v.object({
-        episodeNumber: v.number(),
-        name: v.string(),
-        overview: v.optional(v.string()),
-        stillUrl: v.optional(v.string()),
-        airDate: v.optional(v.string()),
-        runtime: v.optional(v.number()),
-        voteAverage: v.optional(v.number())
-      })
-    ),
+    episodes: v.array(episodeValidator),
     createdAt: v.number(),
     updatedAt: v.number()
   })
@@ -96,33 +110,18 @@ export default defineSchema({
     contentId: v.id("content"),
     addedAt: v.number(),
     folder: v.optional(v.string()),
-    contentType: v.optional(v.union(v.literal("movie"), v.literal("tv"))),
-    title: v.optional(v.string()),
-    genre: v.optional(v.array(v.string())),
-    year: v.optional(v.number()),
-    rating: v.optional(v.string()),
-    voteAverage: v.optional(v.number()),
-    posterUrl: v.optional(v.string()),
-    tmdbId: v.optional(v.string()),
-    new: v.optional(v.boolean()),
     lastAcknowledgedSeasonCount: v.optional(v.number()),
-    lastAcknowledgedEpisodeCount: v.optional(v.number())
+    lastAcknowledgedEpisodeCount: v.optional(v.number()),
+    ...contentSnapshotFields
   })
     .index("by_user", ["userId"])
-    .index("by_user_content", ["userId", "contentId"]),
+    .index("by_user_added_at", ["userId", "addedAt"])
+    .index("by_user_content", ["userId", "contentId"])
+    .index("by_user_folder", ["userId", "folder"]),
 
   watchHistory: defineTable({
     userId: v.id("users"),
     contentId: v.id("content"),
-    contentType: v.optional(v.union(v.literal("movie"), v.literal("tv"))),
-    title: v.optional(v.string()),
-    genre: v.optional(v.array(v.string())),
-    year: v.optional(v.number()),
-    rating: v.optional(v.string()),
-    voteAverage: v.optional(v.number()),
-    posterUrl: v.optional(v.string()),
-    tmdbId: v.optional(v.string()),
-    new: v.optional(v.boolean()),
     progress: v.number(),
     positionSeconds: v.optional(v.number()),
     durationSeconds: v.optional(v.number()),
@@ -131,7 +130,8 @@ export default defineSchema({
     source: v.optional(v.string()),
     dub: v.optional(v.boolean()),
     completed: v.boolean(),
-    watchedAt: v.number()
+    watchedAt: v.number(),
+    ...contentSnapshotFields
   })
     .index("by_user", ["userId"])
     .index("by_user_content", ["userId", "contentId"])

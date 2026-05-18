@@ -1,8 +1,9 @@
-import { useQuery, useAction, usePaginatedQuery, useConvex } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { ContentMeta } from "../../shared/contentMetadata";
+import type { ContentDetail, ContentMeta, FeaturedContentMeta } from "../../shared/contentMetadata";
+import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 export interface BrowsePageResult {
   items: ContentMeta[];
@@ -19,12 +20,12 @@ export interface BrowsePageResult {
 export interface TMDBItem {
   tmdbId: number;
   title: string;
-  description: string;
   posterUrl: string;
-  backdropUrl: string;
   year: number;
-  genre: string[];
-  rating: string;
+  description?: string;
+  backdropUrl?: string;
+  genre?: string[];
+  rating?: string;
   voteAverage?: number;
   popularity?: number;
   seasons?: number;
@@ -33,19 +34,34 @@ export interface TMDBItem {
 }
 
 export function useHomepageContent() {
-  return useQuery(api.content.getHomepageContent);
+  return useOneShotConvexQuery<{
+    featured: FeaturedContentMeta | null;
+    categories: Array<{ id: string; title: string; content: ContentMeta[] }>;
+  }>(true, (convex) => convex.query(api.content.getHomepageContent, {}), []);
 }
 
 export function usePopularContent() {
-  return useQuery(api.content.listPopularContent);
+  return useOneShotConvexQuery<ContentMeta[]>(
+    true,
+    (convex) => convex.query(api.content.listPopularContent, {}),
+    []
+  );
 }
 
 export function useNewReleases() {
-  return useQuery(api.content.listNewReleaseContent);
+  return useOneShotConvexQuery<ContentMeta[]>(
+    true,
+    (convex) => convex.query(api.content.listNewReleaseContent, {}),
+    []
+  );
 }
 
 export function useContentByTmdbId(tmdbId: string | undefined) {
-  return useQuery(api.content.getContentByTmdbId, tmdbId ? { tmdbId } : "skip");
+  return useOneShotConvexQuery<ContentDetail | null>(
+    !!tmdbId,
+    (convex) => convex.query(api.content.getContentByTmdbId, { tmdbId: tmdbId! }),
+    [tmdbId]
+  );
 }
 
 export function useRelatedContent(
@@ -180,10 +196,10 @@ export function useSearchAll(query: string) {
 
     const t = setTimeout(async () => {
       try {
-        const [movies, shows] = await Promise.all([
+        const [movies, shows] = (await Promise.all([
           searchMovies({ query }),
           searchTVShows({ query })
-        ]);
+        ])) as [TMDBItem[], TMDBItem[]];
         const combined = [
           ...movies.map((m) => ({ ...m, type: "movie" as const })),
           ...shows.map((s) => ({ ...s, type: "tv" as const }))
@@ -212,57 +228,33 @@ export function usePaginatedContent(
   page = 1
 ): BrowsePageResult {
   const normalizedPage = Math.max(1, Math.floor(page));
-
-  const indexed = usePaginatedQuery(
-    api.content.listContentPage,
-    genre ? "skip" : { type, sortBy },
-    {
-      initialNumItems: normalizedPage * limit
-    }
+  const pageData = useOneShotConvexQuery<{
+    items: ContentMeta[];
+    currentPage: number;
+    totalPages?: number;
+    totalCount?: number;
+    hasNextPage: boolean;
+  }>(
+    true,
+    (convex) =>
+      convex.query(api.content.getBrowsePage, {
+        type,
+        genre,
+        sortBy,
+        page: normalizedPage,
+        limit
+      }),
+    [type, genre, sortBy, normalizedPage, limit]
   );
-  const genrePage = useQuery(
-    api.content.listContentPageByGenre,
-    genre ? { type, genre, sortBy, page: normalizedPage, limit } : "skip"
-  );
-
-  useEffect(() => {
-    if (genre) return;
-    const requiredItems = normalizedPage * limit;
-    if (indexed.results.length >= requiredItems) return;
-    if (indexed.status !== "CanLoadMore") return;
-    indexed.loadMore(requiredItems - indexed.results.length);
-  }, [genre, indexed, limit, normalizedPage]);
-
-  if (genre) {
-    return {
-      items: genrePage?.items ?? [],
-      currentPage: normalizedPage,
-      totalPages: genrePage ? Math.ceil(genrePage.totalCount / limit) : undefined,
-      totalCount: genrePage?.totalCount,
-      hasNextPage: !!genrePage?.nextCursor,
-      canGoBack: normalizedPage > 1,
-      isLoading: genrePage === undefined,
-      goNext: () => {},
-      goPrevious: () => {}
-    };
-  }
-
-  const items = indexed.results;
-  const start = (normalizedPage - 1) * limit;
-  const visibleItems = items.slice(start, start + limit);
-  const hasLoadedNextPage = normalizedPage * limit < items.length;
-  const hasNextPage = hasLoadedNextPage || indexed.status === "CanLoadMore";
-  const isLoading =
-    indexed.status === "LoadingFirstPage" || (normalizedPage > 1 && !visibleItems.length);
 
   return {
-    items: visibleItems,
+    items: pageData?.items ?? [],
     currentPage: normalizedPage,
-    totalPages: undefined,
-    totalCount: undefined,
-    hasNextPage,
+    totalPages: pageData?.totalPages,
+    totalCount: pageData?.totalCount,
+    hasNextPage: pageData?.hasNextPage ?? false,
     canGoBack: normalizedPage > 1,
-    isLoading,
+    isLoading: pageData === undefined,
     goNext: () => {},
     goPrevious: () => {}
   };
@@ -279,16 +271,16 @@ export function useRecommendations(
     [watchlistIds]
   );
 
-  const recommendations = useQuery(
-    api.content.listRecommendedContent,
-    stableWatchlistIds && stableWatchlistIds.length > 0
-      ? {
-          watchlistIds: stableWatchlistIds,
-          limit,
-          typeFilter,
-          refreshSeed
-        }
-      : "skip"
+  const recommendations = useOneShotConvexQuery<ContentMeta[]>(
+    !!stableWatchlistIds && stableWatchlistIds.length > 0,
+    (convex) =>
+      convex.query(api.content.listRecommendedContent, {
+        watchlistIds: stableWatchlistIds!,
+        limit,
+        typeFilter,
+        refreshSeed
+      }),
+    [stableWatchlistIds, limit, typeFilter, refreshSeed]
   );
 
   return {

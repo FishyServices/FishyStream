@@ -1,20 +1,30 @@
-import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { query, internalMutation, internalQuery } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import { v } from "convex/values";
+import { internalMutation, internalQuery, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 import {
-  toContentMeta,
   toContentDetail,
+  toContentMeta,
   toFeaturedContentMeta,
-  type ContentMeta,
   type ContentDetail,
+  type ContentMeta,
   type FeaturedContentMeta
 } from "../shared/contentMetadata";
+
+const contentTypeValidator = v.union(v.literal("movie"), v.literal("tv"));
+const browseSortValidator = v.union(
+  v.literal("trending"),
+  v.literal("popular"),
+  v.literal("new"),
+  v.literal("rating"),
+  v.literal("year")
+);
 
 const tmdbContentValidator = v.object({
   title: v.string(),
   description: v.string(),
-  type: v.union(v.literal("movie"), v.literal("tv")),
+  type: contentTypeValidator,
   genre: v.array(v.string()),
   year: v.number(),
   rating: v.string(),
@@ -48,9 +58,113 @@ const tmdbContentValidator = v.object({
 
 const HOMEPAGE_ROW_LIMIT = 12;
 
+type BrowseSort = "trending" | "popular" | "new" | "rating" | "year";
+
+async function readSortedContent(
+  ctx: QueryCtx,
+  type: "movie" | "tv",
+  sortBy: BrowseSort,
+  takeCount: number
+) {
+  switch (sortBy) {
+    case "trending":
+      return await ctx.db
+        .query("content")
+        .withIndex("by_type_trending", (q) => q.eq("type", type))
+        .order("desc")
+        .take(takeCount);
+    case "new":
+      return await ctx.db
+        .query("content")
+        .withIndex("by_type_new", (q) => q.eq("type", type))
+        .order("desc")
+        .take(takeCount);
+    case "rating":
+      return await ctx.db
+        .query("content")
+        .withIndex("by_type_vote_average", (q) => q.eq("type", type))
+        .order("desc")
+        .take(takeCount);
+    case "year":
+      return await ctx.db
+        .query("content")
+        .withIndex("by_type_year", (q) => q.eq("type", type))
+        .order("desc")
+        .take(takeCount);
+    default:
+      return await ctx.db
+        .query("content")
+        .withIndex("by_type_popular", (q) => q.eq("type", type))
+        .order("desc")
+        .take(takeCount);
+  }
+}
+
+function normalizePage(page?: number) {
+  return Math.max(1, Math.floor(page ?? 1));
+}
+
+function normalizeLimit(limit?: number, max = 48) {
+  return Math.max(1, Math.min(max, Math.floor(limit ?? 24)));
+}
+
+function lower(value?: string) {
+  return value?.toLowerCase().trim();
+}
+
+async function getBrowsePageData(
+  ctx: QueryCtx,
+  args: {
+    type: "movie" | "tv";
+    genre?: string;
+    sortBy?: BrowseSort;
+    page?: number;
+    limit?: number;
+  }
+) {
+  const page = normalizePage(args.page);
+  const limit = normalizeLimit(args.limit);
+  const sortBy = args.sortBy ?? "popular";
+  const genre = lower(args.genre);
+  const takeCount = genre ? Math.max(page * limit * 4, 120) : page * limit + 1;
+
+  let items = await readSortedContent(ctx, args.type, sortBy, takeCount);
+  if (genre) {
+    items = items.filter((item) => item.genre.some((value) => lower(value) === genre));
+  }
+
+  const start = (page - 1) * limit;
+  const pageItems = items.slice(start, start + limit);
+  const hasNextPage = genre ? start + limit < items.length : items.length > page * limit;
+
+  return {
+    items: pageItems.map(toContentMeta),
+    currentPage: page,
+    totalPages: genre ? Math.max(1, Math.ceil(items.length / limit)) : undefined,
+    totalCount: genre ? items.length : undefined,
+    hasNextPage
+  };
+}
+
+function hashString(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededUnitInterval(seed: string) {
+  return hashString(seed) / 4294967295;
+}
+
 export const getHomepageContent = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{
+    featured: FeaturedContentMeta | null;
+    categories: Array<{ id: string; title: string; content: ContentMeta[] }>;
+  }> => {
     const [featured, trending, popular, newReleases, movies, tvShows] = await Promise.all([
       ctx.db
         .query("content")
@@ -86,12 +200,13 @@ export const getHomepageContent = query({
         { id: "new", title: "New Releases", content: newReleases.map(toContentMeta) },
         { id: "movies", title: "Movies", content: movies.map(toContentMeta) },
         { id: "tvshows", title: "TV Shows", content: tvShows.map(toContentMeta) }
-      ].filter((category) => category.content.length > 0)
+      ].filter((row) => row.content.length > 0)
     };
   }
 });
 
 export const listPopularContent = query({
+  args: {},
   handler: async (ctx): Promise<ContentMeta[]> => {
     const items = await ctx.db
       .query("content")
@@ -102,6 +217,7 @@ export const listPopularContent = query({
 });
 
 export const listNewReleaseContent = query({
+  args: {},
   handler: async (ctx): Promise<ContentMeta[]> => {
     const items = await ctx.db
       .query("content")
@@ -114,39 +230,30 @@ export const listNewReleaseContent = query({
 export const getContentById = query({
   args: { id: v.id("content") },
   handler: async (ctx, { id }): Promise<ContentDetail | null> => {
-    const content = await ctx.db.get(id);
-    return content ? toContentDetail(content) : null;
+    const item = await ctx.db.get(id);
+    return item ? toContentDetail(item) : null;
   }
 });
 
 export const getContentByTmdbId = query({
   args: { tmdbId: v.string() },
   handler: async (ctx, { tmdbId }): Promise<ContentDetail | null> => {
-    const content = await ctx.db
+    const item = await ctx.db
       .query("content")
       .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
       .first();
-    return content ? toContentDetail(content) : null;
+    return item ? toContentDetail(item) : null;
   }
 });
 
 export const listContentPage = query({
   args: {
-    type: v.union(v.literal("movie"), v.literal("tv")),
-    sortBy: v.optional(
-      v.union(
-        v.literal("trending"),
-        v.literal("popular"),
-        v.literal("new"),
-        v.literal("rating"),
-        v.literal("year")
-      )
-    ),
+    type: contentTypeValidator,
+    sortBy: v.optional(browseSortValidator),
     paginationOpts: paginationOptsValidator
   },
   handler: async (ctx, { type, sortBy = "popular", paginationOpts }) => {
     let results;
-
     switch (sortBy) {
       case "trending":
         results = await ctx.db
@@ -185,95 +292,44 @@ export const listContentPage = query({
         break;
     }
 
-    return {
-      ...results,
-      page: results.page.map(toContentMeta)
-    };
+    return { ...results, page: results.page.map(toContentMeta) };
   }
 });
 
 export const listContentPageByGenre = query({
   args: {
-    type: v.union(v.literal("movie"), v.literal("tv")),
+    type: contentTypeValidator,
     genre: v.string(),
-    sortBy: v.optional(
-      v.union(
-        v.literal("trending"),
-        v.literal("popular"),
-        v.literal("new"),
-        v.literal("rating"),
-        v.literal("year")
-      )
-    ),
+    sortBy: v.optional(browseSortValidator),
     page: v.optional(v.number()),
     limit: v.optional(v.number())
   },
-  handler: async (ctx, { type, genre, sortBy = "popular", page = 1, limit = 24 }) => {
-    const takeCount = Math.max(page * limit * 6, 180);
-    let items;
+  handler: async (ctx, args) => {
+    const result = await getBrowsePageData(ctx, args);
+    return {
+      items: result.items,
+      nextCursor: result.hasNextPage ? result.items[result.items.length - 1]?._id : undefined,
+      totalCount: result.totalCount
+    };
+  }
+});
 
-    switch (sortBy) {
-      case "trending":
-        items = await ctx.db
-          .query("content")
-          .withIndex("by_type_trending", (q) => q.eq("type", type))
-          .order("desc")
-          .take(takeCount);
-        break;
-      case "new":
-        items = await ctx.db
-          .query("content")
-          .withIndex("by_type_new", (q) => q.eq("type", type))
-          .order("desc")
-          .take(takeCount);
-        break;
-      case "rating":
-        items = await ctx.db
-          .query("content")
-          .withIndex("by_type_vote_average", (q) => q.eq("type", type))
-          .order("desc")
-          .take(takeCount);
-        break;
-      case "year":
-        items = await ctx.db
-          .query("content")
-          .withIndex("by_type_year", (q) => q.eq("type", type))
-          .order("desc")
-          .take(takeCount);
-        break;
-      default:
-        items = await ctx.db
-          .query("content")
-          .withIndex("by_type_popular", (q) => q.eq("type", type))
-          .order("desc")
-          .take(takeCount);
-        break;
-    }
-
-    items = items.filter((c) => c.genre.some((g) => g.toLowerCase() === genre.toLowerCase()));
-
-    switch (sortBy) {
-      case "trending":
-      case "new":
-      case "rating":
-      case "year":
-      default:
-        break;
-    }
-
-    const normalizedPage = Math.max(1, Math.floor(page));
-    const start = (normalizedPage - 1) * limit;
-    const pageItems = items.slice(start, start + limit);
-    const nextCursor =
-      start + limit < items.length ? pageItems[pageItems.length - 1]?._id : undefined;
-
-    return { items: pageItems.map(toContentMeta), nextCursor, totalCount: items.length };
+export const getBrowsePage = query({
+  args: {
+    type: contentTypeValidator,
+    genre: v.optional(v.string()),
+    sortBy: v.optional(browseSortValidator),
+    page: v.optional(v.number()),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, args) => {
+    return await getBrowsePageData(ctx, args);
   }
 });
 
 export const upsertBatchFromTMDB = internalMutation({
   args: { items: v.array(tmdbContentValidator) },
-  handler: async (ctx, { items }): Promise<number> => {
+  handler: async (ctx, { items }) => {
     let count = 0;
     for (const item of items) {
       const existing = await ctx.db
@@ -286,7 +342,7 @@ export const upsertBatchFromTMDB = internalMutation({
       } else {
         await ctx.db.insert("content", item);
       }
-      count++;
+      count += 1;
     }
     return count;
   }
@@ -295,32 +351,32 @@ export const upsertBatchFromTMDB = internalMutation({
 export const getAllTmdbIds = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const content = await ctx.db.query("content").take(10000);
-    return content.map((c) => ({ tmdbId: c.tmdbId, type: c.type }));
+    const rows = await ctx.db.query("content").take(10000);
+    return rows.map((row) => ({ tmdbId: row.tmdbId, type: row.type }));
   }
 });
 
 export const getAnimeMissingAniListIds = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit = 250 }) => {
-    const content = await ctx.db
+    const rows = await ctx.db
       .query("content")
       .withIndex("by_type", (q) => q.eq("type", "tv"))
       .take(5000);
 
-    return content
+    return rows
       .filter(
-        (item) =>
-          !item.anilistId &&
-          item.originalLanguage?.toLowerCase() === "ja" &&
-          item.genre.some((genre) => genre.toLowerCase() === "animation")
+        (row) =>
+          !row.anilistId &&
+          lower(row.originalLanguage) === "ja" &&
+          row.genre.some((genre) => lower(genre) === "animation")
       )
       .slice(0, limit)
-      .map((item) => ({
-        id: item._id,
-        tmdbId: item.tmdbId,
-        title: item.title,
-        year: item.year
+      .map((row) => ({
+        id: row._id,
+        tmdbId: row.tmdbId,
+        title: row.title,
+        year: row.year
       }));
   }
 });
@@ -328,48 +384,28 @@ export const getAnimeMissingAniListIds = internalQuery({
 export const getSyncMetadataByTmdbId = internalQuery({
   args: { tmdbId: v.string() },
   handler: async (ctx, { tmdbId }) => {
-    const content = await ctx.db
+    const item = await ctx.db
       .query("content")
       .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
       .first();
 
-    if (!content) return null;
-
+    if (!item) return null;
     return {
-      _id: content._id,
-      trending: content.trending,
-      popular: content.popular,
-      featured: content.featured,
-      new: content.new
+      _id: item._id,
+      trending: item.trending,
+      popular: item.popular,
+      featured: item.featured,
+      new: item.new
     };
   }
 });
 
 export const setAniListId = internalMutation({
-  args: {
-    id: v.id("content"),
-    anilistId: v.string()
-  },
+  args: { id: v.id("content"), anilistId: v.string() },
   handler: async (ctx, { id, anilistId }) => {
-    await ctx.db.patch(id, {
-      anilistId,
-      updatedAt: Date.now()
-    });
+    await ctx.db.patch(id, { anilistId, updatedAt: Date.now() });
   }
 });
-
-function hashString(value: string): number {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function seededUnitInterval(seed: string): number {
-  return hashString(seed) / 4294967295;
-}
 
 export const listRecommendedContent = query({
   args: {
@@ -384,15 +420,13 @@ export const listRecommendedContent = query({
   ): Promise<ContentMeta[]> => {
     if (watchlistIds.length === 0) return [];
 
-    const watchlistItems = (await Promise.all(watchlistIds.map((id) => ctx.db.get(id)))).filter(
-      Boolean
-    ) as Doc<"content">[];
-
+    const watchlistItems = (
+      await Promise.all(watchlistIds.map((id) => ctx.db.get(id)))
+    ).filter(Boolean) as Doc<"content">[];
     if (watchlistItems.length === 0) return [];
 
     const watchlistGenres = new Map<string, number>();
     const watchlistTypes = new Map<string, number>();
-
     for (const item of watchlistItems) {
       watchlistTypes.set(item.type, (watchlistTypes.get(item.type) || 0) + 1);
       for (const genre of item.genre) {
@@ -402,22 +436,26 @@ export const listRecommendedContent = query({
 
     const preferredType =
       Array.from(watchlistTypes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "movie";
-    const watchlistIdSet = new Set(watchlistItems.map((item) => item._id));
+    const watchlistIdSet = new Set<Id<"content">>(watchlistItems.map((item) => item._id));
     const watchlistSignature = watchlistItems
       .map((item) => String(item._id))
       .sort()
       .join("|");
+    const candidateFetchLimit = Math.max(limit * 4, 48);
 
-    const candidateSource =
+    const candidates =
       typeFilter === "all"
-        ? await ctx.db.query("content").take(180)
+        ? await ctx.db
+            .query("content")
+            .withIndex("by_type", (q) => q.eq("type", preferredType as "movie" | "tv"))
+            .take(candidateFetchLimit)
         : await ctx.db
             .query("content")
             .withIndex("by_type", (q) => q.eq("type", typeFilter))
-            .take(180);
+            .take(candidateFetchLimit);
 
-    const filtered = candidateSource.filter((item) => !watchlistIdSet.has(item._id));
-    const poolSize = Math.min(filtered.length, limit * 3 + refreshSeed * 5);
+    const filtered = candidates.filter((item) => !watchlistIdSet.has(item._id));
+    const poolSize = Math.min(filtered.length, limit * 2 + refreshSeed * 4);
     const pool = [...filtered]
       .sort((a, b) => {
         const aSeed = seededUnitInterval(

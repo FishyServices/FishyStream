@@ -196,9 +196,9 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
                     </>
                   )}
                 </div>
-                {item.genre.length > 0 && (
+                {(item.genre?.length ?? 0) > 0 && (
                   <p className="text-[10px] text-white/40 mt-0.5 truncate">
-                    {item.genre.slice(0, 2).join(" · ")}
+                    {item.genre?.slice(0, 2).join(" · ")}
                   </p>
                 )}
               </div>
@@ -221,9 +221,9 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
                 </span>
               )}
             </div>
-            {item.genre.length > 0 && (
+            {(item.genre?.length ?? 0) > 0 && (
               <p className="mt-1 line-clamp-1 text-[10px] text-white/40">
-                {item.genre.slice(0, 2).join(" · ")}
+                {item.genre?.slice(0, 2).join(" · ")}
               </p>
             )}
           </div>

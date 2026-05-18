@@ -37,7 +37,8 @@ export function MyListPage() {
   const navigate = useNavigate();
   const { isSignedIn, user } = useUser();
   const customFolderKey = `watchlist_custom_folders_${user?.id ?? "guest"}`;
-  const watchlist = useMyWatchlist();
+  const watchlistData = useMyWatchlist();
+  const [watchlist, setWatchlist] = useState<typeof watchlistData>(undefined);
   const updateFolder = useUpdateWatchlistFolder();
   const [typeFilter, setTypeFilter] = useState<"all" | "movie" | "tv">("all");
   const [refreshSeed, setRefreshSeed] = useState(0);
@@ -60,6 +61,10 @@ export function MyListPage() {
     typeFilter,
     refreshSeed
   );
+
+  useEffect(() => {
+    setWatchlist(watchlistData);
+  }, [watchlistData]);
 
   const folderNames = useMemo(() => {
     if (!watchlist) return [];
@@ -169,6 +174,16 @@ export function MyListPage() {
         contentId,
         folder: folderValue === "unsorted" ? undefined : folderValue
       });
+      setWatchlist((current) =>
+        current?.map((item) =>
+          item._id === contentId
+            ? {
+                ...item,
+                watchlistFolder: folderValue === "unsorted" ? undefined : folderValue
+              }
+            : item
+        )
+      );
       if (!options?.silent) {
         toast.success(folderValue === "unsorted" ? "Removed from folder" : "Folder updated");
       }

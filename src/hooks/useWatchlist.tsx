@@ -7,11 +7,12 @@ import {
   useMemo,
   type ReactNode
 } from "react";
-import { useConvex, useConvexAuth, useQuery, useMutation } from "convex/react";
+import { useConvex, useConvexAuth, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { WatchlistItemMeta, WatchlistUpdateMeta } from "../../shared/contentMetadata";
+import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 const LS_KEY = "watchlist_ids";
 
@@ -47,10 +48,10 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
 
   const addMutation = useMutation(api.watchlist.addWatchlistEntry);
   const removeMutation = useMutation(api.watchlist.removeWatchlistEntry);
-
-  const serverIds = useQuery(
-    api.watchlist.listWatchlistContentIds,
-    user && !isConvexAuthLoading ? { clerkUserId: user.id } : "skip"
+  const serverIds = useOneShotConvexQuery<string[]>(
+    !!user && !isConvexAuthLoading,
+    (client) => client.query(api.watchlist.listWatchlistContentIds, { clerkUserId: user!.id }),
+    [user?.id, isConvexAuthLoading]
   );
 
   useEffect(() => {
@@ -135,19 +136,27 @@ export function useWatchlistHydrated(): boolean {
 
 export function useMyWatchlist(): WatchlistItemMeta[] | undefined {
   const { user } = useUser();
-  return useQuery(api.watchlist.listWatchlist, user ? { clerkUserId: user.id } : "skip");
+  return useOneShotConvexQuery<WatchlistItemMeta[]>(
+    !!user,
+    (client) => client.query(api.watchlist.listWatchlist, { clerkUserId: user!.id }),
+    [user?.id]
+  );
 }
 
 export function useWatchlistUpdates(): WatchlistUpdateMeta[] | undefined {
   const { user } = useUser();
-  return useQuery(api.watchlist.listWatchlistUpdates, user ? { clerkUserId: user.id } : "skip");
+  return useOneShotConvexQuery<WatchlistUpdateMeta[]>(
+    !!user,
+    (client) => client.query(api.watchlist.listWatchlistUpdates, { clerkUserId: user!.id }),
+    [user?.id]
+  );
 }
 
 export function useWatchlistUpdatesOnDemand() {
   const { user } = useUser();
   const convex = useConvex();
 
-  return useCallback(async () => {
+  return useCallback(async (): Promise<WatchlistUpdateMeta[]> => {
     if (!user) return [];
     return convex.query(api.watchlist.listWatchlistUpdates, { clerkUserId: user.id });
   }, [convex, user]);

@@ -92,26 +92,101 @@ function AppShell() {
   return (
     <ConvexProviderWithAuth client={convex} useAuth={useStableConvexClerkAuth}>
       <AppSettingsProvider>
-        <GlobalWatchlistProvider>
-          <WatchProgressProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/sign-in/*" element={<SignInPage />} />
-                <Route path="/sign-up/*" element={<SignUpPage />} />
-                <Route path="/watch/:id" element={<WatchPage />} />
-                <Route path="/movies" element={<MoviesPage />} />
-                <Route path="/tv-shows" element={<TVShowsPage />} />
-                <Route path="/new-releases" element={<NewReleasesPage />} />
-                <Route path="/my-list" element={<MyListPage />} />
-                <Route path="/history" element={<WatchHistoryPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/" element={<App />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </BrowserRouter>
-          </WatchProgressProvider>
-        </GlobalWatchlistProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/sign-in/*" element={<SignInPage />} />
+            <Route path="/sign-up/*" element={<SignUpPage />} />
+            <Route
+              path="/watch/:id"
+              element={
+                <WatchProgressProvider>
+                  <WatchPage />
+                </WatchProgressProvider>
+              }
+            />
+            <Route
+              path="/movies"
+              element={
+                <GlobalWatchlistProvider>
+                  <WatchProgressProvider>
+                    <MoviesPage />
+                  </WatchProgressProvider>
+                </GlobalWatchlistProvider>
+              }
+            />
+            <Route
+              path="/tv-shows"
+              element={
+                <GlobalWatchlistProvider>
+                  <WatchProgressProvider>
+                    <TVShowsPage />
+                  </WatchProgressProvider>
+                </GlobalWatchlistProvider>
+              }
+            />
+            <Route
+              path="/new-releases"
+              element={
+                <GlobalWatchlistProvider>
+                  <WatchProgressProvider>
+                    <NewReleasesPage />
+                  </WatchProgressProvider>
+                </GlobalWatchlistProvider>
+              }
+            />
+            <Route
+              path="/my-list"
+              element={
+                <GlobalWatchlistProvider>
+                  <WatchProgressProvider>
+                    <MyListPage />
+                  </WatchProgressProvider>
+                </GlobalWatchlistProvider>
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <GlobalWatchlistProvider>
+                  <WatchProgressProvider>
+                    <WatchHistoryPage />
+                  </WatchProgressProvider>
+                </GlobalWatchlistProvider>
+              }
+            />
+            <Route
+              path="/search"
+              element={
+                <GlobalWatchlistProvider>
+                  <WatchProgressProvider>
+                    <SearchPage />
+                  </WatchProgressProvider>
+                </GlobalWatchlistProvider>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <GlobalWatchlistProvider>
+                  <WatchProgressProvider>
+                    <SettingsPage />
+                  </WatchProgressProvider>
+                </GlobalWatchlistProvider>
+              }
+            />
+            <Route
+              path="/"
+              element={
+                <GlobalWatchlistProvider>
+                  <WatchProgressProvider>
+                    <App />
+                  </WatchProgressProvider>
+                </GlobalWatchlistProvider>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
       </AppSettingsProvider>
     </ConvexProviderWithAuth>
   );

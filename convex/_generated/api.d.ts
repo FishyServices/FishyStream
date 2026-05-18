@@ -9,6 +9,7 @@
  */
 
 import type * as content from "../content.js";
+import type * as lib_contentSnapshots from "../lib/contentSnapshots.js";
 import type * as lib_users from "../lib/users.js";
 import type * as maintenance from "../maintenance.js";
 import type * as providers from "../providers.js";
@@ -25,6 +26,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   content: typeof content;
+  "lib/contentSnapshots": typeof lib_contentSnapshots;
   "lib/users": typeof lib_users;
   maintenance: typeof maintenance;
   providers: typeof providers;

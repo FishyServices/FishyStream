@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Trash2, Check, Play } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -9,8 +10,13 @@ import { Button, toast } from "@fishy/ui";
 export function WatchHistoryPage() {
   const navigate = useNavigate();
   const { isSignedIn } = useUser();
-  const history = useMyWatchHistory();
+  const historyData = useMyWatchHistory();
+  const [history, setHistory] = useState<typeof historyData>(undefined);
   const removeFromHistory = useRemoveFromHistory();
+
+  useEffect(() => {
+    setHistory(historyData);
+  }, [historyData]);
 
   const handlePlay = (
     tmdbId: string,
@@ -31,6 +37,7 @@ export function WatchHistoryPage() {
   const handleRemove = async (contentId: string) => {
     try {
       await removeFromHistory(contentId as any);
+      setHistory((current) => current?.filter((item) => item._id !== contentId));
       toast.success("Removed from history");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to remove";

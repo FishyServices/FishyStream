@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import { mapCanonicalToProviderOrder } from "../shared/tvSeasonMappings";
-import { STREAM_PROVIDERS, getProviderId } from "../shared/providerCatalog";
 import { resolveAniListId } from "../shared/anilistResolver";
+import { STREAM_PROVIDERS, getProviderId } from "../shared/providerCatalog";
+import { mapCanonicalToProviderOrder } from "../shared/tvSeasonMappings";
 
 interface StreamSource {
   key: string;
@@ -11,29 +11,43 @@ interface StreamSource {
   quality: string;
 }
 
+function dedupeSources(sources: StreamSource[]) {
+  const seen = new Set<string>();
+  const result: StreamSource[] = [];
+
+  for (const source of sources) {
+    const key = `${source.key}:${source.url}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(source);
+  }
+
+  return result;
+}
+
 export const listMovieSources = action({
   args: {
     imdbId: v.optional(v.string()),
     tmdbId: v.optional(v.string())
   },
   handler: async (_ctx, { imdbId, tmdbId }): Promise<StreamSource[]> => {
-    const sources: StreamSource[] = [];
-
-    for (const provider of STREAM_PROVIDERS) {
-      if (provider.animeOnly) continue;
+    const sources = STREAM_PROVIDERS.flatMap((provider) => {
+      if (provider.animeOnly) return [];
 
       const id = getProviderId(provider, imdbId, tmdbId);
-      if (!id) continue;
+      if (!id) return [];
 
-      sources.push({
-        key: provider.key,
-        name: provider.name,
-        url: provider.getMovieUrl(id),
-        quality: provider.quality
-      });
-    }
+      return [
+        {
+          key: provider.key,
+          name: provider.name,
+          url: provider.getMovieUrl(id),
+          quality: provider.quality
+        }
+      ];
+    });
 
-    return sources;
+    return dedupeSources(sources);
   }
 });
 
@@ -54,14 +68,14 @@ export const listTvSources = action({
     _ctx,
     { imdbId, tmdbId, anilistId, season, episode, isAnime, title, seasonTitle, year, dub }
   ): Promise<StreamSource[]> => {
-    const sources: StreamSource[] = [];
     let resolvedAniListId: string | null | undefined = undefined;
 
+    const sources = [];
     for (const provider of STREAM_PROVIDERS) {
       if (provider.animeOnly && !isAnime) continue;
 
-      const defaultId = getProviderId(provider, imdbId, tmdbId);
-      let animeId = defaultId;
+      const fallbackId = getProviderId(provider, imdbId, tmdbId);
+      let animeId = fallbackId;
 
       if (isAnime && provider.getAnimeTVUrl && provider.animeIdType === "anilist") {
         if (resolvedAniListId === undefined) {
@@ -80,8 +94,9 @@ export const listTvSources = action({
         animeId = resolvedAniListId;
       }
 
-      const id = animeId ?? defaultId;
+      const id = animeId ?? fallbackId;
       if (!id) continue;
+
       const mapped = mapCanonicalToProviderOrder(tmdbId, provider.name, { season, episode });
       const url =
         isAnime && provider.getAnimeTVUrl && animeId
@@ -96,6 +111,6 @@ export const listTvSources = action({
       });
     }
 
-    return sources;
+    return dedupeSources(sources);
   }
 });

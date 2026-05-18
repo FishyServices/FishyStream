@@ -1,21 +1,27 @@
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { useCallback, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useWatchProgressContext } from "./useWatchProgress";
 import type { WatchHistoryItemMeta } from "../../shared/contentMetadata";
+import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
   const { user } = useUser();
-  return useQuery(api.watchHistory.listWatchHistory, user ? { clerkUserId: user.id } : "skip");
+  return useOneShotConvexQuery<WatchHistoryItemMeta[]>(
+    !!user,
+    (convex) => convex.query(api.watchHistory.listWatchHistory, { clerkUserId: user!.id }),
+    [user?.id]
+  );
 }
 
 export function useContinueWatching(): WatchHistoryItemMeta[] | undefined {
   const { user } = useUser();
-  const serverData = useQuery(
-    api.watchHistory.listContinueWatching,
-    user ? { clerkUserId: user.id } : "skip"
+  const serverData = useOneShotConvexQuery<WatchHistoryItemMeta[]>(
+    !!user,
+    (convex) => convex.query(api.watchHistory.listContinueWatching, { clerkUserId: user!.id }),
+    [user?.id]
   );
   const localProgress = useWatchProgressContext();
 

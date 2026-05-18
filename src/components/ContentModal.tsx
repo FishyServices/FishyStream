@@ -29,16 +29,17 @@ import {
 import type { Doc } from "../../convex/_generated/dataModel";
 import { useUser } from "@clerk/react";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
-import { useQuery, useAction } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "@fishy/ui";
 import { useContentCredits, useContentVideos, useRelatedContent } from "@/hooks/useContent";
+import { useOneShotConvexQuery } from "@/hooks/useOneShotConvexQuery";
 import type { TMDBItem } from "@/hooks/useContent";
 import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
 } from "../../shared/tvSeasonMappings";
-import type { ContentDetail, ContentMeta } from "../../shared/contentMetadata";
+import type { ContentDetail, ContentMeta, SeasonMetaSummary } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -131,9 +132,12 @@ function EpisodePill({
 }
 
 export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalProps) {
-  const fullContent = useQuery(
-    api.content.getContentById,
-    isOpen && content && !hasFullContent(content) ? { id: content._id } : "skip"
+  const [seasonReloadKey, setSeasonReloadKey] = useState(0);
+  const [contentReloadKey, setContentReloadKey] = useState(0);
+  const fullContent = useOneShotConvexQuery<ContentDetail | null>(
+    isOpen && !!content && !hasFullContent(content),
+    (convex) => convex.query(api.content.getContentById, { id: content!._id }),
+    [content?._id, isOpen, contentReloadKey]
   );
   const resolvedContent: ModalContent | null = fullContent
     ? { ...fullContent, ...content }
@@ -148,18 +152,23 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const isInWatchlist = useIsInWatchlist(resolvedContent?._id);
   const toggleWatchlist = useToggleWatchlist();
 
-  const dbSeason = useQuery(
-    api.seasons.getSeasonByContentAndNumber,
-    isOpen && resolvedContent && resolvedContent.type === "tv" && resolvedContent._id
-      ? { contentId: resolvedContent._id, seasonNumber: selectedSeason }
-      : "skip"
+  const dbSeason = useOneShotConvexQuery<Doc<"seasons"> | null>(
+    isOpen && !!resolvedContent && resolvedContent.type === "tv",
+    (convex) =>
+      convex.query(api.seasons.getSeasonByContentAndNumber, {
+        contentId: resolvedContent!._id,
+        seasonNumber: selectedSeason
+      }),
+    [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen, seasonReloadKey]
   );
 
-  const allSeasons = useQuery(
-    api.seasons.listSeasonSummariesByContent,
-    isOpen && resolvedContent && resolvedContent.type === "tv" && resolvedContent._id
-      ? { contentId: resolvedContent._id }
-      : "skip"
+  const allSeasons = useOneShotConvexQuery<SeasonMetaSummary[]>(
+    isOpen && !!resolvedContent && resolvedContent.type === "tv",
+    (convex) =>
+      convex.query(api.seasons.listSeasonSummariesByContent, {
+        contentId: resolvedContent!._id
+      }),
+    [resolvedContent?._id, resolvedContent?.type, isOpen, seasonReloadKey]
   );
 
   const syncSeason = useAction(api.tmdb.syncSeason);
@@ -189,9 +198,13 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   );
   const [relatedSyncing, setRelatedSyncing] = useState(false);
 
-  const relatedContentQuery = useQuery(
-    api.content.getContentByTmdbId,
-    relatedModalItem ? { tmdbId: String(relatedModalItem.tmdbId) } : "skip"
+  const relatedContentQuery = useOneShotConvexQuery<ContentDetail | null>(
+    !!relatedModalItem,
+    (convex) =>
+      convex.query(api.content.getContentByTmdbId, {
+        tmdbId: String(relatedModalItem!.tmdbId)
+      }),
+    [relatedModalItem?.tmdbId]
   );
 
   useEffect(() => {
@@ -231,6 +244,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       seasonNumber
     })
       .then((result) => {
+        if (result) {
+          setSeasonReloadKey((value) => value + 1);
+        }
         if (!result) {
           syncedSeasonKeysRef.current.delete(seasonKey);
           if (selectedSeason === seasonNumber) {
@@ -284,6 +300,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     syncSingleContent({ tmdbId: Number(tmdbId), type: "tv" })
       .then((refreshed) => {
         if (cancelled) return;
+        setContentReloadKey((value) => value + 1);
         const totalSeasons = getCanonicalSeasonCount(
           tmdbId,
           refreshed?.seasons ?? getSeasonCount(resolvedContent)
@@ -302,6 +319,11 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             contentId: resolvedContent._id,
             totalSeasons
           })
+            .then(() => {
+              if (!cancelled) {
+                setSeasonReloadKey((value) => value + 1);
+              }
+            })
             .catch(() => {
               if (!cancelled) {
                 backgroundSyncKeyRef.current = null;
@@ -370,6 +392,11 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       contentId: resolvedContent._id,
       totalSeasons: expectedSeasonCount
     })
+      .then(() => {
+        if (!cancelled) {
+          setSeasonReloadKey((value) => value + 1);
+        }
+      })
       .catch(() => {
         if (!cancelled) {
           backgroundSyncKeyRef.current = null;

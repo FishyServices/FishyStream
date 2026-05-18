@@ -1,7 +1,47 @@
 import { v } from "convex/values";
-import { query, internalMutation } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { toSeasonMetaSummary, type SeasonMetaSummary } from "../shared/contentMetadata";
+
+const episodeValidator = v.object({
+  episodeNumber: v.number(),
+  name: v.string(),
+  overview: v.optional(v.string()),
+  stillUrl: v.optional(v.string()),
+  airDate: v.optional(v.string()),
+  runtime: v.optional(v.number()),
+  voteAverage: v.number()
+});
+
+async function readSeasonRows(ctx: QueryCtx | MutationCtx, contentId: Id<"content">) {
+  return await ctx.db
+    .query("seasons")
+    .withIndex("by_content", (q) => q.eq("contentId", contentId))
+    .collect();
+}
+
+function sortSeasons(rows: Doc<"seasons">[]) {
+  return [...rows].sort((a, b) => a.seasonNumber - b.seasonNumber);
+}
+
+async function syncContentSeasonAggregates(
+  ctx: MutationCtx,
+  contentId: Id<"content">
+) {
+  const content = await ctx.db.get(contentId);
+  if (!content) return;
+
+  const seasons = sortSeasons(await readSeasonRows(ctx, contentId));
+  const totalSeasons = seasons.length > 0 ? Math.max(...seasons.map((row) => row.seasonNumber)) : 0;
+  const totalEpisodes = seasons.reduce((sum, season) => sum + (season.episodeCount || season.episodes.length), 0);
+
+  await ctx.db.patch(contentId, {
+    seasons: totalSeasons,
+    totalEpisodes,
+    updatedAt: Date.now()
+  });
+}
 
 export const upsertSeason = internalMutation({
   args: {
@@ -14,17 +54,7 @@ export const upsertSeason = internalMutation({
     posterUrl: v.optional(v.string()),
     airDate: v.optional(v.string()),
     episodeCount: v.number(),
-    episodes: v.array(
-      v.object({
-        episodeNumber: v.number(),
-        name: v.string(),
-        overview: v.optional(v.string()),
-        stillUrl: v.optional(v.string()),
-        airDate: v.optional(v.string()),
-        runtime: v.optional(v.number()),
-        voteAverage: v.number()
-      })
-    )
+    episodes: v.array(episodeValidator)
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -35,39 +65,21 @@ export const upsertSeason = internalMutation({
       .first();
 
     const now = Date.now();
-    const existingEpisodeCount = existing?.episodeCount ?? existing?.episodes.length ?? 0;
     if (existing) {
       await ctx.db.patch(existing._id, { ...args, updatedAt: now });
     } else {
       await ctx.db.insert("seasons", { ...args, createdAt: now, updatedAt: now });
     }
 
-    const content = await ctx.db.get(args.contentId);
-    if (content) {
-      const nextSeasonCount = Math.max(content.seasons ?? 0, args.seasonNumber);
-      const nextEpisodeTotal = Math.max(
-        0,
-        (content.totalEpisodes ?? 0) - existingEpisodeCount + args.episodeCount
-      );
-
-      await ctx.db.patch(args.contentId, {
-        seasons: nextSeasonCount,
-        totalEpisodes: nextEpisodeTotal,
-        updatedAt: now
-      });
-    }
+    await syncContentSeasonAggregates(ctx, args.contentId);
   }
 });
 
 export const listSeasonSummariesByContent = query({
   args: { contentId: v.id("content") },
   handler: async (ctx, { contentId }): Promise<SeasonMetaSummary[]> => {
-    const seasons = await ctx.db
-      .query("seasons")
-      .withIndex("by_content", (q) => q.eq("contentId", contentId))
-      .collect();
-
-    return seasons.map(toSeasonMetaSummary);
+    const rows = sortSeasons(await readSeasonRows(ctx, contentId));
+    return rows.map(toSeasonMetaSummary);
   }
 });
 
@@ -80,5 +92,26 @@ export const getSeasonByContentAndNumber = query({
         q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
       )
       .first();
+  }
+});
+
+export const rebuildContentSeasonAggregates = internalMutation({
+  args: {
+    contentId: v.optional(v.id("content")),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, { contentId, limit = 500 }) => {
+    if (contentId) {
+      await syncContentSeasonAggregates(ctx, contentId);
+      return 1;
+    }
+
+    const rows = await ctx.db.query("content").take(limit);
+    let updated = 0;
+    for (const row of rows) {
+      await syncContentSeasonAggregates(ctx, row._id);
+      updated += 1;
+    }
+    return updated;
   }
 });

@@ -1003,13 +1003,8 @@ export const getRelated = action({
         title: isMovie ? item.title : item.name,
         type: isMovie ? "movie" : "tv",
         posterUrl: getPosterUrl(item.poster_path),
-        backdropUrl: getBackdropUrl(item.backdrop_path),
         year: getYear(isMovie ? item.release_date : item.first_air_date),
-        voteAverage: item.vote_average,
-        genre: getGenres(item),
-        description: item.overview || "No description available",
-        rating: getRating(item.vote_average),
-        popularity: item.popularity
+        voteAverage: item.vote_average
       };
     });
   }

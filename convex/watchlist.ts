@@ -1,141 +1,154 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
-  toContentMetaSnapshot,
   toWatchlistItemMeta,
   toWatchlistUpdateMeta,
   type WatchlistItemMeta,
   type WatchlistUpdateMeta
 } from "../shared/contentMetadata";
 import { findOrCreateUserIdByClerkId, findUserIdByClerkIdQuery } from "./lib/users";
+import { buildContentSnapshot, hasContentSnapshot } from "./lib/contentSnapshots";
 
-function getCurrentTvCounts(content: Doc<"content">): { seasons: number; episodes: number } {
+function getTvCounts(content: Pick<Doc<"content">, "seasons" | "totalEpisodes">) {
   return {
     seasons: content.seasons ?? 0,
     episodes: content.totalEpisodes ?? 0
   };
 }
 
-function getWatchlistDelta(item: Doc<"watchlist">, content: Doc<"content">) {
-  const currentCounts = getCurrentTvCounts(content);
-  const currentSeasonCount = currentCounts.seasons;
-  const currentEpisodeCount = currentCounts.episodes;
-  const acknowledgedSeasonCount = item.lastAcknowledgedSeasonCount ?? currentSeasonCount;
-  const acknowledgedEpisodeCount = item.lastAcknowledgedEpisodeCount ?? currentEpisodeCount;
+function getWatchlistUpdateDelta(
+  item: Pick<Doc<"watchlist">, "lastAcknowledgedSeasonCount" | "lastAcknowledgedEpisodeCount">,
+  content: Pick<Doc<"content">, "seasons" | "totalEpisodes">
+) {
+  const current = getTvCounts(content);
+  const acknowledgedSeasonCount = item.lastAcknowledgedSeasonCount ?? current.seasons;
+  const acknowledgedEpisodeCount = item.lastAcknowledgedEpisodeCount ?? current.episodes;
 
   return {
-    currentSeasonCount,
-    currentEpisodeCount,
-    acknowledgedSeasonCount,
-    acknowledgedEpisodeCount,
-    newSeasons: Math.max(0, currentSeasonCount - acknowledgedSeasonCount),
-    newEpisodes: Math.max(0, currentEpisodeCount - acknowledgedEpisodeCount)
+    currentSeasonCount: current.seasons,
+    currentEpisodeCount: current.episodes,
+    newSeasons: Math.max(0, current.seasons - acknowledgedSeasonCount),
+    newEpisodes: Math.max(0, current.episodes - acknowledgedEpisodeCount)
   };
 }
 
-function hasWatchlistSnapshot(item: Doc<"watchlist">) {
-  return !!(
-    item.title &&
-    item.contentType &&
-    item.genre &&
-    item.rating &&
-    item.posterUrl &&
-    item.year !== undefined &&
-    item.new !== undefined
-  );
+function toSnapshotBackedWatchlistItem(item: Doc<"watchlist">, content?: Doc<"content"> | null) {
+  const base = content
+    ? {
+        _id: content._id,
+        title: content.title,
+        type: content.type,
+        genre: content.genre,
+        year: content.year,
+        rating: content.rating,
+        voteAverage: content.voteAverage,
+        posterUrl: content.posterUrl,
+        tmdbId: content.tmdbId,
+        new: content.new
+      }
+    : {
+        _id: item.contentId,
+        title: item.title!,
+        type: item.contentType!,
+        genre: item.genre!,
+        year: item.year!,
+        rating: item.rating!,
+        voteAverage: item.voteAverage,
+        posterUrl: item.posterUrl!,
+        tmdbId: item.tmdbId,
+        new: item.new!
+      };
+
+  const tvCounts = content ? getTvCounts(content) : { seasons: 0, episodes: 0 };
+  const delta = getWatchlistUpdateDelta(item, tvCounts);
+
+  return toWatchlistItemMeta({
+    ...base,
+    watchlistAddedAt: item.addedAt,
+    watchlistFolder: item.folder,
+    watchlistNewSeasons: delta.newSeasons,
+    watchlistNewEpisodes: delta.newEpisodes
+  });
+}
+
+async function getUserIdForQuery(ctx: QueryCtx, clerkUserId: string) {
+  return await findUserIdByClerkIdQuery(ctx, clerkUserId);
+}
+
+async function getUserIdForMutation(ctx: MutationCtx, clerkUserId: string) {
+  return await findOrCreateUserIdByClerkId(ctx, clerkUserId);
 }
 
 export const listWatchlist = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchlistItemMeta[]> => {
-    const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
+    const userId = await getUserIdForQuery(ctx, clerkUserId);
     if (!userId) return [];
 
-    const watchlistItems = await ctx.db
+    const items = await ctx.db
       .query("watchlist")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_added_at", (q) => q.eq("userId", userId))
+      .order("desc")
       .collect();
 
-    const contentItems: WatchlistItemMeta[] = [];
-    for (const item of watchlistItems) {
-      const content = hasWatchlistSnapshot(item) ? null : await ctx.db.get(item.contentId);
-      if (!content && !hasWatchlistSnapshot(item)) continue;
+    const result: WatchlistItemMeta[] = [];
+    for (const item of items) {
+      let content: Doc<"content"> | null = null;
+      if (!hasContentSnapshot(item)) {
+        content = await ctx.db.get(item.contentId);
+        if (!content) continue;
+      }
 
-      const {
-        currentSeasonCount,
-        currentEpisodeCount,
-        acknowledgedSeasonCount,
-        acknowledgedEpisodeCount
-      } = getWatchlistDelta(item, content ?? ({ seasons: 0, totalEpisodes: 0 } as Doc<"content">));
-
-      contentItems.push(
-        toWatchlistItemMeta({
-          ...(content
-            ? content
-            : {
-                _id: item.contentId,
-                title: item.title!,
-                type: item.contentType!,
-                genre: item.genre!,
-                year: item.year!,
-                rating: item.rating!,
-                voteAverage: item.voteAverage,
-                posterUrl: item.posterUrl!,
-                tmdbId: item.tmdbId,
-                new: item.new!
-              }),
-          watchlistAddedAt: item.addedAt,
-          watchlistFolder: item.folder,
-          watchlistNewSeasons: Math.max(0, currentSeasonCount - acknowledgedSeasonCount),
-          watchlistNewEpisodes: Math.max(0, currentEpisodeCount - acknowledgedEpisodeCount)
-        })
-      );
+      result.push(toSnapshotBackedWatchlistItem(item, content));
     }
 
-    return contentItems.sort((a, b) => b.watchlistAddedAt - a.watchlistAddedAt);
+    return result;
   }
 });
 
 export const listWatchlistContentIds = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<string[]> => {
-    const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
+    const userId = await getUserIdForQuery(ctx, clerkUserId);
     if (!userId) return [];
 
-    const watchlistItems = await ctx.db
+    const items = await ctx.db
       .query("watchlist")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_added_at", (q) => q.eq("userId", userId))
+      .order("desc")
       .collect();
 
-    return watchlistItems.map((item) => item.contentId);
+    return items.map((item) => item.contentId);
   }
 });
 
 export const addWatchlistEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
+    const userId = await getUserIdForMutation(ctx, clerkUserId);
     if (!userId) return false;
 
     const existing = await ctx.db
       .query("watchlist")
       .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
-
     if (existing) return true;
 
     const content = await ctx.db.get(contentId);
-    const currentCounts = content ? getCurrentTvCounts(content) : { seasons: 0, episodes: 0 };
+    const counts = content ? getTvCounts(content) : { seasons: 0, episodes: 0 };
+
     await ctx.db.insert("watchlist", {
       userId,
       contentId,
       addedAt: Date.now(),
       folder: undefined,
-      ...(content ? toContentMetaSnapshot(content) : {}),
-      lastAcknowledgedSeasonCount: currentCounts.seasons,
-      lastAcknowledgedEpisodeCount: currentCounts.episodes
+      ...(content ? buildContentSnapshot(content) : {}),
+      lastAcknowledgedSeasonCount: counts.seasons,
+      lastAcknowledgedEpisodeCount: counts.episodes
     });
+
     return true;
   }
 });
@@ -143,19 +156,17 @@ export const addWatchlistEntry = mutation({
 export const removeWatchlistEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
+    const userId = await getUserIdForMutation(ctx, clerkUserId);
     if (!userId) return false;
 
     const existing = await ctx.db
       .query("watchlist")
       .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
+    if (!existing) return false;
 
-    if (existing) {
-      await ctx.db.delete(existing._id);
-      return true;
-    }
-    return false;
+    await ctx.db.delete(existing._id);
+    return true;
   }
 });
 
@@ -166,20 +177,19 @@ export const setWatchlistFolder = mutation({
     folder: v.optional(v.string())
   },
   handler: async (ctx, { clerkUserId, contentId, folder }): Promise<boolean> => {
-    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
+    const userId = await getUserIdForMutation(ctx, clerkUserId);
     if (!userId) return false;
 
     const existing = await ctx.db
       .query("watchlist")
       .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
-
     if (!existing) return false;
 
-    const normalizedFolder = folder?.trim() || undefined;
     await ctx.db.patch(existing._id, {
-      folder: normalizedFolder
+      folder: folder?.trim() || undefined
     });
+
     return true;
   }
 });
@@ -187,35 +197,35 @@ export const setWatchlistFolder = mutation({
 export const listWatchlistUpdates = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchlistUpdateMeta[]> => {
-    const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
+    const userId = await getUserIdForQuery(ctx, clerkUserId);
     if (!userId) return [];
 
-    const watchlistItems = await ctx.db
+    const items = await ctx.db
       .query("watchlist")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     const updates: WatchlistUpdateMeta[] = [];
 
-    for (const item of watchlistItems) {
+    for (const item of items) {
+      if (item.contentType === "movie") continue;
+
       const content = await ctx.db.get(item.contentId);
       if (!content || content.type !== "tv") continue;
 
-      const { currentSeasonCount, currentEpisodeCount, newSeasons, newEpisodes } =
-        getWatchlistDelta(item, content);
-
-      if (newSeasons === 0 && newEpisodes === 0) continue;
+      const delta = getWatchlistUpdateDelta(item, content);
+      if (delta.newSeasons === 0 && delta.newEpisodes === 0) continue;
 
       updates.push(
         toWatchlistUpdateMeta({
-          contentId: content._id,
-          title: content.title,
-          posterUrl: content.posterUrl,
-          tmdbId: content.tmdbId,
-          currentSeasonCount,
-          currentEpisodeCount,
-          newSeasons,
-          newEpisodes,
+          contentId: item.contentId,
+          title: item.title ?? content.title,
+          posterUrl: item.posterUrl ?? content.posterUrl,
+          tmdbId: item.tmdbId ?? content.tmdbId,
+          currentSeasonCount: delta.currentSeasonCount,
+          currentEpisodeCount: delta.currentEpisodeCount,
+          newSeasons: delta.newSeasons,
+          newEpisodes: delta.newEpisodes,
           folder: item.folder
         })
       );
@@ -235,29 +245,28 @@ export const acknowledgeWatchlistUpdates = mutation({
     contentIds: v.optional(v.array(v.id("content")))
   },
   handler: async (ctx, { clerkUserId, contentIds }): Promise<number> => {
-    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
+    const userId = await getUserIdForMutation(ctx, clerkUserId);
     if (!userId) return 0;
 
-    const watchlistItems = await ctx.db
+    const selectedIds = contentIds ? new Set<Id<"content">>(contentIds) : null;
+    const items = await ctx.db
       .query("watchlist")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const contentFilter = contentIds ? new Set(contentIds) : null;
     let updatedCount = 0;
-
-    for (const item of watchlistItems) {
-      if (contentFilter && !contentFilter.has(item.contentId)) continue;
+    for (const item of items) {
+      if (selectedIds && !selectedIds.has(item.contentId)) continue;
 
       const content = await ctx.db.get(item.contentId);
       if (!content || content.type !== "tv") continue;
-      const currentCounts = getCurrentTvCounts(content);
 
+      const counts = getTvCounts(content);
       await ctx.db.patch(item._id, {
-        lastAcknowledgedSeasonCount: currentCounts.seasons,
-        lastAcknowledgedEpisodeCount: currentCounts.episodes
+        lastAcknowledgedSeasonCount: counts.seasons,
+        lastAcknowledgedEpisodeCount: counts.episodes
       });
-      updatedCount++;
+      updatedCount += 1;
     }
 
     return updatedCount;
@@ -274,17 +283,7 @@ export const compactWatchlistSnapshots = internalMutation({
       const content = await ctx.db.get(item.contentId);
       if (!content) continue;
 
-      await ctx.db.patch(item._id, {
-        contentType: content.type,
-        title: content.title,
-        genre: content.genre.slice(0, 2),
-        year: content.year,
-        rating: content.rating,
-        voteAverage: content.voteAverage,
-        posterUrl: content.posterUrl,
-        tmdbId: content.tmdbId,
-        new: content.new
-      });
+      await ctx.db.patch(item._id, buildContentSnapshot(content));
       updated += 1;
     }
 

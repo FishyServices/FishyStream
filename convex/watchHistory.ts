@@ -1,166 +1,141 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
-import type { QueryCtx } from "./_generated/server";
-import {
-  toContentMetaSnapshot,
-  toWatchHistoryItemMeta,
-  type WatchHistoryItemMeta
-} from "../shared/contentMetadata";
+import { internalMutation, mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { toWatchHistoryItemMeta, type WatchHistoryItemMeta } from "../shared/contentMetadata";
 import { findOrCreateUserIdByClerkId, findUserIdByClerkIdQuery } from "./lib/users";
+import { buildContentSnapshot, hasContentSnapshot } from "./lib/contentSnapshots";
 
-function hasHistorySnapshot(item: {
-  title?: string;
-  contentType?: "movie" | "tv";
-  genre?: string[];
-  year?: number;
-  rating?: string;
-  posterUrl?: string;
-  new?: boolean;
-}) {
-  return !!(
-    item.title &&
-    item.contentType &&
-    item.genre &&
-    item.rating &&
-    item.posterUrl &&
-    item.year !== undefined &&
-    item.new !== undefined
-  );
+function normalizeProgress(progress: number) {
+  if (!Number.isFinite(progress)) return 0;
+  return Math.max(0, Math.min(100, progress));
 }
 
-function normalizeProgress(progress: number): number {
-  if (!Number.isFinite(progress)) return 0;
-  return Math.max(0, Math.min(progress, 100));
+function toSnapshotBackedHistoryItem(item: Doc<"watchHistory">, content?: Doc<"content"> | null) {
+  const base = content
+    ? {
+        _id: content._id,
+        title: content.title,
+        type: content.type,
+        genre: content.genre,
+        year: content.year,
+        rating: content.rating,
+        voteAverage: content.voteAverage,
+        posterUrl: content.posterUrl,
+        tmdbId: content.tmdbId,
+        new: content.new
+      }
+    : {
+        _id: item.contentId,
+        title: item.title!,
+        type: item.contentType!,
+        genre: item.genre!,
+        year: item.year!,
+        rating: item.rating!,
+        voteAverage: item.voteAverage,
+        posterUrl: item.posterUrl!,
+        tmdbId: item.tmdbId,
+        new: item.new!
+      };
+
+  return toWatchHistoryItemMeta({
+    ...base,
+    progress: item.progress,
+    completed: item.completed,
+    watchedAt: item.watchedAt,
+    positionSeconds: item.positionSeconds,
+    durationSeconds: item.durationSeconds,
+    seasonNumber: item.seasonNumber,
+    episodeNumber: item.episodeNumber,
+    source: item.source,
+    dub: item.dub
+  });
+}
+
+async function queryUserId(ctx: QueryCtx, clerkUserId: string) {
+  return await findUserIdByClerkIdQuery(ctx, clerkUserId);
+}
+
+async function mutateUserId(ctx: MutationCtx, clerkUserId: string) {
+  return await findOrCreateUserIdByClerkId(ctx, clerkUserId);
+}
+
+async function listSnapshotBackedHistory(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+  limit: number,
+  includeCompleted: boolean
+) {
+  const rows = includeCompleted
+    ? await ctx.db
+        .query("watchHistory")
+        .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
+        .order("desc")
+        .take(limit)
+    : await ctx.db
+        .query("watchHistory")
+        .withIndex("by_user_completed_watched_at", (q) =>
+          q.eq("userId", userId).eq("completed", false)
+        )
+        .order("desc")
+        .take(limit);
+
+  const result: WatchHistoryItemMeta[] = [];
+  for (const row of rows) {
+    let content: Doc<"content"> | null = null;
+    if (!hasContentSnapshot(row)) {
+      content = await ctx.db.get(row.contentId);
+      if (!content) continue;
+    }
+
+    result.push(toSnapshotBackedHistoryItem(row, content));
+  }
+
+  return result;
 }
 
 export const listWatchHistory = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
-    const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
+    const userId = await queryUserId(ctx, clerkUserId);
     if (!userId) return [];
-
-    const historyItems = await ctx.db
-      .query("watchHistory")
-      .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
-      .order("desc")
-      .take(50);
-
-    const result = [];
-    for (const item of historyItems) {
-      const content = hasHistorySnapshot(item) ? null : await ctx.db.get(item.contentId);
-      if (!content && !hasHistorySnapshot(item)) continue;
-
-      result.push(
-        toWatchHistoryItemMeta({
-          ...(content
-            ? content
-            : {
-                _id: item.contentId,
-                title: item.title!,
-                type: item.contentType!,
-                genre: item.genre!,
-                year: item.year!,
-                rating: item.rating!,
-                voteAverage: item.voteAverage,
-                posterUrl: item.posterUrl!,
-                tmdbId: item.tmdbId,
-                new: item.new!
-              }),
-          progress: item.progress,
-          completed: item.completed,
-          watchedAt: item.watchedAt,
-          positionSeconds: item.positionSeconds,
-          durationSeconds: item.durationSeconds,
-          seasonNumber: item.seasonNumber,
-          episodeNumber: item.episodeNumber,
-          source: item.source,
-          dub: item.dub
-        })
-      );
-    }
-    return result;
+    return await listSnapshotBackedHistory(ctx, userId, 50, true);
   }
 });
 
 export const listContinueWatching = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
-    const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
+    const userId = await queryUserId(ctx, clerkUserId);
     if (!userId) return [];
-
-    const historyItems = await ctx.db
-      .query("watchHistory")
-      .withIndex("by_user_completed_watched_at", (q) =>
-        q.eq("userId", userId).eq("completed", false)
-      )
-      .order("desc")
-      .take(10);
-
-    const result = [];
-    for (const item of historyItems) {
-      const content = hasHistorySnapshot(item) ? null : await ctx.db.get(item.contentId);
-      if (!content && !hasHistorySnapshot(item)) continue;
-
-      result.push(
-        toWatchHistoryItemMeta({
-          ...(content
-            ? content
-            : {
-                _id: item.contentId,
-                title: item.title!,
-                type: item.contentType!,
-                genre: item.genre!,
-                year: item.year!,
-                rating: item.rating!,
-                voteAverage: item.voteAverage,
-                posterUrl: item.posterUrl!,
-                tmdbId: item.tmdbId,
-                new: item.new!
-              }),
-          progress: item.progress,
-          completed: item.completed,
-          watchedAt: item.watchedAt,
-          positionSeconds: item.positionSeconds,
-          durationSeconds: item.durationSeconds,
-          seasonNumber: item.seasonNumber,
-          episodeNumber: item.episodeNumber,
-          source: item.source,
-          dub: item.dub
-        })
-      );
-    }
-    return result;
+    return await listSnapshotBackedHistory(ctx, userId, 10, false);
   }
 });
-
-async function fetchAllWatchProgress(ctx: QueryCtx, clerkUserId: string) {
-  const userId = await findUserIdByClerkIdQuery(ctx, clerkUserId);
-  if (!userId) return [];
-
-  const historyItems = await ctx.db
-    .query("watchHistory")
-    .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
-    .order("desc")
-    .take(100);
-
-  return historyItems.map((item) => ({
-    contentId: item.contentId,
-    progress: item.progress || 0,
-    positionSeconds: item.positionSeconds || 0,
-    durationSeconds: item.durationSeconds || 0,
-    completed: item.completed || false,
-    seasonNumber: item.seasonNumber ?? null,
-    episodeNumber: item.episodeNumber ?? null,
-    source: item.source ?? null,
-    dub: item.dub ?? null,
-    watchedAt: item.watchedAt
-  }));
-}
 
 export const listWatchProgressEntries = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }) => {
-    return fetchAllWatchProgress(ctx, clerkUserId);
+    const userId = await queryUserId(ctx, clerkUserId);
+    if (!userId) return [];
+
+    const rows = await ctx.db
+      .query("watchHistory")
+      .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(100);
+
+    return rows.map((row) => ({
+      contentId: row.contentId,
+      progress: row.progress,
+      positionSeconds: row.positionSeconds ?? 0,
+      durationSeconds: row.durationSeconds ?? 0,
+      completed: row.completed,
+      seasonNumber: row.seasonNumber ?? null,
+      episodeNumber: row.episodeNumber ?? null,
+      source: row.source ?? null,
+      dub: row.dub ?? null,
+      watchedAt: row.watchedAt
+    }));
   }
 });
 
@@ -178,79 +153,63 @@ export const saveWatchProgress = mutation({
     dub: v.optional(v.boolean())
   },
   handler: async (ctx, args): Promise<void> => {
-    const {
-      clerkUserId,
-      contentId,
-      progress,
-      completed,
-      positionSeconds,
-      durationSeconds,
-      seasonNumber,
-      episodeNumber,
-      source,
-      dub
-    } = args;
-    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
+    const userId = await mutateUserId(ctx, args.clerkUserId);
     if (!userId) throw new Error("User not found");
 
-    const normalizedProgress = normalizeProgress(progress);
-    const isCompleted = completed ?? normalizedProgress >= 95;
-
+    const normalizedProgress = normalizeProgress(args.progress);
+    const completed = args.completed ?? normalizedProgress >= 95;
     const existing = await ctx.db
       .query("watchHistory")
-      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
+      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", args.contentId))
       .first();
 
     if (existing) {
-      const snapshot = hasHistorySnapshot(existing) ? null : await ctx.db.get(contentId);
       await ctx.db.patch(existing._id, {
-        ...(snapshot ? toContentMetaSnapshot(snapshot) : {}),
         progress: normalizedProgress,
-        positionSeconds: positionSeconds ?? existing.positionSeconds,
-        durationSeconds: durationSeconds ?? existing.durationSeconds,
-        seasonNumber: seasonNumber ?? existing.seasonNumber,
-        episodeNumber: episodeNumber ?? existing.episodeNumber,
-        source: source ?? existing.source,
-        dub: dub ?? existing.dub,
-        completed: isCompleted,
+        completed,
+        positionSeconds: args.positionSeconds ?? existing.positionSeconds,
+        durationSeconds: args.durationSeconds ?? existing.durationSeconds,
+        seasonNumber: args.seasonNumber ?? existing.seasonNumber,
+        episodeNumber: args.episodeNumber ?? existing.episodeNumber,
+        source: args.source ?? existing.source,
+        dub: args.dub ?? existing.dub,
         watchedAt: Date.now()
       });
-    } else {
-      const content = await ctx.db.get(contentId);
-      await ctx.db.insert("watchHistory", {
-        userId,
-        contentId,
-        ...(content ? toContentMetaSnapshot(content) : {}),
-        progress: normalizedProgress,
-        positionSeconds,
-        durationSeconds,
-        seasonNumber,
-        episodeNumber,
-        source,
-        dub,
-        completed: isCompleted,
-        watchedAt: Date.now()
-      });
+      return;
     }
+
+    const content = await ctx.db.get(args.contentId);
+    await ctx.db.insert("watchHistory", {
+      userId,
+      contentId: args.contentId,
+      progress: normalizedProgress,
+      completed,
+      positionSeconds: args.positionSeconds,
+      durationSeconds: args.durationSeconds,
+      seasonNumber: args.seasonNumber,
+      episodeNumber: args.episodeNumber,
+      source: args.source,
+      dub: args.dub,
+      watchedAt: Date.now(),
+      ...(content ? buildContentSnapshot(content) : {})
+    });
   }
 });
 
 export const removeWatchHistoryEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
+    const userId = await mutateUserId(ctx, clerkUserId);
     if (!userId) return false;
 
     const existing = await ctx.db
       .query("watchHistory")
       .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
+    if (!existing) return false;
 
-    if (existing) {
-      await ctx.db.delete(existing._id);
-      return true;
-    }
-    return false;
+    await ctx.db.delete(existing._id);
+    return true;
   }
 });
 
@@ -264,17 +223,7 @@ export const compactWatchHistorySnapshots = internalMutation({
       const content = await ctx.db.get(item.contentId);
       if (!content) continue;
 
-      await ctx.db.patch(item._id, {
-        contentType: content.type,
-        title: content.title,
-        genre: content.genre.slice(0, 2),
-        year: content.year,
-        rating: content.rating,
-        voteAverage: content.voteAverage,
-        posterUrl: content.posterUrl,
-        tmdbId: content.tmdbId,
-        new: content.new
-      });
+      await ctx.db.patch(item._id, buildContentSnapshot(content));
       updated += 1;
     }
 
