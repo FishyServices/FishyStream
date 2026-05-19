@@ -232,7 +232,6 @@ async function getBrowsePageData(
 
   return {
     items: pageItems,
-    currentPage: page,
     totalPages: genre ? Math.max(1, Math.ceil(items.length / limit)) : undefined,
     totalCount: genre ? items.length : undefined,
     hasNextPage

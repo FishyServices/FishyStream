@@ -133,7 +133,6 @@ export const getSeasonPlaybackMeta = query({
     if (!season) return null;
 
     return {
-      contentId: season.contentId,
       seasonNumber: season.seasonNumber,
       name: season.name,
       airDate: season.airDate,

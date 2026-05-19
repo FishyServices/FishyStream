@@ -237,7 +237,6 @@ export function usePaginatedContent(
   const normalizedPage = Math.max(1, Math.floor(page));
   const pageData = useOneShotConvexQuery<{
     items: ContentCard[];
-    currentPage: number;
     totalPages?: number;
     totalCount?: number;
     hasNextPage: boolean;

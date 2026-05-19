@@ -10,7 +10,6 @@ interface ContentCardRecord {
   type: ContentType;
   genre: string[];
   year: number;
-  rating: string;
   voteAverage?: number;
   posterUrl: string;
   tmdbId?: string;
@@ -24,6 +23,7 @@ interface ContentCardRowRecord extends Omit<ContentCardRecord, "_id"> {
 interface ContentFeaturedRecord extends ContentCardRecord {
   description: string;
   backdropUrl: string;
+  rating: string;
   logoUrl?: string;
   trailerKey?: string;
   duration?: string;
@@ -101,7 +101,6 @@ export interface ContentCard {
   type: ContentType;
   genre: string[];
   year: number;
-  rating: string;
   voteAverage?: number;
   posterUrl: string;
   tmdbId?: string;
@@ -112,6 +111,7 @@ export interface ContentFeatured extends Omit<ContentCard, "genre"> {
   genre: string[];
   description: string;
   backdropUrl: string;
+  rating: string;
   logoUrl?: string;
   trailerKey?: string;
   duration?: string;
@@ -122,19 +122,16 @@ export interface ContentFeatured extends Omit<ContentCard, "genre"> {
 }
 
 export interface ContentDetail extends ContentFeatured {
-  imdbId?: string;
-  anilistId?: string;
-  voteCount?: number;
-  popularity?: number;
-  totalEpisodes?: number;
-  status?: string;
-  productionCountries?: string[];
-  spokenLanguages?: string[];
-  budget?: number;
-  revenue?: number;
+  originalLanguage?: string;
 }
 
-export interface ContentPlayback extends ContentCard {
+export interface ContentPlayback {
+  _id: ContentId;
+  title: string;
+  type: ContentType;
+  genre: string[];
+  year: number;
+  tmdbId?: string;
   imdbId?: string;
   anilistId?: string;
   originalLanguage?: string;
@@ -174,7 +171,7 @@ export interface WatchlistUpdateMeta {
 export interface WatchHistoryItemMeta extends ContentCard {
   progress: number;
   completed: boolean;
-  watchedAt: number;
+  watchedAt?: number;
   positionSeconds?: number;
   durationSeconds?: number;
   seasonNumber?: number;
@@ -184,11 +181,7 @@ export interface WatchHistoryItemMeta extends ContentCard {
 }
 
 export interface SeasonMetaSummary {
-  _id: SeasonId;
-  contentId: ContentId;
   seasonNumber: number;
-  name: string;
-  airDate?: string;
   episodeCount: number;
   anilistId?: string;
   storedEpisodeCount: number;
@@ -201,7 +194,6 @@ export function toContentCard(content: ContentCardRecord): ContentCard {
     type: content.type,
     genre: content.genre,
     year: content.year,
-    rating: content.rating,
     voteAverage: content.voteAverage,
     posterUrl: content.posterUrl,
     tmdbId: content.tmdbId,
@@ -216,7 +208,6 @@ export function toContentCardRow(content: ContentCardRowRecord): ContentCard {
     type: content.type,
     genre: content.genre,
     year: content.year,
-    rating: content.rating,
     voteAverage: content.voteAverage,
     posterUrl: content.posterUrl,
     tmdbId: content.tmdbId,
@@ -232,7 +223,6 @@ export function toContentCardSnapshot(
     type: content.type,
     genre: content.genre.slice(0, 2),
     year: content.year,
-    rating: content.rating,
     voteAverage: content.voteAverage,
     posterUrl: content.posterUrl,
     tmdbId: content.tmdbId,
@@ -245,6 +235,7 @@ export function toContentFeatured(content: ContentFeaturedRecord): ContentFeatur
     ...toContentCard(content),
     description: content.description,
     backdropUrl: content.backdropUrl,
+    rating: content.rating,
     logoUrl: content.logoUrl,
     trailerKey: content.trailerKey,
     duration: content.duration,
@@ -258,22 +249,18 @@ export function toContentFeatured(content: ContentFeaturedRecord): ContentFeatur
 export function toContentDetail(content: ContentDetailRecord): ContentDetail {
   return {
     ...toContentFeatured(content),
-    imdbId: content.imdbId,
-    anilistId: content.anilistId,
-    voteCount: content.voteCount,
-    popularity: content.popularity,
-    totalEpisodes: content.totalEpisodes,
-    status: content.status,
-    productionCountries: content.productionCountries,
-    spokenLanguages: content.spokenLanguages,
-    budget: content.budget,
-    revenue: content.revenue
+    originalLanguage: content.originalLanguage
   };
 }
 
 export function toContentPlayback(content: ContentPlaybackRecord): ContentPlayback {
   return {
-    ...toContentCard(content),
+    _id: content._id,
+    title: content.title,
+    type: content.type,
+    genre: content.genre,
+    year: content.year,
+    tmdbId: content.tmdbId,
     imdbId: content.imdbId,
     anilistId: content.anilistId,
     originalLanguage: content.originalLanguage,
@@ -286,9 +273,6 @@ export function toWatchHistoryItemMeta(content: WatchHistoryRecord): WatchHistor
     ...toContentCard(content),
     progress: content.progress,
     completed: content.completed,
-    watchedAt: content.watchedAt,
-    positionSeconds: content.positionSeconds,
-    durationSeconds: content.durationSeconds,
     seasonNumber: content.seasonNumber,
     episodeNumber: content.episodeNumber,
     source: content.source,
@@ -347,11 +331,7 @@ export function toWatchlistUpdateMeta(content: WatchlistUpdateRecord): Watchlist
 
 export function toSeasonMetaSummary(content: SeasonSummaryRecord): SeasonMetaSummary {
   return {
-    _id: content._id,
-    contentId: content.contentId,
     seasonNumber: content.seasonNumber,
-    name: content.name,
-    airDate: content.airDate,
     episodeCount: content.episodeCount,
     anilistId: content.anilistId,
     storedEpisodeCount: content.episodes.length
