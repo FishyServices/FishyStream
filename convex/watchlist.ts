@@ -34,7 +34,10 @@ function getWatchlistUpdateDelta(
   };
 }
 
-function toSnapshotBackedWatchlistGridItem(item: Doc<"watchlist">, content?: Doc<"content"> | null) {
+function toSnapshotBackedWatchlistGridItem(
+  item: Doc<"watchlist">,
+  content?: Doc<"content"> | null
+) {
   const tvCounts = content ? getTvCounts(content) : { seasons: 0, episodes: 0 };
   const delta = getWatchlistUpdateDelta(item, tvCounts);
   return toWatchlistGridItem({
