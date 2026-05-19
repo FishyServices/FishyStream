@@ -4,7 +4,6 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
   toWatchlistGridItem,
-  toWatchlistItemMeta,
   toWatchlistUpdateMeta,
   type WatchlistGridItem,
   type WatchlistUpdateMeta
@@ -35,39 +34,15 @@ function getWatchlistUpdateDelta(
   };
 }
 
-function toSnapshotBackedWatchlistItem(item: Doc<"watchlist">, content?: Doc<"content"> | null) {
-  const base = content
-    ? {
-        _id: content._id,
-        title: content.title,
-        type: content.type,
-        genre: content.genre,
-        year: content.year,
-        rating: content.rating,
-        voteAverage: content.voteAverage,
-        posterUrl: content.posterUrl,
-        tmdbId: content.tmdbId,
-        new: content.new
-      }
-    : {
-        _id: item.contentId,
-        title: item.title!,
-        type: item.contentType!,
-        genre: item.genre!,
-        year: item.year!,
-        rating: item.rating!,
-        voteAverage: item.voteAverage,
-        posterUrl: item.posterUrl!,
-        tmdbId: item.tmdbId,
-        new: item.new!
-      };
-
+function toSnapshotBackedWatchlistGridItem(item: Doc<"watchlist">, content?: Doc<"content"> | null) {
   const tvCounts = content ? getTvCounts(content) : { seasons: 0, episodes: 0 };
   const delta = getWatchlistUpdateDelta(item, tvCounts);
-
-  return toWatchlistItemMeta({
-    ...base,
-    watchlistAddedAt: item.addedAt,
+  return toWatchlistGridItem({
+    _id: content?._id ?? item.contentId,
+    title: content?.title ?? item.title!,
+    type: content?.type ?? item.contentType!,
+    posterUrl: content?.posterUrl ?? item.posterUrl!,
+    tmdbId: content?.tmdbId ?? item.tmdbId,
     watchlistFolder: item.folder,
     watchlistNewSeasons: delta.newSeasons,
     watchlistNewEpisodes: delta.newEpisodes
@@ -102,19 +77,7 @@ export const listWatchlist = query({
         if (!content) continue;
       }
 
-      const row = toSnapshotBackedWatchlistItem(item, content);
-      result.push(
-        toWatchlistGridItem({
-          _id: row._id,
-          title: row.title,
-          type: row.type,
-          posterUrl: row.posterUrl,
-          tmdbId: row.tmdbId,
-          watchlistFolder: row.watchlistFolder,
-          watchlistNewSeasons: row.watchlistNewSeasons,
-          watchlistNewEpisodes: row.watchlistNewEpisodes
-        })
-      );
+      result.push(toSnapshotBackedWatchlistGridItem(item, content));
     }
 
     return result;

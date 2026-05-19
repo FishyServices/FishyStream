@@ -104,8 +104,15 @@ export interface ContentCard {
   new: boolean;
 }
 
-export interface ContentFeatured extends Omit<ContentCard, "genre"> {
+export interface ContentFeatured {
+  _id: ContentId;
+  title: string;
+  type: ContentType;
   genre: string[];
+  year: number;
+  voteAverage?: number;
+  posterUrl: string;
+  tmdbId?: string;
   description: string;
   backdropUrl: string;
   rating: string;
@@ -131,13 +138,6 @@ export interface ContentPlayback {
   anilistId?: string;
   originalLanguage?: string;
   seasons?: number;
-}
-
-export interface WatchlistItemMeta extends ContentCard {
-  watchlistAddedAt: number;
-  watchlistFolder?: string;
-  watchlistNewSeasons: number;
-  watchlistNewEpisodes: number;
 }
 
 export interface WatchlistGridItem {
@@ -209,7 +209,14 @@ export function toContentCardRow(content: ContentCardRowRecord): ContentCard {
 
 export function toContentFeatured(content: ContentFeaturedRecord): ContentFeatured {
   return {
-    ...toContentCard(content),
+    _id: content._id,
+    title: content.title,
+    type: content.type,
+    genre: content.genre,
+    year: content.year,
+    voteAverage: content.voteAverage,
+    posterUrl: content.posterUrl,
+    tmdbId: content.tmdbId,
     description: content.description,
     backdropUrl: content.backdropUrl,
     rating: content.rating,
@@ -251,16 +258,6 @@ export function toWatchHistoryItemMeta(content: WatchHistoryRecord): WatchHistor
     episodeNumber: content.episodeNumber,
     source: content.source,
     dub: content.dub
-  };
-}
-
-export function toWatchlistItemMeta(content: WatchlistItemRecord): WatchlistItemMeta {
-  return {
-    ...toContentCard(content),
-    watchlistAddedAt: content.watchlistAddedAt,
-    watchlistFolder: content.watchlistFolder,
-    watchlistNewSeasons: content.watchlistNewSeasons,
-    watchlistNewEpisodes: content.watchlistNewEpisodes
   };
 }
 

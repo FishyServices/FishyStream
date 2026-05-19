@@ -579,11 +579,6 @@ async function getRecommendationSeed(ctx: QueryCtx, clerkUserId: string) {
   return { watchlistIds, preferredType, genres };
 }
 
-export const getRecommendationSeedByUser = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => await getRecommendationSeed(ctx, clerkUserId)
-});
-
 export const setAniListId = internalMutation({
   args: { id: v.id("content"), anilistId: v.string() },
   handler: async (ctx, { id, anilistId }) => {
