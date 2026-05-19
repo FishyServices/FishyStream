@@ -40,13 +40,10 @@ export function useContinueWatching(): WatchHistoryItemMeta[] | undefined {
             ...existing,
             progress: progress.progress,
             completed: progress.completed,
-            positionSeconds: progress.positionSeconds,
-            durationSeconds: progress.durationSeconds,
             seasonNumber: progress.seasonNumber,
             episodeNumber: progress.episodeNumber,
             source: progress.source,
-            dub: progress.dub,
-            watchedAt: Date.now()
+            dub: progress.dub
           };
         }
       }

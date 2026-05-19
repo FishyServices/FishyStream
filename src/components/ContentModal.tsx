@@ -50,8 +50,6 @@ interface WatchHistoryFields {
   seasonNumber?: number;
   episodeNumber?: number;
   completed?: boolean;
-  positionSeconds?: number;
-  durationSeconds?: number;
 }
 
 interface SeasonEpisodeView {
@@ -466,7 +464,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     if (!isOpen || isSyncing) return;
 
     const seasonKey = `${resolvedContent._id}:${selectedSeason}`;
-    const selectedSeasonSummary = allSeasons?.find((season) => season.seasonNumber === selectedSeason);
+    const selectedSeasonSummary = allSeasons?.find(
+      (season) => season.seasonNumber === selectedSeason
+    );
     const expectedEpisodes = getCanonicalSeasonEpisodeCount(resolvedContent.tmdbId, selectedSeason);
     const actualEpisodes =
       selectedSeasonSummary?.episodeCount ||
@@ -477,11 +477,23 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     const hasMismatch =
       expectedEpisodes != null && hasEpisodes && actualEpisodes !== expectedEpisodes;
     const needsSync =
-      !dbSeason || !hasEpisodes || hasMismatch || (animeContent && !selectedSeasonSummary?.anilistId);
+      !dbSeason ||
+      !hasEpisodes ||
+      hasMismatch ||
+      (animeContent && !selectedSeasonSummary?.anilistId);
 
     if (!needsSync || syncedSeasonKeysRef.current.has(seasonKey)) return;
     requestSeasonSync(selectedSeason, { showLoader: !hasEpisodes });
-  }, [animeContent, allSeasons, resolvedContent, dbSeason, isOpen, isSyncing, selectedSeason, syncSeason]);
+  }, [
+    animeContent,
+    allSeasons,
+    resolvedContent,
+    dbSeason,
+    isOpen,
+    isSyncing,
+    selectedSeason,
+    syncSeason
+  ]);
 
   const handleRelatedClick = async (item: TMDBItem) => {
     setRelatedModalItem(item);

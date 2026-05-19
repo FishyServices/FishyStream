@@ -58,16 +58,17 @@ export const runAllMaintenance = action({
     seasonAggregatesUpdated: number;
     contentCardsUpdated: number;
   }> => {
-    const [snapshots, seasonAggregates, contentCardsUpdated]: [[number, number], number, number] = await Promise.all([
-      Promise.all([
-        ctx.runMutation(internal.watchlist.compactWatchlistSnapshots, { limit: watchlistLimit }),
-        ctx.runMutation(internal.watchHistory.compactWatchHistorySnapshots, {
-          limit: watchHistoryLimit
-        })
-      ]),
-      ctx.runMutation(internal.seasons.rebuildContentSeasonAggregates, { limit: seasonLimit }),
-      ctx.runMutation(internal.content.rebuildContentCards, { limit: contentCardLimit })
-    ]);
+    const [snapshots, seasonAggregates, contentCardsUpdated]: [[number, number], number, number] =
+      await Promise.all([
+        Promise.all([
+          ctx.runMutation(internal.watchlist.compactWatchlistSnapshots, { limit: watchlistLimit }),
+          ctx.runMutation(internal.watchHistory.compactWatchHistorySnapshots, {
+            limit: watchHistoryLimit
+          })
+        ]),
+        ctx.runMutation(internal.seasons.rebuildContentSeasonAggregates, { limit: seasonLimit }),
+        ctx.runMutation(internal.content.rebuildContentCards, { limit: contentCardLimit })
+      ]);
 
     return {
       watchlistUpdated: snapshots[0],

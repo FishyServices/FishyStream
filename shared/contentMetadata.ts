@@ -56,9 +56,6 @@ interface ContentPlaybackRecord extends ContentCardRecord {
 interface WatchHistoryRecord extends ContentCardRecord {
   progress: number;
   completed: boolean;
-  watchedAt: number;
-  positionSeconds?: number;
-  durationSeconds?: number;
   seasonNumber?: number;
   episodeNumber?: number;
   source?: string;
@@ -121,9 +118,7 @@ export interface ContentFeatured extends Omit<ContentCard, "genre"> {
   originalLanguage?: string;
 }
 
-export interface ContentDetail extends ContentFeatured {
-  originalLanguage?: string;
-}
+export type ContentDetail = ContentFeatured;
 
 export interface ContentPlayback {
   _id: ContentId;
@@ -171,9 +166,6 @@ export interface WatchlistUpdateMeta {
 export interface WatchHistoryItemMeta extends ContentCard {
   progress: number;
   completed: boolean;
-  watchedAt?: number;
-  positionSeconds?: number;
-  durationSeconds?: number;
   seasonNumber?: number;
   episodeNumber?: number;
   source?: string;
@@ -215,21 +207,6 @@ export function toContentCardRow(content: ContentCardRowRecord): ContentCard {
   };
 }
 
-export function toContentCardSnapshot(
-  content: ContentCardRecord
-): Omit<ContentCardRecord, "_id"> {
-  return {
-    title: content.title,
-    type: content.type,
-    genre: content.genre.slice(0, 2),
-    year: content.year,
-    voteAverage: content.voteAverage,
-    posterUrl: content.posterUrl,
-    tmdbId: content.tmdbId,
-    new: content.new
-  };
-}
-
 export function toContentFeatured(content: ContentFeaturedRecord): ContentFeatured {
   return {
     ...toContentCard(content),
@@ -247,10 +224,7 @@ export function toContentFeatured(content: ContentFeaturedRecord): ContentFeatur
 }
 
 export function toContentDetail(content: ContentDetailRecord): ContentDetail {
-  return {
-    ...toContentFeatured(content),
-    originalLanguage: content.originalLanguage
-  };
+  return toContentFeatured(content);
 }
 
 export function toContentPlayback(content: ContentPlaybackRecord): ContentPlayback {

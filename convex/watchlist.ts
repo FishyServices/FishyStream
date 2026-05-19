@@ -7,7 +7,6 @@ import {
   toWatchlistItemMeta,
   toWatchlistUpdateMeta,
   type WatchlistGridItem,
-  type WatchlistItemMeta,
   type WatchlistUpdateMeta
 } from "../shared/contentMetadata";
 import { findOrCreateUserIdByClerkId, findUserIdByClerkIdQuery } from "./lib/users";
@@ -278,16 +277,26 @@ export const acknowledgeWatchlistUpdates = mutation({
     const userId = await getUserIdForMutation(ctx, clerkUserId);
     if (!userId) return 0;
 
-    const selectedIds = contentIds ? new Set<Id<"content">>(contentIds) : null;
-    const items = await ctx.db
-      .query("watchlist")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const items = contentIds?.length
+      ? (
+          await Promise.all(
+            contentIds.map((contentId) =>
+              ctx.db
+                .query("watchlist")
+                .withIndex("by_user_content", (q) =>
+                  q.eq("userId", userId).eq("contentId", contentId)
+                )
+                .first()
+            )
+          )
+        ).filter((item): item is Doc<"watchlist"> => !!item)
+      : await ctx.db
+          .query("watchlist")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .collect();
 
     let updatedCount = 0;
     for (const item of items) {
-      if (selectedIds && !selectedIds.has(item.contentId)) continue;
-
       const content = await ctx.db.get(item.contentId);
       if (!content || content.type !== "tv") continue;
 

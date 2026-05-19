@@ -67,7 +67,7 @@ async function readSortedContent(
   type: "movie" | "tv",
   sortBy: BrowseSort,
   takeCount: number
-) : Promise<ContentCard[]> {
+): Promise<ContentCard[]> {
   let cardRows;
   switch (sortBy) {
     case "trending":
@@ -219,21 +219,35 @@ async function getBrowsePageData(
   const limit = normalizeLimit(args.limit);
   const sortBy = args.sortBy ?? "popular";
   const genre = lower(args.genre);
-  const takeCount = genre ? Math.max(page * limit * 4, 120) : page * limit + 1;
+  const start = (page - 1) * limit;
 
-  let items = await readSortedContent(ctx, args.type, sortBy, takeCount);
   if (genre) {
-    items = items.filter((item) => item.genre.some((value) => lower(value) === genre));
+    let requested = Math.max(limit * 2, page * limit + 1);
+    let filtered: ContentCard[] = [];
+    let exhausted = false;
+
+    while (!exhausted && filtered.length <= start + limit) {
+      const batch = await readSortedContent(ctx, args.type, sortBy, requested);
+      filtered = batch.filter((item) => item.genre.some((value) => lower(value) === genre));
+      exhausted = batch.length < requested;
+      requested = Math.min(requested * 2, 5000);
+      if (requested === 5000 && batch.length === 5000) {
+        break;
+      }
+    }
+
+    return {
+      items: filtered.slice(start, start + limit),
+      hasNextPage: filtered.length > start + limit
+    };
   }
 
-  const start = (page - 1) * limit;
+  const items = await readSortedContent(ctx, args.type, sortBy, page * limit + 1);
   const pageItems = items.slice(start, start + limit);
-  const hasNextPage = genre ? start + limit < items.length : items.length > page * limit;
+  const hasNextPage = items.length > page * limit;
 
   return {
     items: pageItems,
-    totalPages: genre ? Math.max(1, Math.ceil(items.length / limit)) : undefined,
-    totalCount: genre ? items.length : undefined,
     hasNextPage
   };
 }
@@ -409,7 +423,9 @@ export const rebuildContentCards = internalMutation({
   },
   handler: async (ctx, { contentId, limit = 1000 }) => {
     const rows = contentId
-      ? ((await ctx.db.get(contentId)) ? [await ctx.db.get(contentId)] : [])
+      ? (await ctx.db.get(contentId))
+        ? [await ctx.db.get(contentId)]
+        : []
       : await ctx.db.query("content").take(limit);
 
     let updated = 0;

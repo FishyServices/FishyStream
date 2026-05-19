@@ -10,7 +10,6 @@ interface WatchHistoryFields {
   seasonNumber?: number;
   episodeNumber?: number;
   completed?: boolean;
-  watchedAt?: number;
   source?: string;
   dub?: boolean;
 }
