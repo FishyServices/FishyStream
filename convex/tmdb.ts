@@ -468,7 +468,10 @@ async function buildCanonicalSeasonPayload(
   if (!data) return null;
 
   const startIndex = Math.max(0, seasonDef.sourceEpisodeStart - 1);
-  const slicedEpisodes = (data.episodes ?? []).slice(startIndex, startIndex + seasonDef.episodeCount);
+  const slicedEpisodes = (data.episodes ?? []).slice(
+    startIndex,
+    startIndex + seasonDef.episodeCount
+  );
   const airDate = slicedEpisodes[0]?.air_date ?? data.air_date ?? undefined;
   const usesSplitCanonicalSeason =
     seasonDef.sourceSeason !== seasonDef.seasonNumber || seasonDef.sourceEpisodeStart !== 1;
