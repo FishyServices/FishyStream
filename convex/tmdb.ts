@@ -183,6 +183,25 @@ interface TMDBSeasonDetails {
   episodes: TMDBEpisode[];
 }
 
+interface CanonicalSeasonPayload {
+  seasonNumber: number;
+  name: string;
+  overview?: string;
+  posterUrl?: string;
+  airDate?: string;
+  episodeCount: number;
+  year?: number;
+  episodes: Array<{
+    episodeNumber: number;
+    name: string;
+    overview?: string;
+    stillUrl?: string;
+    airDate?: string;
+    runtime?: number;
+    voteAverage: number;
+  }>;
+}
+
 type TMDBListItem = TMDBMovieListItem | TMDBTVListItem;
 interface TMDBListResponse<T> {
   page: number;
@@ -407,6 +426,71 @@ async function mapInBatches<T, R>(
     out.push(...results);
   }
   return out;
+}
+
+function mapTmdbSeasonToCanonicalPayload(
+  data: TMDBSeasonDetails,
+  seasonNumber: number
+): CanonicalSeasonPayload {
+  return {
+    seasonNumber,
+    name: data.name,
+    overview: data.overview || undefined,
+    posterUrl: data.poster_path ? getPosterUrl(data.poster_path) : undefined,
+    airDate: data.air_date ?? undefined,
+    episodeCount: data.episodes?.length ?? 0,
+    year: getYear(data.air_date ?? undefined),
+    episodes: (data.episodes ?? []).map((ep) => ({
+      episodeNumber: ep.episode_number,
+      name: ep.name,
+      overview: ep.overview || undefined,
+      stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
+      airDate: ep.air_date ?? undefined,
+      runtime: ep.runtime ?? undefined,
+      voteAverage: ep.vote_average
+    }))
+  };
+}
+
+async function buildCanonicalSeasonPayload(
+  tmdbId: string,
+  seasonNumber: number,
+  override = getTvOrderingOverride(tmdbId)
+): Promise<CanonicalSeasonPayload | null> {
+  const seasonDef = override?.canonicalSeasons.find((entry) => entry.seasonNumber === seasonNumber);
+  if (!seasonDef) {
+    const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
+    if (!data) return null;
+    return mapTmdbSeasonToCanonicalPayload(data, data.season_number);
+  }
+
+  const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonDef.sourceSeason}`);
+  if (!data) return null;
+
+  const startIndex = Math.max(0, seasonDef.sourceEpisodeStart - 1);
+  const slicedEpisodes = (data.episodes ?? []).slice(startIndex, startIndex + seasonDef.episodeCount);
+  const airDate = slicedEpisodes[0]?.air_date ?? data.air_date ?? undefined;
+  const usesSplitCanonicalSeason =
+    seasonDef.sourceSeason !== seasonDef.seasonNumber || seasonDef.sourceEpisodeStart !== 1;
+
+  return {
+    seasonNumber,
+    name: usesSplitCanonicalSeason ? `Season ${seasonNumber}` : data.name,
+    overview: data.overview || undefined,
+    posterUrl: data.poster_path ? getPosterUrl(data.poster_path) : undefined,
+    airDate,
+    episodeCount: slicedEpisodes.length,
+    year: getYear(airDate),
+    episodes: slicedEpisodes.map((ep, index) => ({
+      episodeNumber: index + 1,
+      name: ep.name,
+      overview: ep.overview || undefined,
+      stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
+      airDate: ep.air_date ?? undefined,
+      runtime: ep.runtime ?? undefined,
+      voteAverage: ep.vote_average
+    }))
+  };
 }
 
 // ─── Public Actions ───────────────────────────────────────────────────────────
@@ -796,34 +880,26 @@ export const syncSeasons = action({
 
     let synced = 0;
     for (let s = 1; s <= Math.min(totalSeasons, 20); s++) {
-      const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${s}`);
-      if (!data) continue;
+      const payload = await buildCanonicalSeasonPayload(tmdbId, s, override);
+      if (!payload) continue;
       const resolvedAniListId = await resolveAniListId({
         title: contentTitle,
-        season: data.season_number,
-        seasonTitle: data.name,
-        year: getYear(data.air_date ?? undefined)
+        season: payload.seasonNumber,
+        seasonTitle: payload.name,
+        year: payload.year
       });
 
       await ctx.runMutation(internal.seasons.upsertSeason, {
         contentId: contentId as any,
         tmdbId,
         anilistId: resolvedAniListId ?? undefined,
-        seasonNumber: data.season_number,
-        name: data.name,
-        overview: data.overview || undefined,
-        posterUrl: data.poster_path ? getPosterUrl(data.poster_path) : undefined,
-        airDate: data.air_date ?? undefined,
-        episodeCount: data.episodes?.length ?? 0,
-        episodes: (data.episodes ?? []).map((ep) => ({
-          episodeNumber: ep.episode_number,
-          name: ep.name,
-          overview: ep.overview || undefined,
-          stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
-          airDate: ep.air_date ?? undefined,
-          runtime: ep.runtime ?? undefined,
-          voteAverage: ep.vote_average
-        }))
+        seasonNumber: payload.seasonNumber,
+        name: payload.name,
+        overview: payload.overview,
+        posterUrl: payload.posterUrl,
+        airDate: payload.airDate,
+        episodeCount: payload.episodeCount,
+        episodes: payload.episodes
       });
       synced++;
     }
@@ -888,37 +964,29 @@ export const syncSeason = action({
       return { seasonNumber, episodeCount: group.episodes.length };
     }
 
-    const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
-    if (!data) return null;
+    const payload = await buildCanonicalSeasonPayload(tmdbId, seasonNumber, override);
+    if (!payload) return null;
     const resolvedAniListId = await resolveAniListId({
       title: contentTitle,
-      season: data.season_number,
-      seasonTitle: data.name,
-      year: getYear(data.air_date ?? undefined)
+      season: payload.seasonNumber,
+      seasonTitle: payload.name,
+      year: payload.year
     });
 
     await ctx.runMutation(internal.seasons.upsertSeason, {
       contentId: contentId as any,
       tmdbId,
       anilistId: resolvedAniListId ?? undefined,
-      seasonNumber: data.season_number,
-      name: data.name,
-      overview: data.overview || undefined,
-      posterUrl: data.poster_path ? getPosterUrl(data.poster_path) : undefined,
-      airDate: data.air_date ?? undefined,
-      episodeCount: data.episodes?.length ?? 0,
-      episodes: (data.episodes ?? []).map((ep) => ({
-        episodeNumber: ep.episode_number,
-        name: ep.name,
-        overview: ep.overview || undefined,
-        stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
-        airDate: ep.air_date ?? undefined,
-        runtime: ep.runtime ?? undefined,
-        voteAverage: ep.vote_average
-      }))
+      seasonNumber: payload.seasonNumber,
+      name: payload.name,
+      overview: payload.overview,
+      posterUrl: payload.posterUrl,
+      airDate: payload.airDate,
+      episodeCount: payload.episodeCount,
+      episodes: payload.episodes
     });
 
-    return { seasonNumber: data.season_number, episodeCount: data.episodes?.length ?? 0 };
+    return { seasonNumber: payload.seasonNumber, episodeCount: payload.episodeCount };
   }
 });
 
