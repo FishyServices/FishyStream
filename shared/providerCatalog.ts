@@ -33,6 +33,13 @@ export interface ProviderProgressConfig {
   controlApi?: boolean;
   statusRequest?: boolean;
   resumeParam?: "progress" | "startAt";
+  referrerPolicy?:
+    | "no-referrer"
+    | "unsafe-url"
+    | "origin"
+    | "origin-when-cross-origin"
+    | "strict-origin"
+    | "strict-origin-when-cross-origin";
 }
 
 export interface ProviderCatalogEntry {
@@ -68,6 +75,7 @@ function defineProvider(definition: ProviderDefinition): ProviderCatalogEntry {
 
   const resolveUrl = (path: string) => {
     if (!baseUrl) return path;
+    if (path.startsWith("/api/")) return path;
     return path.startsWith("http://") || path.startsWith("https://") ? path : `${baseUrl}${path}`;
   };
 
@@ -132,7 +140,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://vidnest.fun",
     animeIdType: "anilist",
     dubSupport: true,
-    progress: { origins: ALL_ORIGINS, resumeParam: "progress" },
+    progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) => `/anime/${id}/${episode}${dub ? "/dub" : "/sub"}`
@@ -146,7 +154,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://vidrock.ru",
     animeIdType: "anilist",
     dubSupport: true,
-    progress: { origins: ALL_ORIGINS },
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "strict-origin-when-cross-origin" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) =>

@@ -974,7 +974,9 @@ export function VideoPlayer({
           allowFullScreen
           allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
           title={`Playing ${content.title}`}
-          referrerPolicy="no-referrer-when-downgrade"
+          referrerPolicy={
+            selectedProvider?.progress?.referrerPolicy ?? "no-referrer-when-downgrade"
+          }
         />
 
         {showNextEpisodeButton && (
