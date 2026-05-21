@@ -329,7 +329,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     const refreshKey = `${resolvedContent._id}:${tmdbId}`;
     if (isRefreshingTv || refreshedTvKeyRef.current === refreshKey) return;
 
-    const shouldRefreshTvMetadata = allSeasons.length === 0 && knownSeasonCount == null;
+    const shouldRefreshTvMetadata =
+      (allSeasons.length === 0 && knownSeasonCount == null) ||
+      (knownSeasonCount === 1 && allSeasons.length <= 1);
     if (!shouldRefreshTvMetadata) {
       refreshedTvKeyRef.current = refreshKey;
       return;

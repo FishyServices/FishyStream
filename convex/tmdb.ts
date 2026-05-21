@@ -452,6 +452,10 @@ function mapTmdbSeasonToCanonicalPayload(
   };
 }
 
+function hasEpisodes(data: TMDBSeasonDetails | null): data is TMDBSeasonDetails {
+  return (data?.episodes?.length ?? 0) > 0;
+}
+
 async function buildCanonicalSeasonPayload(
   tmdbId: string,
   seasonNumber: number,
@@ -468,19 +472,31 @@ async function buildCanonicalSeasonPayload(
   if (!data) return null;
 
   const startIndex = Math.max(0, seasonDef.sourceEpisodeStart - 1);
-  const slicedEpisodes = (data.episodes ?? []).slice(
+  let sourceData = data;
+  let slicedEpisodes = (sourceData.episodes ?? []).slice(
     startIndex,
     startIndex + seasonDef.episodeCount
   );
-  const airDate = slicedEpisodes[0]?.air_date ?? data.air_date ?? undefined;
+
+  if (slicedEpisodes.length === 0 && seasonDef.sourceSeason !== seasonNumber) {
+    const directSeasonData = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
+    if (hasEpisodes(directSeasonData)) {
+      sourceData = directSeasonData;
+      slicedEpisodes = sourceData.episodes.slice(0, seasonDef.episodeCount);
+    }
+  }
+
+  if (slicedEpisodes.length === 0) return null;
+
+  const airDate = slicedEpisodes[0]?.air_date ?? sourceData.air_date ?? undefined;
   const usesSplitCanonicalSeason =
     seasonDef.sourceSeason !== seasonDef.seasonNumber || seasonDef.sourceEpisodeStart !== 1;
 
   return {
     seasonNumber,
-    name: usesSplitCanonicalSeason ? `Season ${seasonNumber}` : data.name,
-    overview: data.overview || undefined,
-    posterUrl: data.poster_path ? getPosterUrl(data.poster_path) : undefined,
+    name: usesSplitCanonicalSeason ? `Season ${seasonNumber}` : sourceData.name,
+    overview: sourceData.overview || undefined,
+    posterUrl: sourceData.poster_path ? getPosterUrl(sourceData.poster_path) : undefined,
     airDate,
     episodeCount: slicedEpisodes.length,
     year: getYear(airDate),

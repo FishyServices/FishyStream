@@ -84,15 +84,16 @@ async function syncContentSeasonAggregates(ctx: MutationCtx, contentId: Id<"cont
   if (!content) return;
 
   const seasons = sortSeasons(await readSeasonRows(ctx, contentId));
-  const totalSeasons = seasons.length > 0 ? Math.max(...seasons.map((row) => row.seasonNumber)) : 0;
-  const totalEpisodes = seasons.reduce(
+  const syncedSeasonCount =
+    seasons.length > 0 ? Math.max(...seasons.map((row) => row.seasonNumber)) : 0;
+  const syncedEpisodeCount = seasons.reduce(
     (sum, season) => sum + (season.episodeCount || season.episodes.length),
     0
   );
 
   await ctx.db.patch(contentId, {
-    seasons: totalSeasons,
-    totalEpisodes,
+    seasons: Math.max(content.seasons ?? 0, syncedSeasonCount),
+    totalEpisodes: Math.max(content.totalEpisodes ?? 0, syncedEpisodeCount),
     updatedAt: Date.now()
   });
 }
