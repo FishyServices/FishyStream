@@ -240,9 +240,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     dubSupport: true,
     progress: { origins: ALL_ORIGINS, resumeParam: "progress" },
     moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) =>
-      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "superembed",
