@@ -45,6 +45,9 @@ type ServerProgress = {
 const LS_KEY = "watch_progress";
 const MAX_ENTRIES = 100;
 const FLUSH_DEBOUNCE_MS = 15_000;
+const MIN_PROGRESS_DELTA_TO_SYNC = 1;
+const MIN_POSITION_DELTA_TO_SYNC_SECONDS = 10;
+const MAX_STALE_SYNC_MS = 60_000;
 
 function normalizeProgress(progress: number): number {
   if (!Number.isFinite(progress)) return 0;
@@ -186,6 +189,31 @@ export function useUpdateProgress() {
     lsSetAll([...all, entry]);
   }, []);
 
+  const shouldQueueSync = useCallback((next: StoredProgress) => {
+    const currentPending = pendingRef.current.get(next.contentId);
+    const currentStored = lsGetAll().find((item) => item.contentId === next.contentId);
+    const baseline = currentPending ?? currentStored;
+    if (!baseline) return true;
+
+    const positionDelta = Math.abs(next.positionSeconds - baseline.positionSeconds);
+    const progressDelta = Math.abs(next.progress - baseline.progress);
+    const metadataChanged =
+      baseline.completed !== next.completed ||
+      baseline.durationSeconds !== next.durationSeconds ||
+      baseline.seasonNumber !== next.seasonNumber ||
+      baseline.episodeNumber !== next.episodeNumber ||
+      baseline.source !== next.source ||
+      baseline.dub !== next.dub;
+
+    if (metadataChanged) return true;
+    if (next.completed && !baseline.completed) return true;
+    if (progressDelta >= MIN_PROGRESS_DELTA_TO_SYNC) return true;
+    if (positionDelta >= MIN_POSITION_DELTA_TO_SYNC_SECONDS) return true;
+    if (next.lastUpdated - baseline.lastUpdated >= MAX_STALE_SYNC_MS) return true;
+
+    return false;
+  }, []);
+
   const flushToDb = useCallback(async () => {
     if (!user || syncingRef.current || pendingRef.current.size === 0) return;
 
@@ -279,17 +307,20 @@ export function useUpdateProgress() {
         source,
         dub,
         lastUpdated: Date.now(),
-        needsSync: true
+        needsSync: false
       };
 
-      pendingRef.current.set(contentId, entry);
+      entry.needsSync = shouldQueueSync(entry);
+      if (entry.needsSync) {
+        pendingRef.current.set(contentId, entry);
+      }
       persistEntry(entry);
       ctx?.setEntry(contentId, toProgressState(entry));
 
-      if (user) {
+      if (user && entry.needsSync) {
         scheduleFlush();
       }
     },
-    [ctx, persistEntry, scheduleFlush, user]
+    [ctx, persistEntry, scheduleFlush, shouldQueueSync, user]
   );
 }

@@ -223,6 +223,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   );
   const [relatedSyncing, setRelatedSyncing] = useState(false);
 
+  const knownSeasonCount = getSeasonCount(resolvedContent);
+
   const relatedContentQuery = useOneShotConvexQuery<ContentDetail | null>(
     !!relatedModalItem,
     (convex) =>
@@ -321,9 +323,17 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     ) {
       return;
     }
+    if (allSeasons === undefined) return;
+
     const tmdbId = String(resolvedContent.tmdbId);
     const refreshKey = `${resolvedContent._id}:${tmdbId}`;
     if (isRefreshingTv || refreshedTvKeyRef.current === refreshKey) return;
+
+    const shouldRefreshTvMetadata = allSeasons.length === 0 && knownSeasonCount == null;
+    if (!shouldRefreshTvMetadata) {
+      refreshedTvKeyRef.current = refreshKey;
+      return;
+    }
 
     let cancelled = false;
     refreshedTvKeyRef.current = refreshKey;
@@ -332,39 +342,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     syncSingleContent({ tmdbId: Number(tmdbId), type: "tv" })
       .then((refreshed) => {
         if (cancelled) return;
-        const totalSeasons = getCanonicalSeasonCount(
-          tmdbId,
-          refreshed?.seasons ?? getSeasonCount(resolvedContent)
-        );
         if (refreshed?.seasons != null) {
           setSeasonCountOverride(refreshed.seasons);
-        }
-
-        const backgroundSyncKey = `${resolvedContent._id}:${tmdbId}:${totalSeasons}`;
-        if (backgroundSyncKeyRef.current !== backgroundSyncKey) {
-          backgroundSyncKeyRef.current = backgroundSyncKey;
-          setIsBackgroundSyncing(true);
-
-          void syncSeasons({
-            tmdbId,
-            contentId: resolvedContent._id,
-            totalSeasons
-          })
-            .then(() => {
-              if (!cancelled) {
-                setSeasonReloadKey((value) => value + 1);
-              }
-            })
-            .catch(() => {
-              if (!cancelled) {
-                backgroundSyncKeyRef.current = null;
-              }
-            })
-            .finally(() => {
-              if (!cancelled) {
-                setIsBackgroundSyncing(false);
-              }
-            });
         }
       })
       .catch(() => {})
@@ -375,7 +354,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     return () => {
       cancelled = true;
     };
-  }, [resolvedContent, isOpen, isRefreshingTv, syncSeasons, syncSingleContent]);
+  }, [allSeasons, knownSeasonCount, resolvedContent, isOpen, isRefreshingTv, syncSingleContent]);
 
   useEffect(() => {
     if (
@@ -531,7 +510,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
   const isHydratingContent = isOpen && !hasFullContent(content) && fullContent === undefined;
   const contentData = resolvedContent;
-  const knownSeasonCount = getSeasonCount(contentData);
   const heroImageUrl =
     detailContent?.backdropUrl ?? ("posterUrl" in contentData ? contentData.posterUrl : undefined);
 

@@ -11,6 +11,38 @@ function normalizeProgress(progress: number) {
   return Math.max(0, Math.min(100, progress));
 }
 
+function normalizeOptionalNumber(value: number | undefined) {
+  return value === undefined ? undefined : Math.max(0, value);
+}
+
+function shouldSkipProgressUpdate(
+  existing: Doc<"watchHistory">,
+  next: {
+    progress: number;
+    completed: boolean;
+    positionSeconds?: number;
+    durationSeconds?: number;
+    seasonNumber?: number;
+    episodeNumber?: number;
+    source?: string;
+    dub?: boolean;
+  }
+) {
+  const positionDelta = Math.abs((existing.positionSeconds ?? 0) - (next.positionSeconds ?? 0));
+  const progressDelta = Math.abs(existing.progress - next.progress);
+
+  return (
+    existing.completed === next.completed &&
+    positionDelta < 5 &&
+    progressDelta < 1 &&
+    (existing.durationSeconds ?? 0) === (next.durationSeconds ?? 0) &&
+    existing.seasonNumber === next.seasonNumber &&
+    existing.episodeNumber === next.episodeNumber &&
+    existing.source === next.source &&
+    existing.dub === next.dub
+  );
+}
+
 function toSnapshotBackedHistoryItem(item: Doc<"watchHistory">, content?: Doc<"content"> | null) {
   const base = content
     ? {
@@ -119,7 +151,7 @@ export const listWatchProgressEntries = query({
       .query("watchHistory")
       .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(100);
+      .take(50);
 
     return rows.map((row) => ({
       contentId: row.contentId,
@@ -155,21 +187,31 @@ export const saveWatchProgress = mutation({
 
     const normalizedProgress = normalizeProgress(args.progress);
     const completed = args.completed ?? normalizedProgress >= 95;
+    const nextPositionSeconds = normalizeOptionalNumber(args.positionSeconds);
+    const nextDurationSeconds = normalizeOptionalNumber(args.durationSeconds);
     const existing = await ctx.db
       .query("watchHistory")
       .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", args.contentId))
       .first();
 
     if (existing) {
-      await ctx.db.patch(existing._id, {
+      const nextState = {
         progress: normalizedProgress,
         completed,
-        positionSeconds: args.positionSeconds ?? existing.positionSeconds,
-        durationSeconds: args.durationSeconds ?? existing.durationSeconds,
+        positionSeconds: nextPositionSeconds ?? existing.positionSeconds,
+        durationSeconds: nextDurationSeconds ?? existing.durationSeconds,
         seasonNumber: args.seasonNumber ?? existing.seasonNumber,
         episodeNumber: args.episodeNumber ?? existing.episodeNumber,
         source: args.source ?? existing.source,
-        dub: args.dub ?? existing.dub,
+        dub: args.dub ?? existing.dub
+      };
+
+      if (shouldSkipProgressUpdate(existing, nextState)) {
+        return;
+      }
+
+      await ctx.db.patch(existing._id, {
+        ...nextState,
         watchedAt: Date.now()
       });
       return;
@@ -181,8 +223,8 @@ export const saveWatchProgress = mutation({
       contentId: args.contentId,
       progress: normalizedProgress,
       completed,
-      positionSeconds: args.positionSeconds,
-      durationSeconds: args.durationSeconds,
+      positionSeconds: nextPositionSeconds,
+      durationSeconds: nextDurationSeconds,
       seasonNumber: args.seasonNumber,
       episodeNumber: args.episodeNumber,
       source: args.source,

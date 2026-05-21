@@ -25,6 +25,60 @@ function sortSeasons(rows: Doc<"seasons">[]) {
   return [...rows].sort((a, b) => a.seasonNumber - b.seasonNumber);
 }
 
+function episodesEqual(a: Doc<"seasons">["episodes"], b: typeof a) {
+  if (a.length !== b.length) return false;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const left = a[i];
+    const right = b[i];
+    if (!left || !right) {
+      return false;
+    }
+    if (
+      left.episodeNumber !== right.episodeNumber ||
+      left.name !== right.name ||
+      left.overview !== right.overview ||
+      left.stillUrl !== right.stillUrl ||
+      left.airDate !== right.airDate ||
+      left.runtime !== right.runtime ||
+      left.voteAverage !== right.voteAverage
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function seasonPayloadChanged(
+  existing: Doc<"seasons">,
+  args: {
+    contentId: Id<"content">;
+    tmdbId: string;
+    anilistId?: string;
+    seasonNumber: number;
+    name: string;
+    overview?: string;
+    posterUrl?: string;
+    airDate?: string;
+    episodeCount: number;
+    episodes: Doc<"seasons">["episodes"];
+  }
+) {
+  return (
+    existing.contentId !== args.contentId ||
+    existing.tmdbId !== args.tmdbId ||
+    existing.anilistId !== args.anilistId ||
+    existing.seasonNumber !== args.seasonNumber ||
+    existing.name !== args.name ||
+    existing.overview !== args.overview ||
+    existing.posterUrl !== args.posterUrl ||
+    existing.airDate !== args.airDate ||
+    existing.episodeCount !== args.episodeCount ||
+    !episodesEqual(existing.episodes, args.episodes)
+  );
+}
+
 async function syncContentSeasonAggregates(ctx: MutationCtx, contentId: Id<"content">) {
   const content = await ctx.db.get(contentId);
   if (!content) return;
@@ -66,6 +120,9 @@ export const upsertSeason = internalMutation({
 
     const now = Date.now();
     if (existing) {
+      if (!seasonPayloadChanged(existing, args)) {
+        return;
+      }
       await ctx.db.patch(existing._id, { ...args, updatedAt: now });
     } else {
       await ctx.db.insert("seasons", { ...args, createdAt: now, updatedAt: now });
