@@ -235,7 +235,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "anime",
     idType: "tmdb",
     quality: "1080p",
-    website: "https://embed.streammafia.to",
+    website: "https://nhdapi.com",
     animeIdType: "anilist",
     dubSupport: true,
     progress: { origins: ALL_ORIGINS, resumeParam: "progress" },
