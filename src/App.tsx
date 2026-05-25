@@ -11,11 +11,9 @@ import { useAppSettings } from "@/hooks/useAppSettings";
 import { api } from "../convex/_generated/api";
 import {
   ArrowRight,
-  Clapperboard,
   Database,
   Film,
   Loader2,
-  Sparkles,
   Tv2,
   Zap
 } from "lucide-react";
@@ -165,72 +163,6 @@ function SyncPanel() {
   );
 }
 
-function EmptyState() {
-  const syncContent = useAction(api.tmdb.syncContent);
-  const [syncing, setSyncing] = useState<string | null>(null);
-
-  const doSync = async (type: "movies" | "tv") => {
-    setSyncing(type);
-    try {
-      const n = await syncContent({ type, count: 100 });
-      toast.success(
-        `Synced ${n} ${type === "movies" ? "movies" : "TV shows"}! Refresh to see them.`
-      );
-    } catch {
-      toast.error("Sync failed");
-    } finally {
-      setSyncing(null);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-background px-6 pt-28">
-      <Card className="page-shell home-panel mx-auto max-w-3xl border-white/10 bg-white/4.5">
-        <CardContent className="relative z-10 p-8 text-center sm:p-12">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-primary/15">
-            <Clapperboard className="h-8 w-8 text-primary" />
-          </div>
-          <p className="kicker mb-3">Fresh install</p>
-          <h1 className="font-display text-4xl font-bold text-white sm:text-5xl">
-            Build your first shelf
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/58 sm:text-base">
-            FishyStream is ready, the catalog just needs content. Pull in a starter set and the
-            homepage will populate automatically.
-          </p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Button
-              onClick={() => doSync("movies")}
-              disabled={!!syncing}
-              className="rounded-full px-6"
-            >
-              {syncing === "movies" ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              Sync movies
-            </Button>
-            <Button
-              onClick={() => doSync("tv")}
-              disabled={!!syncing}
-              variant="secondary"
-              className="rounded-full border border-white/14 bg-white/8 px-6 text-white hover:bg-white/[0.14]"
-            >
-              {syncing === "tv" ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Tv2 className="mr-2 h-4 w-4" />
-              )}
-              Sync TV shows
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export function App() {
   const { isLoaded, isSignedIn } = useUser();
   const { isLoading: isConvexAuthLoading } = useConvexAuth();
@@ -255,15 +187,16 @@ export function App() {
 
   if (!isLoaded || isConvexAuthLoading) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <Toaster position="top-right" richColors />
-        <Header />
-        <main className="flex min-h-[calc(100vh-5rem)] items-center justify-center px-6 pt-24">
-          <div className="flex items-center gap-3 text-sm text-white/58">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Loading homepage…</span>
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="relative flex h-12 w-12 items-center justify-center">
+            <div className="absolute inset-0 rounded-xl bg-primary/20 animate-pulse" />
+            <div className="absolute inset-0 rounded-xl border-2 border-primary/40 animate-pulse" />
+            <Loader2 className="h-5 w-5 animate-spin text-primary relative z-10" />
           </div>
-        </main>
+          <span className="text-xs text-white/54 font-medium tracking-wide">Loading FishyStream…</span>
+        </div>
       </div>
     );
   }
@@ -291,16 +224,44 @@ function HomepageContent({
   const featuredContent = homepage?.featured;
   const continueWatching = useContinueWatching() ?? [];
   const { recommendations } = useRecommendations(12);
+  if (homepage === undefined) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <Toaster position="top-right" richColors />
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="relative flex h-12 w-12 items-center justify-center">
+            <div className="absolute inset-0 rounded-xl bg-primary/20 animate-pulse" />
+            <div className="absolute inset-0 rounded-xl border-2 border-primary/40 animate-pulse" />
+            <Loader2 className="h-5 w-5 animate-spin text-primary relative z-10" />
+          </div>
+          <span className="text-xs text-white/54 font-medium tracking-wide">Loading FishyStream…</span>
+        </div>
+      </div>
+    );
+  }
 
   const hasContent = featuredContent || categories.some((c) => c.content.length > 0);
-  if (!hasContent)
+  if (!hasContent) {
     return (
-      <>
+      <div className="min-h-screen bg-background text-foreground">
         <Toaster position="top-right" richColors />
         <Header />
-        <EmptyState />
-      </>
+        <main className="flex min-h-[calc(100vh-5rem)] items-center justify-center px-6 pt-24">
+          <div className="max-w-md text-center space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/4 border border-white/8 shadow-md">
+              <Film className="h-6 w-6 text-white/60" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="font-display text-2xl font-semibold text-white">Your catalog is ready</h2>
+              <p className="text-sm text-white/50 leading-relaxed">
+                Welcome to FishyStream! No content is loaded in the library yet. You can enable content sync tools in your Settings page to start importing.
+              </p>
+            </div>
+          </div>
+        </main>
+      </div>
     );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">

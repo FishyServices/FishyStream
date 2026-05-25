@@ -86,7 +86,18 @@ function AppShell() {
   const auth = useAuth();
 
   if (!auth.isLoaded) {
-    return null;
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="relative flex h-12 w-12 items-center justify-center">
+            <div className="absolute inset-0 rounded-xl bg-primary/20 animate-pulse" />
+            <div className="absolute inset-0 rounded-xl border-2 border-primary/40 animate-pulse" />
+            <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin relative z-10" />
+          </div>
+          <span className="text-xs text-white/54 font-medium tracking-wide">Loading FishyStream…</span>
+        </div>
+      </div>
+    );
   }
 
   return (
