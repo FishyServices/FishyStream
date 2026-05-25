@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Play, Info, Plus, Check, Volume2, VolumeX, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Play, Info, Plus, Check, Volume2, VolumeX, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { ContentModal } from "./ContentModal";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
@@ -8,7 +8,7 @@ import { toast } from "@fishy/ui";
 import type { ContentFeatured } from "../../shared/contentMetadata";
 
 interface HeroProps {
-  content: ContentFeatured;
+  contents: ContentFeatured[];
   onPlay?: (tmdbId: string) => void;
   autoPlayTrailer?: boolean;
   trailerMuted?: boolean;
@@ -29,28 +29,57 @@ function StarRating({ score }: { score: number }) {
   );
 }
 
-export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = true }: HeroProps) {
+export function Hero({ contents, onPlay, autoPlayTrailer = false, trailerMuted = true }: HeroProps) {
   const { isSignedIn } = useUser();
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [muted, setMuted] = useState(trailerMuted);
-  const [showTrailer, setShowTrailer] = useState(autoPlayTrailer && !!content.trailerKey);
+  const [showTrailer, setShowTrailer] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const isInWatchlist = useIsInWatchlist(content._id);
+  const activeContent = contents[currentIndex] || null;
+
+  const isInWatchlist = useIsInWatchlist(activeContent?._id);
   const toggleWatchlist = useToggleWatchlist();
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoaded(true), 100);
+    setLoaded(false);
+    setShowTrailer(false);
+    const timer = setTimeout(() => {
+      setLoaded(true);
+      if (autoPlayTrailer && activeContent?.trailerKey) {
+        setShowTrailer(true);
+      }
+    }, 800);
     return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    setShowTrailer(autoPlayTrailer && !!content.trailerKey);
-  }, [autoPlayTrailer, content._id, content.trailerKey]);
+  }, [currentIndex, autoPlayTrailer, activeContent?.trailerKey]);
 
   useEffect(() => {
     setMuted(trailerMuted);
-  }, [trailerMuted, content._id]);
+  }, [trailerMuted, currentIndex]);
+
+  const resetAutoPlay = () => {
+    if (autoPlayTimerRef.current) {
+      clearInterval(autoPlayTimerRef.current);
+    }
+    if (contents.length > 1) {
+      autoPlayTimerRef.current = setInterval(() => {
+        setCurrentIndex((prev) => (prev + 1) % contents.length);
+      }, 8000);
+    }
+  };
+
+  useEffect(() => {
+    resetAutoPlay();
+    return () => {
+      if (autoPlayTimerRef.current) {
+        clearInterval(autoPlayTimerRef.current);
+      }
+    };
+  }, [contents.length]);
+
+  if (!activeContent) return null;
 
   const handleWatchlist = async () => {
     if (!isSignedIn) {
@@ -58,82 +87,93 @@ export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = 
       return;
     }
     try {
-      await toggleWatchlist(content._id);
+      await toggleWatchlist(activeContent._id);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Something went wrong");
     }
   };
 
-  const handlePlay = () => content.tmdbId && onPlay?.(content.tmdbId);
+  const handlePlay = () => activeContent.tmdbId && onPlay?.(activeContent.tmdbId);
+
+  const handlePrev = () => {
+    setCurrentIndex((prev) => (prev - 1 + contents.length) % contents.length);
+    resetAutoPlay();
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % contents.length);
+    resetAutoPlay();
+  };
+
+  const selectIndex = (index: number) => {
+    setCurrentIndex(index);
+    resetAutoPlay();
+  };
 
   return (
-    <div className="relative w-full h-[78svh] min-h-135 sm:h-[90vh] sm:min-h-160 max-h-225 overflow-hidden">
-      {/* Backdrop */}
-      <div
-        className={`absolute inset-0 transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"}`}
-      >
-        {showTrailer && content.trailerKey ? (
-          <iframe
-            className="absolute inset-0 w-full h-full scale-125"
-            src={`https://www.youtube.com/embed/${content.trailerKey}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&loop=1&playlist=${content.trailerKey}&modestbranding=1&showinfo=0`}
-            allow="autoplay"
-            title="Trailer"
-          />
-        ) : (
-          <img
-            src={content.backdropUrl}
-            alt={content.title}
-            className="w-full h-full object-cover"
-            onLoad={() => setLoaded(true)}
-            onError={() => setLoaded(true)}
-          />
-        )}
+    <div className="relative w-full h-[80svh] min-h-135 sm:h-[92vh] sm:min-h-160 max-h-225 overflow-hidden group/hero">
+      <div className="absolute inset-0 bg-neutral-950">
+        <div
+          className={`absolute inset-0 transition-all duration-1000 ease-out scale-100 ${loaded ? "opacity-100" : "opacity-0"}`}
+        >
+          {showTrailer && activeContent.trailerKey ? (
+            <iframe
+              className="absolute inset-0 w-full h-full scale-125"
+              src={`https://www.youtube.com/embed/${activeContent.trailerKey}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&loop=1&playlist=${activeContent.trailerKey}&modestbranding=1&showinfo=0`}
+              allow="autoplay"
+              title="Trailer"
+            />
+          ) : (
+            <img
+              src={activeContent.backdropUrl}
+              alt={activeContent.title}
+              className="w-full h-full object-cover"
+              onLoad={() => setLoaded(true)}
+              onError={() => setLoaded(true)}
+            />
+          )}
+        </div>
       </div>
 
-      {!loaded && (
-        <div className="absolute inset-0 bg-linear-to-r from-[hsl(220,20%,8%)] to-[hsl(220,20%,12%)] animate-pulse" />
-      )}
-
-      <div className="absolute inset-0 bg-linear-to-r from-black/95 via-black/50 to-transparent" />
+      <div className="absolute inset-0 bg-linear-to-r from-black/95 via-black/40 to-transparent" />
       <div className="absolute inset-0 bg-linear-to-t from-background via-transparent to-black/20" />
 
-      {/* Content */}
       <div
-        className={`absolute bottom-0 left-0 right-0 px-4 pb-12 sm:px-10 sm:pb-20 lg:px-16 transition-all duration-700 ${
+        className={`absolute bottom-0 left-0 right-0 px-4 pb-16 sm:px-10 sm:pb-24 lg:px-16 transition-all duration-700 ${
           loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         }`}
       >
         <div className="max-w-xl space-y-4 sm:max-w-2xl">
-          {content.logoUrl ? (
+          {activeContent.logoUrl ? (
             <img
-              src={content.logoUrl}
-              alt={content.title}
-              className="h-14 sm:h-20 lg:h-24 w-auto object-contain object-left max-w-[min(18rem,70vw)] sm:max-w-xs"
+              src={activeContent.logoUrl}
+              alt={activeContent.title}
+              className="h-14 sm:h-20 lg:h-24 w-auto object-contain object-left max-w-[min(18rem,70vw)] sm:max-w-xs transition-transform duration-500 hover:scale-102"
             />
           ) : (
             <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-none tracking-tight">
-              {content.title}
+              {activeContent.title}
             </h1>
           )}
 
           <div className="flex items-center gap-3 flex-wrap">
             <span
-              className={`text-xs font-bold px-2 py-0.5 rounded border rating-${content.rating} border-current`}
+              className={`text-xs font-bold px-2 py-0.5 rounded border rating-${activeContent.rating} border-current`}
             >
-              {content.rating}
+              {activeContent.rating}
             </span>
-            <span className="text-sm text-white/70">{content.year}</span>
-            {content.duration && <span className="text-sm text-white/70">{content.duration}</span>}
-            {content.seasons && (
+            <span className="text-sm text-white/70">{activeContent.year}</span>
+            {activeContent.duration && <span className="text-sm text-white/70">{activeContent.duration}</span>}
+            {activeContent.seasons && (
               <span className="text-sm text-white/70">
-                {content.seasons} Season{content.seasons > 1 ? "s" : ""}
+                {activeContent.seasons} Season{activeContent.seasons > 1 ? "s" : ""}
               </span>
             )}
-            {content.voteAverage && content.voteAverage > 0 && (
-              <StarRating score={content.voteAverage} />
+            {activeContent.voteAverage && activeContent.voteAverage > 0 && (
+              <StarRating score={activeContent.voteAverage} />
             )}
-            {content.trending && (
+            {activeContent.trending && (
               <span className="text-xs font-semibold text-orange-400 flex items-center gap-1">
                 🔥 Trending
               </span>
@@ -141,7 +181,7 @@ export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = 
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {content.genre.slice(0, 4).map((g) => (
+            {activeContent.genre.slice(0, 4).map((g) => (
               <span
                 key={g}
                 className="text-xs px-2.5 py-1 bg-white/10 backdrop-blur rounded-full text-white/80 font-medium"
@@ -151,13 +191,13 @@ export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = 
             ))}
           </div>
 
-          {content.tagline && (
+          {activeContent.tagline && (
             <p className="text-sm sm:text-base text-white/60 italic font-light">
-              {content.tagline}
+              {activeContent.tagline}
             </p>
           )}
           <p className="text-sm sm:text-base text-white/80 leading-relaxed line-clamp-4 sm:line-clamp-3 max-w-lg">
-            {content.description}
+            {activeContent.description}
           </p>
 
           <div className="flex items-center gap-3 flex-wrap pt-2">
@@ -192,7 +232,7 @@ export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = 
               )}
             </Button>
 
-            {content.trailerKey && (
+            {activeContent.trailerKey && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -203,7 +243,7 @@ export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = 
               </Button>
             )}
 
-            {showTrailer && content.trailerKey && (
+            {showTrailer && activeContent.trailerKey && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -217,12 +257,40 @@ export function Hero({ content, onPlay, autoPlayTrailer = false, trailerMuted = 
         </div>
       </div>
 
-      <div className="absolute bottom-6 right-10 hidden lg:flex flex-col items-center gap-1 text-white/30 animate-bounce">
-        <ChevronDown className="w-5 h-5" />
-      </div>
+      {contents.length > 1 && (
+        <>
+          <button
+            onClick={handlePrev}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 border border-white/10 text-white/80 hover:text-white opacity-0 group-hover/hero:opacity-100 transition-all duration-300 z-20 cursor-pointer animate-in fade-in"
+            aria-label="Previous slide"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <button
+            onClick={handleNext}
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 border border-white/10 text-white/80 hover:text-white opacity-0 group-hover/hero:opacity-100 transition-all duration-300 z-20 cursor-pointer animate-in fade-in"
+            aria-label="Next slide"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2.5 z-20">
+            {contents.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => selectIndex(idx)}
+                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                  currentIndex === idx ? "w-6 bg-primary" : "w-2 bg-white/40 hover:bg-white/70"
+                }`}
+                aria-label={`Go to slide ${idx + 1}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       <ContentModal
-        content={content}
+        content={activeContent}
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onPlay={onPlay || (() => {})}

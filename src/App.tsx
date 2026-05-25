@@ -269,9 +269,9 @@ function HomepageContent({
       <Header />
 
       <main>
-        {featuredContent && (
+        {featuredContent && featuredContent.length > 0 && (
           <Hero
-            content={featuredContent}
+            contents={featuredContent}
             onPlay={handlePlay}
             autoPlayTrailer={settings.autoPlayHeroTrailer}
             trailerMuted={settings.heroTrailerMuted}

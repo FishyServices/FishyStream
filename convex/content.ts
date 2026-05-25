@@ -270,14 +270,33 @@ export const getHomepageView = query({
   handler: async (
     ctx
   ): Promise<{
-    featured: ContentFeatured | null;
+    featured: ContentFeatured[];
     categories: Array<{ id: string; title: string; content: ContentCard[] }>;
   }> => {
-    const [featured, trending, popular, newReleases, movies, tvShows] = await Promise.all([
-      ctx.db
+    let featuredDocs = await ctx.db
+      .query("content")
+      .withIndex("by_featured", (q) => q.eq("featured", true))
+      .take(5);
+
+    if (featuredDocs.length < 5) {
+      const extraDocs = await ctx.db
         .query("content")
-        .withIndex("by_featured", (q) => q.eq("featured", true))
-        .first(),
+        .withIndex("by_trending", (q) => q.eq("trending", true))
+        .take(10);
+      
+      const existingIds = new Set(featuredDocs.map((doc) => doc._id));
+      for (const doc of extraDocs) {
+        if (!existingIds.has(doc._id)) {
+          featuredDocs.push(doc);
+          existingIds.add(doc._id);
+        }
+        if (featuredDocs.length >= 5) {
+          break;
+        }
+      }
+    }
+
+    const [trending, popular, newReleases, movies, tvShows] = await Promise.all([
       readFlaggedCards(ctx, "trending", HOMEPAGE_ROW_LIMIT),
       readFlaggedCards(ctx, "popular", HOMEPAGE_ROW_LIMIT),
       readFlaggedCards(ctx, "new", HOMEPAGE_ROW_LIMIT),
@@ -286,7 +305,7 @@ export const getHomepageView = query({
     ]);
 
     return {
-      featured: featured ? toContentFeatured(featured) : null,
+      featured: featuredDocs.map(toContentFeatured),
       categories: [
         { id: "trending", title: "Trending Now 🔥", content: trending },
         { id: "popular", title: "Popular on FishyStream", content: popular },

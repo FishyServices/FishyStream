@@ -47,7 +47,6 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
     <section className="group relative isolate overflow-hidden py-2 pb-8 sm:py-3 sm:pb-10">
       <div className="page-shell-wide relative z-40 mb-5 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="kicker mb-2">Shelf</p>
           <h2
             className="truncate font-display text-xl font-bold text-foreground sm:text-2xl"
             title={title}
