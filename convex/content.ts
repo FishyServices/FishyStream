@@ -283,7 +283,7 @@ export const getHomepageView = query({
         .query("content")
         .withIndex("by_trending", (q) => q.eq("trending", true))
         .take(10);
-      
+
       const existingIds = new Set(featuredDocs.map((doc) => doc._id));
       for (const doc of extraDocs) {
         if (!existingIds.has(doc._id)) {

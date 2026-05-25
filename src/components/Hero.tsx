@@ -29,7 +29,12 @@ function StarRating({ score }: { score: number }) {
   );
 }
 
-export function Hero({ contents, onPlay, autoPlayTrailer = false, trailerMuted = true }: HeroProps) {
+export function Hero({
+  contents,
+  onPlay,
+  autoPlayTrailer = false,
+  trailerMuted = true
+}: HeroProps) {
   const { isSignedIn } = useUser();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showModal, setShowModal] = useState(false);
@@ -164,7 +169,9 @@ export function Hero({ contents, onPlay, autoPlayTrailer = false, trailerMuted =
               {activeContent.rating}
             </span>
             <span className="text-sm text-white/70">{activeContent.year}</span>
-            {activeContent.duration && <span className="text-sm text-white/70">{activeContent.duration}</span>}
+            {activeContent.duration && (
+              <span className="text-sm text-white/70">{activeContent.duration}</span>
+            )}
             {activeContent.seasons && (
               <span className="text-sm text-white/70">
                 {activeContent.seasons} Season{activeContent.seasons > 1 ? "s" : ""}

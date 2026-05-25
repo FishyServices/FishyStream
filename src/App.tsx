@@ -9,14 +9,7 @@ import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { api } from "../convex/_generated/api";
-import {
-  ArrowRight,
-  Database,
-  Film,
-  Loader2,
-  Tv2,
-  Zap
-} from "lucide-react";
+import { ArrowRight, Database, Film, Loader2, Tv2, Zap } from "lucide-react";
 import {
   Badge,
   Button,
@@ -195,7 +188,9 @@ export function App() {
             <div className="absolute inset-0 rounded-xl border-2 border-primary/40 animate-pulse" />
             <Loader2 className="h-5 w-5 animate-spin text-primary relative z-10" />
           </div>
-          <span className="text-xs text-white/54 font-medium tracking-wide">Loading FishyStream…</span>
+          <span className="text-xs text-white/54 font-medium tracking-wide">
+            Loading FishyStream…
+          </span>
         </div>
       </div>
     );
@@ -234,7 +229,9 @@ function HomepageContent({
             <div className="absolute inset-0 rounded-xl border-2 border-primary/40 animate-pulse" />
             <Loader2 className="h-5 w-5 animate-spin text-primary relative z-10" />
           </div>
-          <span className="text-xs text-white/54 font-medium tracking-wide">Loading FishyStream…</span>
+          <span className="text-xs text-white/54 font-medium tracking-wide">
+            Loading FishyStream…
+          </span>
         </div>
       </div>
     );
@@ -252,9 +249,12 @@ function HomepageContent({
               <Film className="h-6 w-6 text-white/60" />
             </div>
             <div className="space-y-2">
-              <h2 className="font-display text-2xl font-semibold text-white">Your catalog is ready</h2>
+              <h2 className="font-display text-2xl font-semibold text-white">
+                Your catalog is ready
+              </h2>
               <p className="text-sm text-white/50 leading-relaxed">
-                Welcome to FishyStream! No content is loaded in the library yet. You can enable content sync tools in your Settings page to start importing.
+                Welcome to FishyStream! No content is loaded in the library yet. You can enable
+                content sync tools in your Settings page to start importing.
               </p>
             </div>
           </div>

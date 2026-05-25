@@ -94,7 +94,9 @@ function AppShell() {
             <div className="absolute inset-0 rounded-xl border-2 border-primary/40 animate-pulse" />
             <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin relative z-10" />
           </div>
-          <span className="text-xs text-white/54 font-medium tracking-wide">Loading FishyStream…</span>
+          <span className="text-xs text-white/54 font-medium tracking-wide">
+            Loading FishyStream…
+          </span>
         </div>
       </div>
     );

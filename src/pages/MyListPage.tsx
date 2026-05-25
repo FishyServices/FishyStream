@@ -10,7 +10,11 @@ import {
   FolderPlus,
   Folder,
   Trash2,
-  MoreHorizontal
+  MoreHorizontal,
+  ChevronDown,
+  LayoutGrid,
+  List,
+  Play
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
@@ -29,7 +33,11 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
-  toast
+  toast,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem
 } from "@fishy/ui";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -55,6 +63,8 @@ export function MyListPage() {
   const [draggedContentId, setDraggedContentId] = useState<Id<"content"> | null>(null);
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<string | null>(null);
   const [folderMenuForContentId, setFolderMenuForContentId] = useState<Id<"content"> | null>(null);
+  const [sortBy, setSortBy] = useState<"recently" | "oldest" | "title-az" | "title-za">("recently");
+  const [viewLayout, setViewLayout] = useState<"grid" | "list">("grid");
   const [canDragCards, setCanDragCards] = useState(false);
   const { recommendations, isLoading: recsLoading } = useRecommendations(
     12,
@@ -110,12 +120,39 @@ export function MyListPage() {
     });
   }, [folderFilter, typeFilter, watchlist]);
 
+  const sortedFilteredWatchlist = useMemo(() => {
+    const filtered = filteredWatchlist;
+    if (sortBy === "oldest") {
+      const originalIndices = new Map(watchlist?.map((item, idx) => [item._id, idx]) ?? []);
+      return [...filtered].sort((a, b) => {
+        const aIdx = originalIndices.get(a._id) ?? 0;
+        const bIdx = originalIndices.get(b._id) ?? 0;
+        return bIdx - aIdx;
+      });
+    }
+    if (sortBy === "recently") {
+      const originalIndices = new Map(watchlist?.map((item, idx) => [item._id, idx]) ?? []);
+      return [...filtered].sort((a, b) => {
+        const aIdx = originalIndices.get(a._id) ?? 0;
+        const bIdx = originalIndices.get(b._id) ?? 0;
+        return aIdx - bIdx;
+      });
+    }
+    if (sortBy === "title-az") {
+      return [...filtered].sort((a, b) => a.title.localeCompare(b.title));
+    }
+    if (sortBy === "title-za") {
+      return [...filtered].sort((a, b) => b.title.localeCompare(a.title));
+    }
+    return filtered;
+  }, [filteredWatchlist, watchlist, sortBy]);
+
   const groupedWatchlist = useMemo(() => {
     const groups = new Map<string, typeof filteredWatchlist>();
     for (const folder of folderNames) {
       groups.set(folder, []);
     }
-    for (const item of filteredWatchlist) {
+    for (const item of sortedFilteredWatchlist) {
       const key = item.watchlistFolder?.trim() || "Unsorted";
       const current = groups.get(key);
       if (current) {
@@ -129,7 +166,7 @@ export function MyListPage() {
       if (b === "Unsorted") return -1;
       return a.localeCompare(b);
     });
-  }, [filteredWatchlist, folderNames]);
+  }, [sortedFilteredWatchlist, folderNames]);
 
   const persistCustomFolders = (folders: string[]) => {
     setCustomFolders(folders);
@@ -395,6 +432,85 @@ export function MyListPage() {
               </div>
             </section>
 
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-3xl border border-white/6 bg-white/2">
+              <div className="text-sm text-white/50 font-medium">
+                Showing {filteredWatchlist.length}{" "}
+                {filteredWatchlist.length === 1 ? "title" : "titles"}
+              </div>
+              <div className="flex items-center gap-3">
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="rounded-full bg-white/6 border border-white/8 hover:bg-white/12 text-xs font-semibold px-4 py-2 flex items-center gap-2"
+                      >
+                        Sort:{" "}
+                        {sortBy === "recently"
+                          ? "Recently added"
+                          : sortBy === "oldest"
+                            ? "Oldest added"
+                            : sortBy === "title-az"
+                              ? "Title A → Z"
+                              : "Title Z → A"}
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent className="mt-2 w-48 rounded-2xl border border-white/10 bg-popover p-1.5 shadow-xl">
+                    {[
+                      { id: "recently", label: "Recently added" },
+                      { id: "oldest", label: "Oldest added" },
+                      { id: "title-az", label: "Title A → Z" },
+                      { id: "title-za", label: "Title Z → A" }
+                    ].map((option) => (
+                      <DropdownMenuItem
+                        key={option.id}
+                        className={`rounded-xl px-3 py-2 text-xs font-medium focus:bg-white focus:text-black ${
+                          sortBy === option.id ? "bg-white/10 text-white" : "text-white/70"
+                        }`}
+                        onClick={() => setSortBy(option.id as any)}
+                      >
+                        {option.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <div className="flex items-center rounded-full border border-white/8 bg-white/4 p-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-8 w-8 rounded-full ${
+                      viewLayout === "grid"
+                        ? "bg-white text-black hover:bg-white hover:text-black"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                    onClick={() => setViewLayout("grid")}
+                    aria-label="Grid view"
+                    title="Grid view"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-8 w-8 rounded-full ${
+                      viewLayout === "list"
+                        ? "bg-white text-black hover:bg-white hover:text-black"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                    onClick={() => setViewLayout("list")}
+                    aria-label="List view"
+                    title="List view"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             {filteredWatchlist.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-white/10 bg-white/3 px-6 py-12 text-center">
                 <p className="text-white/58">No saved titles match this folder filter yet.</p>
@@ -440,13 +556,25 @@ export function MyListPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  <div
+                    className={
+                      viewLayout === "grid"
+                        ? "grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+                        : "space-y-3"
+                    }
+                  >
                     {items.map((item) => (
                       <div
                         key={item._id}
-                        className={`relative cursor-grab active:cursor-grabbing transition-transform ${
-                          draggedContentId === item._id ? "scale-[0.98] opacity-70" : ""
-                        } ${folderMenuForContentId === item._id ? "z-40" : ""}`}
+                        className={
+                          viewLayout === "grid"
+                            ? `relative cursor-grab active:cursor-grabbing transition-transform ${
+                                draggedContentId === item._id ? "scale-[0.98] opacity-70" : ""
+                              } ${folderMenuForContentId === item._id ? "z-40" : ""}`
+                            : `relative cursor-grab active:cursor-grabbing flex items-center gap-4 p-3 rounded-2xl border border-white/6 bg-white/4 hover:bg-white/8 hover:border-white/12 transition-all ${
+                                draggedContentId === item._id ? "scale-[0.99] opacity-70" : ""
+                              } ${folderMenuForContentId === item._id ? "z-40" : ""}`
+                        }
                         draggable={canDragCards}
                         onDragStart={() => {
                           if (!canDragCards) return;
@@ -454,70 +582,171 @@ export function MyListPage() {
                         }}
                         onDragEnd={() => setDraggedContentId(null)}
                       >
-                        <div className="absolute left-2 top-2 z-50">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 rounded-full border border-white/12 bg-black/80 text-white/82 shadow-md hover:bg-black hover:text-white"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setFolderMenuForContentId((current) =>
-                                current === item._id ? null : item._id
-                              );
-                            }}
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                            aria-label={`Choose folder for ${item.title}`}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                          {folderMenuForContentId === item._id && (
-                            <div
-                              className="absolute left-0 top-11 z-50 w-56 rounded-2xl border border-white/10 bg-popover p-2 shadow-2xl"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                            >
+                        {viewLayout === "grid" ? (
+                          <>
+                            <div className="absolute left-2 top-2 z-50">
                               <Button
+                                type="button"
                                 variant="ghost"
-                                className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
-                                onClick={async () => {
-                                  await handleAssignFolder(item._id, "unsorted");
-                                  setFolderMenuForContentId(null);
+                                size="icon"
+                                className="h-9 w-9 rounded-full border border-white/12 bg-black/80 text-white/82 shadow-md hover:bg-black hover:text-white"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setFolderMenuForContentId((current) =>
+                                    current === item._id ? null : item._id
+                                  );
                                 }}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                aria-label={`Choose folder for ${item.title}`}
                               >
-                                Unsorted
+                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
-                              {folderOptions.map((folder) => (
-                                <Button
-                                  key={folder}
-                                  variant="ghost"
-                                  className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
-                                  onClick={async () => {
-                                    await handleAssignFolder(item._id, folder);
-                                    setFolderMenuForContentId(null);
+                              {folderMenuForContentId === item._id && (
+                                <div
+                                  className="absolute left-0 top-11 z-50 w-56 rounded-2xl border border-white/10 bg-popover p-2 shadow-2xl"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                   }}
                                 >
-                                  {folder}
-                                </Button>
-                              ))}
+                                  <Button
+                                    variant="ghost"
+                                    className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
+                                    onClick={async () => {
+                                      await handleAssignFolder(item._id, "unsorted");
+                                      setFolderMenuForContentId(null);
+                                    }}
+                                  >
+                                    Unsorted
+                                  </Button>
+                                  {folderOptions.map((folder) => (
+                                    <Button
+                                      key={folder}
+                                      variant="ghost"
+                                      className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
+                                      onClick={async () => {
+                                        await handleAssignFolder(item._id, folder);
+                                        setFolderMenuForContentId(null);
+                                      }}
+                                    >
+                                      {folder}
+                                    </Button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        <MovieCard
-                          content={item}
-                          onPlay={handlePlay}
-                          layout="grid"
-                          suppressHoverEffects={folderMenuForContentId === item._id}
-                        />
-                        {(item.watchlistNewSeasons > 0 || item.watchlistNewEpisodes > 0) && (
-                          <div className="pointer-events-none absolute right-2 top-2 z-20 rounded-full bg-primary/88 px-2 py-1 text-[10px] font-semibold text-white shadow-lg">
-                            +{item.watchlistNewSeasons}S / +{item.watchlistNewEpisodes}E
+                            <MovieCard
+                              content={item}
+                              onPlay={handlePlay}
+                              layout="grid"
+                              suppressHoverEffects={folderMenuForContentId === item._id}
+                            />
+                            {(item.watchlistNewSeasons > 0 || item.watchlistNewEpisodes > 0) && (
+                              <div className="pointer-events-none absolute right-2 top-2 z-20 rounded-full bg-primary/88 px-2 py-1 text-[10px] font-semibold text-white shadow-lg">
+                                +{item.watchlistNewSeasons}S / +{item.watchlistNewEpisodes}E
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-4 w-full min-w-0">
+                            <div className="relative h-20 w-14 sm:h-24 sm:w-16 rounded-xl overflow-hidden shrink-0 border border-white/6">
+                              <img
+                                src={item.posterUrl}
+                                alt={item.title}
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover/listitem:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-full bg-white text-black hover:bg-white/90 shadow-md scale-95 hover:scale-100 transition-all duration-200"
+                                  onClick={() => handlePlay(item.tmdbId!)}
+                                >
+                                  <Play className="h-3.5 w-3.5 fill-black text-black shrink-0" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-base font-bold text-white truncate max-w-[240px] sm:max-w-[400px]">
+                                  {item.title}
+                                </h3>
+                                <span className="text-xs px-1.5 py-0.5 rounded border border-white/20 bg-white/5 text-white/60 capitalize font-medium">
+                                  {item.type}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 mt-1.5 text-xs text-white/50 flex-wrap">
+                                {item.watchlistNewSeasons > 0 && (
+                                  <span className="text-primary font-semibold">
+                                    +{item.watchlistNewSeasons} New Seasons
+                                  </span>
+                                )}
+                                {item.watchlistNewEpisodes > 0 && (
+                                  <span className="text-primary font-semibold">
+                                    +{item.watchlistNewEpisodes} New Episodes
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="relative">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 rounded-full border border-white/12 bg-white/5 text-white/82 hover:bg-white/10 hover:text-white"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setFolderMenuForContentId((current) =>
+                                      current === item._id ? null : item._id
+                                    );
+                                  }}
+                                  aria-label={`Choose folder for ${item.title}`}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                                {folderMenuForContentId === item._id && (
+                                  <div
+                                    className="absolute right-0 top-11 z-50 w-56 rounded-2xl border border-white/10 bg-popover p-2 shadow-2xl"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                    }}
+                                  >
+                                    <Button
+                                      variant="ghost"
+                                      className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
+                                      onClick={async () => {
+                                        await handleAssignFolder(item._id, "unsorted");
+                                        setFolderMenuForContentId(null);
+                                      }}
+                                    >
+                                      Unsorted
+                                    </Button>
+                                    {folderOptions.map((folder) => (
+                                      <Button
+                                        key={folder}
+                                        variant="ghost"
+                                        className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
+                                        onClick={async () => {
+                                          await handleAssignFolder(item._id, folder);
+                                          setFolderMenuForContentId(null);
+                                        }}
+                                      >
+                                        {folder}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
