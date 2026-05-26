@@ -31,7 +31,13 @@ import {
   isKnownPlayerOrigin,
   postMessageToPlayer
 } from "@/lib/playerProviders";
-import { getGroupedProviders, getProviderByKey } from "../../shared/providerCatalog";
+import {
+  buildMovieSources,
+  buildTvSources,
+  getGroupedProviders,
+  getProviderByKey
+} from "../../shared/providerCatalog";
+import type { StreamSource } from "../../shared/providerCatalog";
 import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
@@ -43,13 +49,6 @@ interface VideoPlayerProps {
   initialSeason?: number;
   initialEpisode?: number;
   initialSource?: string;
-}
-
-interface StreamSource {
-  key: string;
-  name: string;
-  url: string;
-  quality: string;
 }
 
 function groupSourcesByProviderCategory(sources: StreamSource[]) {
@@ -175,8 +174,6 @@ export function VideoPlayer({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { settings } = useAppSettings();
 
-  const getMovieSources = useAction(api.providers.listMovieSources);
-  const getTVSources = useAction(api.providers.listTvSources);
   const syncSeason = useAction(api.tmdb.syncSeason);
   const updateProgress = useUpdateProgress();
   const watchState = useGetProgress(content._id);
@@ -375,7 +372,7 @@ export function VideoPlayer({
         const { season, episode } = tvTargetRef.current;
         const fetched = (
           content.type === "tv"
-            ? await getTVSources({
+            ? await buildTvSources({
                 imdbId: content.imdbId ?? undefined,
                 tmdbId: content.tmdbId ?? undefined,
                 anilistId: currentSeasonData?.anilistId ?? content.anilistId ?? undefined,
@@ -387,11 +384,11 @@ export function VideoPlayer({
                 episode,
                 dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
               })
-            : await getMovieSources({
+            : buildMovieSources({
                 imdbId: content.imdbId ?? undefined,
                 tmdbId: content.tmdbId ?? undefined
               })
-        ) as StreamSource[];
+        );
 
         if (requestId !== sourceRequestIdRef.current) {
           return;
@@ -677,7 +674,7 @@ export function VideoPlayer({
       setLoading(true);
       if (waitingForAnimeSeasonMetadata) return;
       const requestId = ++sourceRequestIdRef.current;
-      const refreshed = (await getTVSources({
+      const refreshed = await buildTvSources({
         imdbId: content.imdbId ?? undefined,
         tmdbId: content.tmdbId ?? undefined,
         anilistId: currentSeasonData?.anilistId ?? content.anilistId ?? undefined,
@@ -688,7 +685,7 @@ export function VideoPlayer({
         season: tvTargetRef.current.season,
         episode: tvTargetRef.current.episode,
         dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
-      })) as StreamSource[];
+      });
 
       if (requestId !== sourceRequestIdRef.current) {
         return;
