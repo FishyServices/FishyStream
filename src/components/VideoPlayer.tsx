@@ -370,7 +370,7 @@ export function VideoPlayer({
       try {
         setLoading(true);
         const { season, episode } = tvTargetRef.current;
-        const fetched = (
+        const fetched =
           content.type === "tv"
             ? await buildTvSources({
                 imdbId: content.imdbId ?? undefined,
@@ -387,8 +387,7 @@ export function VideoPlayer({
             : buildMovieSources({
                 imdbId: content.imdbId ?? undefined,
                 tmdbId: content.tmdbId ?? undefined
-              })
-        );
+              });
 
         if (requestId !== sourceRequestIdRef.current) {
           return;
@@ -464,17 +463,19 @@ export function VideoPlayer({
         !(watchState?.completed ?? false) &&
         shouldApplyProviderResume(selectedProvider?.key, content.type);
 
-      if (selectedProvider?.key === "vidking" || selectedProvider?.key === "videasy") {
-        url.searchParams.set("color", "e50914");
-      }
-      if (selectedProvider?.key === "vidfast") {
-        url.searchParams.set("nextButton", "false");
-        url.searchParams.set("autoNext", "false");
-        url.searchParams.set("hideServerControls", "true");
-      }
-      if (selectedProvider?.key === "vidnest" && content.type === "tv") {
-        url.searchParams.set("prevepisode", "hide");
-        url.searchParams.set("nextepisode", "hide");
+      if (content.type === "tv") {
+        if (selectedProvider?.key === "vidfast") {
+          url.searchParams.set("nextButton", "false");
+          url.searchParams.set("autoNext", "false");
+          url.searchParams.set("hideServerControls", "true");
+        }
+        if (selectedProvider?.key === "vidnest") {
+          url.searchParams.set("prevepisode", "hide");
+          url.searchParams.set("nextepisode", "hide");
+        }
+        if (selectedProvider?.key === "vidcore") {
+          url.searchParams.set("nextButton", "false");
+        }
       }
       /*
       if (selectedProvider?.key === "cinezo") {
