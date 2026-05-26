@@ -337,8 +337,12 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "primary",
     idType: "tmdb",
     quality: "1080p",
-    website: "https://vidplays.fun",
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    website: "/vidplays-proxy",
+    progress: {
+      origins: ALL_ORIGINS,
+      resumeParam: "startAt",
+      referrerPolicy: "unsafe-url"
+    },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),

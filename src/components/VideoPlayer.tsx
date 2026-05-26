@@ -453,11 +453,13 @@ export function VideoPlayer({
   const supportsProgressEvents = !!selectedProvider?.progress;
   const canRequestStatus = !!selectedProvider?.progress?.statusRequest;
   const showDubToggle = animeContent && !!selectedProvider?.dubSupport;
+  const iframeReferrerPolicy =
+    selectedProvider?.progress?.referrerPolicy ?? "no-referrer-when-downgrade";
 
   const embedUrl = (() => {
     if (!selectedSourceConfig) return "";
     try {
-      const url = new URL(selectedSourceConfig.url);
+      const url = new URL(selectedSourceConfig.url, window.location.origin);
       const shouldResume =
         resumePositionSeconds > 0 &&
         !(watchState?.completed ?? false) &&
@@ -476,6 +478,11 @@ export function VideoPlayer({
         if (selectedProvider?.key === "vidcore") {
           url.searchParams.set("nextButton", "false");
         }
+      }
+      if (selectedProvider?.key === "vidplays") {
+        url.searchParams.set("provider", "beta");
+        url.searchParams.set("failed", "alpha");
+        url.searchParams.set("autoSkip", "false");
       }
       /*
       if (selectedProvider?.key === "cinezo") {
@@ -554,6 +561,25 @@ export function VideoPlayer({
       window.clearInterval(interval);
     };
   }, [canRequestStatus, embedUrl, supportsProgressEvents]);
+
+  useEffect(() => {
+    if (!embedUrl || selectedProvider?.key !== "vidplays") return;
+
+    const disableVidPlaysSubtitles = () => {
+      postMessageToPlayer(iframeRef.current, "setSubtitle", { trackId: 0 });
+    };
+    const iframe = iframeRef.current;
+
+    iframe?.addEventListener("load", disableVidPlaysSubtitles);
+    const timers = [500, 1500, 3000].map((delay) =>
+      window.setTimeout(disableVidPlaysSubtitles, delay)
+    );
+
+    return () => {
+      iframe?.removeEventListener("load", disableVidPlaysSubtitles);
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [embedUrl, selectedProvider?.key]);
 
   useEffect(() => {
     if (!embedUrl || !supportsProgressEvents) return;
@@ -972,9 +998,7 @@ export function VideoPlayer({
           allowFullScreen
           allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
           title={`Playing ${content.title}`}
-          referrerPolicy={
-            selectedProvider?.progress?.referrerPolicy ?? "no-referrer-when-downgrade"
-          }
+          referrerPolicy={iframeReferrerPolicy}
         />
 
         {showNextEpisodeButton && (
