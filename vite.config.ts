@@ -2,24 +2,25 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import { matchProviderProxyPath, proxyProviderRequest } from "./shared/providerProxy";
 
 function vidplaysProxyPlugin(): Plugin {
   return {
     name: "vidplays-proxy",
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        const requestUrl = new URL(req.url ?? "/", "http://localhost");
-        if (!requestUrl.pathname.startsWith("/vidplays-proxy")) {
+        const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+        if (!matchProviderProxyPath(requestUrl.pathname)) {
           next();
           return;
         }
 
         try {
-          const response = await proxyVidPlaysRequest(
-            requestUrl.pathname.replace(/^\/vidplays-proxy\/?/, ""),
-            requestUrl.search,
-            req.method ?? "GET"
-          );
+          const response = await proxyProviderRequest({
+            url: requestUrl,
+            method: req.method ?? "GET",
+            headers: new Headers(req.headers as HeadersInit)
+          });
 
           res.statusCode = response.status;
           response.headers.forEach((value, key) => {
@@ -34,152 +35,6 @@ function vidplaysProxyPlugin(): Plugin {
       });
     }
   };
-}
-
-async function proxyVidPlaysRequest(subpath: string, search: string, method: string) {
-  const requestUrl = new URL(`http://localhost/vidplays-proxy/${subpath}${search}`);
-
-  if (subpath === "hls") {
-    return proxyVidPlaysHls(requestUrl);
-  }
-
-  const target = `https://vidplays.fun/${subpath}${search}`;
-  const upstream = await fetch(target, {
-    method,
-    headers: {
-      Accept: "*/*",
-      "Accept-Language": "en-US,en;q=0.9",
-      Referer: "https://vidplays.fun/",
-      Origin: "https://vidplays.fun"
-    }
-  });
-
-  if (subpath === "player.js") {
-    const script = await upstream.text();
-    return new Response(
-      script.replaceAll('"/api/stream_data?type="', '"/vidplays-proxy/api/stream_data?type="'),
-      {
-        status: upstream.status,
-        headers: {
-          "Content-Type": "application/javascript; charset=utf-8",
-          "Cache-Control": "no-store"
-        }
-      }
-    );
-  }
-
-  if (subpath.startsWith("embed/")) {
-    const html = await upstream.text();
-    return new Response(
-      html
-        .replaceAll('window.HOST = "https://vidplays.fun";', 'window.HOST = "/vidplays-proxy";')
-        .replaceAll('src="/player.js', 'src="/vidplays-proxy/player.js'),
-      {
-        status: upstream.status,
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "no-store"
-        }
-      }
-    );
-  }
-
-  if (subpath === "api/stream_data") {
-    const data = (await upstream.json()) as Record<string, unknown>;
-    data.captions = [];
-    rewriteVidPlaysStreamUrls(data, "");
-    return new Response(JSON.stringify(data), {
-      status: upstream.status,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store"
-      }
-    });
-  }
-
-  return upstream;
-}
-
-async function proxyVidPlaysHls(url: URL) {
-  const target = url.searchParams.get("url");
-  if (!target?.startsWith("https://")) {
-    return new Response("Missing HLS URL", { status: 400 });
-  }
-
-  const upstream = await fetch(target, {
-    headers: {
-      Accept: "*/*",
-      Referer: "https://videostr.net/",
-      Origin: "https://videostr.net"
-    }
-  });
-
-  const contentType = upstream.headers.get("Content-Type") ?? "";
-  if (!contentType.includes("mpegurl") && !target.includes(".m3u8")) {
-    return new Response(upstream.body, {
-      status: upstream.status,
-      headers: {
-        "Content-Type": contentType || "application/octet-stream",
-        "Cache-Control": "no-store"
-      }
-    });
-  }
-
-  const playlist = await upstream.text();
-  return new Response(rewriteHlsPlaylist(playlist, target, ""), {
-    status: upstream.status,
-    headers: {
-      "Content-Type": "application/vnd.apple.mpegurl; charset=utf-8",
-      "Cache-Control": "no-store"
-    }
-  });
-}
-
-function rewriteVidPlaysStreamUrls(value: unknown, origin: string): unknown {
-  if (Array.isArray(value)) {
-    value.forEach((entry) => rewriteVidPlaysStreamUrls(entry, origin));
-    return value;
-  }
-
-  if (!value || typeof value !== "object") return value;
-
-  const record = value as Record<string, unknown>;
-  for (const [key, entry] of Object.entries(record)) {
-    if ((key === "url" || key === "streamUrl") && typeof entry === "string") {
-      record[key] = toVidPlaysHlsProxyUrl(entry, origin);
-    } else {
-      rewriteVidPlaysStreamUrls(entry, origin);
-    }
-  }
-
-  return value;
-}
-
-function toVidPlaysHlsProxyUrl(rawUrl: string, origin: string) {
-  let target = rawUrl;
-  try {
-    const url = new URL(rawUrl);
-    target = url.searchParams.get("u") ?? rawUrl;
-  } catch {}
-
-  return `${origin}/vidplays-proxy/hls?url=${encodeURIComponent(target)}`;
-}
-
-function rewriteHlsPlaylist(playlist: string, playlistUrl: string, origin: string) {
-  return playlist
-    .split("\n")
-    .map((line) => {
-      const uriMatch = line.match(/URI="([^"]+)"/);
-      if (uriMatch?.[1]) {
-        const nextUrl = new URL(uriMatch[1], playlistUrl).toString();
-        return line.replace(uriMatch[1], toVidPlaysHlsProxyUrl(nextUrl, origin));
-      }
-
-      if (!line || line.startsWith("#")) return line;
-      const nextUrl = new URL(line, playlistUrl).toString();
-      return toVidPlaysHlsProxyUrl(nextUrl, origin);
-    })
-    .join("\n");
 }
 
 export default defineConfig(({ mode }) => {
