@@ -5,7 +5,6 @@ type SnapshotCarrier = {
   title?: string;
   genre?: string[];
   year?: number;
-  rating?: string;
   voteAverage?: number;
   posterUrl?: string;
   tmdbId?: string;
@@ -18,7 +17,6 @@ export function buildContentSnapshot(content: Doc<"content">) {
     title: content.title,
     genre: content.genre.slice(0, 3),
     year: content.year,
-    rating: content.rating,
     voteAverage: content.voteAverage,
     posterUrl: content.posterUrl,
     tmdbId: content.tmdbId,
@@ -32,7 +30,6 @@ export function hasContentSnapshot(value: SnapshotCarrier) {
     value.contentType &&
     value.title &&
     value.genre &&
-    value.rating &&
     value.posterUrl &&
     value.year !== undefined &&
     value.new !== undefined

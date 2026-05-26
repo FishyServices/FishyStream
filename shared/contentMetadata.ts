@@ -36,14 +36,6 @@ interface ContentFeaturedRecord extends ContentCardRecord {
 interface ContentDetailRecord extends ContentFeaturedRecord {
   imdbId?: string;
   anilistId?: string;
-  voteCount?: number;
-  popularity?: number;
-  totalEpisodes?: number;
-  status?: string;
-  productionCountries?: string[];
-  spokenLanguages?: string[];
-  budget?: number;
-  revenue?: number;
 }
 
 interface ContentPlaybackRecord extends ContentCardRecord {
