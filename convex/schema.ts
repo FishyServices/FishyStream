@@ -150,7 +150,7 @@ export default defineSchema({
     .index("by_user_content", ["userId", "contentId"])
     .index("by_user_folder", ["userId", "folder"]),
 
-  watchHistory: defineTable({
+  watchProgress: defineTable({
     userId: v.id("users"),
     contentId: v.id("content"),
     progress: v.number(),
@@ -161,8 +161,7 @@ export default defineSchema({
     source: v.optional(v.string()),
     dub: v.optional(v.boolean()),
     completed: v.boolean(),
-    watchedAt: v.number(),
-    ...contentSnapshotFields
+    watchedAt: v.number()
   })
     .index("by_user", ["userId"])
     .index("by_user_content", ["userId", "contentId"])

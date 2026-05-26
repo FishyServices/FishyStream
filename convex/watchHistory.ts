@@ -1,10 +1,28 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
+import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { toWatchHistoryItemMeta, type WatchHistoryItemMeta } from "../shared/contentMetadata";
+import {
+  toContentBackedWatchHistoryItemMeta,
+  toWatchHistoryItemWire,
+  toWatchProgressEntryMeta,
+  type WatchHistoryItemWire,
+  type WatchProgressEntryMeta
+} from "../shared/contentMetadata";
 import { findOrCreateUserIdByClerkId, findUserIdByClerkIdQuery } from "./lib/users";
-import { buildContentSnapshot, hasContentSnapshot } from "./lib/contentSnapshots";
+
+type ProgressDocument = {
+  contentId: Id<"content">;
+  progress: number;
+  positionSeconds?: number;
+  durationSeconds?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  source?: string;
+  dub?: boolean;
+  completed: boolean;
+  watchedAt: number;
+};
 
 function normalizeProgress(progress: number) {
   if (!Number.isFinite(progress)) return 0;
@@ -16,7 +34,7 @@ function normalizeOptionalNumber(value: number | undefined) {
 }
 
 function shouldSkipProgressUpdate(
-  existing: Doc<"watchHistory">,
+  existing: ProgressDocument,
   next: {
     progress: number;
     completed: boolean;
@@ -43,44 +61,6 @@ function shouldSkipProgressUpdate(
   );
 }
 
-function toSnapshotBackedHistoryItem(item: Doc<"watchHistory">, content?: Doc<"content"> | null) {
-  const base = content
-    ? {
-        _id: content._id,
-        title: content.title,
-        type: content.type,
-        genre: content.genre,
-        year: content.year,
-        rating: content.rating,
-        voteAverage: content.voteAverage,
-        posterUrl: content.posterUrl,
-        tmdbId: content.tmdbId,
-        new: content.new
-      }
-    : {
-        _id: item.contentId,
-        title: item.title!,
-        type: item.contentType!,
-        genre: item.genre!,
-        year: item.year!,
-        rating: item.rating!,
-        voteAverage: item.voteAverage,
-        posterUrl: item.posterUrl!,
-        tmdbId: item.tmdbId,
-        new: item.new!
-      };
-
-  return toWatchHistoryItemMeta({
-    ...base,
-    progress: item.progress,
-    completed: item.completed,
-    seasonNumber: item.seasonNumber,
-    episodeNumber: item.episodeNumber,
-    source: item.source,
-    dub: item.dub
-  });
-}
-
 async function queryUserId(ctx: QueryCtx, clerkUserId: string) {
   return await findUserIdByClerkIdQuery(ctx, clerkUserId);
 }
@@ -89,35 +69,69 @@ async function mutateUserId(ctx: MutationCtx, clerkUserId: string) {
   return await findOrCreateUserIdByClerkId(ctx, clerkUserId);
 }
 
+async function getContentCard(ctx: QueryCtx, contentId: Id<"content">) {
+  const card = await ctx.db
+    .query("contentCards")
+    .withIndex("by_content", (q) => q.eq("contentId", contentId))
+    .first();
+
+  if (card) {
+    return {
+      _id: card.contentId,
+      title: card.title,
+      type: card.type,
+      genre: card.genre,
+      year: card.year,
+      voteAverage: card.voteAverage,
+      posterUrl: card.posterUrl,
+      tmdbId: card.tmdbId,
+      new: card.new
+    };
+  }
+
+  const content = await ctx.db.get(contentId);
+  if (!content) return null;
+
+  return {
+    _id: content._id,
+    title: content.title,
+    type: content.type,
+    genre: content.genre,
+    year: content.year,
+    voteAverage: content.voteAverage,
+    posterUrl: content.posterUrl,
+    tmdbId: content.tmdbId,
+    new: content.new
+  };
+}
+
 async function listSnapshotBackedHistory(
   ctx: QueryCtx,
   userId: Id<"users">,
   limit: number,
   includeCompleted: boolean
 ) {
-  const rows = includeCompleted
+  const progressRows = includeCompleted
     ? await ctx.db
-        .query("watchHistory")
+        .query("watchProgress")
         .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
         .order("desc")
         .take(limit)
     : await ctx.db
-        .query("watchHistory")
+        .query("watchProgress")
         .withIndex("by_user_completed_watched_at", (q) =>
           q.eq("userId", userId).eq("completed", false)
         )
         .order("desc")
         .take(limit);
 
-  const result: WatchHistoryItemMeta[] = [];
-  for (const row of rows) {
-    let content: Doc<"content"> | null = null;
-    if (!hasContentSnapshot(row)) {
-      content = await ctx.db.get(row.contentId);
-      if (!content) continue;
-    }
+  const result: WatchHistoryItemWire[] = [];
 
-    result.push(toSnapshotBackedHistoryItem(row, content));
+  for (const row of progressRows) {
+    const content = await getContentCard(ctx, row.contentId);
+    if (!content) continue;
+
+    result.push(toWatchHistoryItemWire(toContentBackedWatchHistoryItemMeta(row, content)));
   }
 
   return result;
@@ -125,7 +139,7 @@ async function listSnapshotBackedHistory(
 
 export const listWatchHistory = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemWire[]> => {
     const userId = await queryUserId(ctx, clerkUserId);
     if (!userId) return [];
     return await listSnapshotBackedHistory(ctx, userId, 50, true);
@@ -134,7 +148,7 @@ export const listWatchHistory = query({
 
 export const listContinueWatching = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemWire[]> => {
     const userId = await queryUserId(ctx, clerkUserId);
     if (!userId) return [];
     return await listSnapshotBackedHistory(ctx, userId, 10, false);
@@ -143,28 +157,17 @@ export const listContinueWatching = query({
 
 export const listWatchProgressEntries = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchProgressEntryMeta[]> => {
     const userId = await queryUserId(ctx, clerkUserId);
     if (!userId) return [];
 
     const rows = await ctx.db
-      .query("watchHistory")
+      .query("watchProgress")
       .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
       .order("desc")
       .take(50);
 
-    return rows.map((row) => ({
-      contentId: row.contentId,
-      progress: row.progress,
-      positionSeconds: row.positionSeconds ?? 0,
-      durationSeconds: row.durationSeconds ?? 0,
-      completed: row.completed,
-      seasonNumber: row.seasonNumber ?? null,
-      episodeNumber: row.episodeNumber ?? null,
-      source: row.source ?? null,
-      dub: row.dub ?? null,
-      watchedAt: row.watchedAt
-    }));
+    return rows.map(toWatchProgressEntryMeta);
   }
 });
 
@@ -190,7 +193,7 @@ export const saveWatchProgress = mutation({
     const nextPositionSeconds = normalizeOptionalNumber(args.positionSeconds);
     const nextDurationSeconds = normalizeOptionalNumber(args.durationSeconds);
     const existing = await ctx.db
-      .query("watchHistory")
+      .query("watchProgress")
       .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", args.contentId))
       .first();
 
@@ -217,8 +220,7 @@ export const saveWatchProgress = mutation({
       return;
     }
 
-    const content = await ctx.db.get(args.contentId);
-    await ctx.db.insert("watchHistory", {
+    await ctx.db.insert("watchProgress", {
       userId,
       contentId: args.contentId,
       progress: normalizedProgress,
@@ -229,8 +231,7 @@ export const saveWatchProgress = mutation({
       episodeNumber: args.episodeNumber,
       source: args.source,
       dub: args.dub,
-      watchedAt: Date.now(),
-      ...(content ? buildContentSnapshot(content) : {})
+      watchedAt: Date.now()
     });
   }
 });
@@ -241,31 +242,13 @@ export const removeWatchHistoryEntry = mutation({
     const userId = await mutateUserId(ctx, clerkUserId);
     if (!userId) return false;
 
-    const existing = await ctx.db
-      .query("watchHistory")
+    const existingProgress = await ctx.db
+      .query("watchProgress")
       .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
       .first();
-    if (!existing) return false;
+    if (!existingProgress) return false;
 
-    await ctx.db.delete(existing._id);
+    await ctx.db.delete(existingProgress._id);
     return true;
-  }
-});
-
-export const compactWatchHistorySnapshots = internalMutation({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 5000 }) => {
-    const items = await ctx.db.query("watchHistory").take(limit);
-    let updated = 0;
-
-    for (const item of items) {
-      const content = await ctx.db.get(item.contentId);
-      if (!content) continue;
-
-      await ctx.db.patch(item._id, buildContentSnapshot(content));
-      updated += 1;
-    }
-
-    return updated;
   }
 });

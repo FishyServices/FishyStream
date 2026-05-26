@@ -62,6 +62,19 @@ interface WatchHistoryRecord extends ContentCardRecord {
   dub?: boolean;
 }
 
+interface WatchProgressRecord {
+  contentId: ContentId;
+  progress: number;
+  positionSeconds?: number;
+  durationSeconds?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  source?: string;
+  dub?: boolean;
+  completed: boolean;
+  watchedAt: number;
+}
+
 interface WatchlistItemRecord extends ContentCardRecord {
   watchlistAddedAt: number;
   watchlistFolder?: string;
@@ -172,6 +185,33 @@ export interface WatchHistoryItemMeta extends ContentCard {
   dub?: boolean;
 }
 
+export type WatchHistoryItemWire = [
+  contentId: ContentId,
+  title: string,
+  type: ContentType,
+  posterUrl: string,
+  progress: number,
+  completed: boolean,
+  tmdbId?: string | null,
+  seasonNumber?: number | null,
+  episodeNumber?: number | null,
+  source?: string | null,
+  dub?: boolean | null
+];
+
+export type WatchProgressEntryMeta = [
+  contentId: ContentId,
+  progress: number,
+  positionSeconds: number,
+  durationSeconds: number,
+  completed: boolean,
+  watchedAt: number,
+  seasonNumber?: number | null,
+  episodeNumber?: number | null,
+  source?: string | null,
+  dub?: boolean | null
+];
+
 export interface SeasonMetaSummary {
   seasonNumber: number;
   episodeCount: number;
@@ -259,6 +299,93 @@ export function toWatchHistoryItemMeta(content: WatchHistoryRecord): WatchHistor
     source: content.source,
     dub: content.dub
   };
+}
+
+export function toWatchHistoryItemWire(item: WatchHistoryItemMeta): WatchHistoryItemWire {
+  const entry: WatchHistoryItemWire = [
+    item._id,
+    item.title,
+    item.type,
+    item.posterUrl,
+    item.progress,
+    item.completed
+  ];
+
+  if (
+    item.tmdbId !== undefined ||
+    item.seasonNumber !== undefined ||
+    item.episodeNumber !== undefined ||
+    item.source !== undefined ||
+    item.dub !== undefined
+  ) {
+    entry[6] = item.tmdbId ?? null;
+    entry[7] = item.seasonNumber ?? null;
+    entry[8] = item.episodeNumber ?? null;
+    entry[9] = item.source ?? null;
+    entry[10] = item.dub ?? null;
+  }
+
+  return entry;
+}
+
+export function fromWatchHistoryItemWire(item: WatchHistoryItemWire): WatchHistoryItemMeta {
+  return {
+    _id: item[0],
+    title: item[1],
+    type: item[2],
+    posterUrl: item[3],
+    progress: item[4],
+    completed: item[5],
+    year: 0,
+    voteAverage: undefined,
+    tmdbId: item[6] ?? undefined,
+    new: false,
+    genre: [],
+    seasonNumber: item[7] ?? undefined,
+    episodeNumber: item[8] ?? undefined,
+    source: item[9] ?? undefined,
+    dub: item[10] ?? undefined
+  };
+}
+
+export function toContentBackedWatchHistoryItemMeta(
+  item: WatchProgressRecord,
+  content: ContentCardRecord
+): WatchHistoryItemMeta {
+  return toWatchHistoryItemMeta({
+    ...content,
+    progress: item.progress,
+    completed: item.completed,
+    seasonNumber: item.seasonNumber,
+    episodeNumber: item.episodeNumber,
+    source: item.source,
+    dub: item.dub
+  });
+}
+
+export function toWatchProgressEntryMeta(row: WatchProgressRecord): WatchProgressEntryMeta {
+  const entry: WatchProgressEntryMeta = [
+    row.contentId,
+    row.progress,
+    row.positionSeconds ?? 0,
+    row.durationSeconds ?? 0,
+    row.completed,
+    row.watchedAt
+  ];
+
+  if (
+    row.seasonNumber !== undefined ||
+    row.episodeNumber !== undefined ||
+    row.source !== undefined ||
+    row.dub !== undefined
+  ) {
+    entry[6] = row.seasonNumber ?? null;
+    entry[7] = row.episodeNumber ?? null;
+    entry[8] = row.source ?? null;
+    entry[9] = row.dub ?? null;
+  }
+
+  return entry;
 }
 
 export function toWatchlistGridItem(

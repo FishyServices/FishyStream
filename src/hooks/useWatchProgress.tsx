@@ -11,6 +11,7 @@ import { useMutation, useConvex } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { WatchProgressEntryMeta } from "../../shared/contentMetadata";
 
 export interface ProgressState {
   progress: number;
@@ -83,6 +84,21 @@ function toProgressState(entry: StoredProgress | ServerProgress): ProgressState 
   };
 }
 
+function toServerProgress(entry: WatchProgressEntryMeta): ServerProgress {
+  return {
+    contentId: entry[0],
+    progress: entry[1],
+    positionSeconds: entry[2],
+    durationSeconds: entry[3],
+    completed: entry[4],
+    watchedAt: entry[5],
+    seasonNumber: entry[6] ?? null,
+    episodeNumber: entry[7] ?? null,
+    source: entry[8] ?? null,
+    dub: entry[9] ?? null
+  };
+}
+
 function isStoredProgressNewer(local: StoredProgress, remote: ServerProgress): boolean {
   if (local.needsSync) return true;
   return local.lastUpdated >= remote.watchedAt;
@@ -125,7 +141,8 @@ export function WatchProgressProvider({ children }: { children: ReactNode }) {
         const localEntries = new Map(lsGetAll().map((entry) => [entry.contentId, entry]));
         const mergedEntries = new Map(localEntries);
 
-        for (const serverItem of serverItems) {
+        for (const compactServerItem of serverItems) {
+          const serverItem = toServerProgress(compactServerItem);
           const local = localEntries.get(serverItem.contentId);
           if (!local || !isStoredProgressNewer(local, serverItem)) {
             mergedEntries.set(serverItem.contentId, {
