@@ -11,7 +11,7 @@ export type ProviderKey =
   | "filmu"
   | "vidzen"
   | "vixsrc"
-  | "vidsrc pro"
+  | "vidsrcpro"
   | "cinezo"
   | "mafiaembed"
   | "superembed"
@@ -108,14 +108,14 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     quality: "1080p",
     website: "https://www.vidking.net",
-    progress: { origins: ALL_ORIGINS, resumeParam: "progress" },
+    progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "vidfast",
     name: "VidFast",
-    category: "primary",
+    category: "fallback",
     idType: "both",
     quality: "1080p",
     website: "https://vidfast.pro",
@@ -123,7 +123,8 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
       origins: ALL_ORIGINS,
       controlApi: true,
       statusRequest: true,
-      resumeParam: "startAt"
+      resumeParam: "startAt",
+      referrerPolicy: "no-referrer"
     },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
@@ -131,12 +132,12 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "videasy",
     name: "VidEasy",
-    category: "primary",
+    category: "fallback",
     idType: "tmdb",
     quality: "1080p",
     website: "https://player.videasy.net",
     animeIdType: "anilist",
-    progress: { origins: ALL_ORIGINS, resumeParam: "progress" },
+    progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode) => `/anime/${id}/${episode}`
@@ -179,7 +180,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://player.vidplus.to",
     animeIdType: "anilist",
     dubSupport: true,
-    progress: { origins: ALL_ORIGINS },
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) =>
@@ -194,7 +195,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://embed.filmu.in",
     animeIdType: "anilist",
     dubSupport: true,
-    progress: { origins: ALL_ORIGINS },
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) =>
@@ -207,28 +208,29 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     quality: "1080p",
     website: "https://vidzen.fun",
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "vixsrc",
     name: "VixSrc",
-    category: "primary",
+    category: "fallback",
     idType: "tmdb",
     quality: "1080p",
     website: "https://vixsrc.to",
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
-    key: "vidsrc pro",
+    key: "vidsrcpro",
     name: "VidSrc Pro",
-    category: "primary",
+    category: "fallback",
     idType: "both",
     quality: "1080p",
     website: "https://vidsrc.mov",
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
@@ -256,7 +258,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://nhdapi.com",
     animeIdType: "anilist",
     dubSupport: true,
-    progress: { origins: ALL_ORIGINS, resumeParam: "progress" },
+    progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
@@ -281,18 +283,20 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     quality: "1080p",
     website: "https://player.autoembed.cc",
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "vidsrc",
     name: "VidSrc",
-    category: "anime",
+    category: "primary",
     idType: "both",
     quality: "1080p",
-    website: "https://vidsrc.icu",
+    website: "https://vidsrc.to",
     animeIdType: "anilist",
     dubSupport: true,
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "2" : "1"}`
@@ -306,6 +310,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://www.2embed.cc",
     animeIdType: "anilist",
     dubSupport: true,
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/${id}`,
     tvPath: (id, season, episode) => `/embed/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) =>
@@ -318,6 +323,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "imdb",
     quality: "720p",
     website: "https://player.vidzee.wtf",
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/${id}`,
     tvPath: (id, season, episode) => `/embed/${id}/${season}/${episode}`
   }),
@@ -328,13 +334,14 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "imdb",
     quality: "720p",
     website: "https://111movies.net",
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/${id}`,
     tvPath: (id, season, episode) => `/embed/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "vidplays",
     name: "VidPlays",
-    category: "primary",
+    category: "fallback",
     idType: "tmdb",
     quality: "1080p",
     website: "/vidplays-proxy",
@@ -349,14 +356,14 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "tryembed",
     name: "TryEmbed",
-    category: "anime",
+    category: "fallback",
     idType: "tmdb",
     quality: "1080p",
     website: "https://tryembed.us.cc",
     animeOnly: true,
     animeIdType: "anilist",
     dubSupport: true,
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
@@ -394,7 +401,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     quality: "1080p",
     website: "https://peachify.top",
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
