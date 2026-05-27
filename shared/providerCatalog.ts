@@ -290,7 +290,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "vidsrc",
     name: "VidSrc",
-    category: "primary",
+    category: "fallback",
     idType: "both",
     quality: "1080p",
     website: "https://vidsrc.to",
@@ -320,12 +320,12 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     key: "vidzee",
     name: "VidZee",
     category: "fallback",
-    idType: "imdb",
+    idType: "tmdb",
     quality: "720p",
     website: "https://player.vidzee.wtf",
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/embed/${id}`,
-    tvPath: (id, season, episode) => `/embed/${id}/${season}/${episode}`
+    moviePath: (id) => `/v2/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/v2/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "111movies",

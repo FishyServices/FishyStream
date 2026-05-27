@@ -520,6 +520,11 @@ export function VideoPlayer({
     }
   })();
 
+  const iframeSrcDoc =
+    iframeReferrerPolicy === "no-referrer" && embedUrl
+      ? `<!doctype html><html><head><meta name="referrer" content="no-referrer"></head><body><script>location.replace(${JSON.stringify(embedUrl)})<\/script></body></html>`
+      : undefined;
+
   useEffect(() => {
     if (!watchState) return;
     if (isMatchingEpisodeProgress(content, watchState, tvTarget.season, tvTarget.episode)) {
@@ -993,7 +998,8 @@ export function VideoPlayer({
         <iframe
           ref={iframeRef}
           key={embedUrl}
-          src={embedUrl}
+          src={iframeSrcDoc ? undefined : embedUrl}
+          srcDoc={iframeSrcDoc}
           className="absolute inset-0 w-full h-full border-0"
           allowFullScreen
           allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
