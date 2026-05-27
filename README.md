@@ -1,5 +1,7 @@
 # FishyStream
 
+Live Url: https://master.fishystream-app.pages.dev
+
 A free and open-source streaming platform focused on movies and TV shows.
 
 Built to be fast, simple, and modern without unnecessary clutter.
