@@ -331,12 +331,12 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     key: "111movies",
     name: "111movies",
     category: "fallback",
-    idType: "imdb",
+    idType: "both",
     quality: "720p",
     website: "https://111movies.net",
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/embed/${id}`,
-    tvPath: (id, season, episode) => `/embed/${id}/${season}/${episode}`
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "vidplays",
