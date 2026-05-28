@@ -2,6 +2,13 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { buildMovieSources, buildTvSources } from "../shared/providerCatalog";
 import type { StreamSource } from "../shared/providerCatalog";
+import type { AniListEpisodeMapping } from "../shared/contentMetadata";
+
+const anilistEpisodeMappingValidator = v.object({
+  episodeNumber: v.number(),
+  anilistId: v.string(),
+  anilistEpisodeNumber: v.number()
+});
 
 export const listMovieSources = action({
   args: {
@@ -24,16 +31,30 @@ export const listTvSources = action({
     year: v.optional(v.number()),
     tmdbId: v.optional(v.string()),
     anilistId: v.optional(v.string()),
+    anilistEpisodeMappings: v.optional(v.array(anilistEpisodeMappingValidator)),
     dub: v.optional(v.boolean())
   },
   handler: async (
     _ctx,
-    { imdbId, tmdbId, anilistId, season, episode, isAnime, title, seasonTitle, year, dub }
+    {
+      imdbId,
+      tmdbId,
+      anilistId,
+      anilistEpisodeMappings,
+      season,
+      episode,
+      isAnime,
+      title,
+      seasonTitle,
+      year,
+      dub
+    }
   ): Promise<StreamSource[]> => {
     return buildTvSources({
       imdbId,
       tmdbId,
       anilistId,
+      anilistEpisodeMappings: anilistEpisodeMappings as AniListEpisodeMapping[] | undefined,
       season,
       episode,
       isAnime,

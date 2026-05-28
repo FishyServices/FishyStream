@@ -25,6 +25,12 @@ const episodeValidator = v.object({
   voteAverage: v.optional(v.number())
 });
 
+const anilistEpisodeMappingValidator = v.object({
+  episodeNumber: v.number(),
+  anilistId: v.string(),
+  anilistEpisodeNumber: v.number()
+});
+
 export default defineSchema({
   users: defineTable({
     clerkUserId: v.string(),
@@ -120,6 +126,7 @@ export default defineSchema({
     contentId: v.id("content"),
     tmdbId: v.string(),
     anilistId: v.optional(v.string()),
+    anilistEpisodeMappings: v.optional(v.array(anilistEpisodeMappingValidator)),
     seasonNumber: v.number(),
     name: v.string(),
     overview: v.optional(v.string()),

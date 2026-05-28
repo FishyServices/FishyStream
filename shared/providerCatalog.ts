@@ -1,5 +1,6 @@
 import { resolveAniListEpisodeAddress } from "./anilistResolver";
 import { mapCanonicalToProviderOrder } from "./tvSeasonMappings";
+import type { AniListEpisodeMapping } from "./contentMetadata";
 
 export type ProviderKey =
   | "vidking"
@@ -538,12 +539,27 @@ export async function buildTvSources(args: {
   year?: number;
   tmdbId?: string;
   anilistId?: string;
+  anilistEpisodeMappings?: AniListEpisodeMapping[];
   dub?: boolean;
 }): Promise<StreamSource[]> {
-  const { imdbId, tmdbId, anilistId, season, episode, isAnime, title, seasonTitle, year, dub } =
-    args;
+  const {
+    imdbId,
+    tmdbId,
+    anilistId,
+    anilistEpisodeMappings,
+    season,
+    episode,
+    isAnime,
+    title,
+    seasonTitle,
+    year,
+    dub
+  } = args;
   let resolvedAniListAddress: Awaited<ReturnType<typeof resolveAniListEpisodeAddress>> | undefined =
     undefined;
+  const storedAniListAddress = anilistEpisodeMappings?.find(
+    (mapping) => mapping.episodeNumber === episode
+  );
 
   const sources: StreamSource[] = [];
   for (const provider of STREAM_PROVIDERS) {
@@ -554,14 +570,19 @@ export async function buildTvSources(args: {
 
     if (isAnime && provider.getAnimeTVUrl && provider.animeIdType === "anilist") {
       if (resolvedAniListAddress === undefined) {
-        resolvedAniListAddress = await resolveAniListEpisodeAddress({
-          anilistId,
-          title,
-          season,
-          seasonTitle,
-          year,
-          episode
-        });
+        resolvedAniListAddress = storedAniListAddress
+          ? {
+              anilistId: storedAniListAddress.anilistId,
+              episode: storedAniListAddress.anilistEpisodeNumber
+            }
+          : await resolveAniListEpisodeAddress({
+              anilistId,
+              title,
+              season,
+              seasonTitle,
+              year,
+              episode
+            });
       }
       animeId = resolvedAniListAddress?.anilistId ?? null;
     }

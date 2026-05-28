@@ -94,6 +94,7 @@ interface SeasonSummaryRecord {
   airDate?: string;
   episodeCount: number;
   anilistId?: string;
+  anilistEpisodeMappings?: AniListEpisodeMapping[];
   episodes: { length: number };
 }
 
@@ -208,7 +209,14 @@ export interface SeasonMetaSummary {
   seasonNumber: number;
   episodeCount: number;
   anilistId?: string;
+  anilistEpisodeMappings?: AniListEpisodeMapping[];
   storedEpisodeCount: number;
+}
+
+export interface AniListEpisodeMapping {
+  episodeNumber: number;
+  anilistId: string;
+  anilistEpisodeNumber: number;
 }
 
 export function toContentCard(content: ContentCardRecord): ContentCard {
@@ -424,6 +432,7 @@ export function toSeasonMetaSummary(content: SeasonSummaryRecord): SeasonMetaSum
     seasonNumber: content.seasonNumber,
     episodeCount: content.episodeCount,
     anilistId: content.anilistId,
+    anilistEpisodeMappings: content.anilistEpisodeMappings,
     storedEpisodeCount: content.episodes.length
   };
 }

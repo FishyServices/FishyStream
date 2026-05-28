@@ -158,6 +158,19 @@ function shouldWaitForAnimeSeasonMetadata(
   return currentSeasonData?.seasonNumber !== seasonNumber;
 }
 
+function hasAnimeEpisodeMappingMetadata(
+  currentSeasonData:
+    | {
+        episodeCount: number;
+        anilistEpisodeMappings?: Array<{ episodeNumber: number }>;
+      }
+    | null
+    | undefined
+) {
+  if (!currentSeasonData?.episodeCount) return false;
+  return (currentSeasonData.anilistEpisodeMappings?.length ?? 0) >= currentSeasonData.episodeCount;
+}
+
 function getSeasonYear(airDate?: string) {
   const year = Number((airDate ?? "").split("-")[0]);
   return Number.isFinite(year) && year > 1900 ? year : undefined;
@@ -223,7 +236,9 @@ export function VideoPlayer({
 
     const shouldSyncSeason =
       currentSeasonData === null ||
-      (animeContent && (!hasFreshAnimeSeasonMetadata || !currentSeasonData?.anilistId));
+      (animeContent &&
+        !hasFreshAnimeSeasonMetadata &&
+        (!currentSeasonData?.anilistId || !hasAnimeEpisodeMappingMetadata(currentSeasonData)));
     if (!shouldSyncSeason) return;
 
     const key = `${content._id}:${tvTarget.season}`;
@@ -269,6 +284,7 @@ export function VideoPlayer({
     if (!animeContent || !currentSeasonKey || seasonSyncRequestRef.current) return;
     if (currentSeasonData?.seasonNumber !== tvTarget.season) return;
     if (!currentSeasonData?.anilistId) return;
+    if (!hasAnimeEpisodeMappingMetadata(currentSeasonData)) return;
 
     setFreshAnimeSeasonKeys((keys) =>
       keys.includes(currentSeasonKey) ? keys : [...keys, currentSeasonKey]
@@ -379,6 +395,7 @@ export function VideoPlayer({
                   currentSeasonData?.anilistId ??
                   (season === 1 ? content.anilistId : undefined) ??
                   undefined,
+                anilistEpisodeMappings: currentSeasonData?.anilistEpisodeMappings,
                 isAnime: animeContent,
                 title: content.title,
                 seasonTitle: currentSeasonData?.name,
@@ -446,6 +463,7 @@ export function VideoPlayer({
     searchParams,
     currentSeasonData?.name,
     currentSeasonData?.anilistId,
+    currentSeasonData?.anilistEpisodeMappings,
     currentSeasonData?.airDate,
     waitingForAnimeSeasonMetadata
   ]);
@@ -699,6 +717,7 @@ export function VideoPlayer({
           currentSeasonData?.anilistId ??
           (tvTargetRef.current.season === 1 ? content.anilistId : undefined) ??
           undefined,
+        anilistEpisodeMappings: currentSeasonData?.anilistEpisodeMappings,
         isAnime: animeContent,
         title: content.title,
         seasonTitle: currentSeasonData?.name,

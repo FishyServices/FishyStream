@@ -2,7 +2,11 @@ import { v } from "convex/values";
 import { internalMutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { toSeasonMetaSummary, type SeasonMetaSummary } from "../shared/contentMetadata";
+import {
+  toSeasonMetaSummary,
+  type AniListEpisodeMapping,
+  type SeasonMetaSummary
+} from "../shared/contentMetadata";
 
 const episodeValidator = v.object({
   episodeNumber: v.number(),
@@ -12,6 +16,12 @@ const episodeValidator = v.object({
   airDate: v.optional(v.string()),
   runtime: v.optional(v.number()),
   voteAverage: v.number()
+});
+
+const anilistEpisodeMappingValidator = v.object({
+  episodeNumber: v.number(),
+  anilistId: v.string(),
+  anilistEpisodeNumber: v.number()
 });
 
 async function readSeasonRows(ctx: QueryCtx | MutationCtx, contentId: Id<"content">) {
@@ -56,6 +66,7 @@ function seasonPayloadChanged(
     contentId: Id<"content">;
     tmdbId: string;
     anilistId?: string;
+    anilistEpisodeMappings?: AniListEpisodeMapping[];
     seasonNumber: number;
     name: string;
     overview?: string;
@@ -69,6 +80,8 @@ function seasonPayloadChanged(
     existing.contentId !== args.contentId ||
     existing.tmdbId !== args.tmdbId ||
     existing.anilistId !== args.anilistId ||
+    JSON.stringify(existing.anilistEpisodeMappings ?? []) !==
+      JSON.stringify(args.anilistEpisodeMappings ?? []) ||
     existing.seasonNumber !== args.seasonNumber ||
     existing.name !== args.name ||
     existing.overview !== args.overview ||
@@ -103,6 +116,7 @@ export const upsertSeason = internalMutation({
     contentId: v.id("content"),
     tmdbId: v.string(),
     anilistId: v.optional(v.string()),
+    anilistEpisodeMappings: v.optional(v.array(anilistEpisodeMappingValidator)),
     seasonNumber: v.number(),
     name: v.string(),
     overview: v.optional(v.string()),
@@ -195,7 +209,8 @@ export const getSeasonPlaybackMeta = query({
       name: season.name,
       airDate: season.airDate,
       episodeCount: season.episodeCount,
-      anilistId: season.anilistId
+      anilistId: season.anilistId,
+      anilistEpisodeMappings: season.anilistEpisodeMappings
     };
   }
 });

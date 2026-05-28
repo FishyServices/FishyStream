@@ -7,7 +7,8 @@ import {
   getCanonicalTotalEpisodes,
   getTvOrderingOverride
 } from "../shared/tvSeasonMappings";
-import { resolveAniListId } from "../shared/anilistResolver";
+import { resolveAniListEpisodeAddress, resolveAniListId } from "../shared/anilistResolver";
+import type { AniListEpisodeMapping } from "../shared/contentMetadata";
 
 const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
@@ -456,6 +457,41 @@ function hasEpisodes(data: TMDBSeasonDetails | null): data is TMDBSeasonDetails 
   return (data?.episodes?.length ?? 0) > 0;
 }
 
+async function buildAniListEpisodeMappings(args: {
+  anilistId?: string | null;
+  title?: string;
+  season: number;
+  seasonTitle?: string;
+  year?: number;
+  episodes: Array<{ episodeNumber: number }>;
+}): Promise<AniListEpisodeMapping[] | undefined> {
+  if (!args.anilistId || args.episodes.length === 0) return undefined;
+
+  const mappings = await Promise.all(
+    args.episodes.map(async (episode) => {
+      const address = await resolveAniListEpisodeAddress({
+        anilistId: args.anilistId,
+        title: args.title,
+        season: args.season,
+        seasonTitle: args.seasonTitle,
+        year: args.year,
+        episode: episode.episodeNumber
+      });
+
+      return address
+        ? {
+            episodeNumber: episode.episodeNumber,
+            anilistId: address.anilistId,
+            anilistEpisodeNumber: address.episode
+          }
+        : null;
+    })
+  );
+
+  const validMappings = mappings.filter((mapping): mapping is AniListEpisodeMapping => !!mapping);
+  return validMappings.length > 0 ? validMappings : undefined;
+}
+
 async function buildCanonicalSeasonPayload(
   tmdbId: string,
   seasonNumber: number,
@@ -871,25 +907,35 @@ export const syncSeasons = action({
             seasonTitle: group.name,
             year: getYear(group.episodes[0]?.air_date ?? undefined)
           });
+          const episodes = group.episodes.map((ep, index) => ({
+            episodeNumber: index + 1,
+            name: ep.name,
+            overview: ep.overview || undefined,
+            stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
+            airDate: ep.air_date ?? undefined,
+            runtime: ep.runtime ?? undefined,
+            voteAverage: ep.vote_average
+          }));
+          const anilistEpisodeMappings = await buildAniListEpisodeMappings({
+            anilistId: resolvedAniListId,
+            title: contentTitle,
+            season: Math.max(1, group.order),
+            seasonTitle: group.name,
+            year: getYear(group.episodes[0]?.air_date ?? undefined),
+            episodes
+          });
           await ctx.runMutation(internal.seasons.upsertSeason, {
             contentId: contentId as any,
             tmdbId,
             anilistId: resolvedAniListId ?? undefined,
+            anilistEpisodeMappings,
             seasonNumber: Math.max(1, group.order),
             name: group.name,
             overview: undefined,
             posterUrl: undefined,
             airDate: group.episodes[0]?.air_date ?? undefined,
             episodeCount: group.episodes.length,
-            episodes: group.episodes.map((ep, index) => ({
-              episodeNumber: index + 1,
-              name: ep.name,
-              overview: ep.overview || undefined,
-              stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
-              airDate: ep.air_date ?? undefined,
-              runtime: ep.runtime ?? undefined,
-              voteAverage: ep.vote_average
-            }))
+            episodes
           });
           groupSynced++;
         }
@@ -907,11 +953,20 @@ export const syncSeasons = action({
         seasonTitle: payload.name,
         year: payload.year
       });
+      const anilistEpisodeMappings = await buildAniListEpisodeMappings({
+        anilistId: resolvedAniListId,
+        title: contentTitle,
+        season: payload.seasonNumber,
+        seasonTitle: payload.name,
+        year: payload.year,
+        episodes: payload.episodes
+      });
 
       await ctx.runMutation(internal.seasons.upsertSeason, {
         contentId: contentId as any,
         tmdbId,
         anilistId: resolvedAniListId ?? undefined,
+        anilistEpisodeMappings,
         seasonNumber: payload.seasonNumber,
         name: payload.name,
         overview: payload.overview,
@@ -958,26 +1013,36 @@ export const syncSeason = action({
         seasonTitle: group.name,
         year: getYear(group.episodes[0]?.air_date ?? undefined)
       });
+      const episodes = group.episodes.map((ep, index) => ({
+        episodeNumber: index + 1,
+        name: ep.name,
+        overview: ep.overview || undefined,
+        stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
+        airDate: ep.air_date ?? undefined,
+        runtime: ep.runtime ?? undefined,
+        voteAverage: ep.vote_average
+      }));
+      const anilistEpisodeMappings = await buildAniListEpisodeMappings({
+        anilistId: resolvedAniListId,
+        title: contentTitle,
+        season: seasonNumber,
+        seasonTitle: group.name,
+        year: getYear(group.episodes[0]?.air_date ?? undefined),
+        episodes
+      });
 
       await ctx.runMutation(internal.seasons.upsertSeason, {
         contentId: contentId as any,
         tmdbId,
         anilistId: resolvedAniListId ?? undefined,
+        anilistEpisodeMappings,
         seasonNumber,
         name: group.name,
         overview: undefined,
         posterUrl: undefined,
         airDate: group.episodes[0]?.air_date ?? undefined,
         episodeCount: group.episodes.length,
-        episodes: group.episodes.map((ep, index) => ({
-          episodeNumber: index + 1,
-          name: ep.name,
-          overview: ep.overview || undefined,
-          stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
-          airDate: ep.air_date ?? undefined,
-          runtime: ep.runtime ?? undefined,
-          voteAverage: ep.vote_average
-        }))
+        episodes
       });
 
       return { seasonNumber, episodeCount: group.episodes.length };
@@ -991,11 +1056,20 @@ export const syncSeason = action({
       seasonTitle: payload.name,
       year: payload.year
     });
+    const anilistEpisodeMappings = await buildAniListEpisodeMappings({
+      anilistId: resolvedAniListId,
+      title: contentTitle,
+      season: payload.seasonNumber,
+      seasonTitle: payload.name,
+      year: payload.year,
+      episodes: payload.episodes
+    });
 
     await ctx.runMutation(internal.seasons.upsertSeason, {
       contentId: contentId as any,
       tmdbId,
       anilistId: resolvedAniListId ?? undefined,
+      anilistEpisodeMappings,
       seasonNumber: payload.seasonNumber,
       name: payload.name,
       overview: payload.overview,
