@@ -20,7 +20,6 @@ export interface TvOrderingOverride {
 }
 
 const MONEY_HEIST_TMDB_ID = "71446";
-const SOLO_LEVELING_TMDB_ID = "127532";
 
 const MONEY_HEIST_OVERRIDE: TvOrderingOverride = {
   tmdbId: MONEY_HEIST_TMDB_ID,
@@ -41,34 +40,8 @@ const MONEY_HEIST_OVERRIDE: TvOrderingOverride = {
   }
 };
 
-const SOLO_LEVELING_OVERRIDE: TvOrderingOverride = {
-  tmdbId: SOLO_LEVELING_TMDB_ID,
-  canonicalSeasonCount: 2,
-  canonicalTotalEpisodes: 25,
-  canonicalSeasons: [
-    { seasonNumber: 1, episodeCount: 12, sourceSeason: 1, sourceEpisodeStart: 1 },
-    { seasonNumber: 2, episodeCount: 13, sourceSeason: 1, sourceEpisodeStart: 13 }
-  ],
-  providerFormats: {
-    VidKing: "tmdb",
-    VidFast: "tmdb",
-    VidZen: "tmdb",
-    VixSrc: "tmdb",
-    "VidSrc Pro": "tmdb",
-    AutoEmbed: "tmdb",
-    VidPlays: "tmdb",
-    VidCore: "tmdb",
-    Peachify: "tmdb",
-    cinesrc: "tmdb",
-    "2Embed": "tmdb",
-    VidZee: "tmdb",
-    "111movies": "tmdb"
-  }
-};
-
 const OVERRIDES: Record<string, TvOrderingOverride> = {
-  [MONEY_HEIST_TMDB_ID]: MONEY_HEIST_OVERRIDE,
-  [SOLO_LEVELING_TMDB_ID]: SOLO_LEVELING_OVERRIDE
+  [MONEY_HEIST_TMDB_ID]: MONEY_HEIST_OVERRIDE
 };
 
 function normalizeTmdbId(tmdbId?: string | number | null): string | undefined {

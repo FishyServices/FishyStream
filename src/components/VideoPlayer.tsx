@@ -375,7 +375,10 @@ export function VideoPlayer({
             ? await buildTvSources({
                 imdbId: content.imdbId ?? undefined,
                 tmdbId: content.tmdbId ?? undefined,
-                anilistId: currentSeasonData?.anilistId ?? content.anilistId ?? undefined,
+                anilistId:
+                  currentSeasonData?.anilistId ??
+                  (season === 1 ? content.anilistId : undefined) ??
+                  undefined,
                 isAnime: animeContent,
                 title: content.title,
                 seasonTitle: currentSeasonData?.name,
@@ -442,6 +445,8 @@ export function VideoPlayer({
     watchState,
     searchParams,
     currentSeasonData?.name,
+    currentSeasonData?.anilistId,
+    currentSeasonData?.airDate,
     waitingForAnimeSeasonMetadata
   ]);
 
@@ -690,7 +695,10 @@ export function VideoPlayer({
       const refreshed = await buildTvSources({
         imdbId: content.imdbId ?? undefined,
         tmdbId: content.tmdbId ?? undefined,
-        anilistId: currentSeasonData?.anilistId ?? content.anilistId ?? undefined,
+        anilistId:
+          currentSeasonData?.anilistId ??
+          (tvTargetRef.current.season === 1 ? content.anilistId : undefined) ??
+          undefined,
         isAnime: animeContent,
         title: content.title,
         seasonTitle: currentSeasonData?.name,

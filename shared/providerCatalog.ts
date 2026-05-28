@@ -1,4 +1,4 @@
-import { resolveAniListId } from "./anilistResolver";
+import { resolveAniListEpisodeAddress } from "./anilistResolver";
 import { mapCanonicalToProviderOrder } from "./tvSeasonMappings";
 
 export type ProviderKey =
@@ -542,7 +542,8 @@ export async function buildTvSources(args: {
 }): Promise<StreamSource[]> {
   const { imdbId, tmdbId, anilistId, season, episode, isAnime, title, seasonTitle, year, dub } =
     args;
-  let resolvedAniListId: string | null | undefined = undefined;
+  let resolvedAniListAddress: Awaited<ReturnType<typeof resolveAniListEpisodeAddress>> | undefined =
+    undefined;
 
   const sources: StreamSource[] = [];
   for (const provider of STREAM_PROVIDERS) {
@@ -552,25 +553,26 @@ export async function buildTvSources(args: {
     let animeId = fallbackId;
 
     if (isAnime && provider.getAnimeTVUrl && provider.animeIdType === "anilist") {
-      if (resolvedAniListId === undefined) {
-        resolvedAniListId =
-          anilistId ??
-          (title
-            ? await resolveAniListId({
-                title,
-                season,
-                seasonTitle,
-                year
-              })
-            : null);
+      if (resolvedAniListAddress === undefined) {
+        resolvedAniListAddress = await resolveAniListEpisodeAddress({
+          anilistId,
+          title,
+          season,
+          seasonTitle,
+          year,
+          episode
+        });
       }
-      animeId = resolvedAniListId;
+      animeId = resolvedAniListAddress?.anilistId ?? null;
     }
 
     const id = animeId ?? fallbackId;
     if (!id) continue;
 
-    const mapped = mapCanonicalToProviderOrder(tmdbId, provider.name, { season, episode });
+    const mapped =
+      isAnime && provider.getAnimeTVUrl && animeId
+        ? { season, episode: resolvedAniListAddress?.episode ?? episode }
+        : mapCanonicalToProviderOrder(tmdbId, provider.name, { season, episode });
     const url =
       isAnime && provider.getAnimeTVUrl && animeId
         ? provider.getAnimeTVUrl(id, mapped.season, mapped.episode, dub ?? false)

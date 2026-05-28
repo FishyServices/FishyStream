@@ -1,5 +1,12 @@
 interface AniListSearchMedia {
   id: number;
+  episodes?: number | null;
+  type?: string | null;
+  startDate?: {
+    year?: number | null;
+    month?: number | null;
+    day?: number | null;
+  } | null;
   format?: string | null;
   title?: {
     romaji?: string | null;
@@ -7,6 +14,17 @@ interface AniListSearchMedia {
     native?: string | null;
   } | null;
   synonyms?: string[] | null;
+  relations?: {
+    edges?: Array<{
+      relationType?: string | null;
+      node?: AniListSearchMedia | null;
+    }> | null;
+  } | null;
+}
+
+export interface AniListEpisodeAddress {
+  anilistId: string;
+  episode: number;
 }
 
 function normalizeAniListText(value?: string | null) {
@@ -271,6 +289,141 @@ async function fetchAniListYearCandidates(
   }
 }
 
+const aniListMediaByIdCache = new Map<string, Promise<AniListSearchMedia | null>>();
+
+function isAniListSeriesMedia(media?: AniListSearchMedia | null) {
+  if (!media || media.type !== "ANIME") return false;
+  return !media.format || ["TV", "TV_SHORT", "ONA"].includes(media.format);
+}
+
+function getAniListEpisodeCount(media: AniListSearchMedia) {
+  const episodes = media.episodes ?? 0;
+  return Number.isFinite(episodes) && episodes > 0 ? Math.floor(episodes) : undefined;
+}
+
+function getAniListStartDateValue(media: AniListSearchMedia) {
+  const year = media.startDate?.year ?? 9999;
+  const month = media.startDate?.month ?? 12;
+  const day = media.startDate?.day ?? 31;
+  return year * 10_000 + month * 100 + day;
+}
+
+async function fetchAniListMediaById(id: string): Promise<AniListSearchMedia | null> {
+  if (!id) return null;
+
+  const cached = aniListMediaByIdCache.get(id);
+  if (cached) return cached;
+
+  const pending = (async () => {
+    try {
+      const response = await fetch("https://graphql.anilist.co", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          query: `
+            query ($id: Int) {
+              Media(id: $id, type: ANIME) {
+                id
+                type
+                format
+                episodes
+                startDate {
+                  year
+                  month
+                  day
+                }
+                title {
+                  romaji
+                  english
+                  native
+                }
+                synonyms
+                relations {
+                  edges {
+                    relationType
+                    node {
+                      id
+                      type
+                      format
+                      episodes
+                      startDate {
+                        year
+                        month
+                        day
+                      }
+                      title {
+                        romaji
+                        english
+                        native
+                      }
+                      synonyms
+                    }
+                  }
+                }
+              }
+            }
+          `,
+          variables: { id: Number(id) }
+        })
+      });
+
+      if (!response.ok) return null;
+
+      const json = (await response.json()) as {
+        data?: { Media?: AniListSearchMedia | null };
+      };
+
+      return json.data?.Media ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
+  aniListMediaByIdCache.set(id, pending);
+  return pending;
+}
+
+async function resolveEpisodeInAniListChain(
+  media: AniListSearchMedia,
+  episode: number,
+  visited: Set<number>
+): Promise<AniListEpisodeAddress | null> {
+  if (visited.has(media.id)) return null;
+  visited.add(media.id);
+
+  const ownEpisodeCount = getAniListEpisodeCount(media);
+  if (ownEpisodeCount === undefined || episode <= ownEpisodeCount) {
+    return { anilistId: String(media.id), episode };
+  }
+
+  let remainingEpisode = episode - ownEpisodeCount;
+  const sequels = (media.relations?.edges ?? [])
+    .filter((edge) => edge?.relationType === "SEQUEL" && isAniListSeriesMedia(edge.node))
+    .map((edge) => edge.node!)
+    .sort((a, b) => getAniListStartDateValue(a) - getAniListStartDateValue(b));
+
+  for (const sequel of sequels) {
+    const fullSequel = (await fetchAniListMediaById(String(sequel.id))) ?? sequel;
+    const sequelEpisodeCount = getAniListEpisodeCount(fullSequel);
+
+    if (sequelEpisodeCount === undefined || remainingEpisode <= sequelEpisodeCount) {
+      return { anilistId: String(fullSequel.id), episode: remainingEpisode };
+    }
+
+    const nested = await resolveEpisodeInAniListChain(fullSequel, remainingEpisode, visited);
+    if (nested && nested.anilistId !== String(fullSequel.id)) {
+      return nested;
+    }
+
+    remainingEpisode -= sequelEpisodeCount;
+  }
+
+  return { anilistId: String(media.id), episode };
+}
+
 export async function resolveAniListId(args: {
   title?: string;
   season: number;
@@ -317,4 +470,37 @@ export async function resolveAniListId(args: {
   }
 
   return bestMatch ? String(bestMatch.id) : null;
+}
+
+export async function resolveAniListEpisodeAddress(args: {
+  anilistId?: string | null;
+  title?: string;
+  season: number;
+  seasonTitle?: string;
+  year?: number;
+  episode: number;
+}): Promise<AniListEpisodeAddress | null> {
+  const localEpisode = Math.max(1, Math.floor(args.episode));
+  const anilistId =
+    args.anilistId ??
+    (await resolveAniListId({
+      title: args.title,
+      season: args.season,
+      seasonTitle: args.seasonTitle,
+      year: args.year
+    }));
+
+  if (!anilistId) return null;
+
+  const media = await fetchAniListMediaById(anilistId);
+  if (!media) {
+    return { anilistId, episode: localEpisode };
+  }
+
+  return (
+    (await resolveEpisodeInAniListChain(media, localEpisode, new Set<number>())) ?? {
+      anilistId,
+      episode: localEpisode
+    }
+  );
 }
