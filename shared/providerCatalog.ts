@@ -239,7 +239,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "cinezo",
     name: "Cinezo",
-    category: "primary_anime",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
     website: "https://player.cinezo.live",
@@ -254,7 +254,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "mafiaembed",
     name: "MafiaEmbed",
-    category: "primary_anime",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
     website: "https://nhdapi.com",
