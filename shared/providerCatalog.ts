@@ -28,7 +28,7 @@ export type ProviderKey =
   | "cinesrc"
   | "streamrip";
 
-export type ProviderCategory = "primary" | "anime" | "fallback";
+export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
 export type AnimeIdType = "same" | "anilist";
 
@@ -116,7 +116,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "vidfast",
     name: "VidFast",
-    category: "fallback",
+    category: "other",
     idType: "both",
     quality: "1080p",
     website: "https://vidfast.pro",
@@ -133,7 +133,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "videasy",
     name: "VidEasy",
-    category: "fallback",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
     website: "https://player.videasy.net",
@@ -146,7 +146,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "vidnest",
     name: "VidNest",
-    category: "anime",
+    category: "primary_anime",
     idType: "tmdb",
     quality: "1080p",
     website: "https://vidnest.fun",
@@ -160,7 +160,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "vidrock",
     name: "VidRock",
-    category: "anime",
+    category: "primary_anime",
     idType: "both",
     quality: "1080p",
     website: "https://vidrock.ru",
@@ -175,7 +175,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "vidplus (ads)",
     name: "VidPlus (Ads)",
-    category: "fallback",
+    category: "other",
     idType: "both",
     quality: "1080p",
     website: "https://player.vidplus.to",
@@ -190,7 +190,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "filmu",
     name: "filmu",
-    category: "anime",
+    category: "primary_anime",
     idType: "both",
     quality: "1080p",
     website: "https://embed.filmu.in",
@@ -216,7 +216,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "vixsrc",
     name: "VixSrc",
-    category: "fallback",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
     website: "https://vixsrc.to",
@@ -227,7 +227,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "vidsrcpro",
     name: "VidSrc Pro",
-    category: "fallback",
+    category: "other",
     idType: "both",
     quality: "1080p",
     website: "https://vidsrc.mov",
@@ -238,7 +238,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "cinezo",
     name: "Cinezo",
-    category: "anime",
+    category: "primary_anime",
     idType: "tmdb",
     quality: "1080p",
     website: "https://player.cinezo.live",
@@ -253,7 +253,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "mafiaembed",
     name: "MafiaEmbed",
-    category: "anime",
+    category: "primary_anime",
     idType: "tmdb",
     quality: "1080p",
     website: "https://nhdapi.com",
@@ -266,7 +266,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "superembed",
     name: "SuperEmbed",
-    category: "fallback",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
     website: "https://www.multiembed.mov",
@@ -280,7 +280,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "autoembed",
     name: "AutoEmbed",
-    category: "fallback",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
     website: "https://player.autoembed.cc",
@@ -291,7 +291,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "vidsrc",
     name: "VidSrc",
-    category: "fallback",
+    category: "other",
     idType: "both",
     quality: "1080p",
     website: "https://vidsrc.to",
@@ -305,7 +305,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "2embed",
     name: "2Embed",
-    category: "fallback",
+    category: "other",
     idType: "imdb",
     quality: "720p",
     website: "https://www.2embed.cc",
@@ -320,7 +320,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "vidzee",
     name: "VidZee",
-    category: "fallback",
+    category: "other",
     idType: "tmdb",
     quality: "720p",
     website: "https://player.vidzee.wtf",
@@ -331,7 +331,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "111movies",
     name: "111movies",
-    category: "fallback",
+    category: "other",
     idType: "both",
     quality: "720p",
     website: "https://111movies.net",
@@ -342,7 +342,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "vidplays",
     name: "VidPlays",
-    category: "fallback",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
     website: "/vidplays-proxy",
@@ -357,7 +357,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "tryembed",
     name: "TryEmbed",
-    category: "fallback",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
     website: "https://tryembed.us.cc",
@@ -372,7 +372,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "megaplay",
     name: "MegaPlay",
-    category: "anime",
+    category: "primary_anime",
     idType: "tmdb",
     quality: "1080p",
     website: "https://megaplay.buzz",
@@ -409,7 +409,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "cinesrc",
     name: "cinesrc",
-    category: "fallback",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
     website: "https://cinesrc.st",
@@ -420,7 +420,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
     key: "streamrip",
     name: "StreamRip",
-    category: "fallback",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
     website: "https://streamrip.fun",
@@ -452,8 +452,8 @@ export function getProviderCapabilities(provider: ProviderCatalogEntry): string[
 export function getGroupedProviders(providers: ProviderCatalogEntry[] = STREAM_PROVIDERS) {
   const grouped = new Map<ProviderCategory, ProviderCatalogEntry[]>([
     ["primary", []],
-    ["anime", []],
-    ["fallback", []]
+    ["primary_anime", []],
+    ["other", []]
   ]);
 
   for (const provider of providers) {
@@ -461,12 +461,16 @@ export function getGroupedProviders(providers: ProviderCatalogEntry[] = STREAM_P
   }
 
   return [
-    { key: "primary" as const, label: "Primary Sources", providers: grouped.get("primary") ?? [] },
-    { key: "anime" as const, label: "Anime Friendly", providers: grouped.get("anime") ?? [] },
+    { key: "primary" as const, label: "Primary", providers: grouped.get("primary") ?? [] },
     {
-      key: "fallback" as const,
-      label: "Fallback Sources",
-      providers: grouped.get("fallback") ?? []
+      key: "primary_anime" as const,
+      label: "Primary Anime",
+      providers: grouped.get("primary_anime") ?? []
+    },
+    {
+      key: "other" as const,
+      label: "Other Sources",
+      providers: grouped.get("other") ?? []
     }
   ].filter((group) => group.providers.length > 0);
 }

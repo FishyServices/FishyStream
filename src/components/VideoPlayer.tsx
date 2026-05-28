@@ -478,30 +478,11 @@ export function VideoPlayer({
         if (selectedProvider?.key === "vidcore") {
           url.searchParams.set("nextButton", "false");
         }
-      }
-      if (selectedProvider?.key === "vidplays") {
-        url.searchParams.set("provider", "beta");
-        url.searchParams.set("failed", "alpha");
-        url.searchParams.set("autoSkip", "false");
-      }
-      /*
-      if (selectedProvider?.key === "cinezo") {
-        url.searchParams.set("autoplay", "false");
-        url.searchParams.set("servericon", "false");
-        url.searchParams.set("setting", "false");
-        url.searchParams.set("pip", "false");
-        url.searchParams.set("chromecast", "false");
-        if (content.type === "tv") {
-          url.searchParams.set("episodes", "false");
+        if (selectedProvider?.key === "mafiaembed") {
+          url.searchParams.set("episodelist", "false");
           url.searchParams.set("nextbutton", "false");
           url.searchParams.set("autonext", "false");
         }
-      }
-      */
-      if (selectedProvider?.key === "mafiaembed" && content.type === "tv") {
-        url.searchParams.set("episodelist", "false");
-        url.searchParams.set("nextbutton", "false");
-        url.searchParams.set("autonext", "false");
       }
       if (
         selectedProvider?.progress?.resumeParam &&
