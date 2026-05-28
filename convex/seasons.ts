@@ -157,13 +157,28 @@ export const listSeasonSummariesByContent = query({
 
 export const getSeasonEpisodeList = query({
   args: { contentId: v.id("content"), seasonNumber: v.number() },
-  handler: async (ctx, { contentId, seasonNumber }): Promise<Doc<"seasons"> | null> => {
-    return await ctx.db
+  handler: async (ctx, { contentId, seasonNumber }) => {
+    const season = await ctx.db
       .query("seasons")
       .withIndex("by_content_season", (q) =>
         q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
       )
       .first();
+
+    if (!season) return null;
+
+    return {
+      seasonNumber: season.seasonNumber,
+      name: season.name,
+      episodeCount: season.episodeCount,
+      episodes: season.episodes.map((ep) => ({
+        episodeNumber: ep.episodeNumber,
+        name: ep.name,
+        overview: ep.overview ? ep.overview.slice(0, 120) : undefined,
+        stillUrl: ep.stillUrl,
+        runtime: ep.runtime
+      }))
+    };
   }
 });
 

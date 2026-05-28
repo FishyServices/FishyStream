@@ -224,7 +224,7 @@ export function toContentCard(content: ContentCardRecord): ContentCard {
     _id: content._id,
     title: content.title,
     type: content.type,
-    genre: content.genre,
+    genre: content.genre.slice(0, 2),
     year: content.year,
     voteAverage: content.voteAverage,
     posterUrl: content.posterUrl,
@@ -238,7 +238,7 @@ export function toContentCardRow(content: ContentCardRowRecord): ContentCard {
     _id: content.contentId,
     title: content.title,
     type: content.type,
-    genre: content.genre,
+    genre: content.genre.slice(0, 2),
     year: content.year,
     voteAverage: content.voteAverage,
     posterUrl: content.posterUrl,
@@ -252,12 +252,14 @@ export function toContentFeatured(content: ContentFeaturedRecord): ContentFeatur
     _id: content._id,
     title: content.title,
     type: content.type,
-    genre: content.genre,
+    genre: content.genre.slice(0, 3),
     year: content.year,
     voteAverage: content.voteAverage,
     posterUrl: content.posterUrl,
     tmdbId: content.tmdbId,
-    description: content.description,
+    description: content.description.length > 200
+      ? content.description.slice(0, 200).trimEnd() + "…"
+      : content.description,
     backdropUrl: content.backdropUrl,
     rating: content.rating,
     logoUrl: content.logoUrl,
@@ -432,7 +434,6 @@ export function toSeasonMetaSummary(content: SeasonSummaryRecord): SeasonMetaSum
     seasonNumber: content.seasonNumber,
     episodeCount: content.episodeCount,
     anilistId: content.anilistId,
-    anilistEpisodeMappings: content.anilistEpisodeMappings,
     storedEpisodeCount: content.episodes.length
   };
 }

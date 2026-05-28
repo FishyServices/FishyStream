@@ -58,7 +58,7 @@ const tmdbContentValidator = v.object({
   updatedAt: v.number()
 });
 
-const HOMEPAGE_ROW_LIMIT = 12;
+const HOMEPAGE_ROW_LIMIT = 8;
 
 type BrowseSort = "trending" | "popular" | "new" | "rating" | "year";
 
@@ -428,7 +428,7 @@ export const upsertBatchFromTMDB = internalMutation({
 export const getAllTmdbIds = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const rows = await ctx.db.query("content").take(10000);
+    const rows = await ctx.db.query("content").take(2000);
     return rows.map((row) => ({ tmdbId: row.tmdbId, type: row.type }));
   }
 });
