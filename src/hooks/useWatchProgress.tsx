@@ -45,10 +45,10 @@ type ServerProgress = {
 
 const LS_KEY = "watch_progress";
 const MAX_ENTRIES = 100;
-const FLUSH_DEBOUNCE_MS = 15_000;
-const MIN_PROGRESS_DELTA_TO_SYNC = 1;
-const MIN_POSITION_DELTA_TO_SYNC_SECONDS = 10;
-const MAX_STALE_SYNC_MS = 60_000;
+const FLUSH_DEBOUNCE_MS = 45_000;
+const MIN_PROGRESS_DELTA_TO_SYNC = 5;
+const MIN_POSITION_DELTA_TO_SYNC_SECONDS = 30;
+const MAX_STALE_SYNC_MS = 5 * 60_000;
 
 function normalizeProgress(progress: number): number {
   if (!Number.isFinite(progress)) return 0;

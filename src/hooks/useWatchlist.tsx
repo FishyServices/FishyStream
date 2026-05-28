@@ -147,7 +147,8 @@ export function useWatchlistUpdates(): WatchlistUpdateMeta[] | undefined {
   const { user } = useUser();
   return useOneShotConvexQuery<WatchlistUpdateMeta[]>(
     !!user,
-    (client) => client.query(api.watchlist.listWatchlistUpdates, { clerkUserId: user!.id }),
+    (client) =>
+      client.query(api.watchlist.listWatchlistUpdates, { clerkUserId: user!.id, limit: 20 }),
     [user?.id]
   );
 }
@@ -158,7 +159,7 @@ export function useWatchlistUpdatesOnDemand() {
 
   return useCallback(async (): Promise<WatchlistUpdateMeta[]> => {
     if (!user) return [];
-    return convex.query(api.watchlist.listWatchlistUpdates, { clerkUserId: user.id });
+    return convex.query(api.watchlist.listWatchlistUpdates, { clerkUserId: user.id, limit: 20 });
   }, [convex, user]);
 }
 

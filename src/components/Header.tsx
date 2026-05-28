@@ -76,11 +76,12 @@ export function Header() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [watchlistUpdates, setWatchlistUpdates] = useState<WatchlistUpdateMeta[] | null>(null);
+  const [watchlistUpdatesAcknowledged, setWatchlistUpdatesAcknowledged] = useState(false);
   const [loadingWatchlistUpdates, setLoadingWatchlistUpdates] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const acknowledgeUpdates = useAcknowledgeWatchlistUpdates();
   const fetchWatchlistUpdates = useWatchlistUpdatesOnDemand();
-  const unseenUpdateCount = watchlistUpdates?.length ?? 0;
+  const unseenUpdateCount = watchlistUpdatesAcknowledged ? 0 : (watchlistUpdates?.length ?? 0);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -109,12 +110,31 @@ export function Header() {
   };
 
   useEffect(() => {
-    if (!notificationsOpen || !user || !watchlistUpdates || watchlistUpdates.length === 0) return;
+    if (
+      !notificationsOpen ||
+      !user ||
+      !watchlistUpdates ||
+      watchlistUpdates.length === 0 ||
+      watchlistUpdatesAcknowledged
+    ) {
+      return;
+    }
+
     void acknowledgeUpdates({
       clerkUserId: user.id,
       contentIds: watchlistUpdates.map((item) => item.contentId)
-    }).catch(() => {});
-  }, [acknowledgeUpdates, notificationsOpen, user, watchlistUpdates]);
+    })
+      .then(() => {
+        setWatchlistUpdatesAcknowledged(true);
+      })
+      .catch(() => {});
+  }, [
+    acknowledgeUpdates,
+    notificationsOpen,
+    user,
+    watchlistUpdates,
+    watchlistUpdatesAcknowledged
+  ]);
 
   useEffect(() => {
     if (!notificationsOpen) return;
@@ -126,6 +146,7 @@ export function Header() {
       .then((updates) => {
         if (!cancelled) {
           setWatchlistUpdates(updates);
+          setWatchlistUpdatesAcknowledged(false);
         }
       })
       .catch(() => {

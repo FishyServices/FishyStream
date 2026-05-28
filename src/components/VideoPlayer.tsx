@@ -222,7 +222,13 @@ export function VideoPlayer({
 
   const currentSeasonData = useQuery(
     api.seasons.getSeasonPlaybackMeta,
-    content.type === "tv" ? { contentId: content._id, seasonNumber: tvTarget.season } : "skip"
+    content.type === "tv"
+      ? {
+          contentId: content._id,
+          seasonNumber: tvTarget.season,
+          includeAnimeMappings: animeContent
+        }
+      : "skip"
   );
   const currentSeasonKey = content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
   const hasFreshAnimeSeasonMetadata =

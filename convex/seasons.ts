@@ -193,8 +193,12 @@ export const getSeasonEpisodeView = query({
 });
 
 export const getSeasonPlaybackMeta = query({
-  args: { contentId: v.id("content"), seasonNumber: v.number() },
-  handler: async (ctx, { contentId, seasonNumber }) => {
+  args: {
+    contentId: v.id("content"),
+    seasonNumber: v.number(),
+    includeAnimeMappings: v.optional(v.boolean())
+  },
+  handler: async (ctx, { contentId, seasonNumber, includeAnimeMappings }) => {
     const season = await ctx.db
       .query("seasons")
       .withIndex("by_content_season", (q) =>
@@ -209,8 +213,8 @@ export const getSeasonPlaybackMeta = query({
       name: season.name,
       airDate: season.airDate,
       episodeCount: season.episodeCount,
-      anilistId: season.anilistId,
-      anilistEpisodeMappings: season.anilistEpisodeMappings
+      anilistId: includeAnimeMappings ? season.anilistId : undefined,
+      anilistEpisodeMappings: includeAnimeMappings ? season.anilistEpisodeMappings : undefined
     };
   }
 });

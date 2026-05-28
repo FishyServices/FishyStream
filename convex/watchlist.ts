@@ -190,8 +190,8 @@ export const setWatchlistFolder = mutation({
 });
 
 export const listWatchlistUpdates = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchlistUpdateMeta[]> => {
+  args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, { clerkUserId, limit = 20 }): Promise<WatchlistUpdateMeta[]> => {
     const userId = await getUserIdForQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -226,11 +226,13 @@ export const listWatchlistUpdates = query({
       );
     }
 
-    return updates.sort((a, b) => {
-      const aWeight = a.newSeasons * 1000 + a.newEpisodes;
-      const bWeight = b.newSeasons * 1000 + b.newEpisodes;
-      return bWeight - aWeight;
-    });
+    return updates
+      .sort((a, b) => {
+        const aWeight = a.newSeasons * 1000 + a.newEpisodes;
+        const bWeight = b.newSeasons * 1000 + b.newEpisodes;
+        return bWeight - aWeight;
+      })
+      .slice(0, Math.max(0, Math.min(50, Math.floor(limit))));
   }
 });
 
