@@ -221,15 +221,11 @@ export function MovieCard({
                   </p>
                 )}
                 <div className="mt-1 flex items-center gap-2 text-xs text-white/60">
-                  {content.year && <span>{content.year}</span>}
                   {score && score > 0 && (
-                    <>
-                      {content.year && <span>·</span>}
-                      <span className="flex items-center gap-0.5">
-                        <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
-                        {score.toFixed(1)}
-                      </span>
-                    </>
+                    <span className="flex items-center gap-0.5">
+                      <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
+                      {score.toFixed(1)}
+                    </span>
                   )}
                 </div>
                 {genrePreview && (
@@ -260,7 +256,6 @@ export function MovieCard({
               {content.title}
             </h3>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/58">
-              {content.year && <span>{content.year}</span>}
               {score && score > 0 && (
                 <span className="flex items-center gap-1">
                   <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />

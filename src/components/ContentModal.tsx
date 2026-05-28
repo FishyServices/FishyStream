@@ -5,7 +5,6 @@ import {
   Plus,
   Check,
   Star,
-  Calendar,
   Clock,
   X,
   Tv,
@@ -184,7 +183,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
         contentId: resolvedContent!._id,
         seasonNumber: selectedSeason
       }),
-    [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen, seasonReloadKey]
+    [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen, seasonReloadKey],
+    [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen]
   );
 
   const allSeasons = useOneShotConvexQuery<SeasonMetaSummary[]>(
@@ -193,7 +193,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       convex.query(api.seasons.listSeasonSummariesByContent, {
         contentId: resolvedContent!._id
       }),
-    [resolvedContent?._id, resolvedContent?.type, isOpen, seasonReloadKey]
+    [resolvedContent?._id, resolvedContent?.type, isOpen, seasonReloadKey],
+    [resolvedContent?._id, resolvedContent?.type, isOpen]
   );
 
   const syncSeason = useAction(api.tmdb.syncSeason);
@@ -630,10 +631,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                   {contentData.voteAverage.toFixed(1)}
                 </span>
               )}
-              <span className="flex items-center gap-1 text-muted-foreground">
-                <Calendar className="w-3.5 h-3.5" />
-                {contentData.year}
-              </span>
+
               {detailContent?.duration && (
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="w-3.5 h-3.5" />

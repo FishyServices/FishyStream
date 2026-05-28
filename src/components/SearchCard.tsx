@@ -1,11 +1,9 @@
-import { useState, useEffect } from "react";
-import { Play, Plus, Check, ChevronDown, Star } from "lucide-react";
+import { useState } from "react";
+import { Play, ChevronDown, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { TMDBItem } from "@/hooks/useContent";
-import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
-import { Button, toast } from "@fishy/ui";
-import { useUser } from "@clerk/react";
+import { Button } from "@fishy/ui";
 import { useAction, useConvex } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { ContentDetail } from "../../shared/contentMetadata";
@@ -22,13 +20,10 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
   const [imgError, setImgError] = useState(false);
   const [dbContent, setDbContent] = useState<ContentDetail | null | undefined>(undefined);
   const [isResolvingContent, setIsResolvingContent] = useState(false);
-  const { isSignedIn } = useUser();
   const navigate = useNavigate();
   const convex = useConvex();
 
   const syncSingleContent = useAction(api.tmdb.syncSingleContent);
-  const isInWatchlist = useIsInWatchlist(dbContent?._id);
-  const toggleWatchlist = useToggleWatchlist();
 
   const ensureDbContent = async () => {
     if (dbContent) return dbContent;
@@ -51,28 +46,6 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
       return existing;
     } finally {
       setIsResolvingContent(false);
-    }
-  };
-
-  const handleWatchlist = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (!isSignedIn) {
-      toast.error("Sign in to save to your list");
-      return;
-    }
-
-    const content = await ensureDbContent();
-    if (!content?._id) {
-      toast.error("Failed to load content");
-      return;
-    }
-
-    try {
-      await toggleWatchlist(content._id);
-      toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
-    } catch {
-      toast.error("Failed to update watchlist");
     }
   };
 
@@ -154,19 +127,6 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-8 h-8 rounded-full border border-white/40 glass shrink-0 hover:border-white/70"
-                  onClick={handleWatchlist}
-                  aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
-                >
-                  {isInWatchlist ? (
-                    <Check className="w-3.5 h-3.5 text-green-400" />
-                  ) : (
-                    <Plus className="w-3.5 h-3.5 text-white" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
                   className="w-8 h-8 rounded-full border border-white/40 glass shrink-0 ml-auto hover:border-white/70"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -236,19 +196,6 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
             >
               <Play className="h-4 w-4 fill-black text-black" />
               <span className="text-xs font-semibold">Play</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full border border-white/16 bg-white/6"
-              onClick={handleWatchlist}
-              aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
-            >
-              {isInWatchlist ? (
-                <Check className="h-4 w-4 text-green-400" />
-              ) : (
-                <Plus className="h-4 w-4 text-white" />
-              )}
             </Button>
             <Button
               variant="ghost"
