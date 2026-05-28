@@ -184,7 +184,7 @@ export const getSeasonEpisodeView = query({
       episodes: season.episodes.map((episode) => ({
         episodeNumber: episode.episodeNumber,
         name: episode.name,
-        overview: episode.overview,
+        overview: episode.overview ? episode.overview.slice(0, 120) : undefined,
         stillUrl: episode.stillUrl,
         runtime: episode.runtime
       }))
