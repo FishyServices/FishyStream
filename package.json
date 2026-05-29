@@ -9,12 +9,12 @@
   "scripts": {
     "dev": "concurrently \"convex dev\" \"vite\"",
     "dev:mobile": "concurrently \"convex dev\" \"vite --host 0.0.0.0\"",
-    "build": "bun run && tsc -b && vite build",
+    "build": "tsc -b && vite build",
     "build:android": "npm run build && npx cap sync android",
     "cap:sync": "npx cap sync",
     "cap:android": "npx cap open android",
     "preview": "vite preview",
-    "lint": "bun run && tsc --noEmit",
+    "lint": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,json,css}\""
   },
   "dependencies": {
