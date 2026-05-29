@@ -23,7 +23,13 @@ jobs:
       - name: Install dependencies
         env:
           FISHY_SERVICES_TOKEN: ${{ secrets.FISHY_SERVICES_TOKEN }}
-        run: bun install
+        run: |
+          cat > .npmrc <<'EOF'
+          @fishyservices:registry=https://npm.pkg.github.com
+          //npm.pkg.github.com/:_authToken=${FISHY_SERVICES_TOKEN}
+          always-auth=true
+          EOF
+          bun install
 
       - name: Build
         env:
