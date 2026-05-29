@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FISHY_SERVICES_TOKEN: ${{ secrets.FISHY_SERVICES_TOKEN }}
         run: bun install
 
       - name: Build
