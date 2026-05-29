@@ -51,6 +51,8 @@ interface VideoPlayerProps {
   initialSource?: string;
 }
 
+const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
+
 function groupSourcesByProviderCategory(sources: StreamSource[]) {
   const sourceByKey = new Map(sources.map((source) => [source.key, source]));
 
@@ -207,8 +209,11 @@ export function VideoPlayer({
   const lastRealtimeSyncAtRef = useRef(0);
   const sourceRequestIdRef = useRef(0);
   const seasonSyncRequestRef = useRef<string | null>(null);
+  const nextEpisodeClickLockedRef = useRef(false);
+  const nextEpisodeCooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [resumePositionSeconds, setResumePositionSeconds] = useState(0);
   const [freshAnimeSeasonKeys, setFreshAnimeSeasonKeys] = useState<string[]>([]);
+  const [isNextEpisodeCooldown, setIsNextEpisodeCooldown] = useState(false);
 
   const tvTargetRef = useRef({
     season: initialSeason ?? 1,
@@ -777,7 +782,27 @@ export function VideoPlayer({
     setError(null);
   };
 
-  const handleNextEpisode = () => {
+  const startNextEpisodeClickCooldown = () => {
+    nextEpisodeClickLockedRef.current = true;
+    setIsNextEpisodeCooldown(true);
+
+    if (nextEpisodeCooldownTimeoutRef.current) {
+      clearTimeout(nextEpisodeCooldownTimeoutRef.current);
+    }
+
+    nextEpisodeCooldownTimeoutRef.current = setTimeout(() => {
+      nextEpisodeClickLockedRef.current = false;
+      nextEpisodeCooldownTimeoutRef.current = null;
+      setIsNextEpisodeCooldown(false);
+    }, NEXT_EPISODE_CLICK_COOLDOWN_MS);
+  };
+
+  const handleNextEpisode = (options: { fromClick?: boolean } = {}) => {
+    if (options.fromClick) {
+      if (nextEpisodeClickLockedRef.current) return;
+      startNextEpisodeClickCooldown();
+    }
+
     if (content.type !== "tv") return;
 
     const currentSeason = tvTargetRef.current.season;
@@ -876,6 +901,14 @@ export function VideoPlayer({
   useEffect(() => {
     autoAdvancedRef.current = null;
   }, [content._id, tvTarget.season, tvTarget.episode]);
+
+  useEffect(() => {
+    return () => {
+      if (nextEpisodeCooldownTimeoutRef.current) {
+        clearTimeout(nextEpisodeCooldownTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -1023,8 +1056,9 @@ export function VideoPlayer({
 
         {showNextEpisodeButton && (
           <Button
-            onClick={handleNextEpisode}
-            className="absolute bottom-4 left-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 backdrop-blur-sm sm:left-auto"
+            onClick={() => handleNextEpisode({ fromClick: true })}
+            disabled={isNextEpisodeCooldown}
+            className="absolute bottom-23 left-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-60 backdrop-blur-sm sm:left-auto"
           >
             <SkipForward className="w-4 h-4" />
             Next Episode
