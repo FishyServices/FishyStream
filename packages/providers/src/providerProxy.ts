@@ -10,7 +10,10 @@ export interface ProviderProxyRequest {
   body?: BodyInit | null;
 }
 
-const PROVIDER_PROXY_PREFIXES = ["vidplays-proxy"] as const;
+export const PROVIDER_PROXY_PREFIXES = ["vidplays-proxy"] as const;
+export const PROVIDER_PROXY_PATH_ALIASES: Record<string, (segments: string[]) => string[]> = {
+  vidplays: (segments) => ["vidplays-proxy", ...segments.slice(1)]
+};
 
 export function matchProviderProxyPath(pathname: string): ProviderProxyMatch | null {
   const normalized = pathname.replace(/^\/+/, "");
@@ -23,6 +26,18 @@ export function matchProviderProxyPath(pathname: string): ProviderProxyMatch | n
     prefix,
     subpath: rest.join("/")
   };
+}
+
+export function resolveProviderProxyPathFromSegments(segments: readonly string[]): string | null {
+  const [prefix] = segments;
+  if (!prefix) return null;
+
+  const normalizedSegments = PROVIDER_PROXY_PREFIXES.some((candidate) => candidate === prefix)
+    ? [...segments]
+    : (PROVIDER_PROXY_PATH_ALIASES[prefix]?.([...segments]) ?? null);
+
+  if (!normalizedSegments) return null;
+  return `/${normalizedSegments.join("/")}`;
 }
 
 export async function proxyProviderRequest({

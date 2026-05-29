@@ -1,4 +1,7 @@
-import { proxyProviderRequest } from "@fishy/providers/providerProxy";
+import {
+  proxyProviderRequest,
+  resolveProviderProxyPathFromSegments
+} from "@fishy/providers/providerProxy";
 
 export async function onRequest(context: {
   request: Request;
@@ -8,11 +11,10 @@ export async function onRequest(context: {
   const { request, env, params } = context;
   const path = params.path ?? [];
 
-  if (path[0] === "vidplays" || path[0] === "vidplays-proxy") {
+  const providerProxyPath = resolveProviderProxyPathFromSegments(path);
+  if (providerProxyPath) {
     const providerProxyUrl = new URL(request.url);
-    providerProxyUrl.pathname = `/${
-      path[0] === "vidplays" ? ["vidplays-proxy", ...path.slice(1)].join("/") : path.join("/")
-    }`;
+    providerProxyUrl.pathname = providerProxyPath;
 
     return proxyProviderRequest({
       url: providerProxyUrl,

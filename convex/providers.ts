@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { buildMovieSources, buildTvSources } from "@fishy/providers/providerCatalog";
 import type { StreamSource } from "@fishy/providers/providerCatalog";
-import type { AniListEpisodeMapping } from "../shared/contentMetadata";
+import type { AniListEpisodeMapping } from "@fishy/providers/types";
 
 const anilistEpisodeMappingValidator = v.object({
   episodeNumber: v.number(),

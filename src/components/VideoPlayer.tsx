@@ -24,24 +24,31 @@ import {
 } from "@fishy/ui";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
 import { useAppSettings } from "@/hooks/useAppSettings";
-import type { PlayerEventPayload } from "@/lib/playerProviders";
+import type { PlayerEventPayload } from "@fishy/providers/playerProviders";
 import {
+  createProviderEmbedUrl,
   parsePlayerMessage,
   calculateProgress,
   isKnownPlayerOrigin,
-  postMessageToPlayer
-} from "@/lib/playerProviders";
+  postMessageToPlayer,
+  shouldDisableProviderSubtitles
+} from "@fishy/providers/playerProviders";
 import {
   buildMovieSources,
   buildTvSources,
-  getGroupedProviders,
   getProviderByKey
 } from "@fishy/providers/providerCatalog";
 import type { StreamSource } from "@fishy/providers/providerCatalog";
 import {
-  getCanonicalSeasonCount,
-  getCanonicalSeasonEpisodeCount
-} from "@fishy/providers/tvSeasonMappings";
+  getNextEpisodeAddress,
+  getSeasonYear,
+  groupSourcesByProviderCategory,
+  hasAnimeEpisodeMappingMetadata,
+  hasNextEpisode as hasProviderNextEpisode,
+  isAnimeProviderContent,
+  pickPreferredSource,
+  shouldWaitForAnimeSeasonMetadata
+} from "@fishy/providers/providerPlayback";
 import type { ContentPlayback } from "../../shared/contentMetadata";
 
 interface VideoPlayerProps {
@@ -52,25 +59,6 @@ interface VideoPlayerProps {
 }
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
-
-function groupSourcesByProviderCategory(sources: StreamSource[]) {
-  const sourceByKey = new Map(sources.map((source) => [source.key, source]));
-
-  return getGroupedProviders(
-    sources
-      .map((source) => getProviderByKey(source.key))
-      .filter(
-        (provider): provider is NonNullable<ReturnType<typeof getProviderByKey>> => !!provider
-      )
-  )
-    .map((group) => ({
-      ...group,
-      sources: group.providers
-        .map((provider) => sourceByKey.get(provider.key))
-        .filter((source): source is StreamSource => !!source)
-    }))
-    .filter((group) => group.sources.length > 0);
-}
 
 function clamp(v: number) {
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
@@ -115,69 +103,6 @@ function pickResumePositionSeconds(
   );
 }
 
-function shouldApplyProviderResume(
-  providerKey: string | undefined,
-  contentType: ContentPlayback["type"]
-) {
-  if (!providerKey) return false;
-  if (providerKey === "vidking" && contentType === "tv") {
-    return false;
-  }
-
-  if (providerKey === "vidnest" && contentType === "tv") {
-    return false;
-  }
-
-  return true;
-}
-
-function shouldForceProviderStartPosition(providerKey: string | undefined) {
-  return providerKey === "vidfast";
-}
-
-function isAnimeContent(content: ContentPlayback) {
-  if (content.type !== "tv") return false;
-
-  const genres = new Set(content.genre.map((g) => g.toLowerCase()));
-  return genres.has("animation") && content.originalLanguage?.toLowerCase() === "ja";
-}
-
-function shouldWaitForAnimeSeasonMetadata(
-  content: ContentPlayback,
-  animeContent: boolean,
-  seasonNumber: number,
-  currentSeasonData:
-    | {
-        seasonNumber: number;
-        anilistId?: string;
-      }
-    | null
-    | undefined
-) {
-  if (!animeContent || content.type !== "tv") return false;
-  if (seasonNumber <= 1) return false;
-  if (currentSeasonData === undefined) return true;
-  return currentSeasonData?.seasonNumber !== seasonNumber;
-}
-
-function hasAnimeEpisodeMappingMetadata(
-  currentSeasonData:
-    | {
-        episodeCount: number;
-        anilistEpisodeMappings?: Array<{ episodeNumber: number }>;
-      }
-    | null
-    | undefined
-) {
-  if (!currentSeasonData?.episodeCount) return false;
-  return (currentSeasonData.anilistEpisodeMappings?.length ?? 0) >= currentSeasonData.episodeCount;
-}
-
-function getSeasonYear(airDate?: string) {
-  const year = Number((airDate ?? "").split("-")[0]);
-  return Number.isFinite(year) && year > 1900 ? year : undefined;
-}
-
 export function VideoPlayer({
   content,
   initialSeason,
@@ -192,7 +117,7 @@ export function VideoPlayer({
   const syncSeason = useAction(api.tmdb.syncSeason);
   const updateProgress = useUpdateProgress();
   const watchState = useGetProgress(content._id);
-  const animeContent = isAnimeContent(content);
+  const animeContent = isAnimeProviderContent(content);
 
   const [sources, setSources] = useState<StreamSource[]>([]);
   const [selectedSource, setSelectedSource] = useState("");
@@ -239,7 +164,12 @@ export function VideoPlayer({
   const hasFreshAnimeSeasonMetadata =
     !animeContent || !currentSeasonKey || freshAnimeSeasonKeys.includes(currentSeasonKey);
   const waitingForAnimeSeasonMetadata =
-    shouldWaitForAnimeSeasonMetadata(content, animeContent, tvTarget.season, currentSeasonData) ||
+    shouldWaitForAnimeSeasonMetadata({
+      contentType: content.type,
+      isAnime: animeContent,
+      seasonNumber: tvTarget.season,
+      currentSeasonData
+    }) ||
     (animeContent && !hasFreshAnimeSeasonMetadata);
 
   useEffect(() => {
@@ -431,12 +361,10 @@ export function VideoPlayer({
 
         loadedTvRef.current = { season, episode };
         setSources(fetched);
-        const preferredSource = initialSource
-          ? fetched.find((s) => s.name.toLowerCase() === initialSource.toLowerCase())
-          : settings.defaultProvider !== "auto"
-            ? fetched.find((s) => s.key === settings.defaultProvider)
-            : undefined;
-        const def = preferredSource ?? fetched[0]!;
+        const def = pickPreferredSource(fetched, {
+          initialSource,
+          defaultProvider: settings.defaultProvider
+        })!;
         setResumePositionSeconds(
           pickResumePositionSeconds(
             content,
@@ -492,47 +420,14 @@ export function VideoPlayer({
 
   const embedUrl = (() => {
     if (!selectedSourceConfig) return "";
-    try {
-      const url = new URL(selectedSourceConfig.url, window.location.origin);
-      const shouldResume =
-        resumePositionSeconds > 0 &&
-        !(watchState?.completed ?? false) &&
-        shouldApplyProviderResume(selectedProvider?.key, content.type);
-
-      if (content.type === "tv") {
-        if (selectedProvider?.key === "vidfast") {
-          url.searchParams.set("nextButton", "false");
-          url.searchParams.set("autoNext", "false");
-          url.searchParams.set("hideServerControls", "true");
-        }
-        if (selectedProvider?.key === "vidnest") {
-          url.searchParams.set("prevepisode", "hide");
-          url.searchParams.set("nextepisode", "hide");
-        }
-        if (selectedProvider?.key === "vidcore") {
-          url.searchParams.set("nextButton", "false");
-        }
-        if (selectedProvider?.key === "mafiaembed") {
-          url.searchParams.set("episodelist", "false");
-          url.searchParams.set("nextbutton", "false");
-          url.searchParams.set("autonext", "false");
-        }
-      }
-      if (
-        selectedProvider?.progress?.resumeParam &&
-        shouldForceProviderStartPosition(selectedProvider.key)
-      ) {
-        url.searchParams.set(
-          selectedProvider.progress.resumeParam,
-          String(shouldResume ? resumePositionSeconds : 0)
-        );
-      } else if (shouldResume && selectedProvider?.progress?.resumeParam) {
-        url.searchParams.set(selectedProvider.progress.resumeParam, String(resumePositionSeconds));
-      }
-      return url.toString();
-    } catch {
-      return selectedSourceConfig.url;
-    }
+    return createProviderEmbedUrl({
+      sourceUrl: selectedSourceConfig.url,
+      provider: selectedProvider,
+      contentType: content.type,
+      resumePositionSeconds,
+      watchCompleted: watchState?.completed ?? false,
+      baseUrl: window.location.origin
+    });
   })();
 
   const iframeSrcDoc =
@@ -583,7 +478,7 @@ export function VideoPlayer({
   }, [canRequestStatus, embedUrl, supportsProgressEvents]);
 
   useEffect(() => {
-    if (!embedUrl || selectedProvider?.key !== "vidplays") return;
+    if (!embedUrl || !shouldDisableProviderSubtitles(selectedProvider?.key)) return;
 
     const disableVidPlaysSubtitles = () => {
       postMessageToPlayer(iframeRef.current, "setSubtitle", { trackId: 0 });
@@ -807,27 +702,17 @@ export function VideoPlayer({
 
     const currentSeason = tvTargetRef.current.season;
     const currentEpisode = tvTargetRef.current.episode;
-    const totalSeasons = getCanonicalSeasonCount(content.tmdbId, content.seasons);
-    const canonicalEpisodeCount =
-      getCanonicalSeasonEpisodeCount(content.tmdbId, currentSeason) ?? 0;
+    const next = getNextEpisodeAddress({
+      tmdbId: content.tmdbId,
+      currentSeason,
+      currentEpisode,
+      fallbackSeasonCount: content.seasons,
+      currentSeasonEpisodeCount: currentSeasonData?.episodeCount
+    });
+    if (!next) return;
 
-    const maxEpisodes =
-      Math.max(currentSeasonData?.episodeCount ?? 0, canonicalEpisodeCount) || 999;
-
-    let nextSeason = currentSeason;
-    let nextEpisode = currentEpisode + 1;
-
-    if (currentEpisode >= maxEpisodes) {
-      nextSeason = currentSeason + 1;
-      nextEpisode = 1;
-    }
-
-    if (nextSeason > totalSeasons) {
-      return;
-    }
-
-    tvTargetRef.current = { season: nextSeason, episode: nextEpisode };
-    setTvTarget({ season: nextSeason, episode: nextEpisode });
+    tvTargetRef.current = next;
+    setTvTarget(next);
     setCurrentProgress(0);
     setResumePositionSeconds(0);
     lastSyncedProgressRef.current = 0;
@@ -836,8 +721,8 @@ export function VideoPlayer({
     realtimeDetectedRef.current = false;
 
     const params = new URLSearchParams();
-    params.set("season", String(nextSeason));
-    params.set("episode", String(nextEpisode));
+    params.set("season", String(next.season));
+    params.set("episode", String(next.episode));
     const currentSource = searchParams.get("source");
     if (currentSource) {
       params.set("source", currentSource);
@@ -855,14 +740,13 @@ export function VideoPlayer({
 
   const hasNextEpisode = (() => {
     if (content.type !== "tv") return false;
-    const totalSeasons = getCanonicalSeasonCount(content.tmdbId, content.seasons);
-    if (tvTarget.season < totalSeasons) return true;
-    const canonicalEpisodeCount =
-      getCanonicalSeasonEpisodeCount(content.tmdbId, tvTarget.season) ?? 0;
-    const seasonEpisodeCount =
-      Math.max(currentSeasonData?.episodeCount ?? 0, canonicalEpisodeCount) || undefined;
-    if (seasonEpisodeCount == null) return false;
-    return tvTarget.episode < seasonEpisodeCount;
+    return hasProviderNextEpisode({
+      tmdbId: content.tmdbId,
+      currentSeason: tvTarget.season,
+      currentEpisode: tvTarget.episode,
+      fallbackSeasonCount: content.seasons,
+      currentSeasonEpisodeCount: currentSeasonData?.episodeCount
+    });
   })();
 
   const matchingEpisodeWatchProgress =

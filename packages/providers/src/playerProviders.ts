@@ -1,4 +1,5 @@
-import { getProviderByOrigin } from "@fishy/providers/providerCatalog";
+import { getProviderByOrigin } from "./providerCatalog";
+import type { ProviderCatalogEntry, ProviderKey } from "./providerCatalog";
 
 export interface PlayerEventData {
   event: "timeupdate" | "play" | "pause" | "ended" | "seeked" | "playerstatus";
@@ -281,6 +282,94 @@ export interface PlayerControls {
   getStatus: () => void;
 }
 
+export type ProviderContentType = "movie" | "tv";
+
+export interface ProviderEmbedUrlOptions {
+  sourceUrl: string;
+  provider?: Pick<ProviderCatalogEntry, "key" | "progress">;
+  contentType: ProviderContentType;
+  resumePositionSeconds?: number;
+  watchCompleted?: boolean;
+  baseUrl?: string;
+}
+
+export function shouldApplyProviderResume(
+  providerKey: ProviderKey | string | undefined,
+  contentType: ProviderContentType
+) {
+  if (!providerKey) return false;
+  if (providerKey === "vidking" && contentType === "tv") return false;
+  if (providerKey === "vidnest" && contentType === "tv") return false;
+  return true;
+}
+
+export function shouldForceProviderStartPosition(providerKey: ProviderKey | string | undefined) {
+  return providerKey === "vidfast";
+}
+
+export function applyProviderEmbedParams(
+  url: URL,
+  providerKey: ProviderKey | string | undefined,
+  contentType: ProviderContentType
+) {
+  if (contentType !== "tv") return;
+
+  if (providerKey === "vidfast") {
+    url.searchParams.set("nextButton", "false");
+    url.searchParams.set("autoNext", "false");
+    url.searchParams.set("hideServerControls", "true");
+  }
+  if (providerKey === "vidnest") {
+    url.searchParams.set("prevepisode", "hide");
+    url.searchParams.set("nextepisode", "hide");
+  }
+  if (providerKey === "vidcore") {
+    url.searchParams.set("nextButton", "false");
+  }
+  if (providerKey === "mafiaembed") {
+    url.searchParams.set("episodelist", "false");
+    url.searchParams.set("nextbutton", "false");
+    url.searchParams.set("autonext", "false");
+  }
+}
+
+export function createProviderEmbedUrl({
+  sourceUrl,
+  provider,
+  contentType,
+  resumePositionSeconds = 0,
+  watchCompleted = false,
+  baseUrl = "http://localhost"
+}: ProviderEmbedUrlOptions) {
+  try {
+    const url = new URL(sourceUrl, baseUrl);
+    const providerKey = provider?.key;
+    const shouldResume =
+      resumePositionSeconds > 0 &&
+      !watchCompleted &&
+      shouldApplyProviderResume(providerKey, contentType);
+
+    applyProviderEmbedParams(url, providerKey, contentType);
+
+    if (provider?.progress?.resumeParam && shouldForceProviderStartPosition(providerKey)) {
+      url.searchParams.set(
+        provider.progress.resumeParam,
+        String(shouldResume ? resumePositionSeconds : 0)
+      );
+    } else if (shouldResume && provider?.progress?.resumeParam) {
+      url.searchParams.set(provider.progress.resumeParam, String(resumePositionSeconds));
+    }
+
+    return url.toString();
+  } catch {
+    return sourceUrl;
+  }
+}
+
+export function shouldDisableProviderSubtitles(providerKey: ProviderKey | string | undefined) {
+  return providerKey === "vidplays";
+}
+
 export function postMessageToPlayer(
   iframe: HTMLIFrameElement | null,
   command: string,
@@ -290,9 +379,9 @@ export function postMessageToPlayer(
   iframe.contentWindow.postMessage({ command, ...params }, "*");
 }
 
-export function createPlayerControls(
-  iframeRef: React.RefObject<HTMLIFrameElement | null>
-): PlayerControls {
+export function createPlayerControls(iframeRef: {
+  current: HTMLIFrameElement | null;
+}): PlayerControls {
   return {
     play: () => postMessageToPlayer(iframeRef.current, "play"),
     pause: () => postMessageToPlayer(iframeRef.current, "pause"),

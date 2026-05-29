@@ -37,6 +37,7 @@ import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
 } from "@fishy/providers/tvSeasonMappings";
+import { isAnimeProviderContent } from "@fishy/providers/providerPlayback";
 import type {
   ContentDetail,
   ContentId,
@@ -87,15 +88,6 @@ function hasFullContent(
   content: ModalContent | null
 ): content is ContentDetail & WatchHistoryFields {
   return !!content && "description" in content && "backdropUrl" in content;
-}
-
-function isAnimeContent(
-  content: { type: "movie" | "tv"; genre?: string[]; originalLanguage?: string } | null
-) {
-  if (!content || content.type !== "tv") return false;
-
-  const genres = new Set((content.genre ?? []).map((g) => g.toLowerCase()));
-  return genres.has("animation") && content.originalLanguage?.toLowerCase() === "ja";
 }
 
 function getSeasonCount(content: ModalContent | null): number | undefined {
@@ -171,7 +163,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const { isSignedIn } = useUser();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
-  const animeContent = isAnimeContent(detailContent ?? resolvedContent);
+  const providerContent = detailContent ?? resolvedContent;
+  const animeContent = providerContent ? isAnimeProviderContent(providerContent) : false;
 
   const isInWatchlist = useIsInWatchlist(resolvedContent?._id);
   const toggleWatchlist = useToggleWatchlist();
