@@ -18,6 +18,11 @@
     "noImplicitOverride": true,
     "paths": {
       "@/*": ["./src/*"],
+      "@fishy/providers": ["./packages/providers/src/index.ts"],
+      "@fishy/providers/providerCatalog": ["./packages/providers/src/providerCatalog.ts"],
+      "@fishy/providers/providerProxy": ["./packages/providers/src/providerProxy.ts"],
+      "@fishy/providers/tvSeasonMappings": ["./packages/providers/src/tvSeasonMappings.ts"],
+      "@fishy/providers/anilistResolver": ["./packages/providers/src/anilistResolver.ts"],
       "react": ["./node_modules/@types/react"],
       "react-dom": ["./node_modules/@types/react-dom"]
     },

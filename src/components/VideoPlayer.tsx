@@ -36,12 +36,12 @@ import {
   buildTvSources,
   getGroupedProviders,
   getProviderByKey
-} from "../../shared/providerCatalog";
-import type { StreamSource } from "../../shared/providerCatalog";
+} from "@fishy/providers/providerCatalog";
+import type { StreamSource } from "@fishy/providers/providerCatalog";
 import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
-} from "../../shared/tvSeasonMappings";
+} from "@fishy/providers/tvSeasonMappings";
 import type { ContentPlayback } from "../../shared/contentMetadata";
 
 interface VideoPlayerProps {

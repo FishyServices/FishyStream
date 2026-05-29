@@ -1,4 +1,4 @@
-import { proxyProviderRequest } from "../shared/providerProxy";
+import { proxyProviderRequest } from "@fishy/providers/providerProxy";
 
 export async function onRequest(context: {
   request: Request;

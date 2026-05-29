@@ -10,6 +10,7 @@
         "@capacitor/core": "8.3.1",
         "@clerk/react": "6.6.1",
         "@clerk/themes": "2.4.57",
+        "@fishy/providers": "file:./packages/providers",
         "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git",
         "class-variance-authority": "0.7.1",
         "convex": "1.37.0",
@@ -108,6 +109,8 @@
     "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.27.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-30z1aKL9h22kQhilnYkORFYt+3wp7yZsHWus+wSKAJR8JtdfI76LJ4SBdMsCopTR3z/ORqVu5L1vtnHZWVj4cQ=="],
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.27.0", "", { "os": "win32", "cpu": "x64" }, "sha512-aIitBcjQeyOhMTImhLZmtxfdOcuNRpwlPNmlFKPcHQYPhEssw75Cl1TSXJXpMkzaua9FUetx/4OQKq7eJul5Cg=="],
+
+    "@fishy/providers": ["@fishy/providers@file:packages/providers", { "devDependencies": { "prettier": "^3.8.2", "typescript": "~6.0.2" } }],
 
     "@fishy/ui": ["@fishy/ui@github:official-notfishvr/fishy-ui#7c9bce9", { "dependencies": { "@base-ui/react": "latest", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "lucide-react": "^0.479.0", "next-themes": "^0.4.6", "sonner": "^2.0.7", "tailwind-merge": "^3.5.0" }, "peerDependencies": { "react": "^19", "react-dom": "^19", "tailwindcss": "^4.2.2" } }, "FishyServices-fishy-ui-7c9bce9", "sha512-WmXY9A5QCC2kjn+smTMma7cM+pHgGcsUt7ZlQaaVluyQuRtLeTpqUChG6gyh73/INMaNkWQx+O/kJ0LeE693Xg=="],
 

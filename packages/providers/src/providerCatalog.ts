@@ -1,6 +1,6 @@
 import { resolveAniListEpisodeAddress } from "./anilistResolver";
 import { mapCanonicalToProviderOrder } from "./tvSeasonMappings";
-import type { AniListEpisodeMapping } from "./contentMetadata";
+import type { AniListEpisodeMapping } from "./types";
 
 export type ProviderKey =
   | "vidking"

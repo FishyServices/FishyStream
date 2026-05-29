@@ -1,4 +1,4 @@
-import { getProviderByOrigin } from "../../shared/providerCatalog";
+import { getProviderByOrigin } from "@fishy/providers/providerCatalog";
 
 export interface PlayerEventData {
   event: "timeupdate" | "play" | "pause" | "ended" | "seeked" | "playerstatus";

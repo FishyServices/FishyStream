@@ -36,7 +36,7 @@ import type { TMDBItem } from "@/hooks/useContent";
 import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
-} from "../../shared/tvSeasonMappings";
+} from "@fishy/providers/tvSeasonMappings";
 import type {
   ContentDetail,
   ContentId,

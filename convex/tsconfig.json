@@ -9,7 +9,14 @@
     "isolatedModules": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "@fishy/providers": ["../packages/providers/src/index.ts"],
+      "@fishy/providers/providerCatalog": ["../packages/providers/src/providerCatalog.ts"],
+      "@fishy/providers/providerProxy": ["../packages/providers/src/providerProxy.ts"],
+      "@fishy/providers/tvSeasonMappings": ["../packages/providers/src/tvSeasonMappings.ts"],
+      "@fishy/providers/anilistResolver": ["../packages/providers/src/anilistResolver.ts"]
+    }
   },
   "include": ["./**/*"],
   "exclude": ["./_generated"]

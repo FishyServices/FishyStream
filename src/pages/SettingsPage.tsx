@@ -13,7 +13,7 @@ import {
   getGroupedProviders,
   getProviderByKey,
   getProviderCapabilities
-} from "../../shared/providerCatalog";
+} from "@fishy/providers/providerCatalog";
 import {
   Button,
   Card,

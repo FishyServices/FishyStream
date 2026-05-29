@@ -6,8 +6,8 @@ import {
   getCanonicalSeasonCount,
   getCanonicalTotalEpisodes,
   getTvOrderingOverride
-} from "../shared/tvSeasonMappings";
-import { resolveAniListEpisodeAddress, resolveAniListId } from "../shared/anilistResolver";
+} from "@fishy/providers/tvSeasonMappings";
+import { resolveAniListEpisodeAddress, resolveAniListId } from "@fishy/providers/anilistResolver";
 import type { AniListEpisodeMapping } from "../shared/contentMetadata";
 
 const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
