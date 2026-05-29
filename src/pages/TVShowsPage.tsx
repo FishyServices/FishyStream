@@ -5,7 +5,14 @@ import { MovieCard } from "@/components/MovieCard";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { usePaginatedContent, type ContentSort } from "@/hooks/useContent";
 import { TV_SORT_OPTIONS } from "@/lib/appSettings";
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@fishy/ui";
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@FishyServices/ui";
 
 const GENRES = [
   "All",

@@ -4,7 +4,7 @@ import { Loader2, Search, X, Tv, Film } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useSearchAll } from "@/hooks/useContent";
 import { SearchCard } from "@/components/SearchCard";
-import { Button, Input } from "@fishy/ui";
+import { Button, Input } from "@FishyServices/ui";
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();

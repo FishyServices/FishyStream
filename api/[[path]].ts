@@ -1,7 +1,7 @@
 import {
   proxyProviderRequest,
   resolveProviderProxyPathFromSegments
-} from "@fishy/providers/providerProxy";
+} from "@FishyServices/providers/providerProxy";
 
 export async function onRequest(context: {
   request: Request;

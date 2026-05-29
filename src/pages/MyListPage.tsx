@@ -38,7 +38,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem
-} from "@fishy/ui";
+} from "@FishyServices/ui";
 import type { Id } from "../../convex/_generated/dataModel";
 
 export function MyListPage() {

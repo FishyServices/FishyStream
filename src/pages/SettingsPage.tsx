@@ -13,7 +13,7 @@ import {
   getGroupedProviders,
   getProviderByKey,
   getProviderCapabilities
-} from "@fishy/providers/providerCatalog";
+} from "@FishyServices/providers/providerCatalog";
 import {
   Button,
   Card,
@@ -34,7 +34,7 @@ import {
   SelectValue,
   Switch,
   ThemeSwitcher
-} from "@fishy/ui";
+} from "@FishyServices/ui";
 import {
   Check,
   ChevronsUpDown,

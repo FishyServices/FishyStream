@@ -4,7 +4,7 @@ import { dark } from "@clerk/themes";
 import { Link, useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { AlertCircle, Loader2, Mail, Lock, ShieldCheck } from "lucide-react";
-import { Button, Input } from "@fishy/ui";
+import { Button, Input } from "@FishyServices/ui";
 
 type NativeSignInMode = "password" | "email-code";
 

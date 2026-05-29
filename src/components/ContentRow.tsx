@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@fishy/ui";
+import { Button } from "@FishyServices/ui";
 import { MovieCard } from "./MovieCard";
 import type { ContentCard } from "../../shared/contentMetadata";
 

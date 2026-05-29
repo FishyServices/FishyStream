@@ -3,7 +3,7 @@ import { Play, ChevronDown, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { TMDBItem } from "@/hooks/useContent";
 import { ContentModal } from "./ContentModal";
-import { Button } from "@fishy/ui";
+import { Button } from "@FishyServices/ui";
 import { useAction, useConvex } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { ContentDetail } from "../../shared/contentMetadata";

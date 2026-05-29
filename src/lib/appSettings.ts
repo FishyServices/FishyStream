@@ -1,5 +1,5 @@
 import type { ContentSort } from "@/hooks/useContent";
-import type { ProviderKey } from "@fishy/providers/providerCatalog";
+import type { ProviderKey } from "@FishyServices/providers/providerCatalog";
 
 export type ThemePreference = "dark" | "light";
 export type AnimeLanguagePreference = "sub" | "dub";

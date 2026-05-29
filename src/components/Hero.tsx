@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Play, Info, Plus, Check, Volume2, VolumeX, ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@fishy/ui";
+import { Button } from "@FishyServices/ui";
 import { ContentModal } from "./ContentModal";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
-import { toast } from "@fishy/ui";
+import { toast } from "@FishyServices/ui";
 import type { ContentFeatured } from "../../shared/contentMetadata";
 
 interface HeroProps {

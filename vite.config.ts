@@ -2,7 +2,10 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
-import { matchProviderProxyPath, proxyProviderRequest } from "@fishy/providers/providerProxy";
+import {
+  matchProviderProxyPath,
+  proxyProviderRequest
+} from "@FishyServices/providers/providerProxy";
 
 function vidplaysProxyPlugin(): Plugin {
   return {
