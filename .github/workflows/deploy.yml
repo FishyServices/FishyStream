@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
       deployments: write
 
     steps:
@@ -21,15 +20,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        env:
-          FISHY_SERVICES_TOKEN: ${{ secrets.FISHY_SERVICES_TOKEN }}
-        run: |
-          cat > .npmrc <<'EOF'
-          @fishyservices:registry=https://npm.pkg.github.com
-          //npm.pkg.github.com/:_authToken=${FISHY_SERVICES_TOKEN}
-          always-auth=true
-          EOF
-          bun install
+        run: bun install
 
       - name: Build
         env:

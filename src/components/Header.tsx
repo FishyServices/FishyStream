@@ -33,7 +33,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle
-} from "@FishyServices/ui";
+} from "@fishy/ui";
 import { useAcknowledgeWatchlistUpdates, useWatchlistUpdatesOnDemand } from "@/hooks/useWatchlist";
 import type { WatchlistUpdateMeta } from "../../shared/contentMetadata";
 
@@ -128,7 +128,13 @@ export function Header() {
         setWatchlistUpdatesAcknowledged(true);
       })
       .catch(() => {});
-  }, [acknowledgeUpdates, notificationsOpen, user, watchlistUpdates, watchlistUpdatesAcknowledged]);
+  }, [
+    acknowledgeUpdates,
+    notificationsOpen,
+    user,
+    watchlistUpdates,
+    watchlistUpdatesAcknowledged
+  ]);
 
   useEffect(() => {
     if (!notificationsOpen) return;

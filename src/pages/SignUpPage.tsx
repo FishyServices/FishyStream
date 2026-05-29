@@ -4,7 +4,7 @@ import { dark } from "@clerk/themes";
 import { Link, useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { AlertCircle, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
-import { Button, Input } from "@FishyServices/ui";
+import { Button, Input } from "@fishy/ui";
 
 function getClerkErrorMessage(error: unknown) {
   if (

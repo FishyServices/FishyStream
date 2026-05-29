@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { ClerkProvider, useAuth } from "@clerk/react";
 import { dark } from "@clerk/themes";
-import { applyFishyTheme } from "@FishyServices/ui";
+import { applyFishyTheme } from "@fishy/ui";
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { App } from "./App";

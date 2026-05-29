@@ -20,7 +20,7 @@ import {
   CardTitle,
   Toaster,
   toast
-} from "@FishyServices/ui";
+} from "@fishy/ui";
 
 function Footer() {
   return (

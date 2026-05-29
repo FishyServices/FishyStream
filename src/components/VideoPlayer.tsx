@@ -10,7 +10,7 @@ import {
   SkipForward,
   Mic2
 } from "lucide-react";
-import { Button } from "@FishyServices/ui";
+import { Button } from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Select,
@@ -21,10 +21,10 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue
-} from "@FishyServices/ui";
+} from "@fishy/ui";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
 import { useAppSettings } from "@/hooks/useAppSettings";
-import type { PlayerEventPayload } from "@FishyServices/providers/playerProviders";
+import type { PlayerEventPayload } from "@fishy/providers/playerProviders";
 import {
   createProviderEmbedUrl,
   parsePlayerMessage,
@@ -32,13 +32,13 @@ import {
   isKnownPlayerOrigin,
   postMessageToPlayer,
   shouldDisableProviderSubtitles
-} from "@FishyServices/providers/playerProviders";
+} from "@fishy/providers/playerProviders";
 import {
   buildMovieSources,
   buildTvSources,
   getProviderByKey
-} from "@FishyServices/providers/providerCatalog";
-import type { StreamSource } from "@FishyServices/providers/providerCatalog";
+} from "@fishy/providers/providerCatalog";
+import type { StreamSource } from "@fishy/providers/providerCatalog";
 import {
   getNextEpisodeAddress,
   getSeasonYear,
@@ -48,7 +48,7 @@ import {
   isAnimeProviderContent,
   pickPreferredSource,
   shouldWaitForAnimeSeasonMetadata
-} from "@FishyServices/providers/providerPlayback";
+} from "@fishy/providers/providerPlayback";
 import type { ContentPlayback } from "../../shared/contentMetadata";
 
 interface VideoPlayerProps {

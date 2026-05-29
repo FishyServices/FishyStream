@@ -3,18 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
-  },
   "scripts": {
     "dev": "concurrently \"convex dev\" \"vite\"",
     "dev:mobile": "concurrently \"convex dev\" \"vite --host 0.0.0.0\"",
-    "build": "tsc -b && vite build",
+    "build": "bun run --cwd packages/providers build && tsc -b && vite build",
     "build:android": "npm run build && npx cap sync android",
     "cap:sync": "npx cap sync",
     "cap:android": "npx cap open android",
     "preview": "vite preview",
-    "lint": "tsc --noEmit",
+    "lint": "bun run --cwd packages/providers lint && tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,json,css}\""
   },
   "dependencies": {
@@ -23,8 +20,8 @@
     "@capacitor/core": "8.3.1",
     "@clerk/react": "6.6.1",
     "@clerk/themes": "2.4.57",
-    "@fishyservices/providers": "latest",
-    "@fishyservices/ui": "latest",
+    "@fishy/providers": "file:./packages/providers",
+    "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git",
     "class-variance-authority": "0.7.1",
     "convex": "1.37.0",
     "lucide-react": "1.14.0",

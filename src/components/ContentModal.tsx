@@ -24,20 +24,20 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue
-} from "@FishyServices/ui";
+} from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { toast } from "@FishyServices/ui";
+import { toast } from "@fishy/ui";
 import { useContentCredits, useContentVideos, useRelatedContent } from "@/hooks/useContent";
 import { useOneShotConvexQuery } from "@/hooks/useOneShotConvexQuery";
 import type { TMDBItem } from "@/hooks/useContent";
 import {
   getCanonicalSeasonCount,
   getCanonicalSeasonEpisodeCount
-} from "@FishyServices/providers/tvSeasonMappings";
-import { isAnimeProviderContent } from "@FishyServices/providers/providerPlayback";
+} from "@fishy/providers/tvSeasonMappings";
+import { isAnimeProviderContent } from "@fishy/providers/providerPlayback";
 import type {
   ContentDetail,
   ContentId,

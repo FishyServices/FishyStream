@@ -2,10 +2,7 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
-import {
-  matchProviderProxyPath,
-  proxyProviderRequest
-} from "@FishyServices/providers/providerProxy";
+import { matchProviderProxyPath, proxyProviderRequest } from "@fishy/providers/providerProxy";
 
 function vidplaysProxyPlugin(): Plugin {
   return {
@@ -50,54 +47,36 @@ export default defineConfig(({ mode }) => {
       alias: [
         { find: "@", replacement: path.resolve(__dirname, "./src") },
         {
-          find: "@fishy-services/ui",
-          replacement: path.resolve(__dirname, "../FishyPackages/packages/ui/src/index.ts")
+          find: "@fishy/ui",
+          replacement: path.resolve(__dirname, "./node_modules/@fishy/ui/src/index.ts")
         },
         {
-          find: "@fishy-services/providers/providerCatalog",
-          replacement: path.resolve(
-            __dirname,
-            "../FishyPackages/packages/providers/src/providerCatalog.ts"
-          )
+          find: "@fishy/providers/providerCatalog",
+          replacement: path.resolve(__dirname, "./packages/providers/src/providerCatalog.ts")
         },
         {
-          find: "@fishy-services/providers/providerProxy",
-          replacement: path.resolve(
-            __dirname,
-            "../FishyPackages/packages/providers/src/providerProxy.ts"
-          )
+          find: "@fishy/providers/providerProxy",
+          replacement: path.resolve(__dirname, "./packages/providers/src/providerProxy.ts")
         },
         {
-          find: "@fishy-services/providers/playerProviders",
-          replacement: path.resolve(
-            __dirname,
-            "../FishyPackages/packages/providers/src/playerProviders.ts"
-          )
+          find: "@fishy/providers/playerProviders",
+          replacement: path.resolve(__dirname, "./packages/providers/src/playerProviders.ts")
         },
         {
-          find: "@fishy-services/providers/providerPlayback",
-          replacement: path.resolve(
-            __dirname,
-            "../FishyPackages/packages/providers/src/providerPlayback.ts"
-          )
+          find: "@fishy/providers/providerPlayback",
+          replacement: path.resolve(__dirname, "./packages/providers/src/providerPlayback.ts")
         },
         {
-          find: "@fishy-services/providers/tvSeasonMappings",
-          replacement: path.resolve(
-            __dirname,
-            "../FishyPackages/packages/providers/src/tvSeasonMappings.ts"
-          )
+          find: "@fishy/providers/tvSeasonMappings",
+          replacement: path.resolve(__dirname, "./packages/providers/src/tvSeasonMappings.ts")
         },
         {
-          find: "@fishy-services/providers/anilistResolver",
-          replacement: path.resolve(
-            __dirname,
-            "../FishyPackages/packages/providers/src/anilistResolver.ts"
-          )
+          find: "@fishy/providers/anilistResolver",
+          replacement: path.resolve(__dirname, "./packages/providers/src/anilistResolver.ts")
         },
         {
-          find: "@fishy-services/providers",
-          replacement: path.resolve(__dirname, "../FishyPackages/packages/providers/src/index.ts")
+          find: "@fishy/providers",
+          replacement: path.resolve(__dirname, "./packages/providers/src/index.ts")
         },
         { find: "react", replacement: path.resolve(__dirname, "./node_modules/react") },
         { find: "react-dom", replacement: path.resolve(__dirname, "./node_modules/react-dom") }

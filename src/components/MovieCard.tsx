@@ -2,7 +2,7 @@ import { Play, Plus, Check, ChevronDown, Star } from "lucide-react";
 import { useState } from "react";
 import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
-import { Button, toast } from "@FishyServices/ui";
+import { Button, toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import type { ContentCard, ContentId, ContentType } from "../../shared/contentMetadata";
 

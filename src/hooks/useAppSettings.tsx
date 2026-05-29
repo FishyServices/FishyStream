@@ -6,7 +6,7 @@ import {
   useState,
   type PropsWithChildren
 } from "react";
-import { applyFishyTheme } from "@FishyServices/ui";
+import { applyFishyTheme } from "@fishy/ui";
 import {
   APP_SETTINGS_STORAGE_KEY,
   DEFAULT_APP_SETTINGS,
