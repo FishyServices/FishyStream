@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
       deployments: write
 
     steps:
@@ -20,6 +21,8 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun install
 
       - name: Build
