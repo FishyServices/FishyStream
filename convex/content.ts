@@ -270,7 +270,7 @@ export const getHomepageView = query({
   handler: async (
     ctx
   ): Promise<{
-    featured: Omit<ContentFeatured, "posterUrl" | "originalLanguage">[];
+    featured: ContentFeatured[];
     categories: Array<{ id: string; title: string; content: ContentCard[] }>;
   }> => {
     let featuredDocs = await ctx.db
@@ -303,10 +303,7 @@ export const getHomepageView = query({
     ]);
 
     return {
-      featured: featuredDocs.map((doc) => {
-        const { posterUrl: _p, originalLanguage: _o, ...rest } = toContentFeatured(doc);
-        return rest;
-      }),
+      featured: featuredDocs.map((doc) => toContentFeatured(doc)),
       categories: [
         { id: "trending", title: "Trending Now 🔥", content: trending },
         { id: "movies", title: "Movies", content: movies },
