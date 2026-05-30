@@ -58,7 +58,7 @@ const tmdbContentValidator = v.object({
   updatedAt: v.number()
 });
 
-const HOMEPAGE_ROW_LIMIT = 8;
+const HOMEPAGE_ROW_LIMIT = 12;
 
 type BrowseSort = "trending" | "popular" | "new" | "rating" | "year";
 

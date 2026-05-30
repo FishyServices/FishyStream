@@ -112,9 +112,11 @@ function AppShell() {
             <Route
               path="/watch/:id"
               element={
-                <WatchProgressProvider>
-                  <WatchPage />
-                </WatchProgressProvider>
+                <GlobalWatchlistProvider>
+                  <WatchProgressProvider>
+                    <WatchPage />
+                  </WatchProgressProvider>
+                </GlobalWatchlistProvider>
               }
             />
             <Route

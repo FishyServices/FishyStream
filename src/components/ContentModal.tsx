@@ -150,6 +150,9 @@ function EpisodePill({
 export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalProps) {
   const [seasonReloadKey, setSeasonReloadKey] = useState(0);
   const [relatedReloadKey, setRelatedReloadKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<"episodes" | "cast" | "videos" | "related">(
+    "episodes"
+  );
   const fullContent = useOneShotConvexQuery<ContentDetail | null>(
     isOpen && !!content && !hasFullContent(content),
     (convex) => convex.query(api.content.getContentDetailById, { id: content!._id }),
@@ -206,9 +209,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       ? resolvedContent.tmdbId
       : parseInt(resolvedContent.tmdbId, 10) || undefined
     : undefined;
-  const { credits } = useContentCredits(tmdbIdNum, resolvedContent?.type, isOpen);
-  const { videos } = useContentVideos(tmdbIdNum, resolvedContent?.type, isOpen);
-  const { related } = useRelatedContent(tmdbIdNum, resolvedContent?.type, 8, isOpen);
+  const { credits } = useContentCredits(tmdbIdNum, resolvedContent?.type, isOpen && activeTab === "cast");
+  const { videos } = useContentVideos(tmdbIdNum, resolvedContent?.type, isOpen && activeTab === "videos");
+  const { related } = useRelatedContent(tmdbIdNum, resolvedContent?.type, 8, isOpen && activeTab === "related");
 
   const syncSingleContent = useAction(api.tmdb.syncSingleContent);
   const [relatedModalItem, setRelatedModalItem] = useState<TMDBItem | null>(null);
@@ -303,6 +306,12 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       backgroundSyncKeyRef.current = null;
     }
   }, [resolvedContent, isOpen]);
+
+  useEffect(() => {
+    if (isOpen && resolvedContent) {
+      setActiveTab(resolvedContent.type === "tv" ? "episodes" : "cast");
+    }
+  }, [isOpen, resolvedContent?.type]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -685,11 +694,56 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
               </div>
             )}
 
-            {/* Episodes */}
-            {isTV && (
+            {/* Tabs */}
+            <div className="flex gap-1 border-b border-border/60">
+              {isTV && (
+                <button
+                  onClick={() => setActiveTab("episodes")}
+                  className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                    activeTab === "episodes"
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Episodes
+                </button>
+              )}
+              <button
+                onClick={() => setActiveTab("cast")}
+                className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  activeTab === "cast"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Cast
+              </button>
+              <button
+                onClick={() => setActiveTab("videos")}
+                className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  activeTab === "videos"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Trailers
+              </button>
+              <button
+                onClick={() => setActiveTab("related")}
+                className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  activeTab === "related"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                More Like This
+              </button>
+            </div>
+
+            {/* Episodes tab */}
+            {activeTab === "episodes" && isTV && (
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-display font-bold text-foreground">Episodes</h3>
                   {totalSeasons > 1 && (
                     <Select
                       value={String(selectedSeason)}
@@ -757,116 +811,131 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
               </div>
             )}
 
-            {/* Cast */}
-            {credits && credits.cast.length > 0 && (
+            {/* Cast tab */}
+            {activeTab === "cast" && (
               <div>
-                <h3 className="mb-3 flex items-center gap-2 font-display font-bold text-foreground">
-                  <Users className="w-4 h-4" />
-                  Cast
-                </h3>
-                <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
-                  {credits.cast.slice(0, 10).map((actor) => (
-                    <div key={actor.id} className="shrink-0 w-16 text-center">
-                      {actor.profileUrl ? (
-                        <img
-                          src={actor.profileUrl}
-                          alt={actor.name}
-                          className="mb-1 h-16 w-16 rounded-full bg-muted object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                          <User className="h-6 w-6 text-muted-foreground/60" />
+                {!credits ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : credits.cast.length > 0 ? (
+                  <>
+                    <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
+                      {credits.cast.slice(0, 10).map((actor) => (
+                        <div key={actor.id} className="shrink-0 w-16 text-center">
+                          {actor.profileUrl ? (
+                            <img
+                              src={actor.profileUrl}
+                              alt={actor.name}
+                              className="mb-1 h-16 w-16 rounded-full bg-muted object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                              <User className="h-6 w-6 text-muted-foreground/60" />
+                            </div>
+                          )}
+                          <p className="line-clamp-2 text-[10px] font-medium text-foreground">
+                            {actor.name}
+                          </p>
+                          <p className="line-clamp-1 text-[9px] text-muted-foreground">
+                            {actor.character}
+                          </p>
                         </div>
-                      )}
-                      <p className="line-clamp-2 text-[10px] font-medium text-foreground">
-                        {actor.name}
-                      </p>
-                      <p className="line-clamp-1 text-[9px] text-muted-foreground">
-                        {actor.character}
-                      </p>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                {credits.directors.length > 0 && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    <span className="text-muted-foreground/80">Directed by:</span>{" "}
-                    {credits.directors.slice(0, 3).join(", ")}
+                    {credits.directors.length > 0 && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        <span className="text-muted-foreground/80">Directed by:</span>{" "}
+                        {credits.directors.slice(0, 3).join(", ")}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="py-8 text-center text-xs text-muted-foreground">
+                    No cast information available.
                   </p>
                 )}
               </div>
             )}
 
-            {/* Videos */}
-            {videos.length > 0 && (
+            {/* Videos tab */}
+            {activeTab === "videos" && (
               <div>
-                <h3 className="mb-3 flex items-center gap-2 font-display font-bold text-foreground">
-                  <Video className="w-4 h-4" />
-                  Trailers & More
-                </h3>
-                <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
-                  {videos.slice(0, 5).map((video) => (
-                    <a
-                      key={video.key}
-                      href={`https://youtube.com/watch?v=${video.key}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 w-40 group"
-                    >
-                      <div className="relative mb-1 aspect-video overflow-hidden rounded-lg bg-muted">
-                        <img
-                          src={`https://img.youtube.com/vi/${video.key}/mqdefault.jpg`}
-                          alt={video.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          loading="lazy"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
-                          <Play className="w-8 h-8 text-white fill-white drop-shadow-lg" />
+                {videos.length === 0 ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
+                    {videos.slice(0, 5).map((video) => (
+                      <a
+                        key={video.key}
+                        href={`https://youtube.com/watch?v=${video.key}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 w-40 group"
+                      >
+                        <div className="relative mb-1 aspect-video overflow-hidden rounded-lg bg-muted">
+                          <img
+                            src={`https://img.youtube.com/vi/${video.key}/mqdefault.jpg`}
+                            alt={video.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
+                            <Play className="w-8 h-8 text-white fill-white drop-shadow-lg" />
+                          </div>
+                          {video.official && (
+                            <span className="absolute top-1 left-1 bg-primary/90 text-[9px] font-bold px-1.5 py-0.5 rounded text-white">
+                              OFFICIAL
+                            </span>
+                          )}
                         </div>
-                        {video.official && (
-                          <span className="absolute top-1 left-1 bg-primary/90 text-[9px] font-bold px-1.5 py-0.5 rounded text-white">
-                            OFFICIAL
-                          </span>
-                        )}
-                      </div>
-                      <p className="line-clamp-1 text-xs font-medium text-foreground transition-colors group-hover:text-primary">
-                        {video.name}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">{video.type}</p>
-                    </a>
-                  ))}
-                </div>
+                        <p className="line-clamp-1 text-xs font-medium text-foreground transition-colors group-hover:text-primary">
+                          {video.name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">{video.type}</p>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Related */}
-            {related.length > 0 && (
+            {/* Related tab */}
+            {activeTab === "related" && (
               <div>
-                <h3 className="mb-3 font-display font-bold text-foreground">More Like This</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {related.map((item) => (
-                    <div
-                      key={item.tmdbId}
-                      className="group cursor-pointer"
-                      onClick={() => handleRelatedClick(item)}
-                    >
-                      <div className="mb-1.5 aspect-2/3 overflow-hidden rounded-lg bg-muted">
-                        <img
-                          src={item.posterUrl}
-                          alt={item.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          loading="lazy"
-                        />
+                {related.length === 0 ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {related.map((item) => (
+                      <div
+                        key={item.tmdbId}
+                        className="group cursor-pointer"
+                        onClick={() => handleRelatedClick(item)}
+                      >
+                        <div className="mb-1.5 aspect-2/3 overflow-hidden rounded-lg bg-muted">
+                          <img
+                            src={item.posterUrl}
+                            alt={item.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            loading="lazy"
+                          />
+                        </div>
+                        <p className="line-clamp-1 text-xs font-medium text-foreground transition-colors group-hover:text-primary">
+                          {item.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {item.year} • {item.voteAverage?.toFixed(1)} ★
+                        </p>
                       </div>
-                      <p className="line-clamp-1 text-xs font-medium text-foreground transition-colors group-hover:text-primary">
-                        {item.title}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {item.year} • {item.voteAverage?.toFixed(1)} ★
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

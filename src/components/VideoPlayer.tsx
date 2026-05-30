@@ -8,10 +8,12 @@ import {
   MonitorPlay,
   RefreshCw,
   SkipForward,
-  Mic2
+  Mic2,
+  Info
 } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { ContentModal } from "@/components/ContentModal";
 import {
   Select,
   SelectContent,
@@ -139,6 +141,7 @@ export function VideoPlayer({
   const [resumePositionSeconds, setResumePositionSeconds] = useState(0);
   const [freshAnimeSeasonKeys, setFreshAnimeSeasonKeys] = useState<string[]>([]);
   const [isNextEpisodeCooldown, setIsNextEpisodeCooldown] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   const tvTargetRef = useRef({
     season: initialSeason ?? 1,
@@ -920,6 +923,15 @@ export function VideoPlayer({
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/10 shrink-0"
+              onClick={() => setShowInfoModal(true)}
+              title="Content info"
+            >
+              <Info className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </div>
@@ -949,6 +961,22 @@ export function VideoPlayer({
           </Button>
         )}
       </div>
+
+      <ContentModal
+        content={content as Parameters<typeof ContentModal>[0]["content"]}
+        isOpen={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+        onPlay={(tmdbId, season, episode) => {
+          setShowInfoModal(false);
+          const params = new URLSearchParams();
+          if (season !== undefined) params.set("season", String(season));
+          if (episode !== undefined) params.set("episode", String(episode));
+          const currentSource = searchParams.get("source");
+          if (currentSource) params.set("source", currentSource);
+          if (isDub) params.set("dub", "true");
+          navigate({ search: params.toString() }, { replace: true });
+        }}
+      />
     </div>
   );
 }
