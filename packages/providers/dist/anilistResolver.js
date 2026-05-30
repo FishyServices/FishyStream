@@ -85,7 +85,7 @@ function getSeasonSignals(candidate) {
         courNumbers: extractTaggedSeasonNumbers(candidate, [/\bcour\s+(\d+)\b/g])
     };
 }
-function scoreAniListCandidate(media, title, season) {
+function scoreAniListCandidate(media, title, season, year) {
     const baseTitle = normalizeAniListText(title);
     const titles = [
         media.title?.romaji,
@@ -119,13 +119,23 @@ function scoreAniListCandidate(media, title, season) {
             matchedBaseTitle = true;
         }
         const { explicitSeasonNumbers, partNumbers, courNumbers } = getSeasonSignals(candidate);
+        const romanSeasonNumber = parseRomanSeasonSignal(candidate, baseTitle);
         const hasExplicitSeasonMatch = explicitSeasonNumbers.has(season);
         const hasExplicitSeasonMismatch = explicitSeasonNumbers.size > 0 && !explicitSeasonNumbers.has(season);
+        const hasRomanSeasonMatch = romanSeasonNumber === season;
+        const hasRomanSeasonMismatch = romanSeasonNumber !== undefined && romanSeasonNumber !== season;
         if (hasExplicitSeasonMatch)
             score += 14;
         if (hasExplicitSeasonMismatch)
             score -= 24;
-        if (!hasExplicitSeasonMatch && !hasExplicitSeasonMismatch) {
+        if (hasRomanSeasonMatch)
+            score += 14;
+        if (hasRomanSeasonMismatch)
+            score -= 18;
+        if (!hasExplicitSeasonMatch &&
+            !hasExplicitSeasonMismatch &&
+            !hasRomanSeasonMatch &&
+            !hasRomanSeasonMismatch) {
             if (partNumbers.has(season))
                 score += 4;
             if (courNumbers.has(season))
@@ -149,10 +159,38 @@ function scoreAniListCandidate(media, title, season) {
             score -= 20;
         }
     }
+    if (year) {
+        const startYear = media.startDate?.year;
+        if (startYear === year) {
+            score += 12;
+        }
+        else if (startYear && Math.abs(startYear - year) === 1) {
+            score += 4;
+        }
+        else if (startYear && Math.abs(startYear - year) > 2) {
+            score -= 10;
+        }
+    }
     if (!matchedBaseTitle) {
         score -= 18;
     }
     return score;
+}
+function parseRomanSeasonSignal(candidate, baseTitle) {
+    if (!candidate.startsWith(baseTitle))
+        return undefined;
+    const suffix = candidate.slice(baseTitle.length).trim();
+    const firstToken = suffix.match(/^(ii|iii|iv|v|vi)\b/)?.[1];
+    if (!firstToken)
+        return undefined;
+    const romanValues = {
+        ii: 2,
+        iii: 3,
+        iv: 4,
+        v: 5,
+        vi: 6
+    };
+    return romanValues[firstToken];
 }
 async function searchAniListCandidate(search) {
     if (!search)
@@ -171,6 +209,11 @@ async function searchAniListCandidate(search) {
               media(search: $search, type: ANIME, sort: SEARCH_MATCH) {
                 id
                 format
+                startDate {
+                  year
+                  month
+                  day
+                }
                 title {
                   romaji
                   english
@@ -208,6 +251,11 @@ async function fetchAniListYearCandidates(year, page) {
               media(type: ANIME, seasonYear: $seasonYear, sort: POPULARITY_DESC) {
                 id
                 format
+                startDate {
+                  year
+                  month
+                  day
+                }
                 title {
                   romaji
                   english
@@ -360,14 +408,14 @@ export async function resolveAniListId(args) {
     for (const search of searches) {
         const results = await searchAniListCandidate(search);
         for (const media of results) {
-            const score = scoreAniListCandidate(media, title, season);
+            const score = scoreAniListCandidate(media, title, season, year);
             if (score > bestScore) {
                 bestScore = score;
                 bestMatch = media;
             }
         }
     }
-    if (!bestMatch && year) {
+    if (year) {
         const yearCandidates = new Map();
         for (const candidateYear of [year, year - 1, year + 1]) {
             for (const page of [1, 2]) {
@@ -378,7 +426,7 @@ export async function resolveAniListId(args) {
             }
         }
         for (const media of yearCandidates.values()) {
-            const score = scoreAniListCandidate(media, title, season);
+            const score = scoreAniListCandidate(media, title, season, year);
             if (score > bestScore) {
                 bestScore = score;
                 bestMatch = media;

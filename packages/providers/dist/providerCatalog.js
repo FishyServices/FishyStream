@@ -36,7 +36,7 @@ export const STREAM_PROVIDERS = [
     defineProvider({
         key: "vidfast",
         name: "VidFast",
-        category: "other",
+        category: "primary_anime",
         idType: "both",
         quality: "1080p",
         website: "https://vidfast.pro",
@@ -66,7 +66,7 @@ export const STREAM_PROVIDERS = [
     defineProvider({
         key: "vidnest",
         name: "VidNest",
-        category: "primary_anime",
+        category: "other",
         idType: "tmdb",
         quality: "1080p",
         website: "https://vidnest.fun",
@@ -80,7 +80,7 @@ export const STREAM_PROVIDERS = [
     defineProvider({
         key: "vidrock",
         name: "VidRock",
-        category: "primary_anime",
+        category: "other",
         idType: "both",
         quality: "1080p",
         website: "https://vidrock.ru",
