@@ -963,7 +963,13 @@ export function VideoPlayer({
       </div>
 
       <ContentModal
-        content={content as Parameters<typeof ContentModal>[0]["content"]}
+        content={
+          {
+            ...(content as Parameters<typeof ContentModal>[0]["content"]),
+            seasonNumber: content.type === "tv" ? tvTarget.season : undefined,
+            episodeNumber: content.type === "tv" ? tvTarget.episode : undefined
+          } as Parameters<typeof ContentModal>[0]["content"]
+        }
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
         onPlay={(tmdbId, season, episode) => {

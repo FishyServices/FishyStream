@@ -209,9 +209,22 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       ? resolvedContent.tmdbId
       : parseInt(resolvedContent.tmdbId, 10) || undefined
     : undefined;
-  const { credits } = useContentCredits(tmdbIdNum, resolvedContent?.type, isOpen && activeTab === "cast");
-  const { videos } = useContentVideos(tmdbIdNum, resolvedContent?.type, isOpen && activeTab === "videos");
-  const { related } = useRelatedContent(tmdbIdNum, resolvedContent?.type, 8, isOpen && activeTab === "related");
+  const { credits } = useContentCredits(
+    tmdbIdNum,
+    resolvedContent?.type,
+    isOpen && activeTab === "cast"
+  );
+  const { videos } = useContentVideos(
+    tmdbIdNum,
+    resolvedContent?.type,
+    isOpen && activeTab === "videos"
+  );
+  const { related } = useRelatedContent(
+    tmdbIdNum,
+    resolvedContent?.type,
+    8,
+    isOpen && activeTab === "related"
+  );
 
   const syncSingleContent = useAction(api.tmdb.syncSingleContent);
   const [relatedModalItem, setRelatedModalItem] = useState<TMDBItem | null>(null);
@@ -499,6 +512,12 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       setSelectedEpisode(resolvedContent.episodeNumber ?? 1);
     }
   }, [resolvedContent]);
+
+  useEffect(() => {
+    if (isOpen && resolvedContent?.type === "tv") {
+      userHasSelectedRef.current = false;
+    }
+  }, [isOpen, resolvedContent?._id]);
 
   const handleSeasonChange = (season: number) => {
     userHasSelectedRef.current = true;
