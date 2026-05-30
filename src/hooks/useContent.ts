@@ -35,7 +35,7 @@ export interface TMDBItem {
 
 export function useHomepageContent() {
   return useOneShotConvexQuery<{
-    featured: ContentFeatured[];
+    featured: Omit<ContentFeatured, "posterUrl" | "originalLanguage">[];
     categories: Array<{ id: string; title: string; content: ContentCard[] }>;
   }>(true, (convex) => convex.query(api.content.getHomepageView, {}), []);
 }

@@ -58,7 +58,7 @@ const tmdbContentValidator = v.object({
   updatedAt: v.number()
 });
 
-const HOMEPAGE_ROW_LIMIT = 12;
+const HOMEPAGE_ROW_LIMIT = 10;
 
 type BrowseSort = "trending" | "popular" | "new" | "rating" | "year";
 
@@ -270,19 +270,19 @@ export const getHomepageView = query({
   handler: async (
     ctx
   ): Promise<{
-    featured: ContentFeatured[];
+    featured: Omit<ContentFeatured, "posterUrl" | "originalLanguage">[];
     categories: Array<{ id: string; title: string; content: ContentCard[] }>;
   }> => {
     let featuredDocs = await ctx.db
       .query("content")
       .withIndex("by_featured", (q) => q.eq("featured", true))
-      .take(5);
+      .take(3);
 
-    if (featuredDocs.length < 5) {
+    if (featuredDocs.length < 3) {
       const extraDocs = await ctx.db
         .query("content")
         .withIndex("by_trending", (q) => q.eq("trending", true))
-        .take(10);
+        .take(6);
 
       const existingIds = new Set(featuredDocs.map((doc) => doc._id));
       for (const doc of extraDocs) {
@@ -290,26 +290,25 @@ export const getHomepageView = query({
           featuredDocs.push(doc);
           existingIds.add(doc._id);
         }
-        if (featuredDocs.length >= 5) {
+        if (featuredDocs.length >= 3) {
           break;
         }
       }
     }
 
-    const [trending, popular, newReleases, movies, tvShows] = await Promise.all([
+    const [trending, movies, tvShows] = await Promise.all([
       readFlaggedCards(ctx, "trending", HOMEPAGE_ROW_LIMIT),
-      readFlaggedCards(ctx, "popular", HOMEPAGE_ROW_LIMIT),
-      readFlaggedCards(ctx, "new", HOMEPAGE_ROW_LIMIT),
       readTypeCards(ctx, "movie", HOMEPAGE_ROW_LIMIT),
       readTypeCards(ctx, "tv", HOMEPAGE_ROW_LIMIT)
     ]);
 
     return {
-      featured: featuredDocs.map(toContentFeatured),
+      featured: featuredDocs.map((doc) => {
+        const { posterUrl: _p, originalLanguage: _o, ...rest } = toContentFeatured(doc);
+        return rest;
+      }),
       categories: [
         { id: "trending", title: "Trending Now 🔥", content: trending },
-        { id: "popular", title: "Popular on FishyStream", content: popular },
-        { id: "new", title: "New Releases", content: newReleases },
         { id: "movies", title: "Movies", content: movies },
         { id: "tvshows", title: "TV Shows", content: tvShows }
       ].filter((row) => row.content.length > 0)
