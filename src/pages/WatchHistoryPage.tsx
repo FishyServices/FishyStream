@@ -23,9 +23,11 @@ export function WatchHistoryPage() {
     season?: number,
     episode?: number,
     source?: string,
-    dub?: boolean
+    dub?: boolean,
+    type?: "movie" | "tv"
   ) => {
     const params = new URLSearchParams();
+    if (type) params.set("type", type);
     if (season !== undefined) params.set("season", String(season));
     if (episode !== undefined) params.set("episode", String(episode));
     if (source) params.set("source", source);

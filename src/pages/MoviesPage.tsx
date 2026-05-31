@@ -49,7 +49,7 @@ export function MoviesPage() {
   );
   const movies = paginated.items;
 
-  const handlePlay = (tmdbId: string) => navigate(`/watch/${tmdbId}`);
+  const handlePlay = (tmdbId: string) => navigate(`/watch/${tmdbId}?type=movie`);
 
   const updateBrowseParams = (updates: { sort?: string; genre?: string; page?: number }) => {
     setSearchParams((p) => {

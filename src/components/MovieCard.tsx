@@ -34,7 +34,8 @@ interface MovieCardProps {
     season?: number,
     episode?: number,
     source?: string,
-    dub?: boolean
+    dub?: boolean,
+    type?: ContentType
   ) => void;
   size?: "sm" | "md" | "lg";
   layout?: "rail" | "grid";
@@ -80,7 +81,8 @@ export function MovieCard({
         content.type === "tv" ? (content.seasonNumber ?? 1) : undefined,
         content.type === "tv" ? (content.episodeNumber ?? 1) : undefined,
         content.source,
-        content.dub
+        content.dub,
+        content.type
       );
     }
   };

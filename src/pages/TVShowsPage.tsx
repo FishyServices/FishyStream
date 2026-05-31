@@ -41,6 +41,7 @@ export function TVShowsPage() {
   const shows = paginated.items;
   const handlePlay = (tmdbId: string, season?: number, episode?: number) => {
     const p = new URLSearchParams();
+    p.set("type", "tv");
     if (season) p.set("season", String(season));
     if (episode) p.set("episode", String(episode));
     navigate(`/watch/${tmdbId}${p.toString() ? "?" + p : ""}`);

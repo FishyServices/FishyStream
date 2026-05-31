@@ -80,12 +80,47 @@ export function useNewReleases() {
   return data?.map(fromContentCardWire);
 }
 
-export function useContentPlaybackByTmdbId(tmdbId: string | undefined) {
+export function useContentPlaybackByTmdbId(
+  tmdbId: string | undefined,
+  typeHint?: "movie" | "tv"
+) {
+  const syncSingleContent = useAction(api.tmdb.syncSingleContent);
+  const [syncAttempt, setSyncAttempt] = useState(0);
+  const [isSyncingMissing, setIsSyncingMissing] = useState(false);
   const data = useOneShotConvexQuery<ContentPlaybackWire | null>(
     !!tmdbId,
-    (convex) => convex.query(api.content.getContentPlaybackByTmdbId, { tmdbId: tmdbId! }),
-    [tmdbId]
+    (convex) =>
+      convex.query(api.content.getContentPlaybackByTmdbId, {
+        tmdbId: tmdbId!,
+        type: typeHint
+      }),
+    [tmdbId, syncAttempt]
   );
+
+  useEffect(() => {
+    if (!tmdbId || !typeHint || data !== null || isSyncingMissing || syncAttempt > 0) return;
+    const parsedTmdbId = Number(tmdbId);
+    if (!Number.isFinite(parsedTmdbId)) return;
+
+    let cancelled = false;
+    setIsSyncingMissing(true);
+    const syncMissing = async () => {
+      await syncSingleContent({ tmdbId: parsedTmdbId, type: typeHint });
+      if (!cancelled) {
+        setSyncAttempt((value) => value + 1);
+      }
+    };
+
+    void syncMissing().finally(() => {
+      if (!cancelled) setIsSyncingMissing(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data, isSyncingMissing, syncAttempt, syncSingleContent, tmdbId, typeHint]);
+
+  if (data === null && isSyncingMissing) return undefined;
   return data ? fromContentPlaybackWire(data) : data;
 }
 

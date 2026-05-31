@@ -37,6 +37,35 @@ async function refreshWatchlistRecommendationSeed(ctx: MutationCtx, clerkUserId:
   });
 }
 
+async function updateRecommendationSeedForAdd(
+  ctx: MutationCtx,
+  clerkUserId: string,
+  content: {
+    _id: Id<"content">;
+    type: "movie" | "tv";
+    genre: string[];
+  }
+) {
+  const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
+  if (!userId) return;
+
+  const user = await ctx.db.get(userId);
+  if (!user) return;
+
+  const watchlistContentIds = Array.from(
+    new Set([content._id, ...user.watchlistContentIds])
+  ).slice(0, 500);
+  const watchlistRecommendationGenres = Array.from(
+    new Set([...content.genre.slice(0, 3), ...user.watchlistRecommendationGenres])
+  ).slice(0, 8);
+
+  await ctx.db.patch(userId, {
+    watchlistContentIds,
+    watchlistRecommendationType: user.watchlistRecommendationType ?? content.type,
+    watchlistRecommendationGenres
+  });
+}
+
 export const listWatchlist = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchlistGridWire[]> => {
@@ -94,7 +123,7 @@ export const addWatchlistEntry = mutation({
       folder: undefined,
       ...buildContentSnapshot(content)
     });
-    await refreshWatchlistRecommendationSeed(ctx, clerkUserId);
+    await updateRecommendationSeedForAdd(ctx, clerkUserId, content);
 
     return true;
   }

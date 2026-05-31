@@ -55,6 +55,7 @@ export default defineSchema({
     updatedAt: v.number()
   })
     .index("by_tmdb_id", ["tmdbId"])
+    .index("by_type_tmdb_id", ["type", "tmdbId"])
     .index("by_type", ["type"])
     .index("by_type_popular", ["type", "sortKeys.popular"])
     .index("by_type_trending", ["type", "sortKeys.trending"])
@@ -98,7 +99,8 @@ export default defineSchema({
     updatedAt: v.number()
   })
     .index("by_content", ["contentId"])
-    .index("by_tmdb_id", ["tmdbId"]),
+    .index("by_tmdb_id", ["tmdbId"])
+    .index("by_type_tmdb_id", ["type", "tmdbId"]),
 
   homeViews: defineTable({
     key: v.string(),

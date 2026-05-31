@@ -54,7 +54,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    navigate(`/watch/${item.tmdbId}`);
+    navigate(`/watch/${item.tmdbId}?type=${item.type}`);
   };
 
   const handleCardClick = async () => {
@@ -220,8 +220,9 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
           content={dbContent}
           isOpen={showModal}
           onClose={() => setShowModal(false)}
-          onPlay={(tmdbId, season, episode) => {
+          onPlay={(tmdbId, season, episode, type) => {
             const params = new URLSearchParams();
+            params.set("type", type ?? item.type);
             if (season !== undefined) params.set("season", String(season));
             if (episode !== undefined) params.set("episode", String(episode));
             const qs = params.toString();

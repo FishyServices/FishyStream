@@ -6,7 +6,9 @@ import { useContentPlaybackByTmdbId } from "@/hooks/useContent";
 export function WatchPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const content = useContentPlaybackByTmdbId(id);
+  const typeParam = searchParams.get("type");
+  const typeHint = typeParam === "movie" || typeParam === "tv" ? typeParam : undefined;
+  const content = useContentPlaybackByTmdbId(id, typeHint);
 
   const initialSeason = searchParams.get("season");
   const initialEpisode = searchParams.get("episode");

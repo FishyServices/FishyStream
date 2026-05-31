@@ -8,8 +8,8 @@ export function PopularPage() {
   const navigate = useNavigate();
   const popular = usePopularContent();
 
-  const handlePlay = (tmdbId: string) => {
-    navigate(`/watch/${tmdbId}`);
+  const handlePlay = (tmdbId: string, _season?: number, _episode?: number, _source?: string, _dub?: boolean, type?: "movie" | "tv") => {
+    navigate(`/watch/${tmdbId}?type=${type ?? "movie"}`);
   };
 
   if (popular === undefined) {

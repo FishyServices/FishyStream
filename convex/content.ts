@@ -65,7 +65,7 @@ type ContentInput = typeof tmdbContentValidator.type;
 const HOMEPAGE_ROW_LIMIT = 10;
 const DEFAULT_PAGE_LIMIT = 24;
 const MATERIALIZED_PAGE_COUNT = 12;
-const RECOMMENDATION_POOL_LIMIT = 240;
+const RECOMMENDATION_POOL_LIMIT = 64;
 
 function normalizePage(page?: number) {
   return Math.max(1, Math.floor(page ?? 1));
@@ -474,23 +474,33 @@ export const getContentDetailById = query({
 });
 
 export const getContentDetailByTmdbId = query({
-  args: { tmdbId: v.string() },
-  handler: async (ctx, { tmdbId }): Promise<ContentDetailWire | null> => {
-    const item = await ctx.db
-      .query("contentDetails")
-      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
-      .first();
+  args: { tmdbId: v.string(), type: v.optional(contentTypeValidator) },
+  handler: async (ctx, { tmdbId, type }): Promise<ContentDetailWire | null> => {
+    const item = type
+      ? await ctx.db
+          .query("contentDetails")
+          .withIndex("by_type_tmdb_id", (q) => q.eq("type", type).eq("tmdbId", tmdbId))
+          .first()
+      : await ctx.db
+          .query("contentDetails")
+          .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
+          .first();
     return item ? toContentDetailWire(item) : null;
   }
 });
 
 export const getContentPlaybackByTmdbId = query({
-  args: { tmdbId: v.string() },
-  handler: async (ctx, { tmdbId }): Promise<ContentPlaybackWire | null> => {
-    const item = await ctx.db
-      .query("contentDetails")
-      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
-      .first();
+  args: { tmdbId: v.string(), type: v.optional(contentTypeValidator) },
+  handler: async (ctx, { tmdbId, type }): Promise<ContentPlaybackWire | null> => {
+    const item = type
+      ? await ctx.db
+          .query("contentDetails")
+          .withIndex("by_type_tmdb_id", (q) => q.eq("type", type).eq("tmdbId", tmdbId))
+          .first()
+      : await ctx.db
+          .query("contentDetails")
+          .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
+          .first();
     return item ? toContentPlaybackWire(item) : null;
   }
 });
@@ -514,7 +524,7 @@ async function upsertContentItem(ctx: MutationCtx, item: ContentInput) {
   const tmdbId = contentKey(item);
   const existing = await ctx.db
     .query("content")
-    .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
+    .withIndex("by_type_tmdb_id", (q) => q.eq("type", item.type).eq("tmdbId", tmdbId))
     .first();
 
   let contentId: Id<"content">;
@@ -550,7 +560,6 @@ export const upsertBatchFromTMDB = internalMutation({
       await upsertContentItem(ctx, item);
       count += 1;
     }
-    await rebuildMaterializedViews(ctx);
     return count;
   }
 });
@@ -563,7 +572,6 @@ export const insertFreshBatchFromTMDB = internalMutation({
       await upsertContentItem(ctx, item);
       count += 1;
     }
-    await rebuildMaterializedViews(ctx);
     return count;
   }
 });
