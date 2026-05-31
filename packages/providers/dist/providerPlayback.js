@@ -47,7 +47,9 @@ export function shouldWaitForAnimeSeasonMetadata(args) {
 export function hasAnimeEpisodeMappingMetadata(currentSeasonData) {
     if (!currentSeasonData?.episodeCount)
         return false;
-    return (currentSeasonData.anilistEpisodeMappings?.length ?? 0) >= currentSeasonData.episodeCount;
+    return (currentSeasonData.anilistEpisodeMappingCount ??
+        currentSeasonData.anilistEpisodeMappings?.length ??
+        0) >= currentSeasonData.episodeCount;
 }
 export function getSeasonYear(airDate) {
     const year = Number((airDate ?? "").split("-")[0]);

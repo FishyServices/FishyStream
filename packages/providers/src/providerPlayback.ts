@@ -18,6 +18,7 @@ export interface AnimeSeasonMetadataLike {
   episodeCount?: number;
   anilistId?: string;
   anilistEpisodeMappings?: Array<{ episodeNumber: number }>;
+  anilistEpisodeMappingCount?: number;
 }
 
 export interface NextEpisodeArgs {
@@ -91,12 +92,19 @@ export function shouldWaitForAnimeSeasonMetadata(args: {
 
 export function hasAnimeEpisodeMappingMetadata(
   currentSeasonData:
-    | Pick<AnimeSeasonMetadataLike, "episodeCount" | "anilistEpisodeMappings">
+    | Pick<
+        AnimeSeasonMetadataLike,
+        "episodeCount" | "anilistEpisodeMappings" | "anilistEpisodeMappingCount"
+      >
     | null
     | undefined
 ) {
   if (!currentSeasonData?.episodeCount) return false;
-  return (currentSeasonData.anilistEpisodeMappings?.length ?? 0) >= currentSeasonData.episodeCount;
+  return (
+    currentSeasonData.anilistEpisodeMappingCount ??
+    currentSeasonData.anilistEpisodeMappings?.length ??
+    0
+  ) >= currentSeasonData.episodeCount;
 }
 
 export function getSeasonYear(airDate?: string) {

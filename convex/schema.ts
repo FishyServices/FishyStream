@@ -142,6 +142,7 @@ export default defineSchema({
     .index("by_tmdb", ["tmdbId"]),
 
   seasonSummaries: defineTable({
+    seasonId: v.optional(v.id("seasons")),
     contentId: v.id("content"),
     tmdbId: v.string(),
     seasonNumber: v.number(),
@@ -150,7 +151,8 @@ export default defineSchema({
     episodeCount: v.number(),
     storedEpisodeCount: v.number(),
     anilistId: v.optional(v.string()),
-    anilistEpisodeMappings: v.optional(v.array(anilistEpisodeMappingValidator)),
+    anilistEpisodeMappingPack: v.optional(v.string()),
+    anilistEpisodeMappingCount: v.optional(v.number()),
     payloadHash: v.string(),
     updatedAt: v.number()
   })

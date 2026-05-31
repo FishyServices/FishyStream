@@ -93,6 +93,7 @@ interface SeasonSummaryRecord {
   airDate?: string;
   episodeCount: number;
   anilistId?: string;
+  anilistEpisodeMappingCount?: number;
   storedEpisodeCount: number;
 }
 
@@ -207,6 +208,7 @@ export interface SeasonMetaSummary {
   seasonNumber: number;
   episodeCount: number;
   anilistId?: string;
+  anilistEpisodeMappingCount?: number;
   storedEpisodeCount: number;
 }
 
@@ -431,6 +433,7 @@ export function toSeasonMetaSummary(content: SeasonSummaryRecord): SeasonMetaSum
     seasonNumber: content.seasonNumber,
     episodeCount: content.episodeCount,
     anilistId: content.anilistId,
+    anilistEpisodeMappingCount: content.anilistEpisodeMappingCount,
     storedEpisodeCount: content.storedEpisodeCount
   };
 }

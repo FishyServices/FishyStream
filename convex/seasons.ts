@@ -24,22 +24,11 @@ const anilistEpisodeMappingValidator = v.object({
   anilistEpisodeNumber: v.number()
 });
 
-async function readSeasonRows(ctx: QueryCtx | MutationCtx, contentId: Id<"content">) {
-  return await ctx.db
-    .query("seasons")
-    .withIndex("by_content", (q) => q.eq("contentId", contentId))
-    .collect();
-}
-
 async function readSeasonSummaryRows(ctx: QueryCtx | MutationCtx, contentId: Id<"content">) {
   return await ctx.db
     .query("seasonSummaries")
     .withIndex("by_content", (q) => q.eq("contentId", contentId))
     .collect();
-}
-
-function sortSeasons(rows: Doc<"seasons">[]) {
-  return [...rows].sort((a, b) => a.seasonNumber - b.seasonNumber);
 }
 
 function sortSeasonSummaries(rows: Doc<"seasonSummaries">[]) {
@@ -56,6 +45,7 @@ function compactEpisodes(episodes: Doc<"seasons">["episodes"]) {
   return episodes.map((episode) => ({
     episodeNumber: episode.episodeNumber,
     name: truncate(episode.name, 80) || `Episode ${episode.episodeNumber}`,
+    stillUrl: episode.stillUrl,
     runtime: episode.runtime,
     voteAverage: episode.voteAverage ?? 0
   }));
@@ -70,11 +60,37 @@ function hashString(value: string) {
   return String(hash >>> 0);
 }
 
+function packAniListEpisodeMappings(mappings: AniListEpisodeMapping[] | undefined) {
+  return mappings
+    ?.map(
+      (mapping) =>
+        `${mapping.episodeNumber}:${mapping.anilistId}:${mapping.anilistEpisodeNumber}`
+    )
+    .join("|");
+}
+
+function findPackedAniListEpisodeMapping(pack: string | undefined, episodeNumber?: number) {
+  if (!pack || episodeNumber == null) return undefined;
+  const prefix = `${episodeNumber}:`;
+  const entry = pack.split("|").find((item) => item.startsWith(prefix));
+  if (!entry) return undefined;
+
+  const [, anilistId, anilistEpisodeNumber] = entry.split(":");
+  const parsedEpisodeNumber = Number(anilistEpisodeNumber);
+  if (!anilistId || !Number.isFinite(parsedEpisodeNumber)) return undefined;
+
+  return {
+    episodeNumber,
+    anilistId,
+    anilistEpisodeNumber: parsedEpisodeNumber
+  };
+}
+
 function seasonPayloadHash(args: {
   contentId: Id<"content">;
   tmdbId: string;
   anilistId?: string;
-  anilistEpisodeMappings?: AniListEpisodeMapping[];
+  anilistEpisodeMappingPack?: string;
   seasonNumber: number;
   name: string;
   overview?: string;
@@ -88,7 +104,7 @@ function seasonPayloadHash(args: {
       contentId: args.contentId,
       tmdbId: args.tmdbId,
       anilistId: args.anilistId,
-      anilistEpisodeMappings: args.anilistEpisodeMappings,
+      anilistEpisodeMappingPack: args.anilistEpisodeMappingPack,
       seasonNumber: args.seasonNumber,
       name: args.name,
       overview: args.overview,
@@ -112,6 +128,7 @@ function episodesEqual(a: Doc<"seasons">["episodes"], b: typeof a) {
     if (
       left.episodeNumber !== right.episodeNumber ||
       left.name !== right.name ||
+      left.stillUrl !== right.stillUrl ||
       left.runtime !== right.runtime ||
       left.voteAverage !== right.voteAverage
     ) {
@@ -128,7 +145,6 @@ function seasonPayloadChanged(
     contentId: Id<"content">;
     tmdbId: string;
     anilistId?: string;
-    anilistEpisodeMappings?: AniListEpisodeMapping[];
     seasonNumber: number;
     name: string;
     overview?: string;
@@ -142,8 +158,6 @@ function seasonPayloadChanged(
     existing.contentId !== args.contentId ||
     existing.tmdbId !== args.tmdbId ||
     existing.anilistId !== args.anilistId ||
-    JSON.stringify(existing.anilistEpisodeMappings ?? []) !==
-      JSON.stringify(args.anilistEpisodeMappings ?? []) ||
     existing.seasonNumber !== args.seasonNumber ||
     existing.name !== args.name ||
     existing.overview !== truncate(args.overview, 180) ||
@@ -176,6 +190,37 @@ async function syncContentSeasonAggregates(ctx: MutationCtx, contentId: Id<"cont
   });
 }
 
+async function bumpContentSeasonAggregates(
+  ctx: MutationCtx,
+  args: {
+    contentId: Id<"content">;
+    seasonNumber: number;
+    previousEpisodeCount: number;
+    nextEpisodeCount: number;
+  }
+) {
+  const episodeDelta = Math.max(0, args.nextEpisodeCount - args.previousEpisodeCount);
+  if (episodeDelta === 0 && args.previousEpisodeCount > 0) return;
+
+  const content = await ctx.db.get(args.contentId);
+  if (!content) return;
+
+  const nextSeasons = Math.max(content.seasons ?? 0, args.seasonNumber);
+  const currentTotalEpisodes = content.totalEpisodes ?? 0;
+  const nextTotalEpisodes =
+    args.previousEpisodeCount > 0
+      ? Math.max(currentTotalEpisodes, currentTotalEpisodes + episodeDelta)
+      : Math.max(currentTotalEpisodes, args.nextEpisodeCount);
+
+  if (content.seasons === nextSeasons && content.totalEpisodes === nextTotalEpisodes) return;
+
+  await ctx.db.patch(args.contentId, {
+    seasons: nextSeasons,
+    totalEpisodes: nextTotalEpisodes,
+    updatedAt: Date.now()
+  });
+}
+
 export const upsertSeason = internalMutation({
   args: {
     contentId: v.id("content"),
@@ -191,13 +236,15 @@ export const upsertSeason = internalMutation({
     episodes: v.array(episodeValidator)
   },
   handler: async (ctx, args) => {
+    const anilistEpisodeMappingPack = packAniListEpisodeMappings(args.anilistEpisodeMappings);
     const compactedArgs = {
       ...args,
+      anilistEpisodeMappings: undefined,
       overview: truncate(args.overview, 180),
       posterUrl: undefined,
       episodes: compactEpisodes(args.episodes)
     };
-    const payloadHash = seasonPayloadHash(compactedArgs);
+    const payloadHash = seasonPayloadHash({ ...compactedArgs, anilistEpisodeMappingPack });
     const existingSummary = await ctx.db
       .query("seasonSummaries")
       .withIndex("by_content_season", (q) =>
@@ -209,20 +256,27 @@ export const upsertSeason = internalMutation({
       return;
     }
 
-    const existing = await ctx.db
-      .query("seasons")
-      .withIndex("by_content_season", (q) =>
-        q.eq("contentId", args.contentId).eq("seasonNumber", args.seasonNumber)
-      )
-      .first();
-
     const now = Date.now();
-    if (existing) {
+    let seasonId = existingSummary?.seasonId;
+    let existing: Doc<"seasons"> | null = null;
+
+    if (!seasonId) {
+      existing = await ctx.db
+        .query("seasons")
+        .withIndex("by_content_season", (q) =>
+          q.eq("contentId", args.contentId).eq("seasonNumber", args.seasonNumber)
+        )
+        .first();
+      seasonId = existing?._id;
+    }
+
+    if (seasonId && existing) {
       if (!seasonPayloadChanged(existing, compactedArgs)) {
         if (existingSummary) {
-          await ctx.db.patch(existingSummary._id, { payloadHash, updatedAt: now });
+          await ctx.db.patch(existingSummary._id, { seasonId, payloadHash, updatedAt: now });
         } else {
           await ctx.db.insert("seasonSummaries", {
+            seasonId,
             contentId: args.contentId,
             tmdbId: args.tmdbId,
             seasonNumber: args.seasonNumber,
@@ -231,19 +285,23 @@ export const upsertSeason = internalMutation({
             episodeCount: args.episodeCount,
             storedEpisodeCount: compactedArgs.episodes.length,
             anilistId: args.anilistId,
-            anilistEpisodeMappings: args.anilistEpisodeMappings,
+            anilistEpisodeMappingPack,
+            anilistEpisodeMappingCount: args.anilistEpisodeMappings?.length,
             payloadHash,
             updatedAt: now
           });
         }
         return;
       }
-      await ctx.db.patch(existing._id, { ...compactedArgs, updatedAt: now });
+      await ctx.db.patch(seasonId, { ...compactedArgs, updatedAt: now });
+    } else if (seasonId) {
+      await ctx.db.patch(seasonId, { ...compactedArgs, updatedAt: now });
     } else {
-      await ctx.db.insert("seasons", { ...compactedArgs, createdAt: now, updatedAt: now });
+      seasonId = await ctx.db.insert("seasons", { ...compactedArgs, createdAt: now, updatedAt: now });
     }
 
     const summary = {
+      seasonId,
       contentId: args.contentId,
       tmdbId: args.tmdbId,
       seasonNumber: args.seasonNumber,
@@ -252,7 +310,8 @@ export const upsertSeason = internalMutation({
       episodeCount: args.episodeCount,
       storedEpisodeCount: compactedArgs.episodes.length,
       anilistId: args.anilistId,
-      anilistEpisodeMappings: args.anilistEpisodeMappings,
+      anilistEpisodeMappingPack,
+      anilistEpisodeMappingCount: args.anilistEpisodeMappings?.length,
       payloadHash,
       updatedAt: now
     };
@@ -263,80 +322,58 @@ export const upsertSeason = internalMutation({
       await ctx.db.insert("seasonSummaries", summary);
     }
 
-    await syncContentSeasonAggregates(ctx, args.contentId);
+    await bumpContentSeasonAggregates(ctx, {
+      contentId: args.contentId,
+      seasonNumber: args.seasonNumber,
+      previousEpisodeCount: existingSummary?.episodeCount ?? 0,
+      nextEpisodeCount: args.episodeCount
+    });
   }
 });
 
-export const listSeasonSummariesByContent = query({
-  args: { contentId: v.id("content") },
-  handler: async (ctx, { contentId }): Promise<SeasonMetaSummary[]> => {
+export const getSeasonModalView = query({
+  args: { contentId: v.id("content"), seasonNumber: v.number() },
+  handler: async (
+    ctx,
+    { contentId, seasonNumber }
+  ): Promise<{
+    summaries: SeasonMetaSummary[];
+    selectedSeason: {
+      overview?: string;
+      episodes: Array<{
+        episodeNumber: number;
+        name: string;
+        overview?: string;
+        stillUrl?: string;
+        runtime?: number;
+      }>;
+    } | null;
+  }> => {
     const rows = sortSeasonSummaries(await readSeasonSummaryRows(ctx, contentId));
-    if (rows.length > 0) {
-      return rows.map(toSeasonMetaSummary);
+    const summaries = rows.map(toSeasonMetaSummary);
+    const season = await ctx.db
+      .query("seasons")
+      .withIndex("by_content_season", (q) =>
+        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
+      )
+      .first();
+
+    if (!season) {
+      return { summaries, selectedSeason: null };
     }
 
-    return sortSeasons(await readSeasonRows(ctx, contentId)).map((row) =>
-      toSeasonMetaSummary({
-        contentId: row.contentId,
-        seasonNumber: row.seasonNumber,
-        name: row.name,
-        airDate: row.airDate,
-        episodeCount: row.episodeCount,
-        anilistId: row.anilistId,
-        storedEpisodeCount: row.episodes.length
-      })
-    );
-  }
-});
-
-export const getSeasonEpisodeList = query({
-  args: { contentId: v.id("content"), seasonNumber: v.number() },
-  handler: async (ctx, { contentId, seasonNumber }) => {
-    const season = await ctx.db
-      .query("seasons")
-      .withIndex("by_content_season", (q) =>
-        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
-      )
-      .first();
-
-    if (!season) return null;
-
     return {
-      seasonNumber: season.seasonNumber,
-      name: season.name,
-      episodeCount: season.episodeCount,
-      episodes: season.episodes.map((ep) => ({
-        episodeNumber: ep.episodeNumber,
-        name: ep.name,
-        overview: ep.overview ? ep.overview.slice(0, 120) : undefined,
-        stillUrl: ep.stillUrl,
-        runtime: ep.runtime
-      }))
-    };
-  }
-});
-
-export const getSeasonEpisodeView = query({
-  args: { contentId: v.id("content"), seasonNumber: v.number() },
-  handler: async (ctx, { contentId, seasonNumber }) => {
-    const season = await ctx.db
-      .query("seasons")
-      .withIndex("by_content_season", (q) =>
-        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
-      )
-      .first();
-
-    if (!season) return null;
-
-    return {
-      overview: season.overview,
-      episodes: season.episodes.map((episode) => ({
-        episodeNumber: episode.episodeNumber,
-        name: episode.name,
-        overview: episode.overview ? episode.overview.slice(0, 120) : undefined,
-        stillUrl: episode.stillUrl,
-        runtime: episode.runtime
-      }))
+      summaries,
+      selectedSeason: {
+        overview: season.overview,
+        episodes: season.episodes.map((episode) => ({
+          episodeNumber: episode.episodeNumber,
+          name: episode.name,
+          overview: episode.overview ? episode.overview.slice(0, 120) : undefined,
+          stillUrl: episode.stillUrl,
+          runtime: episode.runtime
+        }))
+      }
     };
   }
 });
@@ -345,9 +382,10 @@ export const getSeasonPlaybackMeta = query({
   args: {
     contentId: v.id("content"),
     seasonNumber: v.number(),
+    episodeNumber: v.optional(v.number()),
     includeAnimeMappings: v.optional(v.boolean())
   },
-  handler: async (ctx, { contentId, seasonNumber, includeAnimeMappings }) => {
+  handler: async (ctx, { contentId, seasonNumber, episodeNumber, includeAnimeMappings }) => {
     const summary = await ctx.db
       .query("seasonSummaries")
       .withIndex("by_content_season", (q) =>
@@ -356,33 +394,24 @@ export const getSeasonPlaybackMeta = query({
       .first();
 
     if (summary) {
+      const episodeMapping = findPackedAniListEpisodeMapping(
+        summary.anilistEpisodeMappingPack,
+        episodeNumber
+      );
       return {
         seasonNumber: summary.seasonNumber,
         name: summary.name,
         airDate: summary.airDate,
         episodeCount: summary.episodeCount,
         anilistId: includeAnimeMappings ? summary.anilistId : undefined,
-        anilistEpisodeMappings: includeAnimeMappings ? summary.anilistEpisodeMappings : undefined
+        anilistEpisodeMappingCount: includeAnimeMappings
+          ? summary.anilistEpisodeMappingCount
+          : undefined,
+        anilistEpisodeMappings:
+          includeAnimeMappings && episodeMapping ? [episodeMapping] : undefined
       };
     }
-
-    const season = await ctx.db
-      .query("seasons")
-      .withIndex("by_content_season", (q) =>
-        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
-      )
-      .first();
-
-    if (!season) return null;
-
-    return {
-      seasonNumber: season.seasonNumber,
-      name: season.name,
-      airDate: season.airDate,
-      episodeCount: season.episodeCount,
-      anilistId: includeAnimeMappings ? season.anilistId : undefined,
-      anilistEpisodeMappings: includeAnimeMappings ? season.anilistEpisodeMappings : undefined
-    };
+    return null;
   }
 });
 
@@ -403,79 +432,6 @@ export const rebuildContentSeasonAggregates = internalMutation({
       await syncContentSeasonAggregates(ctx, row._id);
       updated += 1;
     }
-    return updated;
-  }
-});
-
-export const rebuildSeasonSummaries = internalMutation({
-  args: {
-    contentId: v.optional(v.id("content")),
-    limit: v.optional(v.number())
-  },
-  handler: async (ctx, { contentId, limit = 1000 }) => {
-    const rows = contentId
-      ? await readSeasonRows(ctx, contentId)
-      : await ctx.db.query("seasons").take(limit);
-
-    const touchedContentIds = new Set<Id<"content">>();
-    let updated = 0;
-
-    for (const row of rows) {
-      const compacted = {
-        contentId: row.contentId,
-        tmdbId: row.tmdbId,
-        anilistId: row.anilistId,
-        anilistEpisodeMappings: row.anilistEpisodeMappings,
-        seasonNumber: row.seasonNumber,
-        name: truncate(row.name, 80) || `Season ${row.seasonNumber}`,
-        overview: truncate(row.overview, 180),
-        posterUrl: undefined,
-        airDate: row.airDate,
-        episodeCount: row.episodeCount,
-        episodes: compactEpisodes(row.episodes)
-      };
-      const payloadHash = seasonPayloadHash(compacted);
-      const hasLegacyEpisodePayload = row.episodes.some(
-        (episode) => episode.overview || episode.stillUrl || episode.airDate
-      );
-      if (row.posterUrl || hasLegacyEpisodePayload || seasonPayloadChanged(row, compacted)) {
-        await ctx.db.patch(row._id, { ...compacted, updatedAt: Date.now() });
-      }
-
-      const summary = {
-        contentId: row.contentId,
-        tmdbId: row.tmdbId,
-        seasonNumber: row.seasonNumber,
-        name: compacted.name,
-        airDate: row.airDate,
-        episodeCount: row.episodeCount,
-        storedEpisodeCount: compacted.episodes.length,
-        anilistId: row.anilistId,
-        anilistEpisodeMappings: row.anilistEpisodeMappings,
-        payloadHash,
-        updatedAt: Date.now()
-      };
-      const existingSummary = await ctx.db
-        .query("seasonSummaries")
-        .withIndex("by_content_season", (q) =>
-          q.eq("contentId", row.contentId).eq("seasonNumber", row.seasonNumber)
-        )
-        .first();
-
-      if (existingSummary) {
-        await ctx.db.patch(existingSummary._id, summary);
-      } else {
-        await ctx.db.insert("seasonSummaries", summary);
-      }
-
-      touchedContentIds.add(row.contentId);
-      updated += 1;
-    }
-
-    for (const id of touchedContentIds) {
-      await syncContentSeasonAggregates(ctx, id);
-    }
-
     return updated;
   }
 });

@@ -16,6 +16,7 @@ export interface AnimeSeasonMetadataLike {
     anilistEpisodeMappings?: Array<{
         episodeNumber: number;
     }>;
+    anilistEpisodeMappingCount?: number;
 }
 export interface NextEpisodeArgs {
     tmdbId?: string | number | null;
@@ -36,7 +37,7 @@ export declare function shouldWaitForAnimeSeasonMetadata(args: {
     seasonNumber: number;
     currentSeasonData: Pick<AnimeSeasonMetadataLike, "seasonNumber"> | null | undefined;
 }): boolean;
-export declare function hasAnimeEpisodeMappingMetadata(currentSeasonData: Pick<AnimeSeasonMetadataLike, "episodeCount" | "anilistEpisodeMappings"> | null | undefined): boolean;
+export declare function hasAnimeEpisodeMappingMetadata(currentSeasonData: Pick<AnimeSeasonMetadataLike, "episodeCount" | "anilistEpisodeMappings" | "anilistEpisodeMappingCount"> | null | undefined): boolean;
 export declare function getSeasonYear(airDate?: string): number | undefined;
 export declare function getNextEpisodeAddress({ tmdbId, currentSeason, currentEpisode, fallbackSeasonCount, currentSeasonEpisodeCount }: NextEpisodeArgs): {
     season: number;

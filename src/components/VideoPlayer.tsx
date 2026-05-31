@@ -159,6 +159,7 @@ export function VideoPlayer({
       ? {
           contentId: content._id,
           seasonNumber: tvTarget.season,
+          episodeNumber: tvTarget.episode,
           includeAnimeMappings: animeContent
         }
       : "skip"

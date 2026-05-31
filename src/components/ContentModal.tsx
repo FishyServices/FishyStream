@@ -63,6 +63,11 @@ interface SeasonEpisodeView {
   }>;
 }
 
+interface SeasonModalView {
+  summaries: SeasonMetaSummary[];
+  selectedSeason: SeasonEpisodeView | null;
+}
+
 type LeanModalContent = {
   _id: ContentId;
   title: string;
@@ -172,36 +177,25 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const isInWatchlist = useIsInWatchlist(resolvedContent?._id);
   const toggleWatchlist = useToggleWatchlist();
 
-  const dbSeason = useOneShotConvexQuery<SeasonEpisodeView | null>(
+  const seasonModalView = useOneShotConvexQuery<SeasonModalView | null>(
     isOpen && !!resolvedContent && resolvedContent.type === "tv",
     (convex) =>
-      convex.query(api.seasons.getSeasonEpisodeView, {
+      convex.query(api.seasons.getSeasonModalView, {
         contentId: resolvedContent!._id,
         seasonNumber: selectedSeason
       }),
     [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen, seasonReloadKey],
     [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen]
   );
-
-  const allSeasons = useOneShotConvexQuery<SeasonMetaSummary[]>(
-    isOpen && !!resolvedContent && resolvedContent.type === "tv",
-    (convex) =>
-      convex.query(api.seasons.listSeasonSummariesByContent, {
-        contentId: resolvedContent!._id
-      }),
-    [resolvedContent?._id, resolvedContent?.type, isOpen, seasonReloadKey],
-    [resolvedContent?._id, resolvedContent?.type, isOpen]
-  );
+  const dbSeason = seasonModalView?.selectedSeason;
+  const allSeasons = seasonModalView?.summaries;
 
   const syncSeason = useAction(api.tmdb.syncSeason);
-  const syncSeasons = useAction(api.tmdb.syncSeasons);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRefreshingTv, setIsRefreshingTv] = useState(false);
-  const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
   const [episodeLoadError, setEpisodeLoadError] = useState<string | null>(null);
   const [seasonCountOverride, setSeasonCountOverride] = useState<number | undefined>(undefined);
   const refreshedTvKeyRef = useRef<string | null>(null);
-  const backgroundSyncKeyRef = useRef<string | null>(null);
   const syncedSeasonKeysRef = useRef(new Set<string>());
 
   const tmdbIdNum = resolvedContent?.tmdbId
@@ -316,7 +310,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       setEpisodeLoadError(null);
       setSeasonCountOverride(undefined);
       syncedSeasonKeysRef.current.clear();
-      backgroundSyncKeyRef.current = null;
     }
   }, [resolvedContent, isOpen]);
 
@@ -383,81 +376,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     ) {
       return;
     }
-    if (!isOpen || isRefreshingTv || isBackgroundSyncing || allSeasons === undefined) return;
-
-    const tmdbId = String(resolvedContent.tmdbId);
-    const expectedSeasonCount = getCanonicalSeasonCount(
-      tmdbId,
-      seasonCountOverride ?? getSeasonCount(resolvedContent)
-    );
-    const syncedSeasonNumbers = new Set(allSeasons.map((season) => season.seasonNumber));
-    const hasSeasonShapeMismatch = allSeasons.some((season) => {
-      const expectedEpisodes = getCanonicalSeasonEpisodeCount(tmdbId, season.seasonNumber);
-      if (expectedEpisodes == null) return false;
-      const actualEpisodes = season.episodeCount || season.storedEpisodeCount;
-      return actualEpisodes !== expectedEpisodes;
-    });
-    const hasMissingAniListIds = animeContent && allSeasons.some((season) => !season.anilistId);
-    const isSeasonSyncComplete =
-      !hasMissingAniListIds &&
-      !hasSeasonShapeMismatch &&
-      allSeasons.length >= expectedSeasonCount &&
-      Array.from({ length: expectedSeasonCount }, (_, index) => index + 1).every((seasonNumber) =>
-        syncedSeasonNumbers.has(seasonNumber)
-      );
-
-    if (isSeasonSyncComplete) return;
-
-    const backgroundSyncKey = `${resolvedContent._id}:${tmdbId}:${expectedSeasonCount}`;
-    if (backgroundSyncKeyRef.current === backgroundSyncKey) return;
-
-    let cancelled = false;
-    backgroundSyncKeyRef.current = backgroundSyncKey;
-    setIsBackgroundSyncing(true);
-
-    syncSeasons({
-      tmdbId,
-      contentId: resolvedContent._id,
-      totalSeasons: expectedSeasonCount
-    })
-      .then(() => {
-        if (!cancelled) {
-          setSeasonReloadKey((value) => value + 1);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          backgroundSyncKeyRef.current = null;
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsBackgroundSyncing(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    allSeasons,
-    resolvedContent,
-    isBackgroundSyncing,
-    isOpen,
-    isRefreshingTv,
-    seasonCountOverride,
-    syncSeasons
-  ]);
-
-  useEffect(() => {
-    if (
-      !resolvedContent ||
-      resolvedContent.type !== "tv" ||
-      !resolvedContent._id ||
-      !resolvedContent.tmdbId
-    ) {
-      return;
-    }
     if (!isOpen || isSyncing) return;
 
     const seasonKey = `${resolvedContent._id}:${selectedSeason}`;
@@ -471,11 +389,14 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       dbSeason?.episodes.length ||
       0;
     const hasEpisodes = actualEpisodes > 0;
+    const hasNoEpisodeImages =
+      (dbSeason?.episodes.length ?? 0) > 0 && dbSeason!.episodes.every((episode) => !episode.stillUrl);
     const hasMismatch =
       expectedEpisodes != null && hasEpisodes && actualEpisodes !== expectedEpisodes;
     const needsSync =
       !dbSeason ||
       !hasEpisodes ||
+      hasNoEpisodeImages ||
       hasMismatch ||
       (animeContent && !selectedSeasonSummary?.anilistId);
 
