@@ -51,8 +51,8 @@ function shouldSkipProgressUpdate(
 
   return (
     existing.completed === next.completed &&
-    positionDelta < 20 &&
-    progressDelta < 3 &&
+    positionDelta < 60 &&
+    progressDelta < 5 &&
     (existing.durationSeconds ?? 0) === (next.durationSeconds ?? 0) &&
     existing.seasonNumber === next.seasonNumber &&
     existing.episodeNumber === next.episodeNumber &&

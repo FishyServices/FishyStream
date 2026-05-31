@@ -87,15 +87,13 @@ interface WatchlistUpdateRecord {
 }
 
 interface SeasonSummaryRecord {
-  _id: SeasonId;
   contentId: ContentId;
   seasonNumber: number;
   name: string;
   airDate?: string;
   episodeCount: number;
   anilistId?: string;
-  anilistEpisodeMappings?: AniListEpisodeMapping[];
-  episodes: { length: number };
+  storedEpisodeCount: number;
 }
 
 export interface ContentCard {
@@ -209,7 +207,6 @@ export interface SeasonMetaSummary {
   seasonNumber: number;
   episodeCount: number;
   anilistId?: string;
-  anilistEpisodeMappings?: AniListEpisodeMapping[];
   storedEpisodeCount: number;
 }
 
@@ -434,6 +431,6 @@ export function toSeasonMetaSummary(content: SeasonSummaryRecord): SeasonMetaSum
     seasonNumber: content.seasonNumber,
     episodeCount: content.episodeCount,
     anilistId: content.anilistId,
-    storedEpisodeCount: content.episodes.length
+    storedEpisodeCount: content.storedEpisodeCount
   };
 }
