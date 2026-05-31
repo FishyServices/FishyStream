@@ -70,20 +70,6 @@ interface WatchProgressRecord {
 interface WatchlistItemRecord extends ContentCardRecord {
   watchlistAddedAt: number;
   watchlistFolder?: string;
-  watchlistNewSeasons: number;
-  watchlistNewEpisodes: number;
-}
-
-interface WatchlistUpdateRecord {
-  contentId: ContentId;
-  title: string;
-  posterUrl: string;
-  tmdbId?: string;
-  currentSeasonCount: number;
-  currentEpisodeCount: number;
-  newSeasons: number;
-  newEpisodes: number;
-  folder?: string;
 }
 
 interface SeasonSummaryRecord {
@@ -152,20 +138,6 @@ export interface WatchlistGridItem {
   posterUrl: string;
   tmdbId?: string;
   watchlistFolder?: string;
-  watchlistNewSeasons: number;
-  watchlistNewEpisodes: number;
-}
-
-export interface WatchlistUpdateMeta {
-  contentId: ContentId;
-  title: string;
-  posterUrl: string;
-  tmdbId?: string;
-  currentSeasonCount: number;
-  currentEpisodeCount: number;
-  newSeasons: number;
-  newEpisodes: number;
-  folder?: string;
 }
 
 export interface WatchHistoryItemMeta extends ContentCard {
@@ -398,8 +370,6 @@ export function toWatchlistGridItem(
     | "posterUrl"
     | "tmdbId"
     | "watchlistFolder"
-    | "watchlistNewSeasons"
-    | "watchlistNewEpisodes"
   >
 ): WatchlistGridItem {
   return {
@@ -408,23 +378,7 @@ export function toWatchlistGridItem(
     type: content.type,
     posterUrl: content.posterUrl,
     tmdbId: content.tmdbId,
-    watchlistFolder: content.watchlistFolder,
-    watchlistNewSeasons: content.watchlistNewSeasons,
-    watchlistNewEpisodes: content.watchlistNewEpisodes
-  };
-}
-
-export function toWatchlistUpdateMeta(content: WatchlistUpdateRecord): WatchlistUpdateMeta {
-  return {
-    contentId: content.contentId,
-    title: content.title,
-    posterUrl: content.posterUrl,
-    tmdbId: content.tmdbId,
-    currentSeasonCount: content.currentSeasonCount,
-    currentEpisodeCount: content.currentEpisodeCount,
-    newSeasons: content.newSeasons,
-    newEpisodes: content.newEpisodes,
-    folder: content.folder
+    watchlistFolder: content.watchlistFolder
   };
 }
 

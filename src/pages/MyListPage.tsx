@@ -645,11 +645,6 @@ export function MyListPage() {
                               layout="grid"
                               suppressHoverEffects={folderMenuForContentId === item._id}
                             />
-                            {(item.watchlistNewSeasons > 0 || item.watchlistNewEpisodes > 0) && (
-                              <div className="pointer-events-none absolute right-2 top-2 z-20 rounded-full bg-primary/88 px-2 py-1 text-[10px] font-semibold text-white shadow-lg">
-                                +{item.watchlistNewSeasons}S / +{item.watchlistNewEpisodes}E
-                              </div>
-                            )}
                           </>
                         ) : (
                           <div className="flex items-center gap-4 w-full min-w-0">
@@ -679,18 +674,6 @@ export function MyListPage() {
                                 <span className="text-xs px-1.5 py-0.5 rounded border border-white/20 bg-white/5 text-white/60 capitalize font-medium">
                                   {item.type}
                                 </span>
-                              </div>
-                              <div className="flex items-center gap-3 mt-1.5 text-xs text-white/50 flex-wrap">
-                                {item.watchlistNewSeasons > 0 && (
-                                  <span className="text-primary font-semibold">
-                                    +{item.watchlistNewSeasons} New Seasons
-                                  </span>
-                                )}
-                                {item.watchlistNewEpisodes > 0 && (
-                                  <span className="text-primary font-semibold">
-                                    +{item.watchlistNewEpisodes} New Episodes
-                                  </span>
-                                )}
                               </div>
                             </div>
 

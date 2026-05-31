@@ -3,7 +3,6 @@ import { useUser, useClerk } from "@clerk/react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Search,
-  Bell,
   Menu,
   X,
   ChevronDown,
@@ -16,7 +15,6 @@ import {
   User as UserIcon
 } from "lucide-react";
 import {
-  Badge,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -28,14 +26,11 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  ScrollArea,
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle
 } from "@fishy/ui";
-import { useAcknowledgeWatchlistUpdates, useWatchlistUpdatesOnDemand } from "@/hooks/useWatchlist";
-import type { WatchlistUpdateMeta } from "../../shared/contentMetadata";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -74,14 +69,7 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [watchlistUpdates, setWatchlistUpdates] = useState<WatchlistUpdateMeta[] | null>(null);
-  const [watchlistUpdatesAcknowledged, setWatchlistUpdatesAcknowledged] = useState(false);
-  const [loadingWatchlistUpdates, setLoadingWatchlistUpdates] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const acknowledgeUpdates = useAcknowledgeWatchlistUpdates();
-  const fetchWatchlistUpdates = useWatchlistUpdatesOnDemand();
-  const unseenUpdateCount = watchlistUpdatesAcknowledged ? 0 : (watchlistUpdates?.length ?? 0);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -93,7 +81,6 @@ export function Header() {
     setMobileOpen(false);
     setSearchOpen(false);
     setProfileOpen(false);
-    setNotificationsOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -108,62 +95,6 @@ export function Header() {
     setSearchOpen(false);
     setSearchQuery("");
   };
-
-  useEffect(() => {
-    if (
-      !notificationsOpen ||
-      !user ||
-      !watchlistUpdates ||
-      watchlistUpdates.length === 0 ||
-      watchlistUpdatesAcknowledged
-    ) {
-      return;
-    }
-
-    void acknowledgeUpdates({
-      clerkUserId: user.id,
-      contentIds: watchlistUpdates.map((item) => item.contentId)
-    })
-      .then(() => {
-        setWatchlistUpdatesAcknowledged(true);
-      })
-      .catch(() => {});
-  }, [
-    acknowledgeUpdates,
-    notificationsOpen,
-    user,
-    watchlistUpdates,
-    watchlistUpdatesAcknowledged
-  ]);
-
-  useEffect(() => {
-    if (!notificationsOpen) return;
-
-    let cancelled = false;
-    setLoadingWatchlistUpdates(true);
-
-    void fetchWatchlistUpdates()
-      .then((updates) => {
-        if (!cancelled) {
-          setWatchlistUpdates(updates);
-          setWatchlistUpdatesAcknowledged(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setWatchlistUpdates([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingWatchlistUpdates(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchWatchlistUpdates, notificationsOpen]);
 
   return (
     <header
@@ -287,98 +218,6 @@ export function Header() {
                 <Search className="h-5 w-5" />
               </Button>
             )}
-
-            <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-              <PopoverTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative hidden rounded-full text-white/70 hover:bg-white/8 hover:text-white sm:inline-flex"
-                    aria-label="Notifications"
-                  >
-                    <Bell className="h-5 w-5" />
-                    {unseenUpdateCount > 0 && (
-                      <>
-                        <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
-                        <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] font-bold text-white">
-                          {unseenUpdateCount > 9 ? "9+" : unseenUpdateCount}
-                        </span>
-                      </>
-                    )}
-                  </Button>
-                }
-              />
-              <PopoverContent className="mt-2 w-84 overflow-hidden rounded-[1.35rem] border-white/10 bg-popover p-0 shadow-xl">
-                <div className="border-b border-white/8 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-white">Watchlist updates</p>
-                      <p className="text-xs text-white/48">
-                        New seasons and episodes from titles in My List.
-                      </p>
-                    </div>
-                    {unseenUpdateCount > 0 && (
-                      <Badge className="border-primary/25 bg-primary/15 text-primary">
-                        {unseenUpdateCount} new
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <ScrollArea className="max-h-96 p-2">
-                  {loadingWatchlistUpdates ? (
-                    <div className="px-3 py-6 text-center text-sm text-white/45">Loading…</div>
-                  ) : (watchlistUpdates?.length ?? 0) === 0 ? (
-                    <div className="px-3 py-6 text-center text-sm text-white/45">
-                      No new season or episode updates right now.
-                    </div>
-                  ) : (
-                    (watchlistUpdates ?? []).map((item) => (
-                      <Button
-                        key={item.contentId}
-                        variant="ghost"
-                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left h-auto justify-start hover:bg-white/6"
-                        onClick={() => {
-                          setNotificationsOpen(false);
-                          if (item.tmdbId) {
-                            navigate(`/watch/${item.tmdbId}`);
-                          } else {
-                            navigate("/my-list");
-                          }
-                        }}
-                      >
-                        <img
-                          src={item.posterUrl}
-                          alt={item.title}
-                          className="h-16 w-11 rounded-lg object-cover shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-white">{item.title}</p>
-                          <p className="mt-1 text-xs text-white/54">
-                            {item.newSeasons > 0
-                              ? `+${item.newSeasons} season${item.newSeasons > 1 ? "s" : ""}`
-                              : "No new seasons"}
-                            {" · "}
-                            {item.newEpisodes > 0
-                              ? `+${item.newEpisodes} episode${item.newEpisodes > 1 ? "s" : ""}`
-                              : "No new episodes"}
-                          </p>
-                          <p className="mt-1 text-[11px] text-primary/90">
-                            Now at {item.currentSeasonCount} season
-                            {item.currentSeasonCount === 1 ? "" : "s"} / {item.currentEpisodeCount}{" "}
-                            episodes
-                          </p>
-                          {item.folder && (
-                            <p className="mt-1 text-[11px] text-white/38">Folder: {item.folder}</p>
-                          )}
-                        </div>
-                      </Button>
-                    ))
-                  )}
-                </ScrollArea>
-              </PopoverContent>
-            </Popover>
 
             {isSignedIn ? (
               <Popover open={profileOpen} onOpenChange={setProfileOpen}>

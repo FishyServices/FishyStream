@@ -165,8 +165,6 @@ export default defineSchema({
     contentId: v.id("content"),
     addedAt: v.number(),
     folder: v.optional(v.string()),
-    lastAcknowledgedSeasonCount: v.optional(v.number()),
-    lastAcknowledgedEpisodeCount: v.optional(v.number()),
     ...contentSnapshotFields
   })
     .index("by_user", ["userId"])

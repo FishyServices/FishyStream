@@ -7,11 +7,11 @@ import {
   useMemo,
   type ReactNode
 } from "react";
-import { useConvex, useConvexAuth, useMutation } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { WatchlistGridItem, WatchlistUpdateMeta } from "../../shared/contentMetadata";
+import type { WatchlistGridItem } from "../../shared/contentMetadata";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 const LS_KEY = "watchlist_ids";
@@ -143,30 +143,6 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
   );
 }
 
-export function useWatchlistUpdates(): WatchlistUpdateMeta[] | undefined {
-  const { user } = useUser();
-  return useOneShotConvexQuery<WatchlistUpdateMeta[]>(
-    !!user,
-    (client) =>
-      client.query(api.watchlist.listWatchlistUpdates, { clerkUserId: user!.id, limit: 20 }),
-    [user?.id]
-  );
-}
-
-export function useWatchlistUpdatesOnDemand() {
-  const { user } = useUser();
-  const convex = useConvex();
-
-  return useCallback(async (): Promise<WatchlistUpdateMeta[]> => {
-    if (!user) return [];
-    return convex.query(api.watchlist.listWatchlistUpdates, { clerkUserId: user.id, limit: 20 });
-  }, [convex, user]);
-}
-
 export function useUpdateWatchlistFolder() {
   return useMutation(api.watchlist.setWatchlistFolder);
-}
-
-export function useAcknowledgeWatchlistUpdates() {
-  return useMutation(api.watchlist.acknowledgeWatchlistUpdates);
 }
