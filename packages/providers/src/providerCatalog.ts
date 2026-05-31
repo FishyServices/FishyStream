@@ -186,8 +186,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://vidfast.pro",
     progress: {
       origins: ALL_ORIGINS,
-      controlApi: true,
-      statusRequest: true,
       resumeParam: "startAt",
       referrerPolicy: "no-referrer"
     },
