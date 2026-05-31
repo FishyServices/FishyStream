@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
@@ -123,7 +123,12 @@ export const listWatchHistory = query({
 export const listContinueWatching = query({
   args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { clerkUserId, limit = 6 }): Promise<WatchHistoryItemWire[]> => {
-    return await listSnapshotBackedHistory(ctx, clerkUserId, Math.max(1, Math.min(10, limit)), false);
+    return await listSnapshotBackedHistory(
+      ctx,
+      clerkUserId,
+      Math.max(1, Math.min(10, limit)),
+      false
+    );
   }
 });
 
@@ -243,12 +248,5 @@ export const removeWatchHistoryEntry = mutation({
 
     await ctx.db.delete(existingProgress._id);
     return true;
-  }
-});
-
-export const compactWatchProgressSnapshots = internalMutation({
-  args: { limit: v.optional(v.number()) },
-  handler: async () => {
-    return 0;
   }
 });

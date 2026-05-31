@@ -8,7 +8,14 @@ export function NewReleasesPage() {
   const navigate = useNavigate();
   const newReleases = useNewReleases();
 
-  const handlePlay = (tmdbId: string, _season?: number, _episode?: number, _source?: string, _dub?: boolean, type?: "movie" | "tv") => {
+  const handlePlay = (
+    tmdbId: string,
+    _season?: number,
+    _episode?: number,
+    _source?: string,
+    _dub?: boolean,
+    type?: "movie" | "tv"
+  ) => {
     navigate(`/watch/${tmdbId}?type=${type ?? "movie"}`);
   };
 

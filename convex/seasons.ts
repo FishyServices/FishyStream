@@ -275,11 +275,7 @@ async function readSeasonIndex(ctx: QueryCtx, contentId: Id<"content">) {
     .first();
 }
 
-async function readSeasonEpisodes(
-  ctx: QueryCtx,
-  contentId: Id<"content">,
-  seasonNumber: number
-) {
+async function readSeasonEpisodes(ctx: QueryCtx, contentId: Id<"content">, seasonNumber: number) {
   return await ctx.db
     .query("seasonEpisodes")
     .withIndex("by_content_season", (q) =>
@@ -364,8 +360,7 @@ export const getSeasonPlaybackMeta = query({
       anilistEpisodeMappingCount: includeAnimeMappings
         ? season.anilistEpisodeMappingCount
         : undefined,
-      anilistEpisodeMappings:
-        includeAnimeMappings && episodeMapping ? [episodeMapping] : undefined
+      anilistEpisodeMappings: includeAnimeMappings && episodeMapping ? [episodeMapping] : undefined
     };
   }
 });

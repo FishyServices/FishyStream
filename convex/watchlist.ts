@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { toWatchlistGridWire, type WatchlistGridWire } from "../shared/contentMetadata";
@@ -52,9 +52,10 @@ async function updateRecommendationSeedForAdd(
   const user = await ctx.db.get(userId);
   if (!user) return;
 
-  const watchlistContentIds = Array.from(
-    new Set([content._id, ...user.watchlistContentIds])
-  ).slice(0, 500);
+  const watchlistContentIds = Array.from(new Set([content._id, ...user.watchlistContentIds])).slice(
+    0,
+    500
+  );
   const watchlistRecommendationGenres = Array.from(
     new Set([...content.genre.slice(0, 3), ...user.watchlistRecommendationGenres])
   ).slice(0, 8);
@@ -166,12 +167,5 @@ export const setWatchlistFolder = mutation({
     });
 
     return true;
-  }
-});
-
-export const compactWatchlistSnapshots = internalMutation({
-  args: { limit: v.optional(v.number()) },
-  handler: async () => {
-    return 0;
   }
 });

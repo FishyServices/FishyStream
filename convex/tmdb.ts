@@ -836,7 +836,7 @@ export const syncContent = action({
 
     let synced = 0;
     for (let i = 0; i < items.length; i += 50) {
-      synced += await ctx.runMutation(internal.content.insertFreshBatchFromTMDB, {
+      synced += await ctx.runMutation(internal.content.upsertBatchFromTMDB, {
         items: items.slice(i, i + 50)
       });
     }

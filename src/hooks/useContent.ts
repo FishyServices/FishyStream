@@ -80,10 +80,7 @@ export function useNewReleases() {
   return data?.map(fromContentCardWire);
 }
 
-export function useContentPlaybackByTmdbId(
-  tmdbId: string | undefined,
-  typeHint?: "movie" | "tv"
-) {
+export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?: "movie" | "tv") {
   const syncSingleContent = useAction(api.tmdb.syncSingleContent);
   const [syncAttempt, setSyncAttempt] = useState(0);
   const [isSyncingMissing, setIsSyncingMissing] = useState(false);

@@ -4,7 +4,12 @@ import { Capacitor } from "@capacitor/core";
 import { ClerkProvider, useAuth, useUser } from "@clerk/react";
 import { dark } from "@clerk/themes";
 import { applyFishyTheme } from "@fishy/ui";
-import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth, useMutation } from "convex/react";
+import {
+  ConvexProviderWithAuth,
+  ConvexReactClient,
+  useConvexAuth,
+  useMutation
+} from "convex/react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { App } from "./App";
 import { SignInPage } from "./pages/SignInPage";

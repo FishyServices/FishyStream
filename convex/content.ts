@@ -76,7 +76,12 @@ function normalizeLimit(limit?: number, max = 48) {
 }
 
 function genreKey(value?: string) {
-  return value?.toLowerCase().trim().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return value
+    ?.toLowerCase()
+    .trim()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function contentKey(item: Pick<ContentInput, "tmdbId" | "type" | "title" | "year">) {
@@ -131,7 +136,9 @@ function getContentSyncHash(item: ContentInput) {
   });
 }
 
-function getSortKeys(item: Pick<ContentInput, "popularity" | "voteAverage" | "year" | "trending" | "popular" | "new">) {
+function getSortKeys(
+  item: Pick<ContentInput, "popularity" | "voteAverage" | "year" | "trending" | "popular" | "new">
+) {
   const popularity = item.popularity ?? 0;
   const rating = item.voteAverage ?? 0;
   return {
@@ -167,7 +174,12 @@ function toLeanContent(item: ContentInput, syncHash: string, now: number) {
   };
 }
 
-function toDetailContent(contentId: Id<"content">, item: ContentInput, syncHash: string, now: number) {
+function toDetailContent(
+  contentId: Id<"content">,
+  item: ContentInput,
+  syncHash: string,
+  now: number
+) {
   const tmdbId = contentKey(item);
   const genreKeys = item.genre.map((value) => genreKey(value)).filter(Boolean) as string[];
   return {
@@ -227,7 +239,9 @@ function sortContentRows(rows: Doc<"content">[], sortBy: BrowseSort) {
   return sorted;
 }
 
-async function upsertByKey<TableName extends "catalogPages" | "homeViews" | "recommendationPools" | "syncRuns">(
+async function upsertByKey<
+  TableName extends "catalogPages" | "homeViews" | "recommendationPools" | "syncRuns"
+>(
   ctx: MutationCtx,
   table: TableName,
   key: string,
@@ -290,13 +304,22 @@ async function rebuildMaterializedViews(ctx: MutationCtx) {
     if (featuredDetails.length >= 3) break;
   }
 
-  const trending = sortContentRows(rows.filter((row) => row.trending), "trending")
+  const trending = sortContentRows(
+    rows.filter((row) => row.trending),
+    "trending"
+  )
     .slice(0, HOMEPAGE_ROW_LIMIT)
     .map(toContentCardWire);
-  const movies = sortContentRows(rows.filter((row) => row.type === "movie"), "popular")
+  const movies = sortContentRows(
+    rows.filter((row) => row.type === "movie"),
+    "popular"
+  )
     .slice(0, HOMEPAGE_ROW_LIMIT)
     .map(toContentCardWire);
-  const tvShows = sortContentRows(rows.filter((row) => row.type === "tv"), "popular")
+  const tvShows = sortContentRows(
+    rows.filter((row) => row.type === "tv"),
+    "popular"
+  )
     .slice(0, HOMEPAGE_ROW_LIMIT)
     .map(toContentCardWire);
 
@@ -321,7 +344,14 @@ async function rebuildMaterializedViews(ctx: MutationCtx) {
 
     for (const sortBy of sorts) {
       const sorted = sortContentRows(typeRows, sortBy);
-      await materializePages(ctx, { type, sortBy, rows: sorted, genre: undefined, now, sourceHash });
+      await materializePages(ctx, {
+        type,
+        sortBy,
+        rows: sorted,
+        genre: undefined,
+        now,
+        sourceHash
+      });
 
       for (const key of typeGenres) {
         await materializePages(ctx, {
@@ -339,7 +369,9 @@ async function rebuildMaterializedViews(ctx: MutationCtx) {
       key: recommendationPoolKey(type),
       type,
       genreKey: undefined,
-        items: sortContentRows(typeRows, "popular").slice(0, RECOMMENDATION_POOL_LIMIT).map(toContentCardWire),
+      items: sortContentRows(typeRows, "popular")
+        .slice(0, RECOMMENDATION_POOL_LIMIT)
+        .map(toContentCardWire),
       updatedAt: now,
       sourceHash
     });
@@ -349,7 +381,10 @@ async function rebuildMaterializedViews(ctx: MutationCtx) {
         key: recommendationPoolKey(type, key),
         type,
         genreKey: key,
-        items: sortContentRows(typeRows.filter((row) => row.genreKeys.includes(key)), "popular")
+        items: sortContentRows(
+          typeRows.filter((row) => row.genreKeys.includes(key)),
+          "popular"
+        )
           .slice(0, RECOMMENDATION_POOL_LIMIT)
           .map(toContentCardWire),
         updatedAt: now,
@@ -406,13 +441,16 @@ async function materializePages(
   }
 }
 
-async function getCatalogPage(ctx: QueryCtx, args: {
-  type: "movie" | "tv";
-  sortBy?: BrowseSort;
-  genre?: string;
-  page?: number;
-  limit?: number;
-}) {
+async function getCatalogPage(
+  ctx: QueryCtx,
+  args: {
+    type: "movie" | "tv";
+    sortBy?: BrowseSort;
+    genre?: string;
+    page?: number;
+    limit?: number;
+  }
+) {
   const page = normalizePage(args.page);
   const limit = normalizeLimit(args.limit);
   const sortBy = args.sortBy ?? "popular";
@@ -454,7 +492,8 @@ export const getHomepageView = query({
 export const listPopularCards = query({
   args: {},
   handler: async (ctx): Promise<ContentCardWire[]> => {
-    return (await getCatalogPage(ctx, { type: "movie", sortBy: "popular", page: 1, limit: 24 })).items;
+    return (await getCatalogPage(ctx, { type: "movie", sortBy: "popular", page: 1, limit: 24 }))
+      .items;
   }
 });
 
@@ -564,37 +603,6 @@ export const upsertBatchFromTMDB = internalMutation({
   }
 });
 
-export const insertFreshBatchFromTMDB = internalMutation({
-  args: { items: v.array(tmdbContentValidator) },
-  handler: async (ctx, { items }) => {
-    let count = 0;
-    for (const item of items) {
-      await upsertContentItem(ctx, item);
-      count += 1;
-    }
-    return count;
-  }
-});
-
-export const rebuildContentCards = internalMutation({
-  args: {
-    contentId: v.optional(v.id("content")),
-    limit: v.optional(v.number())
-  },
-  handler: async (ctx) => {
-    await rebuildMaterializedViews(ctx);
-    return 1;
-  }
-});
-
-export const rebuildMaterializedCatalogViews = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    await rebuildMaterializedViews(ctx);
-    return true;
-  }
-});
-
 export const getAllTmdbIds = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -606,9 +614,7 @@ export const getAllTmdbIds = internalQuery({
 export const getAnimeMissingAniListIds = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit = 250 }) => {
-    const rows = await ctx.db
-      .query("contentDetails")
-      .take(5000);
+    const rows = await ctx.db.query("contentDetails").take(5000);
 
     return rows
       .filter(
@@ -727,7 +733,10 @@ function rankRecommendations(args: {
     .filter((item) => !watchlistIdSet.has(item[0]))
     .filter((item) => args.typeFilter === "all" || item[2] === args.typeFilter)
     .map((item) => {
-      let score = seededUnitInterval(`${signature}:${args.typeFilter}:${args.refreshSeed}:${String(item[0])}`) * 15;
+      let score =
+        seededUnitInterval(
+          `${signature}:${args.typeFilter}:${args.refreshSeed}:${String(item[0])}`
+        ) * 15;
       if (item[2] === args.preferredType) score += 2;
       for (const genre of item[8] ?? []) {
         if (preferredGenres.has(genre)) score += 1.5;
