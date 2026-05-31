@@ -4,9 +4,20 @@ import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type {
   ContentCard,
+  ContentCardWire,
   ContentDetail,
+  ContentDetailWire,
   ContentFeatured,
-  ContentPlayback
+  ContentFeaturedWire,
+  ContentPlayback,
+  ContentPlaybackWire,
+  HomeViewWire
+} from "../../shared/contentMetadata";
+import {
+  fromContentCardWire,
+  fromContentDetailWire,
+  fromContentFeaturedWire,
+  fromContentPlaybackWire
 } from "../../shared/contentMetadata";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
@@ -35,42 +46,56 @@ export interface TMDBItem {
 }
 
 export function useHomepageContent() {
-  return useOneShotConvexQuery<{
-    featured: ContentFeatured[];
-    categories: Array<{ id: string; title: string; content: ContentCard[] }>;
-  }>(true, (convex) => convex.query(api.content.getHomepageView, {}), []);
+  const data = useOneShotConvexQuery<HomeViewWire>(
+    true,
+    (convex) => convex.query(api.content.getHomepageView, {}),
+    []
+  );
+
+  if (!data) return data as undefined;
+  return {
+    featured: data.featured.map(fromContentFeaturedWire) as ContentFeatured[],
+    categories: data.categories.map((row) => ({
+      ...row,
+      content: row.content.map(fromContentCardWire)
+    }))
+  };
 }
 
 export function usePopularContent() {
-  return useOneShotConvexQuery<ContentCard[]>(
+  const data = useOneShotConvexQuery<ContentCardWire[]>(
     true,
     (convex) => convex.query(api.content.listPopularCards, {}),
     []
   );
+  return data?.map(fromContentCardWire);
 }
 
 export function useNewReleases() {
-  return useOneShotConvexQuery<ContentCard[]>(
+  const data = useOneShotConvexQuery<ContentCardWire[]>(
     true,
     (convex) => convex.query(api.content.listNewReleaseCards, {}),
     []
   );
+  return data?.map(fromContentCardWire);
 }
 
 export function useContentPlaybackByTmdbId(tmdbId: string | undefined) {
-  return useOneShotConvexQuery<ContentPlayback | null>(
+  const data = useOneShotConvexQuery<ContentPlaybackWire | null>(
     !!tmdbId,
     (convex) => convex.query(api.content.getContentPlaybackByTmdbId, { tmdbId: tmdbId! }),
     [tmdbId]
   );
+  return data ? fromContentPlaybackWire(data) : data;
 }
 
 export function useContentDetailByTmdbId(tmdbId: string | undefined) {
-  return useOneShotConvexQuery<ContentDetail | null>(
+  const data = useOneShotConvexQuery<ContentDetailWire | null>(
     !!tmdbId,
     (convex) => convex.query(api.content.getContentDetailByTmdbId, { tmdbId: tmdbId! }),
     [tmdbId]
   );
+  return data ? fromContentDetailWire(data) : data;
 }
 
 export function useRelatedContent(
@@ -237,7 +262,7 @@ export function usePaginatedContent(
 ): BrowsePageResult {
   const normalizedPage = Math.max(1, Math.floor(page));
   const pageData = useOneShotConvexQuery<{
-    items: ContentCard[];
+    items: ContentCardWire[];
     totalPages?: number;
     totalCount?: number;
     hasNextPage: boolean;
@@ -255,7 +280,7 @@ export function usePaginatedContent(
   );
 
   return {
-    items: pageData?.items ?? [],
+    items: pageData?.items.map(fromContentCardWire) ?? [],
     currentPage: normalizedPage,
     totalPages: pageData?.totalPages,
     totalCount: pageData?.totalCount,
@@ -280,7 +305,7 @@ export function useRecommendations(
 ) {
   const { user } = useUser();
 
-  const recommendations = useOneShotConvexQuery<ContentCard[]>(
+  const recommendations = useOneShotConvexQuery<ContentCardWire[]>(
     enabled && (!!user || !!seed),
     (convex) =>
       seed
@@ -310,7 +335,7 @@ export function useRecommendations(
   );
 
   return {
-    recommendations: recommendations ?? [],
+    recommendations: recommendations?.map(fromContentCardWire) ?? [],
     isLoading: enabled && (!!user || !!seed) ? recommendations === undefined : false
   };
 }

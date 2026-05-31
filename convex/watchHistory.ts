@@ -3,17 +3,14 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
-  toContentBackedWatchHistoryItemMeta,
   toWatchHistoryItemWire,
   toWatchProgressEntryMeta,
   type WatchHistoryItemWire,
   type WatchProgressEntryMeta
 } from "../shared/contentMetadata";
-import { findOrCreateUserIdByClerkId, findUserIdByClerkIdQuery } from "./lib/users";
-import { buildContentSnapshot, hasContentSnapshot } from "./lib/contentSnapshots";
+import { buildContentSnapshot } from "./lib/contentSnapshots";
 
 type ProgressDocument = {
-  contentId: Id<"content">;
   progress: number;
   positionSeconds?: number;
   durationSeconds?: number;
@@ -22,15 +19,6 @@ type ProgressDocument = {
   source?: string;
   dub?: boolean;
   completed: boolean;
-  watchedAt: number;
-  contentType?: "movie" | "tv";
-  title?: string;
-  genre?: string[];
-  year?: number;
-  voteAverage?: number;
-  posterUrl?: string;
-  tmdbId?: string;
-  new?: boolean;
 };
 
 const progressWriteFields = {
@@ -84,125 +72,67 @@ function shouldSkipProgressUpdate(
   );
 }
 
-async function queryUserId(ctx: QueryCtx, clerkUserId: string) {
-  return await findUserIdByClerkIdQuery(ctx, clerkUserId);
-}
-
-async function mutateUserId(ctx: MutationCtx, clerkUserId: string) {
-  return await findOrCreateUserIdByClerkId(ctx, clerkUserId);
-}
-
-async function getContentCard(ctx: QueryCtx, contentId: Id<"content">) {
-  const card = await ctx.db
-    .query("contentCards")
-    .withIndex("by_content", (q) => q.eq("contentId", contentId))
-    .first();
-
-  if (card) {
-    return {
-      _id: card.contentId,
-      title: card.title,
-      type: card.type,
-      genre: card.genre,
-      year: card.year,
-      voteAverage: card.voteAverage,
-      posterUrl: card.posterUrl,
-      tmdbId: card.tmdbId,
-      new: card.new
-    };
-  }
-
-  const content = await ctx.db.get(contentId);
-  if (!content) return null;
-
-  return {
-    _id: content._id,
-    title: content.title,
-    type: content.type,
-    genre: content.genre,
-    year: content.year,
-    voteAverage: content.voteAverage,
-    posterUrl: content.posterUrl,
-    tmdbId: content.tmdbId,
-    new: content.new
-  };
-}
-
-function getSnapshotContent(row: ProgressDocument) {
-  if (!hasContentSnapshot(row)) return null;
-
-  return {
-    _id: row.contentId,
-    title: row.title!,
-    type: row.contentType!,
-    genre: row.genre!,
-    year: row.year!,
-    voteAverage: row.voteAverage,
-    posterUrl: row.posterUrl!,
-    tmdbId: row.tmdbId,
-    new: row.new!
-  };
-}
-
 async function listSnapshotBackedHistory(
   ctx: QueryCtx,
-  userId: Id<"users">,
+  clerkUserId: string,
   limit: number,
   includeCompleted: boolean
 ) {
   const progressRows = includeCompleted
     ? await ctx.db
         .query("watchProgress")
-        .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
+        .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId))
         .order("desc")
         .take(limit)
     : await ctx.db
         .query("watchProgress")
-        .withIndex("by_user_completed_watched_at", (q) =>
-          q.eq("userId", userId).eq("completed", false)
+        .withIndex("by_clerk_completed_watched_at", (q) =>
+          q.eq("clerkUserId", clerkUserId).eq("completed", false)
         )
         .order("desc")
         .take(limit);
 
-  const result: WatchHistoryItemWire[] = [];
-
-  for (const row of progressRows) {
-    const content = getSnapshotContent(row) ?? (await getContentCard(ctx, row.contentId));
-    if (!content) continue;
-
-    result.push(toWatchHistoryItemWire(toContentBackedWatchHistoryItemMeta(row, content)));
-  }
-
-  return result;
+  return progressRows.map((row) =>
+    toWatchHistoryItemWire({
+      _id: row.contentId,
+      title: row.title,
+      type: row.contentType,
+      genre: row.genre,
+      year: row.year,
+      voteAverage: row.voteAverage,
+      posterUrl: row.posterUrl,
+      tmdbId: row.tmdbId,
+      new: row.new,
+      progress: row.progress,
+      completed: row.completed,
+      seasonNumber: row.seasonNumber,
+      episodeNumber: row.episodeNumber,
+      source: row.source,
+      dub: row.dub
+    })
+  );
 }
 
 export const listWatchHistory = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemWire[]> => {
-    const userId = await queryUserId(ctx, clerkUserId);
-    if (!userId) return [];
-    return await listSnapshotBackedHistory(ctx, userId, 50, true);
+    return await listSnapshotBackedHistory(ctx, clerkUserId, 50, true);
   }
 });
 
 export const listContinueWatching = query({
   args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { clerkUserId, limit = 6 }): Promise<WatchHistoryItemWire[]> => {
-    const userId = await queryUserId(ctx, clerkUserId);
-    if (!userId) return [];
-    return await listSnapshotBackedHistory(ctx, userId, Math.max(1, Math.min(10, limit)), false);
+    return await listSnapshotBackedHistory(ctx, clerkUserId, Math.max(1, Math.min(10, limit)), false);
   }
 });
 
 export const listWatchProgressEntries = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchProgressEntryMeta[]> => {
-    const userId = await queryUserId(ctx, clerkUserId);
-    if (!userId) return [];
-
     const rows = await ctx.db
       .query("watchProgress")
-      .withIndex("by_user_watched_at", (q) => q.eq("userId", userId))
+      .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId))
       .order("desc")
       .take(50);
 
@@ -216,10 +146,7 @@ export const saveWatchProgress = mutation({
     ...progressWriteFields
   },
   handler: async (ctx, args): Promise<void> => {
-    const userId = await mutateUserId(ctx, args.clerkUserId);
-    if (!userId) throw new Error("User not found");
-
-    await saveProgressForUser(ctx, userId, args);
+    await saveProgressForUser(ctx, args.clerkUserId, args);
   }
 });
 
@@ -229,18 +156,15 @@ export const saveWatchProgressBatch = mutation({
     entries: v.array(progressWriteValidator)
   },
   handler: async (ctx, { clerkUserId, entries }): Promise<void> => {
-    const userId = await mutateUserId(ctx, clerkUserId);
-    if (!userId) throw new Error("User not found");
-
     for (const entry of entries.slice(0, 25)) {
-      await saveProgressForUser(ctx, userId, entry);
+      await saveProgressForUser(ctx, clerkUserId, entry);
     }
   }
 });
 
 async function saveProgressForUser(
   ctx: MutationCtx,
-  userId: Id<"users">,
+  clerkUserId: string,
   args: {
     contentId: Id<"content">;
     progress: number;
@@ -259,7 +183,9 @@ async function saveProgressForUser(
   const nextDurationSeconds = normalizeOptionalNumber(args.durationSeconds);
   const existing = await ctx.db
     .query("watchProgress")
-    .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", args.contentId))
+    .withIndex("by_clerk_content", (q) =>
+      q.eq("clerkUserId", clerkUserId).eq("contentId", args.contentId)
+    )
     .first();
 
   if (existing) {
@@ -286,8 +212,10 @@ async function saveProgressForUser(
   }
 
   const content = await ctx.db.get(args.contentId);
+  if (!content) return;
+
   await ctx.db.insert("watchProgress", {
-    userId,
+    clerkUserId,
     contentId: args.contentId,
     progress: normalizedProgress,
     completed,
@@ -298,19 +226,18 @@ async function saveProgressForUser(
     source: args.source,
     dub: args.dub,
     watchedAt: Date.now(),
-    ...(content ? buildContentSnapshot(content) : {})
+    ...buildContentSnapshot(content)
   });
 }
 
 export const removeWatchHistoryEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const userId = await mutateUserId(ctx, clerkUserId);
-    if (!userId) return false;
-
     const existingProgress = await ctx.db
       .query("watchProgress")
-      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
+      .withIndex("by_clerk_content", (q) =>
+        q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
+      )
       .first();
     if (!existingProgress) return false;
 
@@ -321,20 +248,7 @@ export const removeWatchHistoryEntry = mutation({
 
 export const compactWatchProgressSnapshots = internalMutation({
   args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 5000 }) => {
-    const rows = await ctx.db.query("watchProgress").take(limit);
-    let updated = 0;
-
-    for (const row of rows) {
-      if (hasContentSnapshot(row)) continue;
-
-      const content = await ctx.db.get(row.contentId);
-      if (!content) continue;
-
-      await ctx.db.patch(row._id, buildContentSnapshot(content));
-      updated += 1;
-    }
-
-    return updated;
+  handler: async () => {
+    return 0;
   }
 });

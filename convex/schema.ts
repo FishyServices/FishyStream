@@ -3,33 +3,25 @@ import { v } from "convex/values";
 
 const mediaType = v.union(v.literal("movie"), v.literal("tv"));
 
-const contentSnapshotFields = {
-  contentType: v.optional(mediaType),
-  title: v.optional(v.string()),
-  genre: v.optional(v.array(v.string())),
-  year: v.optional(v.number()),
+const sortKeysValidator = v.object({
+  popular: v.number(),
+  trending: v.number(),
+  new: v.number(),
+  rating: v.number(),
+  year: v.number()
+});
+
+const cardSnapshotFields = {
+  contentType: mediaType,
+  title: v.string(),
+  genre: v.array(v.string()),
+  year: v.number(),
   voteAverage: v.optional(v.number()),
-  posterUrl: v.optional(v.string()),
+  posterUrl: v.string(),
   tmdbId: v.optional(v.string()),
-  new: v.optional(v.boolean()),
-  snapshotUpdatedAt: v.optional(v.number())
+  new: v.boolean(),
+  snapshotUpdatedAt: v.number()
 };
-
-const episodeValidator = v.object({
-  episodeNumber: v.number(),
-  name: v.string(),
-  overview: v.optional(v.string()),
-  stillUrl: v.optional(v.string()),
-  airDate: v.optional(v.string()),
-  runtime: v.optional(v.number()),
-  voteAverage: v.optional(v.number())
-});
-
-const anilistEpisodeMappingValidator = v.object({
-  episodeNumber: v.number(),
-  anilistId: v.string(),
-  anilistEpisodeNumber: v.number()
-});
 
 export default defineSchema({
   users: defineTable({
@@ -37,147 +29,157 @@ export default defineSchema({
     email: v.optional(v.string()),
     name: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
-    watchlistContentIds: v.optional(v.array(v.id("content"))),
+    watchlistContentIds: v.array(v.id("content")),
     watchlistRecommendationType: v.optional(mediaType),
-    watchlistRecommendationGenres: v.optional(v.array(v.string())),
+    watchlistRecommendationGenres: v.array(v.string()),
     createdAt: v.number()
   }).index("by_clerk_user_id", ["clerkUserId"]),
 
   content: defineTable({
+    tmdbId: v.string(),
+    type: mediaType,
     title: v.string(),
-    description: v.string(),
+    genre: v.array(v.string()),
+    genreKeys: v.array(v.string()),
+    year: v.number(),
+    posterUrl: v.string(),
+    voteAverage: v.optional(v.number()),
+    popularity: v.optional(v.number()),
+    new: v.boolean(),
+    trending: v.boolean(),
+    popular: v.boolean(),
+    featured: v.boolean(),
+    sortKeys: sortKeysValidator,
+    syncHash: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number()
+  })
+    .index("by_tmdb_id", ["tmdbId"])
+    .index("by_type", ["type"])
+    .index("by_type_popular", ["type", "sortKeys.popular"])
+    .index("by_type_trending", ["type", "sortKeys.trending"])
+    .index("by_type_new", ["type", "sortKeys.new"])
+    .index("by_type_rating", ["type", "sortKeys.rating"])
+    .index("by_type_year", ["type", "sortKeys.year"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["type"]
+    }),
+
+  contentDetails: defineTable({
+    contentId: v.id("content"),
+    tmdbId: v.string(),
+    title: v.string(),
     type: mediaType,
     genre: v.array(v.string()),
+    genreKeys: v.array(v.string()),
     year: v.number(),
-    rating: v.string(),
     voteAverage: v.optional(v.number()),
-    voteCount: v.optional(v.number()),
     popularity: v.optional(v.number()),
-    duration: v.optional(v.string()),
-    seasons: v.optional(v.number()),
-    totalEpisodes: v.optional(v.number()),
     posterUrl: v.string(),
     backdropUrl: v.string(),
+    description: v.string(),
+    rating: v.string(),
     logoUrl: v.optional(v.string()),
     trailerKey: v.optional(v.string()),
     imdbId: v.optional(v.string()),
-    tmdbId: v.optional(v.string()),
     anilistId: v.optional(v.string()),
-    trending: v.boolean(),
-    popular: v.boolean(),
-    featured: v.boolean(),
-    new: v.boolean(),
-    status: v.optional(v.string()),
     originalLanguage: v.optional(v.string()),
-    productionCountries: v.optional(v.array(v.string())),
-    spokenLanguages: v.optional(v.array(v.string())),
+    duration: v.optional(v.string()),
+    seasons: v.optional(v.number()),
+    totalEpisodes: v.optional(v.number()),
     tagline: v.optional(v.string()),
-    budget: v.optional(v.number()),
-    revenue: v.optional(v.number()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    syncHash: v.optional(v.string())
-  })
-    .index("by_tmdb_id", ["tmdbId"])
-    .index("by_imdb_id", ["imdbId"])
-    .index("by_type", ["type"])
-    .index("by_trending", ["trending"])
-    .index("by_popular", ["popular"])
-    .index("by_featured", ["featured"])
-    .index("by_new", ["new"])
-    .index("by_popularity", ["popularity"])
-    .index("by_type_trending", ["type", "trending"])
-    .index("by_type_popular", ["type", "popular"])
-    .index("by_type_new", ["type", "new"])
-    .index("by_type_year", ["type", "year"])
-    .index("by_type_vote_average", ["type", "voteAverage"])
-    .searchIndex("search_title", {
-      searchField: "title",
-      filterFields: ["type", "genre"]
-    }),
-
-  contentCards: defineTable({
-    contentId: v.id("content"),
-    title: v.string(),
-    type: mediaType,
-    genre: v.array(v.string()),
-    year: v.number(),
-    voteAverage: v.optional(v.number()),
-    posterUrl: v.string(),
-    tmdbId: v.optional(v.string()),
-    new: v.boolean(),
+    status: v.optional(v.string()),
     trending: v.boolean(),
     popular: v.boolean(),
     featured: v.boolean(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    syncHash: v.optional(v.string())
-  })
-    .index("by_content", ["contentId"])
-    .index("by_tmdb_id", ["tmdbId"])
-    .index("by_type", ["type"])
-    .index("by_trending", ["trending"])
-    .index("by_popular", ["popular"])
-    .index("by_featured", ["featured"])
-    .index("by_new", ["new"])
-    .index("by_type_trending", ["type", "trending"])
-    .index("by_type_popular", ["type", "popular"])
-    .index("by_type_new", ["type", "new"])
-    .index("by_type_year", ["type", "year"])
-    .index("by_type_vote_average", ["type", "voteAverage"]),
-
-  seasons: defineTable({
-    contentId: v.id("content"),
-    tmdbId: v.string(),
-    anilistId: v.optional(v.string()),
-    anilistEpisodeMappings: v.optional(v.array(anilistEpisodeMappingValidator)),
-    seasonNumber: v.number(),
-    name: v.string(),
-    overview: v.optional(v.string()),
-    posterUrl: v.optional(v.string()),
-    airDate: v.optional(v.string()),
-    episodeCount: v.number(),
-    episodes: v.array(episodeValidator),
-    createdAt: v.number(),
+    new: v.boolean(),
+    syncHash: v.string(),
     updatedAt: v.number()
   })
     .index("by_content", ["contentId"])
-    .index("by_content_season", ["contentId", "seasonNumber"])
+    .index("by_tmdb_id", ["tmdbId"]),
+
+  homeViews: defineTable({
+    key: v.string(),
+    featured: v.array(v.any()),
+    rows: v.array(
+      v.object({
+        id: v.string(),
+        title: v.string(),
+        content: v.array(v.any())
+      })
+    ),
+    updatedAt: v.number(),
+    sourceHash: v.string()
+  }).index("by_key", ["key"]),
+
+  catalogPages: defineTable({
+    key: v.string(),
+    type: mediaType,
+    sortBy: v.union(
+      v.literal("trending"),
+      v.literal("popular"),
+      v.literal("new"),
+      v.literal("rating"),
+      v.literal("year")
+    ),
+    genreKey: v.optional(v.string()),
+    page: v.number(),
+    limit: v.number(),
+    items: v.array(v.any()),
+    hasNextPage: v.boolean(),
+    updatedAt: v.number(),
+    sourceHash: v.string()
+  }).index("by_key", ["key"]),
+
+  recommendationPools: defineTable({
+    key: v.string(),
+    type: mediaType,
+    genreKey: v.optional(v.string()),
+    items: v.array(v.any()),
+    updatedAt: v.number(),
+    sourceHash: v.string()
+  }).index("by_key", ["key"]),
+
+  seasonIndex: defineTable({
+    contentId: v.id("content"),
+    tmdbId: v.string(),
+    summaries: v.array(v.any()),
+    updatedAt: v.number(),
+    payloadHash: v.string()
+  })
+    .index("by_content", ["contentId"])
     .index("by_tmdb", ["tmdbId"]),
 
-  seasonSummaries: defineTable({
-    seasonId: v.optional(v.id("seasons")),
+  seasonEpisodes: defineTable({
     contentId: v.id("content"),
     tmdbId: v.string(),
     seasonNumber: v.number(),
-    name: v.string(),
-    airDate: v.optional(v.string()),
-    episodeCount: v.number(),
-    storedEpisodeCount: v.number(),
+    overview: v.optional(v.string()),
     anilistId: v.optional(v.string()),
     anilistEpisodeMappingPack: v.optional(v.string()),
     anilistEpisodeMappingCount: v.optional(v.number()),
-    payloadHash: v.string(),
-    updatedAt: v.number()
+    episodes: v.array(v.any()),
+    updatedAt: v.number(),
+    payloadHash: v.string()
   })
-    .index("by_content", ["contentId"])
     .index("by_content_season", ["contentId", "seasonNumber"])
-    .index("by_tmdb", ["tmdbId"]),
+    .index("by_tmdb_season", ["tmdbId", "seasonNumber"]),
 
   watchlist: defineTable({
-    userId: v.id("users"),
+    clerkUserId: v.string(),
     contentId: v.id("content"),
     addedAt: v.number(),
     folder: v.optional(v.string()),
-    ...contentSnapshotFields
+    ...cardSnapshotFields
   })
-    .index("by_user", ["userId"])
-    .index("by_user_added_at", ["userId", "addedAt"])
-    .index("by_user_content", ["userId", "contentId"])
-    .index("by_user_folder", ["userId", "folder"]),
+    .index("by_clerk_added_at", ["clerkUserId", "addedAt"])
+    .index("by_clerk_content", ["clerkUserId", "contentId"])
+    .index("by_clerk_folder", ["clerkUserId", "folder"]),
 
   watchProgress: defineTable({
-    userId: v.id("users"),
+    clerkUserId: v.string(),
     contentId: v.id("content"),
     progress: v.number(),
     positionSeconds: v.optional(v.number()),
@@ -188,10 +190,18 @@ export default defineSchema({
     dub: v.optional(v.boolean()),
     completed: v.boolean(),
     watchedAt: v.number(),
-    ...contentSnapshotFields
+    ...cardSnapshotFields
   })
-    .index("by_user", ["userId"])
-    .index("by_user_content", ["userId", "contentId"])
-    .index("by_user_watched_at", ["userId", "watchedAt"])
-    .index("by_user_completed_watched_at", ["userId", "completed", "watchedAt"])
+    .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"])
+    .index("by_clerk_content", ["clerkUserId", "contentId"])
+    .index("by_clerk_completed_watched_at", ["clerkUserId", "completed", "watchedAt"]),
+
+  syncRuns: defineTable({
+    key: v.string(),
+    status: v.string(),
+    message: v.optional(v.string()),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    stats: v.optional(v.any())
+  }).index("by_key", ["key"])
 });

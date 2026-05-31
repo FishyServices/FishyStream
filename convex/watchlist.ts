@@ -1,43 +1,18 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
-import {
-  toWatchlistGridItem,
-  toWatchlistGridWire,
-  type WatchlistGridItem,
-  type WatchlistGridWire
-} from "../shared/contentMetadata";
-import { findOrCreateUserIdByClerkId, findUserIdByClerkIdQuery } from "./lib/users";
-import { buildContentSnapshot, hasContentSnapshot } from "./lib/contentSnapshots";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
+import { toWatchlistGridWire, type WatchlistGridWire } from "../shared/contentMetadata";
+import { findOrCreateUserIdByClerkId } from "./lib/users";
+import { buildContentSnapshot } from "./lib/contentSnapshots";
 
-function toSnapshotBackedWatchlistGridItem(
-  item: Doc<"watchlist">,
-  content?: Doc<"content"> | null
-) {
-  return toWatchlistGridItem({
-    _id: content?._id ?? item.contentId,
-    title: content?.title ?? item.title!,
-    type: content?.type ?? item.contentType!,
-    posterUrl: content?.posterUrl ?? item.posterUrl!,
-    tmdbId: content?.tmdbId ?? item.tmdbId,
-    watchlistFolder: item.folder,
-    genre: content?.genre ?? item.genre
-  });
-}
+async function refreshWatchlistRecommendationSeed(ctx: MutationCtx, clerkUserId: string) {
+  const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
+  if (!userId) return;
 
-async function getUserIdForQuery(ctx: QueryCtx, clerkUserId: string) {
-  return await findUserIdByClerkIdQuery(ctx, clerkUserId);
-}
-
-async function getUserIdForMutation(ctx: MutationCtx, clerkUserId: string) {
-  return await findOrCreateUserIdByClerkId(ctx, clerkUserId);
-}
-
-async function refreshWatchlistRecommendationSeed(ctx: MutationCtx, userId: Id<"users">) {
   const items = await ctx.db
     .query("watchlist")
-    .withIndex("by_user_added_at", (q) => q.eq("userId", userId))
+    .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
     .order("desc")
     .take(24);
 
@@ -45,15 +20,14 @@ async function refreshWatchlistRecommendationSeed(ctx: MutationCtx, userId: Id<"
   const genreCounts = new Map<string, number>();
 
   for (const item of items) {
-    if (item.contentType) {
-      typeCounts.set(item.contentType, (typeCounts.get(item.contentType) ?? 0) + 1);
-    }
-    for (const genre of item.genre ?? []) {
+    typeCounts.set(item.contentType, (typeCounts.get(item.contentType) ?? 0) + 1);
+    for (const genre of item.genre) {
       genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
     }
   }
 
   await ctx.db.patch(userId, {
+    watchlistContentIds: items.map((item) => item.contentId),
     watchlistRecommendationType:
       Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? undefined,
     watchlistRecommendationGenres: Array.from(genreCounts.entries())
@@ -66,44 +40,32 @@ async function refreshWatchlistRecommendationSeed(ctx: MutationCtx, userId: Id<"
 export const listWatchlist = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchlistGridWire[]> => {
-    const userId = await getUserIdForQuery(ctx, clerkUserId);
-    if (!userId) return [];
-
     const items = await ctx.db
       .query("watchlist")
-      .withIndex("by_user_added_at", (q) => q.eq("userId", userId))
+      .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
       .order("desc")
       .collect();
 
-    const result: WatchlistGridWire[] = [];
-    for (const item of items) {
-      let content: Doc<"content"> | null = null;
-      if (!hasContentSnapshot(item)) {
-        content = await ctx.db.get(item.contentId);
-        if (!content) continue;
-      }
-
-      result.push(toWatchlistGridWire(toSnapshotBackedWatchlistGridItem(item, content)));
-    }
-
-    return result;
+    return items.map((item) =>
+      toWatchlistGridWire({
+        _id: item.contentId,
+        title: item.title,
+        type: item.contentType,
+        posterUrl: item.posterUrl,
+        tmdbId: item.tmdbId,
+        watchlistFolder: item.folder,
+        genre: item.genre
+      })
+    );
   }
 });
 
 export const listWatchlistContentIds = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<string[]> => {
-    const userId = await getUserIdForQuery(ctx, clerkUserId);
-    if (!userId) return [];
-
-    const user = await ctx.db.get(userId);
-    if (user?.watchlistContentIds) {
-      return user.watchlistContentIds;
-    }
-
     const items = await ctx.db
       .query("watchlist")
-      .withIndex("by_user_added_at", (q) => q.eq("userId", userId))
+      .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
       .order("desc")
       .collect();
 
@@ -114,30 +76,25 @@ export const listWatchlistContentIds = query({
 export const addWatchlistEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const userId = await getUserIdForMutation(ctx, clerkUserId);
-    if (!userId) return false;
-
     const existing = await ctx.db
       .query("watchlist")
-      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
+      .withIndex("by_clerk_content", (q) =>
+        q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
+      )
       .first();
     if (existing) return true;
 
     const content = await ctx.db.get(contentId);
+    if (!content) return false;
 
     await ctx.db.insert("watchlist", {
-      userId,
+      clerkUserId,
       contentId,
       addedAt: Date.now(),
       folder: undefined,
-      ...(content ? buildContentSnapshot(content) : {})
+      ...buildContentSnapshot(content)
     });
-    const user = await ctx.db.get(userId);
-    if (user) {
-      const nextIds = Array.from(new Set([...(user.watchlistContentIds ?? []), contentId]));
-      await ctx.db.patch(userId, { watchlistContentIds: nextIds });
-    }
-    await refreshWatchlistRecommendationSeed(ctx, userId);
+    await refreshWatchlistRecommendationSeed(ctx, clerkUserId);
 
     return true;
   }
@@ -146,23 +103,16 @@ export const addWatchlistEntry = mutation({
 export const removeWatchlistEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const userId = await getUserIdForMutation(ctx, clerkUserId);
-    if (!userId) return false;
-
     const existing = await ctx.db
       .query("watchlist")
-      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
+      .withIndex("by_clerk_content", (q) =>
+        q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
+      )
       .first();
     if (!existing) return false;
 
     await ctx.db.delete(existing._id);
-    const user = await ctx.db.get(userId);
-    if (user?.watchlistContentIds) {
-      await ctx.db.patch(userId, {
-        watchlistContentIds: user.watchlistContentIds.filter((id) => id !== contentId)
-      });
-    }
-    await refreshWatchlistRecommendationSeed(ctx, userId);
+    await refreshWatchlistRecommendationSeed(ctx, clerkUserId);
     return true;
   }
 });
@@ -174,12 +124,11 @@ export const setWatchlistFolder = mutation({
     folder: v.optional(v.string())
   },
   handler: async (ctx, { clerkUserId, contentId, folder }): Promise<boolean> => {
-    const userId = await getUserIdForMutation(ctx, clerkUserId);
-    if (!userId) return false;
-
     const existing = await ctx.db
       .query("watchlist")
-      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", contentId))
+      .withIndex("by_clerk_content", (q) =>
+        q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
+      )
       .first();
     if (!existing) return false;
 
@@ -193,18 +142,7 @@ export const setWatchlistFolder = mutation({
 
 export const compactWatchlistSnapshots = internalMutation({
   args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 5000 }) => {
-    const items = await ctx.db.query("watchlist").take(limit);
-    let updated = 0;
-
-    for (const item of items) {
-      const content = await ctx.db.get(item.contentId);
-      if (!content) continue;
-
-      await ctx.db.patch(item._id, buildContentSnapshot(content));
-      updated += 1;
-    }
-
-    return updated;
+  handler: async () => {
+    return 0;
   }
 });

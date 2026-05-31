@@ -1,17 +1,17 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
-  toContentCard,
-  toContentCardRow,
-  toContentDetail,
-  toContentFeatured,
-  toContentPlayback,
-  type ContentDetail,
-  type ContentCard,
-  type ContentFeatured,
-  type ContentPlayback
+  toContentCardWire,
+  toContentDetailWire,
+  toContentFeaturedWire,
+  toContentPlaybackWire,
+  type ContentCardWire,
+  type ContentDetailWire,
+  type ContentFeaturedWire,
+  type ContentPlaybackWire,
+  type HomeViewWire
 } from "../shared/contentMetadata";
 
 const contentTypeValidator = v.union(v.literal("movie"), v.literal("tv"));
@@ -59,198 +59,28 @@ const tmdbContentValidator = v.object({
   syncHash: v.optional(v.string())
 });
 
-const HOMEPAGE_ROW_LIMIT = 10;
-
 type BrowseSort = "trending" | "popular" | "new" | "rating" | "year";
+type ContentInput = typeof tmdbContentValidator.type;
 
-async function readSortedContent(
-  ctx: QueryCtx,
-  type: "movie" | "tv",
-  sortBy: BrowseSort,
-  takeCount: number
-): Promise<ContentCard[]> {
-  let cardRows;
-  switch (sortBy) {
-    case "trending":
-      cardRows = await ctx.db
-        .query("contentCards")
-        .withIndex("by_type_trending", (q) => q.eq("type", type))
-        .order("desc")
-        .take(takeCount);
-      break;
-    case "new":
-      cardRows = await ctx.db
-        .query("contentCards")
-        .withIndex("by_type_new", (q) => q.eq("type", type))
-        .order("desc")
-        .take(takeCount);
-      break;
-    case "rating":
-      cardRows = await ctx.db
-        .query("contentCards")
-        .withIndex("by_type_vote_average", (q) => q.eq("type", type))
-        .order("desc")
-        .take(takeCount);
-      break;
-    case "year":
-      cardRows = await ctx.db
-        .query("contentCards")
-        .withIndex("by_type_year", (q) => q.eq("type", type))
-        .order("desc")
-        .take(takeCount);
-      break;
-    default:
-      cardRows = await ctx.db
-        .query("contentCards")
-        .withIndex("by_type_popular", (q) => q.eq("type", type))
-        .order("desc")
-        .take(takeCount);
-      break;
-  }
-
-  if (cardRows.length > 0) {
-    return cardRows.map(toContentCardRow);
-  }
-
-  let items;
-  switch (sortBy) {
-    case "trending":
-      items = await ctx.db
-        .query("content")
-        .withIndex("by_type_trending", (q) => q.eq("type", type))
-        .order("desc")
-        .take(takeCount);
-      break;
-    case "new":
-      items = await ctx.db
-        .query("content")
-        .withIndex("by_type_new", (q) => q.eq("type", type))
-        .order("desc")
-        .take(takeCount);
-      break;
-    case "rating":
-      items = await ctx.db
-        .query("content")
-        .withIndex("by_type_vote_average", (q) => q.eq("type", type))
-        .order("desc")
-        .take(takeCount);
-      break;
-    case "year":
-      items = await ctx.db
-        .query("content")
-        .withIndex("by_type_year", (q) => q.eq("type", type))
-        .order("desc")
-        .take(takeCount);
-      break;
-    default:
-      items = await ctx.db
-        .query("content")
-        .withIndex("by_type_popular", (q) => q.eq("type", type))
-        .order("desc")
-        .take(takeCount);
-      break;
-  }
-
-  return items.map(toContentCard);
-}
-
-async function readFlaggedCards(
-  ctx: QueryCtx,
-  flag: "trending" | "popular" | "new",
-  takeCount: number
-): Promise<ContentCard[]> {
-  const cardRows = await ctx.db
-    .query("contentCards")
-    .withIndex(`by_${flag}` as "by_trending" | "by_popular" | "by_new", (q) => q.eq(flag, true))
-    .take(takeCount);
-
-  if (cardRows.length > 0) {
-    return cardRows.map(toContentCardRow);
-  }
-
-  const items = await ctx.db
-    .query("content")
-    .withIndex(`by_${flag}` as "by_trending" | "by_popular" | "by_new", (q) => q.eq(flag, true))
-    .take(takeCount);
-
-  return items.map(toContentCard);
-}
-
-async function readTypeCards(ctx: QueryCtx, type: "movie" | "tv", takeCount: number) {
-  const cardRows = await ctx.db
-    .query("contentCards")
-    .withIndex("by_type", (q) => q.eq("type", type))
-    .take(takeCount);
-
-  if (cardRows.length > 0) {
-    return cardRows.map(toContentCardRow);
-  }
-
-  const items = await ctx.db
-    .query("content")
-    .withIndex("by_type", (q) => q.eq("type", type))
-    .take(takeCount);
-
-  return items.map(toContentCard);
-}
+const HOMEPAGE_ROW_LIMIT = 10;
+const DEFAULT_PAGE_LIMIT = 24;
+const MATERIALIZED_PAGE_COUNT = 12;
+const RECOMMENDATION_POOL_LIMIT = 240;
 
 function normalizePage(page?: number) {
   return Math.max(1, Math.floor(page ?? 1));
 }
 
 function normalizeLimit(limit?: number, max = 48) {
-  return Math.max(1, Math.min(max, Math.floor(limit ?? 24)));
+  return Math.max(1, Math.min(max, Math.floor(limit ?? DEFAULT_PAGE_LIMIT)));
 }
 
-function lower(value?: string) {
-  return value?.toLowerCase().trim();
+function genreKey(value?: string) {
+  return value?.toLowerCase().trim().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-async function getBrowsePageData(
-  ctx: QueryCtx,
-  args: {
-    type: "movie" | "tv";
-    genre?: string;
-    sortBy?: BrowseSort;
-    page?: number;
-    limit?: number;
-  }
-) {
-  const page = normalizePage(args.page);
-  const limit = normalizeLimit(args.limit);
-  const sortBy = args.sortBy ?? "popular";
-  const genre = lower(args.genre);
-  const start = (page - 1) * limit;
-
-  if (genre) {
-    let requested = Math.max(limit * 2, page * limit + 1);
-    let filtered: ContentCard[] = [];
-    let exhausted = false;
-
-    while (!exhausted && filtered.length <= start + limit) {
-      const batch = await readSortedContent(ctx, args.type, sortBy, requested);
-      filtered = batch.filter((item) => item.genre.some((value) => lower(value) === genre));
-      exhausted = batch.length < requested;
-      requested = Math.min(requested * 2, 5000);
-      if (requested === 5000 && batch.length === 5000) {
-        break;
-      }
-    }
-
-    return {
-      items: filtered.slice(start, start + limit),
-      hasNextPage: filtered.length > start + limit
-    };
-  }
-
-  const items = await readSortedContent(ctx, args.type, sortBy, page * limit + 1);
-  const pageItems = items.slice(start, start + limit);
-  const hasNextPage = items.length > page * limit;
-
-  return {
-    items: pageItems,
-    hasNextPage
-  };
+function contentKey(item: Pick<ContentInput, "tmdbId" | "type" | "title" | "year">) {
+  return item.tmdbId ?? `${item.type}:${item.title.toLowerCase()}:${item.year}`;
 }
 
 function hashString(value: string) {
@@ -259,18 +89,18 @@ function hashString(value: string) {
     hash ^= value.charCodeAt(i);
     hash = Math.imul(hash, 16777619);
   }
-  return hash >>> 0;
-}
-
-function seededUnitInterval(seed: string) {
-  return hashString(seed) / 4294967295;
+  return String(hash >>> 0);
 }
 
 function hashPayload(value: unknown) {
-  return String(hashString(JSON.stringify(value)));
+  return hashString(JSON.stringify(value));
 }
 
-function getContentSyncHash(item: typeof tmdbContentValidator.type) {
+function seededUnitInterval(seed: string) {
+  return Number(hashString(seed)) / 4294967295;
+}
+
+function getContentSyncHash(item: ContentInput) {
   return hashPayload({
     title: item.title,
     description: item.description,
@@ -297,118 +127,371 @@ function getContentSyncHash(item: typeof tmdbContentValidator.type) {
     new: item.new,
     status: item.status,
     tagline: item.tagline,
-    originalLanguage: item.originalLanguage,
-    productionCountries: item.productionCountries,
-    spokenLanguages: item.spokenLanguages,
-    budget: item.budget,
-    revenue: item.revenue
+    originalLanguage: item.originalLanguage
   });
 }
 
-function getCardForContentItem(
-  contentId: Id<"content">,
-  item: typeof tmdbContentValidator.type,
-  createdAt: number,
-  updatedAt: number
-) {
-  const card = {
-    contentId,
-    title: item.title,
+function getSortKeys(item: Pick<ContentInput, "popularity" | "voteAverage" | "year" | "trending" | "popular" | "new">) {
+  const popularity = item.popularity ?? 0;
+  const rating = item.voteAverage ?? 0;
+  return {
+    popular: (item.popular ? 1_000_000 : 0) + popularity,
+    trending: (item.trending ? 1_000_000 : 0) + popularity,
+    new: (item.new ? 1_000_000 : 0) + item.year,
+    rating,
+    year: item.year
+  };
+}
+
+function toLeanContent(item: ContentInput, syncHash: string, now: number) {
+  const tmdbId = contentKey(item);
+  const genreKeys = item.genre.map((value) => genreKey(value)).filter(Boolean) as string[];
+  return {
+    tmdbId,
     type: item.type,
-    genre: item.genre.slice(0, 3),
+    title: item.title,
+    genre: item.genre,
+    genreKeys,
     year: item.year,
-    voteAverage: item.voteAverage,
     posterUrl: item.posterUrl,
-    tmdbId: item.tmdbId,
+    voteAverage: item.voteAverage,
+    popularity: item.popularity,
     new: item.new,
     trending: item.trending,
     popular: item.popular,
     featured: item.featured,
-    createdAt,
-    updatedAt
+    sortKeys: getSortKeys(item),
+    syncHash,
+    createdAt: item.createdAt ?? now,
+    updatedAt: now
   };
+}
 
-  return { ...card, syncHash: hashPayload(card) };
+function toDetailContent(contentId: Id<"content">, item: ContentInput, syncHash: string, now: number) {
+  const tmdbId = contentKey(item);
+  const genreKeys = item.genre.map((value) => genreKey(value)).filter(Boolean) as string[];
+  return {
+    contentId,
+    tmdbId,
+    title: item.title,
+    type: item.type,
+    genre: item.genre,
+    genreKeys,
+    year: item.year,
+    voteAverage: item.voteAverage,
+    popularity: item.popularity,
+    posterUrl: item.posterUrl,
+    backdropUrl: item.backdropUrl,
+    description: item.description,
+    rating: item.rating,
+    logoUrl: item.logoUrl,
+    trailerKey: item.trailerKey,
+    imdbId: item.imdbId,
+    anilistId: item.anilistId,
+    originalLanguage: item.originalLanguage,
+    duration: item.duration,
+    seasons: item.seasons,
+    totalEpisodes: item.totalEpisodes,
+    tagline: item.tagline,
+    status: item.status,
+    trending: item.trending,
+    popular: item.popular,
+    featured: item.featured,
+    new: item.new,
+    syncHash,
+    updatedAt: now
+  };
+}
+
+function catalogKey(args: {
+  type: "movie" | "tv";
+  sortBy: BrowseSort;
+  genre?: string;
+  page: number;
+  limit: number;
+}) {
+  return `browse:${args.type}:${args.sortBy}:${args.genre ? genreKey(args.genre) : "all"}:${args.page}:${args.limit}`;
+}
+
+function recommendationPoolKey(type: "movie" | "tv", genre?: string) {
+  return `recommend:${type}:${genre ? genreKey(genre) : "all"}`;
+}
+
+function sortContentRows(rows: Doc<"content">[], sortBy: BrowseSort) {
+  const sorted = [...rows];
+  sorted.sort((a, b) => {
+    const keyDelta = b.sortKeys[sortBy] - a.sortKeys[sortBy];
+    if (keyDelta !== 0) return keyDelta;
+    return b.updatedAt - a.updatedAt;
+  });
+  return sorted;
+}
+
+async function upsertByKey<TableName extends "catalogPages" | "homeViews" | "recommendationPools" | "syncRuns">(
+  ctx: MutationCtx,
+  table: TableName,
+  key: string,
+  value: Omit<Doc<TableName>, "_id" | "_creationTime">
+) {
+  const existing = await ctx.db
+    .query(table)
+    .withIndex("by_key", (q) => q.eq("key", key as any))
+    .first();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, value as any);
+    return existing._id;
+  }
+  return await ctx.db.insert(table, value as any);
+}
+
+async function clearMaterializedViews(ctx: MutationCtx) {
+  const [pages, homes, pools] = await Promise.all([
+    ctx.db.query("catalogPages").collect(),
+    ctx.db.query("homeViews").collect(),
+    ctx.db.query("recommendationPools").collect()
+  ]);
+
+  for (const row of [...pages, ...homes, ...pools]) {
+    await ctx.db.delete(row._id);
+  }
+}
+
+async function rebuildMaterializedViews(ctx: MutationCtx) {
+  const now = Date.now();
+  const rows = await ctx.db.query("content").take(5000);
+  const sourceHash = hashPayload(rows.map((row) => [row._id, row.syncHash, row.updatedAt]));
+
+  await clearMaterializedViews(ctx);
+
+  const detailsByContentId = new Map<string, Doc<"contentDetails">>();
+  for (const detail of await ctx.db.query("contentDetails").take(5000)) {
+    detailsByContentId.set(String(detail.contentId), detail);
+  }
+
+  const featuredDetails = rows
+    .filter((row) => row.featured)
+    .sort((a, b) => b.sortKeys.trending - a.sortKeys.trending)
+    .slice(0, 3)
+    .map((row) => detailsByContentId.get(String(row._id)))
+    .filter((row): row is Doc<"contentDetails"> => !!row);
+
+  const fallbackFeatured = rows
+    .filter((row) => row.trending)
+    .sort((a, b) => b.sortKeys.trending - a.sortKeys.trending)
+    .map((row) => detailsByContentId.get(String(row._id)))
+    .filter((row): row is Doc<"contentDetails"> => !!row);
+
+  const seenFeatured = new Set(featuredDetails.map((row) => row.contentId));
+  for (const row of fallbackFeatured) {
+    if (seenFeatured.has(row.contentId)) continue;
+    featuredDetails.push(row);
+    seenFeatured.add(row.contentId);
+    if (featuredDetails.length >= 3) break;
+  }
+
+  const trending = sortContentRows(rows.filter((row) => row.trending), "trending")
+    .slice(0, HOMEPAGE_ROW_LIMIT)
+    .map(toContentCardWire);
+  const movies = sortContentRows(rows.filter((row) => row.type === "movie"), "popular")
+    .slice(0, HOMEPAGE_ROW_LIMIT)
+    .map(toContentCardWire);
+  const tvShows = sortContentRows(rows.filter((row) => row.type === "tv"), "popular")
+    .slice(0, HOMEPAGE_ROW_LIMIT)
+    .map(toContentCardWire);
+
+  await upsertByKey(ctx, "homeViews", "default", {
+    key: "default",
+    featured: featuredDetails.slice(0, 3).map(toContentFeaturedWire),
+    rows: [
+      { id: "trending", title: "Trending Now", content: trending },
+      { id: "movies", title: "Movies", content: movies },
+      { id: "tvshows", title: "TV Shows", content: tvShows }
+    ].filter((row) => row.content.length > 0),
+    updatedAt: now,
+    sourceHash
+  });
+
+  const types = ["movie", "tv"] as const;
+  const sorts = ["popular", "trending", "new", "rating", "year"] as const;
+
+  for (const type of types) {
+    const typeRows = rows.filter((row) => row.type === type);
+    const typeGenres = Array.from(new Set(typeRows.flatMap((row) => row.genreKeys)));
+
+    for (const sortBy of sorts) {
+      const sorted = sortContentRows(typeRows, sortBy);
+      await materializePages(ctx, { type, sortBy, rows: sorted, genre: undefined, now, sourceHash });
+
+      for (const key of typeGenres) {
+        await materializePages(ctx, {
+          type,
+          sortBy,
+          rows: sorted.filter((row) => row.genreKeys.includes(key)),
+          genre: key,
+          now,
+          sourceHash
+        });
+      }
+    }
+
+    await upsertByKey(ctx, "recommendationPools", recommendationPoolKey(type), {
+      key: recommendationPoolKey(type),
+      type,
+      genreKey: undefined,
+        items: sortContentRows(typeRows, "popular").slice(0, RECOMMENDATION_POOL_LIMIT).map(toContentCardWire),
+      updatedAt: now,
+      sourceHash
+    });
+
+    for (const key of typeGenres) {
+      await upsertByKey(ctx, "recommendationPools", recommendationPoolKey(type, key), {
+        key: recommendationPoolKey(type, key),
+        type,
+        genreKey: key,
+        items: sortContentRows(typeRows.filter((row) => row.genreKeys.includes(key)), "popular")
+          .slice(0, RECOMMENDATION_POOL_LIMIT)
+          .map(toContentCardWire),
+        updatedAt: now,
+        sourceHash
+      });
+    }
+  }
+
+  await upsertByKey(ctx, "syncRuns", "materializedViews", {
+    key: "materializedViews",
+    status: "complete",
+    startedAt: now,
+    finishedAt: Date.now(),
+    stats: { contentRows: rows.length }
+  });
+}
+
+async function materializePages(
+  ctx: MutationCtx,
+  args: {
+    type: "movie" | "tv";
+    sortBy: BrowseSort;
+    rows: Doc<"content">[];
+    genre?: string;
+    now: number;
+    sourceHash: string;
+  }
+) {
+  for (let page = 1; page <= MATERIALIZED_PAGE_COUNT; page += 1) {
+    const start = (page - 1) * DEFAULT_PAGE_LIMIT;
+    const pageRows = args.rows.slice(start, start + DEFAULT_PAGE_LIMIT);
+    if (pageRows.length === 0 && page > 1) break;
+
+    const key = catalogKey({
+      type: args.type,
+      sortBy: args.sortBy,
+      genre: args.genre,
+      page,
+      limit: DEFAULT_PAGE_LIMIT
+    });
+
+    await upsertByKey(ctx, "catalogPages", key, {
+      key,
+      type: args.type,
+      sortBy: args.sortBy,
+      genreKey: args.genre,
+      page,
+      limit: DEFAULT_PAGE_LIMIT,
+      items: pageRows.map(toContentCardWire),
+      hasNextPage: args.rows.length > start + DEFAULT_PAGE_LIMIT,
+      updatedAt: args.now,
+      sourceHash: args.sourceHash
+    });
+  }
+}
+
+async function getCatalogPage(ctx: QueryCtx, args: {
+  type: "movie" | "tv";
+  sortBy?: BrowseSort;
+  genre?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const page = normalizePage(args.page);
+  const limit = normalizeLimit(args.limit);
+  const sortBy = args.sortBy ?? "popular";
+  const row = await ctx.db
+    .query("catalogPages")
+    .withIndex("by_key", (q) =>
+      q.eq("key", catalogKey({ type: args.type, sortBy, genre: args.genre, page, limit }))
+    )
+    .first();
+
+  return {
+    items: (row?.items ?? []) as ContentCardWire[],
+    hasNextPage: row?.hasNextPage ?? false
+  };
+}
+
+async function readDetailByContentId(ctx: QueryCtx, contentId: Id<"content">) {
+  return await ctx.db
+    .query("contentDetails")
+    .withIndex("by_content", (q) => q.eq("contentId", contentId))
+    .first();
 }
 
 export const getHomepageView = query({
   args: {},
-  handler: async (
-    ctx
-  ): Promise<{
-    featured: ContentFeatured[];
-    categories: Array<{ id: string; title: string; content: ContentCard[] }>;
-  }> => {
-    let featuredDocs = await ctx.db
-      .query("content")
-      .withIndex("by_featured", (q) => q.eq("featured", true))
-      .take(3);
-
-    if (featuredDocs.length < 3) {
-      const extraDocs = await ctx.db
-        .query("content")
-        .withIndex("by_trending", (q) => q.eq("trending", true))
-        .take(6);
-
-      const existingIds = new Set(featuredDocs.map((doc) => doc._id));
-      for (const doc of extraDocs) {
-        if (!existingIds.has(doc._id)) {
-          featuredDocs.push(doc);
-          existingIds.add(doc._id);
-        }
-        if (featuredDocs.length >= 3) {
-          break;
-        }
-      }
-    }
-
-    const [trending, movies, tvShows] = await Promise.all([
-      readFlaggedCards(ctx, "trending", HOMEPAGE_ROW_LIMIT),
-      readTypeCards(ctx, "movie", HOMEPAGE_ROW_LIMIT),
-      readTypeCards(ctx, "tv", HOMEPAGE_ROW_LIMIT)
-    ]);
+  handler: async (ctx): Promise<HomeViewWire> => {
+    const row = await ctx.db
+      .query("homeViews")
+      .withIndex("by_key", (q) => q.eq("key", "default"))
+      .first();
 
     return {
-      featured: featuredDocs.map((doc) => toContentFeatured(doc)),
-      categories: [
-        { id: "trending", title: "Trending Now 🔥", content: trending },
-        { id: "movies", title: "Movies", content: movies },
-        { id: "tvshows", title: "TV Shows", content: tvShows }
-      ].filter((row) => row.content.length > 0)
+      featured: (row?.featured ?? []) as ContentFeaturedWire[],
+      categories: (row?.rows ?? []) as HomeViewWire["categories"]
     };
   }
 });
 
 export const listPopularCards = query({
   args: {},
-  handler: async (ctx): Promise<ContentCard[]> => {
-    return await readFlaggedCards(ctx, "popular", 24);
+  handler: async (ctx): Promise<ContentCardWire[]> => {
+    return (await getCatalogPage(ctx, { type: "movie", sortBy: "popular", page: 1, limit: 24 })).items;
   }
 });
 
 export const listNewReleaseCards = query({
   args: {},
-  handler: async (ctx): Promise<ContentCard[]> => {
-    return await readFlaggedCards(ctx, "new", 24);
+  handler: async (ctx): Promise<ContentCardWire[]> => {
+    return (await getCatalogPage(ctx, { type: "movie", sortBy: "new", page: 1, limit: 24 })).items;
   }
 });
 
 export const getContentDetailById = query({
   args: { id: v.id("content") },
-  handler: async (ctx, { id }): Promise<ContentDetail | null> => {
-    const item = await ctx.db.get(id);
-    return item ? toContentDetail(item) : null;
+  handler: async (ctx, { id }): Promise<ContentDetailWire | null> => {
+    const item = await readDetailByContentId(ctx, id);
+    return item ? toContentDetailWire(item) : null;
   }
 });
 
 export const getContentDetailByTmdbId = query({
   args: { tmdbId: v.string() },
-  handler: async (ctx, { tmdbId }): Promise<ContentDetail | null> => {
+  handler: async (ctx, { tmdbId }): Promise<ContentDetailWire | null> => {
     const item = await ctx.db
-      .query("content")
+      .query("contentDetails")
       .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
       .first();
-    return item ? toContentDetail(item) : null;
+    return item ? toContentDetailWire(item) : null;
+  }
+});
+
+export const getContentPlaybackByTmdbId = query({
+  args: { tmdbId: v.string() },
+  handler: async (ctx, { tmdbId }): Promise<ContentPlaybackWire | null> => {
+    const item = await ctx.db
+      .query("contentDetails")
+      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
+      .first();
+    return item ? toContentPlaybackWire(item) : null;
   }
 });
 
@@ -421,48 +504,53 @@ export const getBrowseCardsPage = query({
     limit: v.optional(v.number())
   },
   handler: async (ctx, args) => {
-    return await getBrowsePageData(ctx, args);
+    return await getCatalogPage(ctx, args);
   }
 });
+
+async function upsertContentItem(ctx: MutationCtx, item: ContentInput) {
+  const now = Date.now();
+  const syncHash = item.syncHash ?? getContentSyncHash(item);
+  const tmdbId = contentKey(item);
+  const existing = await ctx.db
+    .query("content")
+    .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
+    .first();
+
+  let contentId: Id<"content">;
+  if (existing) {
+    contentId = existing._id;
+    if (existing.syncHash !== syncHash) {
+      await ctx.db.patch(existing._id, toLeanContent(item, syncHash, now));
+    }
+  } else {
+    contentId = await ctx.db.insert("content", toLeanContent(item, syncHash, now));
+  }
+
+  const detail = toDetailContent(contentId, item, syncHash, now);
+  const existingDetail = await ctx.db
+    .query("contentDetails")
+    .withIndex("by_content", (q) => q.eq("contentId", contentId))
+    .first();
+
+  if (existingDetail) {
+    if (existingDetail.syncHash !== syncHash) {
+      await ctx.db.patch(existingDetail._id, detail);
+    }
+  } else {
+    await ctx.db.insert("contentDetails", detail);
+  }
+}
 
 export const upsertBatchFromTMDB = internalMutation({
   args: { items: v.array(tmdbContentValidator) },
   handler: async (ctx, { items }) => {
     let count = 0;
     for (const item of items) {
-      const now = Date.now();
-      const syncHash = item.syncHash ?? getContentSyncHash(item);
-      const existing = await ctx.db
-        .query("content")
-        .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", item.tmdbId))
-        .first();
-
-      if (existing) {
-        if (existing.syncHash !== syncHash) {
-          await ctx.db.patch(existing._id, { ...item, syncHash, updatedAt: now });
-        }
-
-        const existingCard = await ctx.db
-          .query("contentCards")
-          .withIndex("by_content", (q) => q.eq("contentId", existing._id))
-          .first();
-        const card = getCardForContentItem(existing._id, item, existing.createdAt, now);
-        if (existingCard) {
-          if (existingCard.syncHash !== card.syncHash) {
-            await ctx.db.patch(existingCard._id, card);
-          }
-        } else {
-          await ctx.db.insert("contentCards", card);
-        }
-      } else {
-        const contentId = await ctx.db.insert("content", { ...item, syncHash });
-        await ctx.db.insert(
-          "contentCards",
-          getCardForContentItem(contentId, item, item.createdAt, item.updatedAt)
-        );
-      }
+      await upsertContentItem(ctx, item);
       count += 1;
     }
+    await rebuildMaterializedViews(ctx);
     return count;
   }
 });
@@ -472,23 +560,11 @@ export const insertFreshBatchFromTMDB = internalMutation({
   handler: async (ctx, { items }) => {
     let count = 0;
     for (const item of items) {
-      const syncHash = item.syncHash ?? getContentSyncHash(item);
-      const contentId = await ctx.db.insert("content", { ...item, syncHash });
-      await ctx.db.insert(
-        "contentCards",
-        getCardForContentItem(contentId, item, item.createdAt, item.updatedAt)
-      );
+      await upsertContentItem(ctx, item);
       count += 1;
     }
+    await rebuildMaterializedViews(ctx);
     return count;
-  }
-});
-
-export const getAllTmdbIds = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const rows = await ctx.db.query("content").take(2000);
-    return rows.map((row) => ({ tmdbId: row.tmdbId, type: row.type }));
   }
 });
 
@@ -497,48 +573,25 @@ export const rebuildContentCards = internalMutation({
     contentId: v.optional(v.id("content")),
     limit: v.optional(v.number())
   },
-  handler: async (ctx, { contentId, limit = 1000 }) => {
-    const rows = contentId
-      ? (await ctx.db.get(contentId))
-        ? [await ctx.db.get(contentId)]
-        : []
-      : await ctx.db.query("content").take(limit);
+  handler: async (ctx) => {
+    await rebuildMaterializedViews(ctx);
+    return 1;
+  }
+});
 
-    let updated = 0;
-    for (const row of rows) {
-      if (!row) continue;
+export const rebuildMaterializedCatalogViews = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await rebuildMaterializedViews(ctx);
+    return true;
+  }
+});
 
-      const existingCard = await ctx.db
-        .query("contentCards")
-        .withIndex("by_content", (q) => q.eq("contentId", row._id))
-        .first();
-
-      const card = {
-        contentId: row._id,
-        title: row.title,
-        type: row.type,
-        genre: row.genre.slice(0, 3),
-        year: row.year,
-        voteAverage: row.voteAverage,
-        posterUrl: row.posterUrl,
-        tmdbId: row.tmdbId,
-        new: row.new,
-        trending: row.trending,
-        popular: row.popular,
-        featured: row.featured,
-        createdAt: row.createdAt,
-        updatedAt: Date.now()
-      };
-
-      if (existingCard) {
-        await ctx.db.patch(existingCard._id, card);
-      } else {
-        await ctx.db.insert("contentCards", card);
-      }
-      updated += 1;
-    }
-
-    return updated;
+export const getAllTmdbIds = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("content").take(5000);
+    return rows.map((row) => ({ tmdbId: row.tmdbId, type: row.type }));
   }
 });
 
@@ -546,20 +599,20 @@ export const getAnimeMissingAniListIds = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit = 250 }) => {
     const rows = await ctx.db
-      .query("content")
-      .withIndex("by_type", (q) => q.eq("type", "tv"))
+      .query("contentDetails")
       .take(5000);
 
     return rows
       .filter(
         (row) =>
           !row.anilistId &&
-          lower(row.originalLanguage) === "ja" &&
-          row.genre.some((genre) => lower(genre) === "animation")
+          row.type === "tv" &&
+          row.originalLanguage?.toLowerCase() === "ja" &&
+          row.genre.some((genre) => genre.toLowerCase() === "animation")
       )
       .slice(0, limit)
       .map((row) => ({
-        id: row._id,
+        id: row.contentId,
         tmdbId: row.tmdbId,
         title: row.title,
         year: row.year
@@ -602,14 +655,20 @@ export const getContentSyncContextById = query({
   }
 });
 
-export const getContentPlaybackByTmdbId = query({
-  args: { tmdbId: v.string() },
-  handler: async (ctx, { tmdbId }): Promise<ContentPlayback | null> => {
-    const item = await ctx.db
-      .query("content")
-      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
+export const setAniListId = internalMutation({
+  args: { id: v.id("content"), anilistId: v.string() },
+  handler: async (ctx, { id, anilistId }) => {
+    const detail = await ctx.db
+      .query("contentDetails")
+      .withIndex("by_content", (q) => q.eq("contentId", id))
       .first();
-    return item ? toContentPlayback(item) : null;
+    if (detail) {
+      await ctx.db.patch(detail._id, {
+        anilistId,
+        updatedAt: Date.now(),
+        syncHash: hashPayload({ ...detail, anilistId })
+      });
+    }
   }
 });
 
@@ -620,54 +679,58 @@ async function getRecommendationSeed(ctx: QueryCtx, clerkUserId: string) {
     .first();
   if (!user) return null;
 
-  if (user.watchlistContentIds !== undefined) {
-    return {
-      watchlistIds: user.watchlistContentIds,
-      preferredType: user.watchlistRecommendationType ?? "movie",
-      genres: user.watchlistRecommendationGenres ?? []
-    };
-  }
-
-  const items = await ctx.db
-    .query("watchlist")
-    .withIndex("by_user_added_at", (q) => q.eq("userId", user._id))
-    .order("desc")
-    .take(24);
-
-  if (items.length === 0) {
-    return { watchlistIds: [] as Id<"content">[], preferredType: "movie" as const, genres: [] };
-  }
-
-  const watchlistIds = items.map((item) => item.contentId);
-  const watchlistTypes = new Map<"movie" | "tv", number>();
-  const watchlistGenres = new Map<string, number>();
-
-  for (const item of items) {
-    const type = item.contentType;
-    if (type) {
-      watchlistTypes.set(type, (watchlistTypes.get(type) || 0) + 1);
-    }
-    for (const genre of item.genre ?? []) {
-      watchlistGenres.set(genre, (watchlistGenres.get(genre) || 0) + 1);
-    }
-  }
-
-  const preferredType =
-    Array.from(watchlistTypes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "movie";
-  const genres = Array.from(watchlistGenres.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
-    .map(([genre]) => genre);
-
-  return { watchlistIds, preferredType, genres };
+  return {
+    watchlistIds: user.watchlistContentIds,
+    preferredType: user.watchlistRecommendationType ?? "movie",
+    genres: user.watchlistRecommendationGenres
+  };
 }
 
-export const setAniListId = internalMutation({
-  args: { id: v.id("content"), anilistId: v.string() },
-  handler: async (ctx, { id, anilistId }) => {
-    await ctx.db.patch(id, { anilistId, updatedAt: Date.now() });
+async function readRecommendationPool(ctx: QueryCtx, type: "movie" | "tv", genres: string[]) {
+  for (const genre of genres) {
+    const row = await ctx.db
+      .query("recommendationPools")
+      .withIndex("by_key", (q) => q.eq("key", recommendationPoolKey(type, genre)))
+      .first();
+    if (row?.items.length) return row.items as ContentCardWire[];
   }
-});
+
+  const row = await ctx.db
+    .query("recommendationPools")
+    .withIndex("by_key", (q) => q.eq("key", recommendationPoolKey(type)))
+    .first();
+  return (row?.items ?? []) as ContentCardWire[];
+}
+
+function rankRecommendations(args: {
+  pool: ContentCardWire[];
+  watchlistIds: Id<"content">[];
+  preferredType: "movie" | "tv";
+  genres: string[];
+  typeFilter: "all" | "movie" | "tv";
+  refreshSeed: number;
+  limit: number;
+}) {
+  const watchlistIdSet = new Set(args.watchlistIds);
+  const preferredGenres = new Set(args.genres.slice(0, 8));
+  const signature = args.watchlistIds.map(String).sort().join("|");
+
+  return args.pool
+    .filter((item) => !watchlistIdSet.has(item[0]))
+    .filter((item) => args.typeFilter === "all" || item[2] === args.typeFilter)
+    .map((item) => {
+      let score = seededUnitInterval(`${signature}:${args.typeFilter}:${args.refreshSeed}:${String(item[0])}`) * 15;
+      if (item[2] === args.preferredType) score += 2;
+      for (const genre of item[8] ?? []) {
+        if (preferredGenres.has(genre)) score += 1.5;
+      }
+      if ((item[5] ?? 0) > 7) score += 0.5;
+      return { item, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, args.limit)
+    .map(({ item }) => item);
+}
 
 export const listRecommendedCards = query({
   args: {
@@ -679,95 +742,21 @@ export const listRecommendedCards = query({
   handler: async (
     ctx,
     { clerkUserId, limit = 12, typeFilter = "all", refreshSeed = 0 }
-  ): Promise<ContentCard[]> => {
+  ): Promise<ContentCardWire[]> => {
     const seed = await getRecommendationSeed(ctx, clerkUserId);
     if (!seed || seed.watchlistIds.length === 0) return [];
 
-    const watchlistIdSet = new Set<Id<"content">>(seed.watchlistIds);
-    const watchlistSignature = seed.watchlistIds
-      .map((item: Id<"content">) => String(item))
-      .sort()
-      .join("|");
-    const candidateFetchLimit = Math.max(limit + 8, 16);
-    const preferredType = seed.preferredType;
-    const preferredGenres = new Set(seed.genres);
-
-    const cardCandidates =
-      typeFilter === "all"
-        ? await ctx.db
-            .query("contentCards")
-            .withIndex("by_type", (q) => q.eq("type", preferredType as "movie" | "tv"))
-            .take(candidateFetchLimit)
-        : await ctx.db
-            .query("contentCards")
-            .withIndex("by_type", (q) => q.eq("type", typeFilter))
-            .take(candidateFetchLimit);
-
-    if (cardCandidates.length === 0) {
-      const contentCandidates =
-        typeFilter === "all"
-          ? await ctx.db
-              .query("content")
-              .withIndex("by_type", (q) => q.eq("type", preferredType as "movie" | "tv"))
-              .take(candidateFetchLimit)
-          : await ctx.db
-              .query("content")
-              .withIndex("by_type", (q) => q.eq("type", typeFilter))
-              .take(candidateFetchLimit);
-
-      return [...contentCandidates]
-        .filter((item) => !watchlistIdSet.has(item._id))
-        .map((item) => {
-          let score = 0;
-          score +=
-            seededUnitInterval(
-              `${watchlistSignature}:${typeFilter}:${refreshSeed}:score:${String(item._id)}`
-            ) * 15;
-          if (item.type === preferredType) score += 2;
-          for (const genre of item.genre) {
-            if (preferredGenres.has(genre)) score += 1.5;
-          }
-          if (item.popular) score += 1;
-          if (item.voteAverage && item.voteAverage > 7) score += 0.5;
-          return { item, score };
-        })
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit)
-        .map(({ item }) => toContentCard(item));
-    }
-
-    const filtered = cardCandidates.filter((item) => !watchlistIdSet.has(item.contentId));
-    const poolSize = Math.min(filtered.length, limit * 2 + refreshSeed * 4);
-    const pool = [...filtered]
-      .sort((a, b) => {
-        const aSeed = seededUnitInterval(
-          `${watchlistSignature}:${typeFilter}:${refreshSeed}:${String(a.contentId)}`
-        );
-        const bSeed = seededUnitInterval(
-          `${watchlistSignature}:${typeFilter}:${refreshSeed}:${String(b.contentId)}`
-        );
-        return aSeed - bSeed;
-      })
-      .slice(0, poolSize);
-
-    return pool
-      .map((item) => {
-        let score = 0;
-        score +=
-          seededUnitInterval(
-            `${watchlistSignature}:${typeFilter}:${refreshSeed}:score:${String(item.contentId)}`
-          ) * 15;
-        if (item.type === preferredType) score += 2;
-        for (const genre of item.genre) {
-          if (preferredGenres.has(genre)) score += 1.5;
-        }
-        if (item.popular) score += 1;
-        if (item.voteAverage && item.voteAverage > 7) score += 0.5;
-        return { item, score };
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map(({ item }) => toContentCardRow(item));
+    const poolType = typeFilter === "all" ? seed.preferredType : typeFilter;
+    const pool = await readRecommendationPool(ctx, poolType, seed.genres);
+    return rankRecommendations({
+      pool,
+      watchlistIds: seed.watchlistIds,
+      preferredType: seed.preferredType,
+      genres: seed.genres,
+      typeFilter,
+      refreshSeed,
+      limit
+    });
   }
 });
 
@@ -783,46 +772,19 @@ export const listRecommendedCardsFromSeed = query({
   handler: async (
     ctx,
     { watchlistIds, preferredType, genres, limit = 12, typeFilter = "all", refreshSeed = 0 }
-  ): Promise<ContentCard[]> => {
+  ): Promise<ContentCardWire[]> => {
     if (watchlistIds.length === 0) return [];
 
-    const watchlistIdSet = new Set<Id<"content">>(watchlistIds);
-    const watchlistSignature = watchlistIds
-      .map((item: Id<"content">) => String(item))
-      .sort()
-      .join("|");
-    const candidateFetchLimit = Math.max(limit + 8, 16);
-    const preferredGenres = new Set(genres.slice(0, 8));
-
-    const cardCandidates =
-      typeFilter === "all"
-        ? await ctx.db
-            .query("contentCards")
-            .withIndex("by_type", (q) => q.eq("type", preferredType))
-            .take(candidateFetchLimit)
-        : await ctx.db
-            .query("contentCards")
-            .withIndex("by_type", (q) => q.eq("type", typeFilter))
-            .take(candidateFetchLimit);
-
-    return cardCandidates
-      .filter((item) => !watchlistIdSet.has(item.contentId))
-      .map((item) => {
-        let score = 0;
-        score +=
-          seededUnitInterval(
-            `${watchlistSignature}:${typeFilter}:${refreshSeed}:score:${String(item.contentId)}`
-          ) * 15;
-        if (item.type === preferredType) score += 2;
-        for (const genre of item.genre) {
-          if (preferredGenres.has(genre)) score += 1.5;
-        }
-        if (item.popular) score += 1;
-        if (item.voteAverage && item.voteAverage > 7) score += 0.5;
-        return { item, score };
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map(({ item }) => toContentCardRow(item));
+    const poolType = typeFilter === "all" ? preferredType : typeFilter;
+    const pool = await readRecommendationPool(ctx, poolType, genres);
+    return rankRecommendations({
+      pool,
+      watchlistIds,
+      preferredType,
+      genres,
+      typeFilter,
+      refreshSeed,
+      limit
+    });
   }
 });

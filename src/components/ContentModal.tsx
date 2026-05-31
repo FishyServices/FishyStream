@@ -40,10 +40,12 @@ import {
 import { isAnimeProviderContent } from "@fishy/providers/providerPlayback";
 import type {
   ContentDetail,
+  ContentDetailWire,
   ContentId,
   ContentType,
   SeasonMetaSummary
 } from "../../shared/contentMetadata";
+import { fromContentDetailWire } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -158,11 +160,12 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const [activeTab, setActiveTab] = useState<"episodes" | "cast" | "videos" | "related">(
     "episodes"
   );
-  const fullContent = useOneShotConvexQuery<ContentDetail | null>(
+  const fullContentWire = useOneShotConvexQuery<ContentDetailWire | null>(
     isOpen && !!content && !hasFullContent(content),
     (convex) => convex.query(api.content.getContentDetailById, { id: content!._id }),
     [content?._id, isOpen]
   );
+  const fullContent = fullContentWire ? fromContentDetailWire(fullContentWire) : fullContentWire;
   const resolvedContent: ModalContent | null = fullContent
     ? { ...fullContent, ...content }
     : content;
@@ -229,7 +232,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
   const knownSeasonCount = getSeasonCount(resolvedContent);
 
-  const relatedContentQuery = useOneShotConvexQuery<ContentDetail | null>(
+  const relatedContentQuery = useOneShotConvexQuery<ContentDetailWire | null>(
     !!relatedModalItem,
     (convex) =>
       convex.query(api.content.getContentDetailByTmdbId, {
@@ -240,7 +243,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
   useEffect(() => {
     if (relatedContentQuery) {
-      setRelatedDbContent(relatedContentQuery);
+      setRelatedDbContent(fromContentDetailWire(relatedContentQuery));
     }
   }, [relatedContentQuery]);
 

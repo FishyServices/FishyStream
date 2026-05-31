@@ -6,7 +6,8 @@ import { ContentModal } from "./ContentModal";
 import { Button } from "@fishy/ui";
 import { useAction, useConvex } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import type { ContentDetail } from "../../shared/contentMetadata";
+import type { ContentDetail, ContentDetailWire } from "../../shared/contentMetadata";
+import { fromContentDetailWire } from "../../shared/contentMetadata";
 
 interface SearchCardProps {
   item: TMDBItem;
@@ -42,8 +43,9 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
         });
       }
 
-      setDbContent(existing);
-      return existing;
+      const decoded = existing ? fromContentDetailWire(existing as ContentDetailWire) : null;
+      setDbContent(decoded);
+      return decoded;
     } finally {
       setIsResolvingContent(false);
     }
