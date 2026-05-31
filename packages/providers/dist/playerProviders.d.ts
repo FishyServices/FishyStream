@@ -42,7 +42,6 @@ export declare function shouldApplyProviderResume(providerKey: ProviderKey | str
 export declare function shouldForceProviderStartPosition(providerKey: ProviderKey | string | undefined): providerKey is "vidfast";
 export declare function applyProviderEmbedParams(url: URL, providerKey: ProviderKey | string | undefined, contentType: ProviderContentType): void;
 export declare function createProviderEmbedUrl({ sourceUrl, provider, contentType, resumePositionSeconds, watchCompleted, baseUrl }: ProviderEmbedUrlOptions): string;
-export declare function shouldDisableProviderSubtitles(providerKey: ProviderKey | string | undefined): providerKey is "vidplays";
 export declare function postMessageToPlayer(iframe: HTMLIFrameElement | null, command: string, params?: Record<string, unknown>): void;
 export declare function createPlayerControls(iframeRef: {
     current: HTMLIFrameElement | null;

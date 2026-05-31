@@ -152,8 +152,7 @@ async function proxyVidPlaysHls(url: URL) {
 
   const playlist = await upstream.text();
   return new Response(rewriteHlsPlaylist(playlist, target, url.origin), {
-    //status: 200,
-    status: upstream.status,
+    status: 200,
     headers: noStoreHeaders("application/vnd.apple.mpegurl; charset=utf-8")
   });
 }

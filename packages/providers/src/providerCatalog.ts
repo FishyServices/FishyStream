@@ -104,6 +104,28 @@ function defineProvider(definition: ProviderDefinition): ProviderCatalogEntry {
 
 export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   defineProvider({
+    key: "peachify",
+    name: "Peachify",
+    category: "primary",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://peachify.top",
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidcore",
+    name: "VidCore",
+    category: "primary",
+    idType: "both",
+    quality: "4K",
+    website: "https://vidcore.net",
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
     key: "vidking",
     name: "VidKing",
     category: "primary",
@@ -113,6 +135,47 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidzen",
+    name: "VidZen",
+    category: "primary",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://vidzen.fun",
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "filmu",
+    name: "filmu",
+    category: "primary_anime",
+    idType: "both",
+    quality: "1080p",
+    website: "https://embed.filmu.in",
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) =>
+      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
+  }),
+  defineProvider({
+    key: "megaplay",
+    name: "MegaPlay",
+    category: "primary_anime",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://megaplay.buzz",
+    animeOnly: true,
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    moviePath: (id) => `/stream/ani/${id}/1/sub`,
+    tvPath: (id, _season, episode) => `/stream/ani/${id}/${episode}/sub`,
+    animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`
   }),
   defineProvider({
     key: "vidfast",
@@ -132,109 +195,52 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
-    key: "videasy",
-    name: "VidEasy",
-    category: "other",
-    idType: "tmdb",
-    quality: "1080p",
-    website: "https://player.videasy.net",
-    animeIdType: "anilist",
-    progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/movie/${id}`,
-    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode) => `/anime/${id}/${episode}`
-  }),
-  defineProvider({
-    key: "vidnest",
-    name: "VidNest",
-    category: "other",
-    idType: "tmdb",
-    quality: "1080p",
-    website: "https://vidnest.fun",
-    animeIdType: "anilist",
-    dubSupport: true,
-    progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/movie/${id}`,
-    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) => `/anime/${id}/${episode}${dub ? "/dub" : "/sub"}`
-  }),
-  defineProvider({
-    key: "vidrock",
-    name: "VidRock",
+    key: "111movies",
+    name: "111movies",
     category: "other",
     idType: "both",
-    quality: "1080p",
-    website: "https://vidrock.ru",
-    animeIdType: "anilist",
-    dubSupport: true,
-    progress: { origins: ALL_ORIGINS, referrerPolicy: "strict-origin-when-cross-origin" },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) =>
-      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
-  }),
-  defineProvider({
-    key: "vidplus (ads)",
-    name: "VidPlus (Ads)",
-    category: "other",
-    idType: "both",
-    quality: "1080p",
-    website: "https://player.vidplus.to",
-    animeIdType: "anilist",
-    dubSupport: true,
+    quality: "720p",
+    website: "https://111movies.net",
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) =>
-      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
-  }),
-  defineProvider({
-    key: "filmu",
-    name: "filmu",
-    category: "primary_anime",
-    idType: "both",
-    quality: "1080p",
-    website: "https://embed.filmu.in",
-    animeIdType: "anilist",
-    dubSupport: true,
-    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) =>
-      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
-  }),
-  defineProvider({
-    key: "vidzen",
-    name: "VidZen",
-    category: "primary",
-    idType: "tmdb",
-    quality: "1080p",
-    website: "https://vidzen.fun",
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
-    key: "vixsrc",
-    name: "VixSrc",
+    key: "2embed",
+    name: "2Embed",
+    category: "other",
+    idType: "imdb",
+    quality: "720p",
+    website: "https://www.2embed.cc",
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/embed/${id}`,
+    tvPath: (id, season, episode) => `/embed/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) =>
+      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
+  }),
+  defineProvider({
+    key: "autoembed",
+    name: "AutoEmbed",
     category: "other",
     idType: "tmdb",
     quality: "1080p",
-    website: "https://vixsrc.to",
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/movie/${id}`,
-    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "vidsrcpro",
-    name: "VidSrc Pro",
-    category: "other",
-    idType: "both",
-    quality: "1080p",
-    website: "https://vidsrc.mov",
+    website: "https://player.autoembed.cc",
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "cinesrc",
+    name: "cinesrc",
+    category: "other",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://cinesrc.st",
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}?s=${season}&e=${episode}`
   }),
   defineProvider({
     key: "cinezo",
@@ -265,6 +271,19 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
+    key: "streamrip",
+    name: "StreamRip",
+    category: "other",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://streamrip.fun",
+    animeIdType: "anilist",
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode) => `/anime/${id}/${episode}`
+  }),
+  defineProvider({
     key: "superembed",
     name: "SuperEmbed",
     category: "other",
@@ -277,83 +296,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/?video_id=${id}&tmdb=1&season=${season}&episode=${episode}`,
     animePath: (id, _season, episode, dub) =>
       `/?video_id=${id}&anime=1&episode=${episode}${dub ? "&dub=1" : ""}`
-  }),
-  defineProvider({
-    key: "autoembed",
-    name: "AutoEmbed",
-    category: "other",
-    idType: "tmdb",
-    quality: "1080p",
-    website: "https://player.autoembed.cc",
-    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "vidsrc",
-    name: "VidSrc",
-    category: "other",
-    idType: "both",
-    quality: "1080p",
-    website: "https://vidsrc.to",
-    animeIdType: "anilist",
-    dubSupport: true,
-    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "2" : "1"}`
-  }),
-  defineProvider({
-    key: "2embed",
-    name: "2Embed",
-    category: "other",
-    idType: "imdb",
-    quality: "720p",
-    website: "https://www.2embed.cc",
-    animeIdType: "anilist",
-    dubSupport: true,
-    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/embed/${id}`,
-    tvPath: (id, season, episode) => `/embed/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) =>
-      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
-  }),
-  defineProvider({
-    key: "vidzee",
-    name: "VidZee",
-    category: "other",
-    idType: "tmdb",
-    quality: "720p",
-    website: "https://player.vidzee.wtf",
-    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/v2/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/v2/embed/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "111movies",
-    name: "111movies",
-    category: "other",
-    idType: "both",
-    quality: "720p",
-    website: "https://111movies.net",
-    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/movie/${id}`,
-    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "vidplays",
-    name: "VidPlays",
-    category: "other",
-    idType: "tmdb",
-    quality: "1080p",
-    website: "/vidplays-proxy",
-    progress: {
-      origins: ALL_ORIGINS,
-      resumeParam: "startAt",
-      referrerPolicy: "unsafe-url"
-    },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "tryembed",
@@ -371,65 +313,123 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
   }),
   defineProvider({
-    key: "megaplay",
-    name: "MegaPlay",
-    category: "primary_anime",
+    key: "videasy",
+    name: "VidEasy",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
-    website: "https://megaplay.buzz",
-    animeOnly: true,
+    website: "https://player.videasy.net",
+    animeIdType: "anilist",
+    progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode) => `/anime/${id}/${episode}`
+  }),
+  defineProvider({
+    key: "vidnest",
+    name: "VidNest",
+    category: "other",
+    idType: "tmdb",
+    quality: "1080p",
+    website: "https://vidnest.fun",
     animeIdType: "anilist",
     dubSupport: true,
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
-    moviePath: (id) => `/stream/ani/${id}/1/sub`,
-    tvPath: (id, _season, episode) => `/stream/ani/${id}/${episode}/sub`,
-    animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`
-  }),
-  defineProvider({
-    key: "vidcore",
-    name: "VidCore",
-    category: "primary",
-    idType: "both",
-    quality: "4K",
-    website: "https://vidcore.net",
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
-    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) => `/anime/${id}/${episode}${dub ? "/dub" : "/sub"}`
   }),
   defineProvider({
-    key: "peachify",
-    name: "Peachify",
-    category: "primary",
+    key: "vidplays",
+    name: "VidPlays",
+    category: "other",
     idType: "tmdb",
     quality: "1080p",
-    website: "https://peachify.top",
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
+    website: "/vidplays-proxy",
+    progress: {
+      origins: ALL_ORIGINS,
+      resumeParam: "startAt",
+      referrerPolicy: "unsafe-url"
+    },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
-    key: "cinesrc",
-    name: "cinesrc",
+    key: "vidplus (ads)",
+    name: "VidPlus (Ads)",
     category: "other",
-    idType: "tmdb",
+    idType: "both",
     quality: "1080p",
-    website: "https://cinesrc.st",
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    website: "https://player.vidplus.to",
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}?s=${season}&e=${episode}`
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) =>
+      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
   }),
   defineProvider({
-    key: "streamrip",
-    name: "StreamRip",
+    key: "vidrock",
+    name: "VidRock",
+    category: "other",
+    idType: "both",
+    quality: "1080p",
+    website: "https://vidrock.ru",
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "strict-origin-when-cross-origin" },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) =>
+      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
+  }),
+  defineProvider({
+    key: "vidsrc",
+    name: "VidSrc",
+    category: "other",
+    idType: "both",
+    quality: "1080p",
+    website: "https://vidsrc.to",
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "2" : "1"}`
+  }),
+  defineProvider({
+    key: "vidsrcpro",
+    name: "VidSrc Pro",
+    category: "other",
+    idType: "both",
+    quality: "1080p",
+    website: "https://vidsrc.mov",
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidzee",
+    name: "VidZee",
+    category: "other",
+    idType: "tmdb",
+    quality: "720p",
+    website: "https://player.vidzee.wtf",
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/v2/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/v2/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vixsrc",
+    name: "VixSrc",
     category: "other",
     idType: "tmdb",
     quality: "1080p",
-    website: "https://streamrip.fun",
-    animeIdType: "anilist",
-    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+    website: "https://vixsrc.to",
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
-    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode) => `/anime/${id}/${episode}`
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   })
 ];
 

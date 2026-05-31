@@ -32,8 +32,7 @@ import {
   parsePlayerMessage,
   calculateProgress,
   isKnownPlayerOrigin,
-  postMessageToPlayer,
-  shouldDisableProviderSubtitles
+  postMessageToPlayer
 } from "@fishy/providers/playerProviders";
 import {
   buildMovieSources,
@@ -480,25 +479,6 @@ export function VideoPlayer({
       window.clearInterval(interval);
     };
   }, [canRequestStatus, embedUrl, supportsProgressEvents]);
-
-  useEffect(() => {
-    if (!embedUrl || !shouldDisableProviderSubtitles(selectedProvider?.key)) return;
-
-    const disableVidPlaysSubtitles = () => {
-      postMessageToPlayer(iframeRef.current, "setSubtitle", { trackId: 0 });
-    };
-    const iframe = iframeRef.current;
-
-    iframe?.addEventListener("load", disableVidPlaysSubtitles);
-    const timers = [500, 1500, 3000].map((delay) =>
-      window.setTimeout(disableVidPlaysSubtitles, delay)
-    );
-
-    return () => {
-      iframe?.removeEventListener("load", disableVidPlaysSubtitles);
-      timers.forEach((timer) => window.clearTimeout(timer));
-    };
-  }, [embedUrl, selectedProvider?.key]);
 
   useEffect(() => {
     if (!embedUrl || !supportsProgressEvents) return;

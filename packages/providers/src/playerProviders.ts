@@ -366,10 +366,6 @@ export function createProviderEmbedUrl({
   }
 }
 
-export function shouldDisableProviderSubtitles(providerKey: ProviderKey | string | undefined) {
-  return providerKey === "vidplays";
-}
-
 export function postMessageToPlayer(
   iframe: HTMLIFrameElement | null,
   command: string,

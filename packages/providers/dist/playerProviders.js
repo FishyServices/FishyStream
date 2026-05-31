@@ -235,9 +235,6 @@ export function createProviderEmbedUrl({ sourceUrl, provider, contentType, resum
         return sourceUrl;
     }
 }
-export function shouldDisableProviderSubtitles(providerKey) {
-    return providerKey === "vidplays";
-}
 export function postMessageToPlayer(iframe, command, params) {
     if (!iframe?.contentWindow)
         return;

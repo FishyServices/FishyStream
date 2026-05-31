@@ -1,38 +1,43 @@
-import { defineConfig, loadEnv, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Connect, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { matchProviderProxyPath, proxyProviderRequest } from "@fishy/providers/providerProxy";
 
-function vidplaysProxyPlugin(): Plugin {
-  return {
-    name: "vidplays-proxy",
-    configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
-        const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-        if (!matchProviderProxyPath(requestUrl.pathname)) {
-          next();
-          return;
-        }
+function providerProxyPlugin(): Plugin {
+  const handleProviderProxyRequest: Connect.NextHandleFunction = async (req, res, next) => {
+    const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    if (!matchProviderProxyPath(requestUrl.pathname)) {
+      next();
+      return;
+    }
 
-        try {
-          const response = await proxyProviderRequest({
-            url: requestUrl,
-            method: req.method ?? "GET",
-            headers: new Headers(req.headers as HeadersInit)
-          });
-
-          res.statusCode = response.status;
-          response.headers.forEach((value, key) => {
-            res.setHeader(key, value);
-          });
-          res.end(Buffer.from(await response.arrayBuffer()));
-        } catch (error) {
-          res.statusCode = 502;
-          res.setHeader("Content-Type", "text/plain; charset=utf-8");
-          res.end(error instanceof Error ? error.message : "VidPlays proxy failed");
-        }
+    try {
+      const response = await proxyProviderRequest({
+        url: requestUrl,
+        method: req.method ?? "GET",
+        headers: new Headers(req.headers as HeadersInit)
       });
+
+      res.statusCode = response.status;
+      response.headers.forEach((value, key) => {
+        res.setHeader(key, value);
+      });
+      res.end(Buffer.from(await response.arrayBuffer()));
+    } catch (error) {
+      res.statusCode = 502;
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.end(error instanceof Error ? error.message : "Provider proxy failed");
+    }
+  };
+
+  return {
+    name: "provider-proxy",
+    configureServer(server) {
+      server.middlewares.use(handleProviderProxyRequest);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(handleProviderProxyRequest);
     }
   };
 }
@@ -42,7 +47,7 @@ export default defineConfig(({ mode }) => {
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL;
 
   return {
-    plugins: [vidplaysProxyPlugin(), tailwindcss(), react()],
+    plugins: [providerProxyPlugin(), tailwindcss(), react()],
     resolve: {
       alias: [
         { find: "@", replacement: path.resolve(__dirname, "./src") },
