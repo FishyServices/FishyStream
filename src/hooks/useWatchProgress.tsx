@@ -187,7 +187,7 @@ export function useWatchProgressContext(): ProgressMap | undefined {
 export function useUpdateProgress() {
   const { user } = useUser();
   const ctx = useContext(Ctx);
-  const dbSync = useMutation(api.watchHistory.saveWatchProgress);
+  const dbSync = useMutation(api.watchHistory.saveWatchProgressBatch);
 
   const pendingRef = useRef<Map<string, StoredProgress>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,9 +238,9 @@ export function useUpdateProgress() {
     syncingRef.current = true;
 
     try {
-      for (const entry of batch) {
-        await dbSync({
-          clerkUserId: user.id,
+      await dbSync({
+        clerkUserId: user.id,
+        entries: batch.map((entry) => ({
           contentId: entry.contentId as Id<"content">,
           progress: entry.progress,
           completed: entry.completed,
@@ -250,8 +250,10 @@ export function useUpdateProgress() {
           episodeNumber: entry.episodeNumber,
           source: entry.source,
           dub: entry.dub
-        });
+        }))
+      });
 
+      for (const entry of batch) {
         pendingRef.current.delete(entry.contentId);
         persistEntry({ ...entry, needsSync: false });
       }

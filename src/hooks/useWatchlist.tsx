@@ -11,7 +11,11 @@ import { useConvexAuth, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { WatchlistGridItem } from "../../shared/contentMetadata";
+import {
+  fromWatchlistGridWire,
+  type WatchlistGridItem,
+  type WatchlistGridWire
+} from "../../shared/contentMetadata";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 const LS_KEY = "watchlist_ids";
@@ -136,11 +140,13 @@ export function useWatchlistHydrated(): boolean {
 
 export function useMyWatchlist(): WatchlistGridItem[] | undefined {
   const { user } = useUser();
-  return useOneShotConvexQuery<WatchlistGridItem[]>(
+  const serverData = useOneShotConvexQuery<WatchlistGridWire[]>(
     !!user,
     (client) => client.query(api.watchlist.listWatchlist, { clerkUserId: user!.id }),
     [user?.id]
   );
+
+  return useMemo(() => serverData?.map(fromWatchlistGridWire), [serverData]);
 }
 
 export function useUpdateWatchlistFolder() {

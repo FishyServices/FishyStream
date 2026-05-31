@@ -390,7 +390,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       0;
     const hasEpisodes = actualEpisodes > 0;
     const hasNoEpisodeImages =
-      (dbSeason?.episodes.length ?? 0) > 0 && dbSeason!.episodes.every((episode) => !episode.stillUrl);
+      (dbSeason?.episodes.length ?? 0) > 0 &&
+      dbSeason!.episodes.every((episode) => !episode.stillUrl);
     const hasMismatch =
       expectedEpisodes != null && hasEpisodes && actualEpisodes !== expectedEpisodes;
     const needsSync =

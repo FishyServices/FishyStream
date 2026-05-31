@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
@@ -10,6 +10,7 @@ import {
   type WatchProgressEntryMeta
 } from "../shared/contentMetadata";
 import { findOrCreateUserIdByClerkId, findUserIdByClerkIdQuery } from "./lib/users";
+import { buildContentSnapshot, hasContentSnapshot } from "./lib/contentSnapshots";
 
 type ProgressDocument = {
   contentId: Id<"content">;
@@ -22,7 +23,29 @@ type ProgressDocument = {
   dub?: boolean;
   completed: boolean;
   watchedAt: number;
+  contentType?: "movie" | "tv";
+  title?: string;
+  genre?: string[];
+  year?: number;
+  voteAverage?: number;
+  posterUrl?: string;
+  tmdbId?: string;
+  new?: boolean;
 };
+
+const progressWriteFields = {
+  contentId: v.id("content"),
+  progress: v.number(),
+  completed: v.optional(v.boolean()),
+  positionSeconds: v.optional(v.number()),
+  durationSeconds: v.optional(v.number()),
+  seasonNumber: v.optional(v.number()),
+  episodeNumber: v.optional(v.number()),
+  source: v.optional(v.string()),
+  dub: v.optional(v.boolean())
+};
+
+const progressWriteValidator = v.object(progressWriteFields);
 
 function normalizeProgress(progress: number) {
   if (!Number.isFinite(progress)) return 0;
@@ -105,6 +128,22 @@ async function getContentCard(ctx: QueryCtx, contentId: Id<"content">) {
   };
 }
 
+function getSnapshotContent(row: ProgressDocument) {
+  if (!hasContentSnapshot(row)) return null;
+
+  return {
+    _id: row.contentId,
+    title: row.title!,
+    type: row.contentType!,
+    genre: row.genre!,
+    year: row.year!,
+    voteAverage: row.voteAverage,
+    posterUrl: row.posterUrl!,
+    tmdbId: row.tmdbId,
+    new: row.new!
+  };
+}
+
 async function listSnapshotBackedHistory(
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -128,7 +167,7 @@ async function listSnapshotBackedHistory(
   const result: WatchHistoryItemWire[] = [];
 
   for (const row of progressRows) {
-    const content = await getContentCard(ctx, row.contentId);
+    const content = getSnapshotContent(row) ?? (await getContentCard(ctx, row.contentId));
     if (!content) continue;
 
     result.push(toWatchHistoryItemWire(toContentBackedWatchHistoryItemMeta(row, content)));
@@ -147,11 +186,11 @@ export const listWatchHistory = query({
 });
 
 export const listContinueWatching = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemWire[]> => {
+  args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, { clerkUserId, limit = 6 }): Promise<WatchHistoryItemWire[]> => {
     const userId = await queryUserId(ctx, clerkUserId);
     if (!userId) return [];
-    return await listSnapshotBackedHistory(ctx, userId, 10, false);
+    return await listSnapshotBackedHistory(ctx, userId, Math.max(1, Math.min(10, limit)), false);
   }
 });
 
@@ -174,67 +213,94 @@ export const listWatchProgressEntries = query({
 export const saveWatchProgress = mutation({
   args: {
     clerkUserId: v.string(),
-    contentId: v.id("content"),
-    progress: v.number(),
-    completed: v.optional(v.boolean()),
-    positionSeconds: v.optional(v.number()),
-    durationSeconds: v.optional(v.number()),
-    seasonNumber: v.optional(v.number()),
-    episodeNumber: v.optional(v.number()),
-    source: v.optional(v.string()),
-    dub: v.optional(v.boolean())
+    ...progressWriteFields
   },
   handler: async (ctx, args): Promise<void> => {
     const userId = await mutateUserId(ctx, args.clerkUserId);
     if (!userId) throw new Error("User not found");
 
-    const normalizedProgress = normalizeProgress(args.progress);
-    const completed = args.completed ?? normalizedProgress >= 95;
-    const nextPositionSeconds = normalizeOptionalNumber(args.positionSeconds);
-    const nextDurationSeconds = normalizeOptionalNumber(args.durationSeconds);
-    const existing = await ctx.db
-      .query("watchProgress")
-      .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", args.contentId))
-      .first();
+    await saveProgressForUser(ctx, userId, args);
+  }
+});
 
-    if (existing) {
-      const nextState = {
-        progress: normalizedProgress,
-        completed,
-        positionSeconds: nextPositionSeconds ?? existing.positionSeconds,
-        durationSeconds: nextDurationSeconds ?? existing.durationSeconds,
-        seasonNumber: args.seasonNumber ?? existing.seasonNumber,
-        episodeNumber: args.episodeNumber ?? existing.episodeNumber,
-        source: args.source ?? existing.source,
-        dub: args.dub ?? existing.dub
-      };
+export const saveWatchProgressBatch = mutation({
+  args: {
+    clerkUserId: v.string(),
+    entries: v.array(progressWriteValidator)
+  },
+  handler: async (ctx, { clerkUserId, entries }): Promise<void> => {
+    const userId = await mutateUserId(ctx, clerkUserId);
+    if (!userId) throw new Error("User not found");
 
-      if (shouldSkipProgressUpdate(existing, nextState)) {
-        return;
-      }
+    for (const entry of entries.slice(0, 25)) {
+      await saveProgressForUser(ctx, userId, entry);
+    }
+  }
+});
 
-      await ctx.db.patch(existing._id, {
-        ...nextState,
-        watchedAt: Date.now()
-      });
+async function saveProgressForUser(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  args: {
+    contentId: Id<"content">;
+    progress: number;
+    completed?: boolean;
+    positionSeconds?: number;
+    durationSeconds?: number;
+    seasonNumber?: number;
+    episodeNumber?: number;
+    source?: string;
+    dub?: boolean;
+  }
+) {
+  const normalizedProgress = normalizeProgress(args.progress);
+  const completed = args.completed ?? normalizedProgress >= 95;
+  const nextPositionSeconds = normalizeOptionalNumber(args.positionSeconds);
+  const nextDurationSeconds = normalizeOptionalNumber(args.durationSeconds);
+  const existing = await ctx.db
+    .query("watchProgress")
+    .withIndex("by_user_content", (q) => q.eq("userId", userId).eq("contentId", args.contentId))
+    .first();
+
+  if (existing) {
+    const nextState = {
+      progress: normalizedProgress,
+      completed,
+      positionSeconds: nextPositionSeconds ?? existing.positionSeconds,
+      durationSeconds: nextDurationSeconds ?? existing.durationSeconds,
+      seasonNumber: args.seasonNumber ?? existing.seasonNumber,
+      episodeNumber: args.episodeNumber ?? existing.episodeNumber,
+      source: args.source ?? existing.source,
+      dub: args.dub ?? existing.dub
+    };
+
+    if (shouldSkipProgressUpdate(existing, nextState)) {
       return;
     }
 
-    await ctx.db.insert("watchProgress", {
-      userId,
-      contentId: args.contentId,
-      progress: normalizedProgress,
-      completed,
-      positionSeconds: nextPositionSeconds,
-      durationSeconds: nextDurationSeconds,
-      seasonNumber: args.seasonNumber,
-      episodeNumber: args.episodeNumber,
-      source: args.source,
-      dub: args.dub,
+    await ctx.db.patch(existing._id, {
+      ...nextState,
       watchedAt: Date.now()
     });
+    return;
   }
-});
+
+  const content = await ctx.db.get(args.contentId);
+  await ctx.db.insert("watchProgress", {
+    userId,
+    contentId: args.contentId,
+    progress: normalizedProgress,
+    completed,
+    positionSeconds: nextPositionSeconds,
+    durationSeconds: nextDurationSeconds,
+    seasonNumber: args.seasonNumber,
+    episodeNumber: args.episodeNumber,
+    source: args.source,
+    dub: args.dub,
+    watchedAt: Date.now(),
+    ...(content ? buildContentSnapshot(content) : {})
+  });
+}
 
 export const removeWatchHistoryEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.id("content") },
@@ -250,5 +316,25 @@ export const removeWatchHistoryEntry = mutation({
 
     await ctx.db.delete(existingProgress._id);
     return true;
+  }
+});
+
+export const compactWatchProgressSnapshots = internalMutation({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 5000 }) => {
+    const rows = await ctx.db.query("watchProgress").take(limit);
+    let updated = 0;
+
+    for (const row of rows) {
+      if (hasContentSnapshot(row)) continue;
+
+      const content = await ctx.db.get(row.contentId);
+      if (!content) continue;
+
+      await ctx.db.patch(row._id, buildContentSnapshot(content));
+      updated += 1;
+    }
+
+    return updated;
   }
 });

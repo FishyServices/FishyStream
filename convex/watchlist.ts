@@ -4,7 +4,9 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
   toWatchlistGridItem,
-  type WatchlistGridItem
+  toWatchlistGridWire,
+  type WatchlistGridItem,
+  type WatchlistGridWire
 } from "../shared/contentMetadata";
 import { findOrCreateUserIdByClerkId, findUserIdByClerkIdQuery } from "./lib/users";
 import { buildContentSnapshot, hasContentSnapshot } from "./lib/contentSnapshots";
@@ -19,7 +21,8 @@ function toSnapshotBackedWatchlistGridItem(
     type: content?.type ?? item.contentType!,
     posterUrl: content?.posterUrl ?? item.posterUrl!,
     tmdbId: content?.tmdbId ?? item.tmdbId,
-    watchlistFolder: item.folder
+    watchlistFolder: item.folder,
+    genre: content?.genre ?? item.genre
   });
 }
 
@@ -31,9 +34,38 @@ async function getUserIdForMutation(ctx: MutationCtx, clerkUserId: string) {
   return await findOrCreateUserIdByClerkId(ctx, clerkUserId);
 }
 
+async function refreshWatchlistRecommendationSeed(ctx: MutationCtx, userId: Id<"users">) {
+  const items = await ctx.db
+    .query("watchlist")
+    .withIndex("by_user_added_at", (q) => q.eq("userId", userId))
+    .order("desc")
+    .take(24);
+
+  const typeCounts = new Map<"movie" | "tv", number>();
+  const genreCounts = new Map<string, number>();
+
+  for (const item of items) {
+    if (item.contentType) {
+      typeCounts.set(item.contentType, (typeCounts.get(item.contentType) ?? 0) + 1);
+    }
+    for (const genre of item.genre ?? []) {
+      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
+    }
+  }
+
+  await ctx.db.patch(userId, {
+    watchlistRecommendationType:
+      Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? undefined,
+    watchlistRecommendationGenres: Array.from(genreCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([genre]) => genre)
+  });
+}
+
 export const listWatchlist = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchlistGridItem[]> => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchlistGridWire[]> => {
     const userId = await getUserIdForQuery(ctx, clerkUserId);
     if (!userId) return [];
 
@@ -43,7 +75,7 @@ export const listWatchlist = query({
       .order("desc")
       .collect();
 
-    const result: WatchlistGridItem[] = [];
+    const result: WatchlistGridWire[] = [];
     for (const item of items) {
       let content: Doc<"content"> | null = null;
       if (!hasContentSnapshot(item)) {
@@ -51,7 +83,7 @@ export const listWatchlist = query({
         if (!content) continue;
       }
 
-      result.push(toSnapshotBackedWatchlistGridItem(item, content));
+      result.push(toWatchlistGridWire(toSnapshotBackedWatchlistGridItem(item, content)));
     }
 
     return result;
@@ -105,6 +137,7 @@ export const addWatchlistEntry = mutation({
       const nextIds = Array.from(new Set([...(user.watchlistContentIds ?? []), contentId]));
       await ctx.db.patch(userId, { watchlistContentIds: nextIds });
     }
+    await refreshWatchlistRecommendationSeed(ctx, userId);
 
     return true;
   }
@@ -129,6 +162,7 @@ export const removeWatchlistEntry = mutation({
         watchlistContentIds: user.watchlistContentIds.filter((id) => id !== contentId)
       });
     }
+    await refreshWatchlistRecommendationSeed(ctx, userId);
     return true;
   }
 });

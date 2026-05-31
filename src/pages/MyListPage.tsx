@@ -66,10 +66,34 @@ export function MyListPage() {
   const [sortBy, setSortBy] = useState<"recently" | "oldest" | "title-az" | "title-za">("recently");
   const [viewLayout, setViewLayout] = useState<"grid" | "list">("grid");
   const [canDragCards, setCanDragCards] = useState(false);
+  const recommendationSeed = useMemo(() => {
+    if (!watchlistData?.length) return undefined;
+
+    const typeCounts = new Map<"movie" | "tv", number>();
+    const genreCounts = new Map<string, number>();
+    for (const item of watchlistData.slice(0, 24)) {
+      typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + 1);
+      for (const genre of item.genre ?? []) {
+        genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
+      }
+    }
+
+    return {
+      watchlistIds: watchlistData.map((item) => item._id),
+      preferredType:
+        Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "movie",
+      genres: Array.from(genreCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([genre]) => genre)
+    };
+  }, [watchlistData]);
   const { recommendations, isLoading: recsLoading } = useRecommendations(
     12,
     typeFilter,
-    refreshSeed
+    refreshSeed,
+    !!watchlistData?.length,
+    recommendationSeed
   );
 
   useEffect(() => {
@@ -668,7 +692,7 @@ export function MyListPage() {
 
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="text-base font-bold text-white truncate max-w-[240px] sm:max-w-[400px]">
+                                <h3 className="text-base font-bold text-white truncate max-w-60 sm:max-w-100">
                                   {item.title}
                                 </h3>
                                 <span className="text-xs px-1.5 py-0.5 rounded border border-white/20 bg-white/5 text-white/60 capitalize font-medium">

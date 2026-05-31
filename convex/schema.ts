@@ -38,6 +38,8 @@ export default defineSchema({
     name: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
     watchlistContentIds: v.optional(v.array(v.id("content"))),
+    watchlistRecommendationType: v.optional(mediaType),
+    watchlistRecommendationGenres: v.optional(v.array(v.string())),
     createdAt: v.number()
   }).index("by_clerk_user_id", ["clerkUserId"]),
 
@@ -73,7 +75,8 @@ export default defineSchema({
     budget: v.optional(v.number()),
     revenue: v.optional(v.number()),
     createdAt: v.number(),
-    updatedAt: v.number()
+    updatedAt: v.number(),
+    syncHash: v.optional(v.string())
   })
     .index("by_tmdb_id", ["tmdbId"])
     .index("by_imdb_id", ["imdbId"])
@@ -107,7 +110,8 @@ export default defineSchema({
     popular: v.boolean(),
     featured: v.boolean(),
     createdAt: v.number(),
-    updatedAt: v.number()
+    updatedAt: v.number(),
+    syncHash: v.optional(v.string())
   })
     .index("by_content", ["contentId"])
     .index("by_tmdb_id", ["tmdbId"])
@@ -183,7 +187,8 @@ export default defineSchema({
     source: v.optional(v.string()),
     dub: v.optional(v.boolean()),
     completed: v.boolean(),
-    watchedAt: v.number()
+    watchedAt: v.number(),
+    ...contentSnapshotFields
   })
     .index("by_user", ["userId"])
     .index("by_user_content", ["userId", "contentId"])

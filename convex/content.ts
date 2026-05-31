@@ -55,7 +55,8 @@ const tmdbContentValidator = v.object({
   budget: v.optional(v.number()),
   revenue: v.optional(v.number()),
   createdAt: v.number(),
-  updatedAt: v.number()
+  updatedAt: v.number(),
+  syncHash: v.optional(v.string())
 });
 
 const HOMEPAGE_ROW_LIMIT = 10;
@@ -265,6 +266,71 @@ function seededUnitInterval(seed: string) {
   return hashString(seed) / 4294967295;
 }
 
+function hashPayload(value: unknown) {
+  return String(hashString(JSON.stringify(value)));
+}
+
+function getContentSyncHash(item: typeof tmdbContentValidator.type) {
+  return hashPayload({
+    title: item.title,
+    description: item.description,
+    type: item.type,
+    genre: item.genre,
+    year: item.year,
+    rating: item.rating,
+    voteAverage: item.voteAverage,
+    voteCount: item.voteCount,
+    popularity: item.popularity,
+    duration: item.duration,
+    seasons: item.seasons,
+    totalEpisodes: item.totalEpisodes,
+    posterUrl: item.posterUrl,
+    backdropUrl: item.backdropUrl,
+    logoUrl: item.logoUrl,
+    trailerKey: item.trailerKey,
+    imdbId: item.imdbId,
+    tmdbId: item.tmdbId,
+    anilistId: item.anilistId,
+    trending: item.trending,
+    popular: item.popular,
+    featured: item.featured,
+    new: item.new,
+    status: item.status,
+    tagline: item.tagline,
+    originalLanguage: item.originalLanguage,
+    productionCountries: item.productionCountries,
+    spokenLanguages: item.spokenLanguages,
+    budget: item.budget,
+    revenue: item.revenue
+  });
+}
+
+function getCardForContentItem(
+  contentId: Id<"content">,
+  item: typeof tmdbContentValidator.type,
+  createdAt: number,
+  updatedAt: number
+) {
+  const card = {
+    contentId,
+    title: item.title,
+    type: item.type,
+    genre: item.genre.slice(0, 3),
+    year: item.year,
+    voteAverage: item.voteAverage,
+    posterUrl: item.posterUrl,
+    tmdbId: item.tmdbId,
+    new: item.new,
+    trending: item.trending,
+    popular: item.popular,
+    featured: item.featured,
+    createdAt,
+    updatedAt
+  };
+
+  return { ...card, syncHash: hashPayload(card) };
+}
+
 export const getHomepageView = query({
   args: {},
   handler: async (
@@ -364,57 +430,54 @@ export const upsertBatchFromTMDB = internalMutation({
   handler: async (ctx, { items }) => {
     let count = 0;
     for (const item of items) {
+      const now = Date.now();
+      const syncHash = item.syncHash ?? getContentSyncHash(item);
       const existing = await ctx.db
         .query("content")
         .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", item.tmdbId))
         .first();
 
       if (existing) {
-        await ctx.db.patch(existing._id, { ...item, updatedAt: Date.now() });
+        if (existing.syncHash !== syncHash) {
+          await ctx.db.patch(existing._id, { ...item, syncHash, updatedAt: now });
+        }
+
         const existingCard = await ctx.db
           .query("contentCards")
           .withIndex("by_content", (q) => q.eq("contentId", existing._id))
           .first();
-        const card = {
-          contentId: existing._id,
-          title: item.title,
-          type: item.type,
-          genre: item.genre.slice(0, 3),
-          year: item.year,
-          voteAverage: item.voteAverage,
-          posterUrl: item.posterUrl,
-          tmdbId: item.tmdbId,
-          new: item.new,
-          trending: item.trending,
-          popular: item.popular,
-          featured: item.featured,
-          createdAt: existing.createdAt,
-          updatedAt: Date.now()
-        };
+        const card = getCardForContentItem(existing._id, item, existing.createdAt, now);
         if (existingCard) {
-          await ctx.db.patch(existingCard._id, card);
+          if (existingCard.syncHash !== card.syncHash) {
+            await ctx.db.patch(existingCard._id, card);
+          }
         } else {
           await ctx.db.insert("contentCards", card);
         }
       } else {
-        const contentId = await ctx.db.insert("content", item);
-        await ctx.db.insert("contentCards", {
-          contentId,
-          title: item.title,
-          type: item.type,
-          genre: item.genre.slice(0, 3),
-          year: item.year,
-          voteAverage: item.voteAverage,
-          posterUrl: item.posterUrl,
-          tmdbId: item.tmdbId,
-          new: item.new,
-          trending: item.trending,
-          popular: item.popular,
-          featured: item.featured,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt
-        });
+        const contentId = await ctx.db.insert("content", { ...item, syncHash });
+        await ctx.db.insert(
+          "contentCards",
+          getCardForContentItem(contentId, item, item.createdAt, item.updatedAt)
+        );
       }
+      count += 1;
+    }
+    return count;
+  }
+});
+
+export const insertFreshBatchFromTMDB = internalMutation({
+  args: { items: v.array(tmdbContentValidator) },
+  handler: async (ctx, { items }) => {
+    let count = 0;
+    for (const item of items) {
+      const syncHash = item.syncHash ?? getContentSyncHash(item);
+      const contentId = await ctx.db.insert("content", { ...item, syncHash });
+      await ctx.db.insert(
+        "contentCards",
+        getCardForContentItem(contentId, item, item.createdAt, item.updatedAt)
+      );
       count += 1;
     }
     return count;
@@ -557,6 +620,14 @@ async function getRecommendationSeed(ctx: QueryCtx, clerkUserId: string) {
     .first();
   if (!user) return null;
 
+  if (user.watchlistContentIds !== undefined) {
+    return {
+      watchlistIds: user.watchlistContentIds,
+      preferredType: user.watchlistRecommendationType ?? "movie",
+      genres: user.watchlistRecommendationGenres ?? []
+    };
+  }
+
   const items = await ctx.db
     .query("watchlist")
     .withIndex("by_user_added_at", (q) => q.eq("userId", user._id))
@@ -617,7 +688,7 @@ export const listRecommendedCards = query({
       .map((item: Id<"content">) => String(item))
       .sort()
       .join("|");
-    const candidateFetchLimit = Math.max(limit * 2, 24);
+    const candidateFetchLimit = Math.max(limit + 8, 16);
     const preferredType = seed.preferredType;
     const preferredGenres = new Set(seed.genres);
 
@@ -680,6 +751,62 @@ export const listRecommendedCards = query({
       .slice(0, poolSize);
 
     return pool
+      .map((item) => {
+        let score = 0;
+        score +=
+          seededUnitInterval(
+            `${watchlistSignature}:${typeFilter}:${refreshSeed}:score:${String(item.contentId)}`
+          ) * 15;
+        if (item.type === preferredType) score += 2;
+        for (const genre of item.genre) {
+          if (preferredGenres.has(genre)) score += 1.5;
+        }
+        if (item.popular) score += 1;
+        if (item.voteAverage && item.voteAverage > 7) score += 0.5;
+        return { item, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(({ item }) => toContentCardRow(item));
+  }
+});
+
+export const listRecommendedCardsFromSeed = query({
+  args: {
+    watchlistIds: v.array(v.id("content")),
+    preferredType: contentTypeValidator,
+    genres: v.array(v.string()),
+    limit: v.optional(v.number()),
+    typeFilter: v.optional(v.union(v.literal("all"), v.literal("movie"), v.literal("tv"))),
+    refreshSeed: v.optional(v.number())
+  },
+  handler: async (
+    ctx,
+    { watchlistIds, preferredType, genres, limit = 12, typeFilter = "all", refreshSeed = 0 }
+  ): Promise<ContentCard[]> => {
+    if (watchlistIds.length === 0) return [];
+
+    const watchlistIdSet = new Set<Id<"content">>(watchlistIds);
+    const watchlistSignature = watchlistIds
+      .map((item: Id<"content">) => String(item))
+      .sort()
+      .join("|");
+    const candidateFetchLimit = Math.max(limit + 8, 16);
+    const preferredGenres = new Set(genres.slice(0, 8));
+
+    const cardCandidates =
+      typeFilter === "all"
+        ? await ctx.db
+            .query("contentCards")
+            .withIndex("by_type", (q) => q.eq("type", preferredType))
+            .take(candidateFetchLimit)
+        : await ctx.db
+            .query("contentCards")
+            .withIndex("by_type", (q) => q.eq("type", typeFilter))
+            .take(candidateFetchLimit);
+
+    return cardCandidates
+      .filter((item) => !watchlistIdSet.has(item.contentId))
       .map((item) => {
         let score = 0;
         score +=

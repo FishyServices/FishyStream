@@ -217,8 +217,9 @@ function HomepageContent({
   const homepage = useHomepageContent();
   const categories = homepage?.categories ?? [];
   const featuredContent = homepage?.featured;
-  const continueWatching = useContinueWatching() ?? [];
-  const { recommendations } = useRecommendations(12);
+  const continueWatching =
+    useContinueWatching(!!isSignedIn && settings.showContinueWatchingRow, 6) ?? [];
+  const { recommendations } = useRecommendations(8, "all", 0, !!isSignedIn);
   if (homepage === undefined) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">

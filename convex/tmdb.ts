@@ -453,6 +453,16 @@ function mapTmdbSeasonToCanonicalPayload(
   };
 }
 
+function compactSeasonEpisodesForDb(episodes: CanonicalSeasonPayload["episodes"]) {
+  return episodes.map((episode) => ({
+    episodeNumber: episode.episodeNumber,
+    name: episode.name,
+    stillUrl: episode.stillUrl,
+    runtime: episode.runtime,
+    voteAverage: episode.voteAverage
+  }));
+}
+
 function hasEpisodes(data: TMDBSeasonDetails | null): data is TMDBSeasonDetails {
   return (data?.episodes?.length ?? 0) > 0;
 }
@@ -826,7 +836,7 @@ export const syncContent = action({
 
     let synced = 0;
     for (let i = 0; i < items.length; i += 50) {
-      synced += await ctx.runMutation(internal.content.upsertBatchFromTMDB, {
+      synced += await ctx.runMutation(internal.content.insertFreshBatchFromTMDB, {
         items: items.slice(i, i + 50)
       });
     }
@@ -935,7 +945,7 @@ export const syncSeasons = action({
             posterUrl: undefined,
             airDate: group.episodes[0]?.air_date ?? undefined,
             episodeCount: group.episodes.length,
-            episodes
+            episodes: compactSeasonEpisodesForDb(episodes)
           });
           groupSynced++;
         }
@@ -973,7 +983,7 @@ export const syncSeasons = action({
         posterUrl: payload.posterUrl,
         airDate: payload.airDate,
         episodeCount: payload.episodeCount,
-        episodes: payload.episodes
+        episodes: compactSeasonEpisodesForDb(payload.episodes)
       });
       synced++;
     }
@@ -1042,7 +1052,7 @@ export const syncSeason = action({
         posterUrl: undefined,
         airDate: group.episodes[0]?.air_date ?? undefined,
         episodeCount: group.episodes.length,
-        episodes
+        episodes: compactSeasonEpisodesForDb(episodes)
       });
 
       return { seasonNumber, episodeCount: group.episodes.length };
@@ -1076,7 +1086,7 @@ export const syncSeason = action({
       posterUrl: payload.posterUrl,
       airDate: payload.airDate,
       episodeCount: payload.episodeCount,
-      episodes: payload.episodes
+      episodes: compactSeasonEpisodesForDb(payload.episodes)
     });
 
     return { seasonNumber: payload.seasonNumber, episodeCount: payload.episodeCount };

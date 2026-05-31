@@ -63,8 +63,7 @@ function hashString(value: string) {
 function packAniListEpisodeMappings(mappings: AniListEpisodeMapping[] | undefined) {
   return mappings
     ?.map(
-      (mapping) =>
-        `${mapping.episodeNumber}:${mapping.anilistId}:${mapping.anilistEpisodeNumber}`
+      (mapping) => `${mapping.episodeNumber}:${mapping.anilistId}:${mapping.anilistEpisodeNumber}`
     )
     .join("|");
 }
@@ -258,9 +257,9 @@ export const upsertSeason = internalMutation({
 
     const now = Date.now();
     let seasonId = existingSummary?.seasonId;
-    let existing: Doc<"seasons"> | null = null;
+    let existing: Doc<"seasons"> | null = seasonId ? await ctx.db.get(seasonId) : null;
 
-    if (!seasonId) {
+    if (!existing) {
       existing = await ctx.db
         .query("seasons")
         .withIndex("by_content_season", (q) =>
@@ -270,7 +269,7 @@ export const upsertSeason = internalMutation({
       seasonId = existing?._id;
     }
 
-    if (seasonId && existing) {
+    if (existing) {
       if (!seasonPayloadChanged(existing, compactedArgs)) {
         if (existingSummary) {
           await ctx.db.patch(existingSummary._id, { seasonId, payloadHash, updatedAt: now });
@@ -293,11 +292,14 @@ export const upsertSeason = internalMutation({
         }
         return;
       }
-      await ctx.db.patch(seasonId, { ...compactedArgs, updatedAt: now });
-    } else if (seasonId) {
-      await ctx.db.patch(seasonId, { ...compactedArgs, updatedAt: now });
+      await ctx.db.patch(existing._id, { ...compactedArgs, updatedAt: now });
+      seasonId = existing._id;
     } else {
-      seasonId = await ctx.db.insert("seasons", { ...compactedArgs, createdAt: now, updatedAt: now });
+      seasonId = await ctx.db.insert("seasons", {
+        ...compactedArgs,
+        createdAt: now,
+        updatedAt: now
+      });
     }
 
     const summary = {

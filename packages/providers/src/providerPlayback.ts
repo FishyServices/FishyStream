@@ -101,10 +101,10 @@ export function hasAnimeEpisodeMappingMetadata(
 ) {
   if (!currentSeasonData?.episodeCount) return false;
   return (
-    currentSeasonData.anilistEpisodeMappingCount ??
-    currentSeasonData.anilistEpisodeMappings?.length ??
-    0
-  ) >= currentSeasonData.episodeCount;
+    (currentSeasonData.anilistEpisodeMappingCount ??
+      currentSeasonData.anilistEpisodeMappings?.length ??
+      0) >= currentSeasonData.episodeCount
+  );
 }
 
 export function getSeasonYear(airDate?: string) {

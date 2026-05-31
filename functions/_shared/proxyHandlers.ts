@@ -20,10 +20,7 @@ function getSegments(value: RouteParam) {
   return [];
 }
 
-export async function handleProviderProxyRequest(
-  context: PagesFunctionContext,
-  prefix?: string
-) {
+export async function handleProviderProxyRequest(context: PagesFunctionContext, prefix?: string) {
   const { request, params } = context;
   const segments = prefix ? [prefix, ...getSegments(params.path)] : getSegments(params.path);
   const providerProxyPath = resolveProviderProxyPathFromSegments(segments);

@@ -8,6 +8,7 @@ import type {
   ContentFeatured,
   ContentPlayback
 } from "../../shared/contentMetadata";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 export interface BrowsePageResult {
@@ -269,24 +270,47 @@ export function usePaginatedContent(
 export function useRecommendations(
   limit = 12,
   typeFilter: "all" | "movie" | "tv" = "all",
-  refreshSeed = 0
+  refreshSeed = 0,
+  enabled = true,
+  seed?: {
+    watchlistIds: Id<"content">[];
+    preferredType: "movie" | "tv";
+    genres: string[];
+  }
 ) {
   const { user } = useUser();
 
   const recommendations = useOneShotConvexQuery<ContentCard[]>(
-    !!user,
+    enabled && (!!user || !!seed),
     (convex) =>
-      convex.query(api.content.listRecommendedCards, {
-        clerkUserId: user!.id,
-        limit,
-        typeFilter,
-        refreshSeed
-      }),
-    [user?.id, limit, typeFilter, refreshSeed]
+      seed
+        ? convex.query(api.content.listRecommendedCardsFromSeed, {
+            watchlistIds: seed.watchlistIds,
+            preferredType: seed.preferredType,
+            genres: seed.genres,
+            limit,
+            typeFilter,
+            refreshSeed
+          })
+        : convex.query(api.content.listRecommendedCards, {
+            clerkUserId: user!.id,
+            limit,
+            typeFilter,
+            refreshSeed
+          }),
+    [
+      user?.id,
+      limit,
+      typeFilter,
+      refreshSeed,
+      seed?.preferredType,
+      seed?.watchlistIds.join("|"),
+      seed?.genres.join("|")
+    ]
   );
 
   return {
     recommendations: recommendations ?? [],
-    isLoading: !!user ? recommendations === undefined : false
+    isLoading: enabled && (!!user || !!seed) ? recommendations === undefined : false
   };
 }

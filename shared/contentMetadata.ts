@@ -138,7 +138,18 @@ export interface WatchlistGridItem {
   posterUrl: string;
   tmdbId?: string;
   watchlistFolder?: string;
+  genre?: string[];
 }
+
+export type WatchlistGridWire = [
+  contentId: ContentId,
+  title: string,
+  type: ContentType,
+  posterUrl: string,
+  tmdbId?: string | null,
+  watchlistFolder?: string | null,
+  genre?: string[] | null
+];
 
 export interface WatchHistoryItemMeta extends ContentCard {
   progress: number;
@@ -228,9 +239,10 @@ export function toContentFeatured(content: ContentFeaturedRecord): ContentFeatur
     voteAverage: content.voteAverage,
     posterUrl: content.posterUrl,
     tmdbId: content.tmdbId,
-    description: content.description.length > 200
-      ? content.description.slice(0, 200).trimEnd() + "…"
-      : content.description,
+    description:
+      content.description.length > 200
+        ? content.description.slice(0, 200).trimEnd() + "…"
+        : content.description,
     backdropUrl: content.backdropUrl,
     rating: content.rating,
     logoUrl: content.logoUrl,
@@ -364,13 +376,8 @@ export function toWatchProgressEntryMeta(row: WatchProgressRecord): WatchProgres
 export function toWatchlistGridItem(
   content: Pick<
     WatchlistItemRecord,
-    | "_id"
-    | "title"
-    | "type"
-    | "posterUrl"
-    | "tmdbId"
-    | "watchlistFolder"
-  >
+    "_id" | "title" | "type" | "posterUrl" | "tmdbId" | "watchlistFolder"
+  > & { genre?: string[] }
 ): WatchlistGridItem {
   return {
     _id: content._id,
@@ -378,7 +385,32 @@ export function toWatchlistGridItem(
     type: content.type,
     posterUrl: content.posterUrl,
     tmdbId: content.tmdbId,
-    watchlistFolder: content.watchlistFolder
+    watchlistFolder: content.watchlistFolder,
+    genre: content.genre?.slice(0, 3)
+  };
+}
+
+export function toWatchlistGridWire(item: WatchlistGridItem): WatchlistGridWire {
+  const entry: WatchlistGridWire = [item._id, item.title, item.type, item.posterUrl];
+
+  if (item.tmdbId !== undefined || item.watchlistFolder !== undefined || item.genre !== undefined) {
+    entry[4] = item.tmdbId ?? null;
+    entry[5] = item.watchlistFolder ?? null;
+    entry[6] = item.genre ?? null;
+  }
+
+  return entry;
+}
+
+export function fromWatchlistGridWire(item: WatchlistGridWire): WatchlistGridItem {
+  return {
+    _id: item[0],
+    title: item[1],
+    type: item[2],
+    posterUrl: item[3],
+    tmdbId: item[4] ?? undefined,
+    watchlistFolder: item[5] ?? undefined,
+    genre: item[6] ?? undefined
   };
 }
 

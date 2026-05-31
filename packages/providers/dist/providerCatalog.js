@@ -185,6 +185,19 @@ export const STREAM_PROVIDERS = [
         tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
     }),
     defineProvider({
+        key: "streamrip",
+        name: "StreamRip",
+        category: "other",
+        idType: "tmdb",
+        quality: "1080p",
+        website: "https://streamrip.fun",
+        animeIdType: "anilist",
+        progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+        moviePath: (id) => `/movie/${id}`,
+        tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
+        animePath: (id, _season, episode) => `/anime/${id}/${episode}`
+    }),
+    defineProvider({
         key: "superembed",
         name: "SuperEmbed",
         category: "other",
@@ -328,7 +341,7 @@ export const STREAM_PROVIDERS = [
         progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
         moviePath: (id) => `/movie/${id}`,
         tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
-    }),
+    })
 ];
 export function getProviderByKey(key) {
     return STREAM_PROVIDERS.find((provider) => provider.key === key);

@@ -28,6 +28,8 @@ export async function findOrCreateUserIdByClerkId(
     clerkUserId,
     email: undefined,
     name: undefined,
+    watchlistContentIds: [],
+    watchlistRecommendationGenres: [],
     createdAt: Date.now()
   });
 }

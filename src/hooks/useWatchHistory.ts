@@ -22,12 +22,13 @@ export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
   return useMemo(() => serverData?.map(fromWatchHistoryItemWire), [serverData]);
 }
 
-export function useContinueWatching(): WatchHistoryItemMeta[] | undefined {
+export function useContinueWatching(enabled = true, limit = 6): WatchHistoryItemMeta[] | undefined {
   const { user } = useUser();
   const serverData = useOneShotConvexQuery<WatchHistoryItemWire[]>(
-    !!user,
-    (convex) => convex.query(api.watchHistory.listContinueWatching, { clerkUserId: user!.id }),
-    [user?.id]
+    enabled && !!user,
+    (convex) =>
+      convex.query(api.watchHistory.listContinueWatching, { clerkUserId: user!.id, limit }),
+    [user?.id, limit]
   );
   const localProgress = useWatchProgressContext();
 
