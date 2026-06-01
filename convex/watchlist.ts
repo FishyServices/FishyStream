@@ -130,39 +130,3 @@ export const setWatchlistFolder = mutation({
   }
 });
 
-export const compactWatchlistRows = mutation({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<number> => {
-    const items = await ctx.db
-      .query("watchlist")
-      .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
-      .collect();
-
-    let patched = 0;
-    for (const item of items) {
-      const nextGenre = compactGenres(item.genre);
-      const nextPosterUrl = toImageWire(item.posterUrl);
-      const shouldPatch =
-        item.genre.length > nextGenre.length ||
-        item.posterUrl !== nextPosterUrl ||
-        item.year !== undefined ||
-        item.voteAverage !== undefined ||
-        item.new !== undefined ||
-        item.snapshotUpdatedAt !== undefined;
-
-      if (!shouldPatch) continue;
-
-      await ctx.db.patch(item._id, {
-        genre: nextGenre,
-        posterUrl: nextPosterUrl,
-        year: undefined,
-        voteAverage: undefined,
-        new: undefined,
-        snapshotUpdatedAt: undefined
-      });
-      patched += 1;
-    }
-
-    return patched;
-  }
-});

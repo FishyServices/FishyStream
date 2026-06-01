@@ -21,6 +21,7 @@ import {
 } from "../../shared/contentMetadata";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
+import { useWatchlistContentIds, useWatchlistHydrated } from "./useWatchlist";
 
 export interface BrowsePageResult {
   items: ContentCard[];
@@ -336,38 +337,46 @@ export function useRecommendations(
   }
 ) {
   const { user } = useUser();
+  const cachedWatchlistIds = useWatchlistContentIds();
+  const watchlistHydrated = useWatchlistHydrated();
+  const effectiveSeed =
+    seed ??
+    (cachedWatchlistIds.length > 0
+      ? {
+          watchlistIds: cachedWatchlistIds,
+          preferredType: "movie" as const,
+          genres: []
+        }
+      : undefined);
+  const shouldQuery = enabled && !!effectiveSeed && (!user || watchlistHydrated);
 
   const recommendations = useOneShotConvexQuery<ContentCardWire[]>(
-    enabled && (!!user || !!seed),
-    (convex) =>
-      seed
-        ? convex.query(api.content.listRecommendedCardsFromSeed, {
-            watchlistIds: seed.watchlistIds,
-            preferredType: seed.preferredType,
-            genres: seed.genres,
-            limit,
-            typeFilter,
-            refreshSeed
-          })
-        : convex.query(api.content.listRecommendedCards, {
-            clerkUserId: user!.id,
-            limit,
-            typeFilter,
-            refreshSeed
-          }),
+    shouldQuery,
+    (convex) => {
+      const querySeed = effectiveSeed!;
+      return convex.query(api.content.listRecommendedCardsFromSeed, {
+        watchlistIds: querySeed.watchlistIds,
+        preferredType: querySeed.preferredType,
+        genres: querySeed.genres,
+        limit,
+        typeFilter,
+        refreshSeed
+      });
+    },
     [
       user?.id,
       limit,
       typeFilter,
       refreshSeed,
-      seed?.preferredType,
-      seed?.watchlistIds.join("|"),
-      seed?.genres.join("|")
+      watchlistHydrated,
+      effectiveSeed?.preferredType,
+      effectiveSeed?.watchlistIds.join("|"),
+      effectiveSeed?.genres.join("|")
     ]
   );
 
   return {
     recommendations: recommendations?.map(fromContentCardWire) ?? [],
-    isLoading: enabled && (!!user || !!seed) ? recommendations === undefined : false
+    isLoading: shouldQuery ? recommendations === undefined : false
   };
 }

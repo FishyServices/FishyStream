@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
 import { ClerkProvider, useAuth, useUser } from "@clerk/react";
 import { dark } from "@clerk/themes";
@@ -118,97 +118,50 @@ function AppShell() {
             <Route path="/sign-up/*" element={<SignUpPage />} />
             <Route
               path="/watch/:id"
-              element={
-                <GlobalWatchlistProvider>
-                  <WatchProgressProvider>
-                    <WatchPage />
-                  </WatchProgressProvider>
-                </GlobalWatchlistProvider>
-              }
+              element={<AppRouteProviders page={<WatchPage />} />}
             />
-            <Route
-              path="/movies"
-              element={
-                <GlobalWatchlistProvider>
-                  <WatchProgressProvider>
-                    <MoviesPage />
-                  </WatchProgressProvider>
-                </GlobalWatchlistProvider>
-              }
-            />
+            <Route path="/movies" element={<AppRouteProviders page={<MoviesPage />} />} />
             <Route
               path="/tv-shows"
-              element={
-                <GlobalWatchlistProvider>
-                  <WatchProgressProvider>
-                    <TVShowsPage />
-                  </WatchProgressProvider>
-                </GlobalWatchlistProvider>
-              }
+              element={<AppRouteProviders page={<TVShowsPage />} />}
             />
             <Route
               path="/new-releases"
-              element={
-                <GlobalWatchlistProvider>
-                  <WatchProgressProvider>
-                    <NewReleasesPage />
-                  </WatchProgressProvider>
-                </GlobalWatchlistProvider>
-              }
+              element={<AppRouteProviders page={<NewReleasesPage />} />}
             />
             <Route
               path="/my-list"
-              element={
-                <GlobalWatchlistProvider>
-                  <MyListPage />
-                </GlobalWatchlistProvider>
-              }
+              element={<AppRouteProviders page={<MyListPage />} withProgress={false} />}
             />
             <Route
               path="/history"
-              element={
-                <GlobalWatchlistProvider>
-                  <WatchProgressProvider>
-                    <WatchHistoryPage />
-                  </WatchProgressProvider>
-                </GlobalWatchlistProvider>
-              }
+              element={<AppRouteProviders page={<WatchHistoryPage />} />}
             />
-            <Route
-              path="/search"
-              element={
-                <GlobalWatchlistProvider>
-                  <WatchProgressProvider>
-                    <SearchPage />
-                  </WatchProgressProvider>
-                </GlobalWatchlistProvider>
-              }
-            />
+            <Route path="/search" element={<AppRouteProviders page={<SearchPage />} />} />
             <Route
               path="/settings"
-              element={
-                <GlobalWatchlistProvider>
-                  <WatchProgressProvider>
-                    <SettingsPage />
-                  </WatchProgressProvider>
-                </GlobalWatchlistProvider>
-              }
+              element={<AppRouteProviders page={<SettingsPage />} />}
             />
-            <Route
-              path="/"
-              element={
-                <GlobalWatchlistProvider>
-                  <WatchProgressProvider>
-                    <App />
-                  </WatchProgressProvider>
-                </GlobalWatchlistProvider>
-              }
-            />
+            <Route path="/" element={<AppRouteProviders page={<App />} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </AppSettingsProvider>
     </ConvexProviderWithAuth>
+  );
+}
+
+function AppRouteProviders({
+  page,
+  withProgress = true
+}: {
+  page: ReactNode;
+  withProgress?: boolean;
+}) {
+  return (
+    <GlobalWatchlistProvider>
+      {withProgress ? <WatchProgressProvider>{page}</WatchProgressProvider> : page}
+    </GlobalWatchlistProvider>
   );
 }
 

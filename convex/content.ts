@@ -66,6 +66,7 @@ type BrowseSort = "trending" | "popular" | "new" | "rating" | "year";
 type ContentInput = typeof tmdbContentValidator.type;
 
 const DEFAULT_PAGE_LIMIT = 24;
+const RECOMMENDATION_POOL_READ_LIMIT = 12;
 
 function normalizePage(page?: number) {
   return Math.max(1, Math.floor(page ?? 1));
@@ -511,14 +512,20 @@ async function readRecommendationPool(ctx: QueryCtx, type: "movie" | "tv", genre
       .query("recommendationPools")
       .withIndex("by_key", (q) => q.eq("key", recommendationPoolKey(type, genre)))
       .first();
-    if (row?.items.length) return (row.items as ContentCardWire[]).map(compactContentCardWire);
+    if (row?.items.length) {
+      return (row.items as ContentCardWire[])
+        .slice(0, RECOMMENDATION_POOL_READ_LIMIT)
+        .map(compactContentCardWire);
+    }
   }
 
   const row = await ctx.db
     .query("recommendationPools")
     .withIndex("by_key", (q) => q.eq("key", recommendationPoolKey(type)))
     .first();
-  return ((row?.items ?? []) as ContentCardWire[]).map(compactContentCardWire);
+  return ((row?.items ?? []) as ContentCardWire[])
+    .slice(0, RECOMMENDATION_POOL_READ_LIMIT)
+    .map(compactContentCardWire);
 }
 
 function rankRecommendations(args: {

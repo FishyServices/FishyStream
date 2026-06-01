@@ -97,7 +97,6 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
 
   const addMutation = useMutation(api.watchlist.addWatchlistEntry);
   const removeMutation = useMutation(api.watchlist.removeWatchlistEntry);
-  const compactRows = useMutation(api.watchlist.compactWatchlistRows);
   const serverIds = useOneShotConvexQuery<string[]>(
     !!user && !isConvexAuthLoading && !isMyListRoute,
     (client) => client.query(api.watchlist.listWatchlistContentIds, { clerkUserId: user!.id }),
@@ -130,13 +129,6 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
     if (!serverIds) return;
     hydrateFromServerIds(serverIds);
   }, [hydrateFromServerIds, serverIds]);
-
-  useEffect(() => {
-    if (!user || isConvexAuthLoading || serverIds === undefined) return;
-    if (sessionStorage.getItem(`watchlist_compacted_${user.id}`) === "1") return;
-    sessionStorage.setItem(`watchlist_compacted_${user.id}`, "1");
-    void compactRows({ clerkUserId: user.id });
-  }, [compactRows, isConvexAuthLoading, serverIds, user]);
 
   const toggle = useCallback(
     async (id: Id<"content">, snapshot?: WatchlistSnapshot) => {
