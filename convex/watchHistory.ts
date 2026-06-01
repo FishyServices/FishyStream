@@ -19,6 +19,22 @@ type ProgressDocument = {
   source?: string;
   dub?: boolean;
   completed: boolean;
+  watchedAt: number;
+  clientUpdatedAt?: number;
+  serverUpdatedAt?: number;
+};
+
+type ProgressWrite = {
+  contentId: Id<"content">;
+  progress: number;
+  completed?: boolean;
+  positionSeconds?: number;
+  durationSeconds?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  source?: string;
+  dub?: boolean;
+  clientUpdatedAt?: number;
 };
 
 const progressWriteFields = {
@@ -30,7 +46,8 @@ const progressWriteFields = {
   seasonNumber: v.optional(v.number()),
   episodeNumber: v.optional(v.number()),
   source: v.optional(v.string()),
-  dub: v.optional(v.boolean())
+  dub: v.optional(v.boolean()),
+  clientUpdatedAt: v.optional(v.number())
 };
 
 const progressWriteValidator = v.object(progressWriteFields);
@@ -62,14 +79,36 @@ function shouldSkipProgressUpdate(
 
   return (
     existing.completed === next.completed &&
-    positionDelta < 60 &&
-    progressDelta < 5 &&
+    positionDelta < 15 &&
+    progressDelta < 1 &&
     (existing.durationSeconds ?? 0) === (next.durationSeconds ?? 0) &&
     existing.seasonNumber === next.seasonNumber &&
     existing.episodeNumber === next.episodeNumber &&
     existing.source === next.source &&
     existing.dub === next.dub
   );
+}
+
+function compactProgressEntries(entries: ProgressWrite[]) {
+  const byContent = new Map<string, ProgressWrite>();
+  for (const entry of entries) {
+    const existing = byContent.get(entry.contentId);
+    if (!existing || (entry.clientUpdatedAt ?? 0) >= (existing.clientUpdatedAt ?? 0)) {
+      byContent.set(entry.contentId, entry);
+    }
+  }
+  return Array.from(byContent.values());
+}
+
+function addChangedField<T extends keyof ProgressDocument>(
+  patch: Partial<ProgressDocument>,
+  existing: ProgressDocument,
+  field: T,
+  nextValue: ProgressDocument[T]
+) {
+  if (existing[field] !== nextValue) {
+    patch[field] = nextValue;
+  }
 }
 
 async function listSnapshotBackedHistory(
@@ -161,8 +200,9 @@ export const saveWatchProgressBatch = mutation({
     entries: v.array(progressWriteValidator)
   },
   handler: async (ctx, { clerkUserId, entries }): Promise<void> => {
-    for (const entry of entries.slice(0, 25)) {
-      await saveProgressForUser(ctx, clerkUserId, entry);
+    const now = Date.now();
+    for (const entry of compactProgressEntries(entries).slice(0, 25)) {
+      await saveProgressForUser(ctx, clerkUserId, entry, now);
     }
   }
 });
@@ -170,20 +210,12 @@ export const saveWatchProgressBatch = mutation({
 async function saveProgressForUser(
   ctx: MutationCtx,
   clerkUserId: string,
-  args: {
-    contentId: Id<"content">;
-    progress: number;
-    completed?: boolean;
-    positionSeconds?: number;
-    durationSeconds?: number;
-    seasonNumber?: number;
-    episodeNumber?: number;
-    source?: string;
-    dub?: boolean;
-  }
+  args: ProgressWrite,
+  now = Date.now()
 ) {
   const normalizedProgress = normalizeProgress(args.progress);
   const completed = args.completed ?? normalizedProgress >= 95;
+  const clientUpdatedAt = args.clientUpdatedAt ?? now;
   const nextPositionSeconds = normalizeOptionalNumber(args.positionSeconds);
   const nextDurationSeconds = normalizeOptionalNumber(args.durationSeconds);
   const existing = await ctx.db
@@ -194,6 +226,11 @@ async function saveProgressForUser(
     .first();
 
   if (existing) {
+    const existingClientUpdatedAt = existing.clientUpdatedAt ?? existing.watchedAt;
+    if (clientUpdatedAt < existingClientUpdatedAt) {
+      return;
+    }
+
     const nextState = {
       progress: normalizedProgress,
       completed,
@@ -209,10 +246,25 @@ async function saveProgressForUser(
       return;
     }
 
-    await ctx.db.patch(existing._id, {
-      ...nextState,
-      watchedAt: Date.now()
-    });
+    const patch: Partial<ProgressDocument> & {
+      watchedAt: number;
+      clientUpdatedAt: number;
+      serverUpdatedAt: number;
+    } = {
+      watchedAt: clientUpdatedAt,
+      clientUpdatedAt,
+      serverUpdatedAt: now
+    };
+    addChangedField(patch, existing, "progress", nextState.progress);
+    addChangedField(patch, existing, "completed", nextState.completed);
+    addChangedField(patch, existing, "positionSeconds", nextState.positionSeconds);
+    addChangedField(patch, existing, "durationSeconds", nextState.durationSeconds);
+    addChangedField(patch, existing, "seasonNumber", nextState.seasonNumber);
+    addChangedField(patch, existing, "episodeNumber", nextState.episodeNumber);
+    addChangedField(patch, existing, "source", nextState.source);
+    addChangedField(patch, existing, "dub", nextState.dub);
+
+    await ctx.db.patch(existing._id, patch);
     return;
   }
 
@@ -230,7 +282,9 @@ async function saveProgressForUser(
     episodeNumber: args.episodeNumber,
     source: args.source,
     dub: args.dub,
-    watchedAt: Date.now(),
+    watchedAt: clientUpdatedAt,
+    clientUpdatedAt,
+    serverUpdatedAt: now,
     ...buildContentSnapshot(content)
   });
 }

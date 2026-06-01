@@ -47,10 +47,14 @@ import {
   hasAnimeEpisodeMappingMetadata,
   hasNextEpisode as hasProviderNextEpisode,
   isAnimeProviderContent,
+  normalizePlaybackProgressSample,
   pickPreferredSource,
+  shouldStorePlaybackProgressSample,
+  WATCH_PROGRESS_STATUS_POLL_MS,
   shouldWaitForAnimeSeasonMetadata
 } from "@fishy/providers/providerPlayback";
 import type { ContentPlayback } from "../../shared/contentMetadata";
+import type { PlaybackProgressSample } from "@fishy/providers/providerPlayback";
 
 interface VideoPlayerProps {
   content: ContentPlayback;
@@ -133,6 +137,7 @@ export function VideoPlayer({
   const lastSyncedProgressRef = useRef(0);
   const lastSyncedPositionRef = useRef(0);
   const lastRealtimeSyncAtRef = useRef(0);
+  const lastStoredProgressSampleRef = useRef<PlaybackProgressSample | undefined>(undefined);
   const sourceRequestIdRef = useRef(0);
   const seasonSyncRequestRef = useRef<string | null>(null);
   const nextEpisodeClickLockedRef = useRef(false);
@@ -246,6 +251,7 @@ export function VideoPlayer({
     lastSyncedProgressRef.current = 0;
     lastSyncedPositionRef.current = 0;
     lastRealtimeSyncAtRef.current = 0;
+    lastStoredProgressSampleRef.current = undefined;
     setResumePositionSeconds(0);
     const s = initialSeason ?? 1;
     const e = initialEpisode ?? 1;
@@ -264,6 +270,7 @@ export function VideoPlayer({
       lastSyncedProgressRef.current = 0;
       lastSyncedPositionRef.current = 0;
       lastRealtimeSyncAtRef.current = 0;
+      lastStoredProgressSampleRef.current = undefined;
       tvTargetRef.current = { season: s, episode: e };
       setTvTarget({ season: s, episode: e });
     }
@@ -466,7 +473,7 @@ export function VideoPlayer({
     iframe.addEventListener("load", onLoad);
     requestStatus();
 
-    const interval = window.setInterval(requestStatus, 15_000);
+    const interval = window.setInterval(requestStatus, WATCH_PROGRESS_STATUS_POLL_MS);
     const onVisibility = () => {
       if (document.visibilityState === "visible") requestStatus();
     };
@@ -512,22 +519,23 @@ export function VideoPlayer({
       const { data } = payload as PlayerEventPayload;
       if (data.mediaType !== content.type) return;
 
-      const nextPos = Math.max(0, data.currentTime || 0);
-      const nextDur = Math.max(0, data.duration || 0);
-      const nextProgress =
-        data.progress !== undefined ? clamp(data.progress) : calculateProgress(nextPos, nextDur);
+      const sample = normalizePlaybackProgressSample({
+        event: data.event,
+        currentTime: data.currentTime || 0,
+        duration: data.duration || 0,
+        progress:
+          data.progress !== undefined
+            ? clamp(data.progress)
+            : calculateProgress(data.currentTime || 0, data.duration || 0)
+      });
+      const nextPos = sample.currentTime;
+      const nextDur = sample.duration;
+      const nextProgress = sample.progress;
 
       setCurrentProgress(nextProgress);
 
       if (syncInFlight) return;
-
-      const isForced = data.event !== "timeupdate";
-      const meaningful =
-        Math.abs(nextPos - lastSyncedPositionRef.current) >= 10 ||
-        Math.abs(nextProgress - lastSyncedProgressRef.current) >= 2 ||
-        Date.now() - lastRealtimeSyncAtRef.current >= 60_000;
-
-      if (!isForced && !meaningful) return;
+      if (!shouldStorePlaybackProgressSample(lastStoredProgressSampleRef.current, sample)) return;
 
       const persistedSeason = content.type === "tv" ? tvTargetRef.current.season : undefined;
       const persistedEpisode = content.type === "tv" ? tvTargetRef.current.episode : undefined;
@@ -549,7 +557,8 @@ export function VideoPlayer({
 
       lastSyncedProgressRef.current = nextProgress;
       lastSyncedPositionRef.current = nextPos;
-      lastRealtimeSyncAtRef.current = Date.now();
+      lastRealtimeSyncAtRef.current = sample.sampledAt;
+      lastStoredProgressSampleRef.current = sample;
       syncInFlight = false;
     };
 
@@ -702,6 +711,7 @@ export function VideoPlayer({
     lastSyncedProgressRef.current = 0;
     lastSyncedPositionRef.current = 0;
     lastRealtimeSyncAtRef.current = 0;
+    lastStoredProgressSampleRef.current = undefined;
     realtimeDetectedRef.current = false;
 
     const params = new URLSearchParams();

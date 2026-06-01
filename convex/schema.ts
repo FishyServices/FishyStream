@@ -166,6 +166,24 @@ export default defineSchema({
     .index("by_content_season", ["contentId", "seasonNumber"])
     .index("by_tmdb_season", ["tmdbId", "seasonNumber"]),
 
+  seasonPlaybackMeta: defineTable({
+    contentId: v.id("content"),
+    tmdbId: v.string(),
+    seasonNumber: v.number(),
+    name: v.string(),
+    airDate: v.optional(v.string()),
+    episodeCount: v.number(),
+    storedEpisodeCount: v.number(),
+    anilistId: v.optional(v.string()),
+    anilistEpisodeMappingPack: v.optional(v.string()),
+    anilistEpisodeMappingCount: v.optional(v.number()),
+    seasonEpisodePayloadHash: v.optional(v.string()),
+    updatedAt: v.number(),
+    payloadHash: v.string()
+  })
+    .index("by_content_season", ["contentId", "seasonNumber"])
+    .index("by_tmdb_season", ["tmdbId", "seasonNumber"]),
+
   watchlist: defineTable({
     clerkUserId: v.string(),
     contentId: v.id("content"),
@@ -196,6 +214,8 @@ export default defineSchema({
     dub: v.optional(v.boolean()),
     completed: v.boolean(),
     watchedAt: v.number(),
+    clientUpdatedAt: v.optional(v.number()),
+    serverUpdatedAt: v.optional(v.number()),
     ...cardSnapshotFields
   })
     .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"])

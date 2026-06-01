@@ -25,6 +25,18 @@ export interface NextEpisodeArgs {
     fallbackSeasonCount?: number | null;
     currentSeasonEpisodeCount?: number | null;
 }
+export interface PlaybackProgressSample {
+    event: "timeupdate" | "play" | "pause" | "ended" | "seeked" | "playerstatus";
+    currentTime: number;
+    duration: number;
+    progress: number;
+    sampledAt: number;
+}
+export declare const WATCH_PROGRESS_SYNC_INTERVAL_MS: number;
+export declare const WATCH_PROGRESS_STATUS_POLL_MS = 30000;
+export declare const WATCH_PROGRESS_MIN_LOCAL_SAMPLE_MS = 15000;
+export declare const WATCH_PROGRESS_MIN_POSITION_DELTA_SECONDS = 30;
+export declare const WATCH_PROGRESS_MIN_PERCENT_DELTA = 2;
 export declare function groupSourcesByProviderCategory(sources: StreamSource[]): ProviderGroupedSources[];
 export declare function pickPreferredSource(sources: StreamSource[], options: {
     initialSource?: string;
@@ -44,3 +56,5 @@ export declare function getNextEpisodeAddress({ tmdbId, currentSeason, currentEp
     episode: number;
 } | null;
 export declare function hasNextEpisode(args: NextEpisodeArgs): boolean;
+export declare function normalizePlaybackProgressSample(sample: Omit<PlaybackProgressSample, "sampledAt">): PlaybackProgressSample;
+export declare function shouldStorePlaybackProgressSample(previous: PlaybackProgressSample | undefined, next: PlaybackProgressSample): boolean;
