@@ -13,6 +13,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import {
   fromWatchlistGridWire,
+  type ContentType,
   type WatchlistGridItem,
   type WatchlistGridWire
 } from "../../shared/contentMetadata";
@@ -37,8 +38,16 @@ function lsSet(ids: string[]) {
 
 type WatchlistCtx = {
   set: Set<string>;
-  toggle: (id: Id<"content">) => Promise<void>;
+  toggle: (id: Id<"content">, snapshot?: WatchlistSnapshot) => Promise<void>;
   hydrated: boolean;
+};
+
+export type WatchlistSnapshot = {
+  title: string;
+  type: ContentType;
+  genre: string[];
+  posterUrl: string;
+  tmdbId?: string;
 };
 
 const Ctx = createContext<WatchlistCtx | undefined>(undefined);
@@ -81,7 +90,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   }, [serverIds]);
 
   const toggle = useCallback(
-    async (id: Id<"content">) => {
+    async (id: Id<"content">, snapshot?: WatchlistSnapshot) => {
       const adding = !ids.has(id);
 
       setIds((prev) => {
@@ -95,7 +104,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
 
       try {
         if (adding) {
-          await addMutation({ clerkUserId: user.id, contentId: id });
+          await addMutation({ clerkUserId: user.id, contentId: id, snapshot });
         } else {
           await removeMutation({ clerkUserId: user.id, contentId: id });
         }
@@ -140,10 +149,33 @@ export function useWatchlistHydrated(): boolean {
 
 export function useMyWatchlist(): WatchlistGridItem[] | undefined {
   const { user } = useUser();
+  const ensureSummary = useMutation(api.watchlist.ensureWatchlistSummary);
+  const [summaryReadyForUser, setSummaryReadyForUser] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setSummaryReadyForUser(null);
+      return;
+    }
+
+    let cancelled = false;
+    ensureSummary({ clerkUserId: user.id })
+      .then(() => {
+        if (!cancelled) setSummaryReadyForUser(user.id);
+      })
+      .catch(() => {
+        if (!cancelled) setSummaryReadyForUser(user.id);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ensureSummary, user]);
+
   const serverData = useOneShotConvexQuery<WatchlistGridWire[]>(
-    !!user,
+    !!user && summaryReadyForUser === user.id,
     (client) => client.query(api.watchlist.listWatchlist, { clerkUserId: user!.id }),
-    [user?.id]
+    [user?.id, summaryReadyForUser]
   );
 
   return useMemo(() => serverData?.map(fromWatchlistGridWire), [serverData]);

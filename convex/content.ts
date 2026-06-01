@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
@@ -65,7 +65,7 @@ type ContentInput = typeof tmdbContentValidator.type;
 const HOMEPAGE_ROW_LIMIT = 10;
 const DEFAULT_PAGE_LIMIT = 24;
 const MATERIALIZED_PAGE_COUNT = 12;
-const RECOMMENDATION_POOL_LIMIT = 64;
+const RECOMMENDATION_POOL_LIMIT = 24;
 
 function normalizePage(page?: number) {
   return Math.max(1, Math.floor(page ?? 1));
@@ -229,6 +229,11 @@ function recommendationPoolKey(type: "movie" | "tv", genre?: string) {
   return `recommend:${type}:${genre ? genreKey(genre) : "all"}`;
 }
 
+function toRecommendationCardWire(row: Doc<"content">): ContentCardWire {
+  const wire = toContentCardWire(row);
+  return wire.slice(0, 8) as ContentCardWire;
+}
+
 function sortContentRows(rows: Doc<"content">[], sortBy: BrowseSort) {
   const sorted = [...rows];
   sorted.sort((a, b) => {
@@ -271,6 +276,7 @@ async function clearMaterializedViews(ctx: MutationCtx) {
   }
 }
 
+/*
 async function rebuildMaterializedViews(ctx: MutationCtx) {
   const now = Date.now();
   const rows = await ctx.db.query("content").take(5000);
@@ -371,7 +377,7 @@ async function rebuildMaterializedViews(ctx: MutationCtx) {
       genreKey: undefined,
       items: sortContentRows(typeRows, "popular")
         .slice(0, RECOMMENDATION_POOL_LIMIT)
-        .map(toContentCardWire),
+        .map(toRecommendationCardWire),
       updatedAt: now,
       sourceHash
     });
@@ -386,7 +392,7 @@ async function rebuildMaterializedViews(ctx: MutationCtx) {
           "popular"
         )
           .slice(0, RECOMMENDATION_POOL_LIMIT)
-          .map(toContentCardWire),
+          .map(toRecommendationCardWire),
         updatedAt: now,
         sourceHash
       });
@@ -402,6 +408,14 @@ async function rebuildMaterializedViews(ctx: MutationCtx) {
   });
 }
 
+export const rebuildMaterializedViewsNow = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await rebuildMaterializedViews(ctx);
+    return true;
+  }
+});
+*/
 async function materializePages(
   ctx: MutationCtx,
   args: {
@@ -687,16 +701,30 @@ export const setAniListId = internalMutation({
 });
 
 async function getRecommendationSeed(ctx: QueryCtx, clerkUserId: string) {
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
-    .first();
-  if (!user) return null;
+  const watchlistItems = await ctx.db
+    .query("watchlist")
+    .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
+    .order("desc")
+    .take(24);
+  if (watchlistItems.length === 0) return null;
+
+  const typeCounts = new Map<"movie" | "tv", number>();
+  const genreCounts = new Map<string, number>();
+
+  for (const item of watchlistItems) {
+    typeCounts.set(item.contentType, (typeCounts.get(item.contentType) ?? 0) + 1);
+    for (const genre of item.genre) {
+      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
+    }
+  }
 
   return {
-    watchlistIds: user.watchlistContentIds,
-    preferredType: user.watchlistRecommendationType ?? "movie",
-    genres: user.watchlistRecommendationGenres
+    watchlistIds: watchlistItems.map((item) => item.contentId),
+    preferredType: Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "movie",
+    genres: Array.from(genreCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([genre]) => genre)
   };
 }
 
@@ -726,7 +754,6 @@ function rankRecommendations(args: {
   limit: number;
 }) {
   const watchlistIdSet = new Set(args.watchlistIds);
-  const preferredGenres = new Set(args.genres.slice(0, 8));
   const signature = args.watchlistIds.map(String).sort().join("|");
 
   return args.pool
@@ -738,9 +765,6 @@ function rankRecommendations(args: {
           `${signature}:${args.typeFilter}:${args.refreshSeed}:${String(item[0])}`
         ) * 15;
       if (item[2] === args.preferredType) score += 2;
-      for (const genre of item[8] ?? []) {
-        if (preferredGenres.has(genre)) score += 1.5;
-      }
       if ((item[5] ?? 0) > 7) score += 0.5;
       return { item, score };
     })

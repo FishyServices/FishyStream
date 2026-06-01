@@ -339,13 +339,23 @@ export const getSeasonPlaybackMeta = query({
     includeAnimeMappings: v.optional(v.boolean())
   },
   handler: async (ctx, { contentId, seasonNumber, episodeNumber, includeAnimeMappings }) => {
-    const season = await readSeasonEpisodes(ctx, contentId, seasonNumber);
-    if (!season) return null;
-
     const index = await readSeasonIndex(ctx, contentId);
     const summary = ((index?.summaries ?? []) as SeasonSummaryWire[]).find(
       (row) => row[0] === seasonNumber
     );
+
+    if (!includeAnimeMappings && summary) {
+      return {
+        seasonNumber,
+        name: summary[5] ?? `Season ${seasonNumber}`,
+        airDate: summary[6] ?? undefined,
+        episodeCount: summary[1]
+      };
+    }
+
+    const season = await readSeasonEpisodes(ctx, contentId, seasonNumber);
+    if (!season) return null;
+
     const episodeMapping = findPackedAniListEpisodeMapping(
       season.anilistEpisodeMappingPack,
       episodeNumber

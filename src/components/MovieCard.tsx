@@ -1,6 +1,6 @@
 import { Play, Plus, Check, ChevronDown, Star } from "lucide-react";
 import { useState } from "react";
-import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
+import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
@@ -65,7 +65,16 @@ export function MovieCard({
       return;
     }
     try {
-      await toggleWatchlist(content._id);
+      const snapshot: WatchlistSnapshot | undefined = content.genre
+        ? {
+            title: content.title,
+            type: content.type,
+            genre: content.genre,
+            posterUrl: content.posterUrl,
+            tmdbId: content.tmdbId
+          }
+        : undefined;
+      await toggleWatchlist(content._id, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Failed to update watchlist");

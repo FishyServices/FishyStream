@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
-import { findOrCreateUserIdByClerkId } from "./lib/users";
 
 export const ensureCurrentUser = mutation({
   args: {
@@ -10,15 +9,40 @@ export const ensureCurrentUser = mutation({
     avatarUrl: v.optional(v.string())
   },
   handler: async (ctx, { clerkUserId, email, name, avatarUrl }) => {
-    const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
-    if (!userId) return null;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
+      .first();
 
-    await ctx.db.patch(userId, {
-      email,
-      name,
-      avatarUrl
-    });
+    if (!user) {
+      return await ctx.db.insert("users", {
+        clerkUserId,
+        email,
+        name,
+        avatarUrl,
+        createdAt: Date.now()
+      });
+    }
 
-    return userId;
+    const hasChanges =
+      user.email !== email ||
+      user.name !== name ||
+      user.avatarUrl !== avatarUrl ||
+      user.watchlistContentIds !== undefined ||
+      user.watchlistRecommendationType !== undefined ||
+      user.watchlistRecommendationGenres !== undefined;
+
+    if (hasChanges) {
+      await ctx.db.patch(user._id, {
+        email,
+        name,
+        avatarUrl,
+        watchlistContentIds: undefined,
+        watchlistRecommendationType: undefined,
+        watchlistRecommendationGenres: undefined
+      });
+    }
+
+    return user._id;
   }
 });

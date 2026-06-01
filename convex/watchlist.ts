@@ -1,98 +1,121 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { toWatchlistGridWire, type WatchlistGridWire } from "../shared/contentMetadata";
-import { findOrCreateUserIdByClerkId } from "./lib/users";
-import { buildContentSnapshot } from "./lib/contentSnapshots";
 
-async function refreshWatchlistRecommendationSeed(ctx: MutationCtx, clerkUserId: string) {
-  const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
-  if (!userId) return;
+const watchlistSnapshotValidator = v.object({
+  title: v.string(),
+  type: v.union(v.literal("movie"), v.literal("tv")),
+  genre: v.array(v.string()),
+  posterUrl: v.string(),
+  tmdbId: v.optional(v.string())
+});
 
+type WatchlistSummaryItem = WatchlistGridWire;
+
+function toSummaryItem(item: Doc<"watchlist">): WatchlistSummaryItem {
+  return toWatchlistGridWire({
+    _id: item.contentId,
+    title: item.title,
+    type: item.contentType,
+    posterUrl: item.posterUrl,
+    tmdbId: item.tmdbId,
+    watchlistFolder: item.folder,
+    genre: item.genre
+  });
+}
+
+function toSnapshotSummaryItem(args: {
+  contentId: Id<"content">;
+  title: string;
+  type: "movie" | "tv";
+  genre: string[];
+  posterUrl: string;
+  tmdbId?: string;
+  folder?: string;
+}): WatchlistSummaryItem {
+  return toWatchlistGridWire({
+    _id: args.contentId,
+    title: args.title,
+    type: args.type,
+    posterUrl: args.posterUrl,
+    tmdbId: args.tmdbId,
+    watchlistFolder: args.folder,
+    genre: args.genre
+  });
+}
+
+async function readSummary(ctx: QueryCtx | MutationCtx, clerkUserId: string) {
+  return await ctx.db
+    .query("watchlistSummaries")
+    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
+    .first();
+}
+
+async function writeSummary(
+  ctx: MutationCtx,
+  clerkUserId: string,
+  items: WatchlistSummaryItem[]
+) {
+  const existing = await readSummary(ctx, clerkUserId);
+  const payload = {
+    items,
+    contentIds: items.map((item) => item[0]),
+    updatedAt: Date.now()
+  };
+
+  if (existing) {
+    await ctx.db.patch(existing._id, payload);
+    return;
+  }
+
+  await ctx.db.insert("watchlistSummaries", { clerkUserId, ...payload });
+}
+
+async function rebuildSummary(ctx: MutationCtx, clerkUserId: string) {
   const items = await ctx.db
     .query("watchlist")
     .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
     .order("desc")
-    .take(24);
+    .collect();
 
-  const typeCounts = new Map<"movie" | "tv", number>();
-  const genreCounts = new Map<string, number>();
-
-  for (const item of items) {
-    typeCounts.set(item.contentType, (typeCounts.get(item.contentType) ?? 0) + 1);
-    for (const genre of item.genre) {
-      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
-    }
-  }
-
-  await ctx.db.patch(userId, {
-    watchlistContentIds: items.map((item) => item.contentId),
-    watchlistRecommendationType:
-      Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? undefined,
-    watchlistRecommendationGenres: Array.from(genreCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([genre]) => genre)
-  });
+  await writeSummary(ctx, clerkUserId, items.map(toSummaryItem));
 }
 
-async function updateRecommendationSeedForAdd(
-  ctx: MutationCtx,
-  clerkUserId: string,
-  content: {
-    _id: Id<"content">;
-    type: "movie" | "tv";
-    genre: string[];
+export const ensureWatchlistSummary = mutation({
+  args: { clerkUserId: v.string() },
+  handler: async (ctx, { clerkUserId }): Promise<boolean> => {
+    const existing = await readSummary(ctx, clerkUserId);
+    if (existing) return true;
+
+    await rebuildSummary(ctx, clerkUserId);
+    return true;
   }
-) {
-  const userId = await findOrCreateUserIdByClerkId(ctx, clerkUserId);
-  if (!userId) return;
-
-  const user = await ctx.db.get(userId);
-  if (!user) return;
-
-  const watchlistContentIds = Array.from(new Set([content._id, ...user.watchlistContentIds])).slice(
-    0,
-    500
-  );
-  const watchlistRecommendationGenres = Array.from(
-    new Set([...content.genre.slice(0, 3), ...user.watchlistRecommendationGenres])
-  ).slice(0, 8);
-
-  await ctx.db.patch(userId, {
-    watchlistContentIds,
-    watchlistRecommendationType: user.watchlistRecommendationType ?? content.type,
-    watchlistRecommendationGenres
-  });
-}
+});
 
 export const listWatchlist = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchlistGridWire[]> => {
+    const summary = await readSummary(ctx, clerkUserId);
+    if (summary) return summary.items as WatchlistGridWire[];
+
     const items = await ctx.db
       .query("watchlist")
       .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
       .order("desc")
       .collect();
 
-    return items.map((item) =>
-      toWatchlistGridWire({
-        _id: item.contentId,
-        title: item.title,
-        type: item.contentType,
-        posterUrl: item.posterUrl,
-        tmdbId: item.tmdbId,
-        watchlistFolder: item.folder,
-        genre: item.genre
-      })
-    );
+    return items.map(toSummaryItem);
   }
 });
 
 export const listWatchlistContentIds = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<string[]> => {
+    const summary = await readSummary(ctx, clerkUserId);
+    if (summary) return summary.contentIds;
+
     const items = await ctx.db
       .query("watchlist")
       .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
@@ -104,8 +127,12 @@ export const listWatchlistContentIds = query({
 });
 
 export const addWatchlistEntry = mutation({
-  args: { clerkUserId: v.string(), contentId: v.id("content") },
-  handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
+  args: {
+    clerkUserId: v.string(),
+    contentId: v.id("content"),
+    snapshot: v.optional(watchlistSnapshotValidator)
+  },
+  handler: async (ctx, { clerkUserId, contentId, snapshot }): Promise<boolean> => {
     const existing = await ctx.db
       .query("watchlist")
       .withIndex("by_clerk_content", (q) =>
@@ -114,7 +141,7 @@ export const addWatchlistEntry = mutation({
       .first();
     if (existing) return true;
 
-    const content = await ctx.db.get(contentId);
+    const content = snapshot ?? (await ctx.db.get(contentId));
     if (!content) return false;
 
     await ctx.db.insert("watchlist", {
@@ -122,9 +149,27 @@ export const addWatchlistEntry = mutation({
       contentId,
       addedAt: Date.now(),
       folder: undefined,
-      ...buildContentSnapshot(content)
+      contentType: content.type,
+      title: content.title,
+      genre: content.genre,
+      posterUrl: content.posterUrl,
+      tmdbId: content.tmdbId
     });
-    await updateRecommendationSeedForAdd(ctx, clerkUserId, content);
+
+    const summary = await readSummary(ctx, clerkUserId);
+    if (summary) {
+      await writeSummary(ctx, clerkUserId, [
+        toSnapshotSummaryItem({
+          contentId,
+          title: content.title,
+          type: content.type,
+          genre: content.genre,
+          posterUrl: content.posterUrl,
+          tmdbId: content.tmdbId
+        }),
+        ...(summary.items as WatchlistSummaryItem[]).filter((item) => item[0] !== contentId)
+      ]);
+    }
 
     return true;
   }
@@ -142,7 +187,16 @@ export const removeWatchlistEntry = mutation({
     if (!existing) return false;
 
     await ctx.db.delete(existing._id);
-    await refreshWatchlistRecommendationSeed(ctx, clerkUserId);
+
+    const summary = await readSummary(ctx, clerkUserId);
+    if (summary) {
+      await writeSummary(
+        ctx,
+        clerkUserId,
+        (summary.items as WatchlistSummaryItem[]).filter((item) => item[0] !== contentId)
+      );
+    }
+
     return true;
   }
 });
@@ -162,9 +216,24 @@ export const setWatchlistFolder = mutation({
       .first();
     if (!existing) return false;
 
-    await ctx.db.patch(existing._id, {
-      folder: folder?.trim() || undefined
-    });
+    const nextFolder = folder?.trim() || undefined;
+    if (existing.folder === nextFolder) return true;
+
+    await ctx.db.patch(existing._id, { folder: nextFolder });
+
+    const summary = await readSummary(ctx, clerkUserId);
+    if (summary) {
+      await writeSummary(
+        ctx,
+        clerkUserId,
+        (summary.items as WatchlistSummaryItem[]).map((item) => {
+          if (item[0] !== contentId) return item;
+          const next = [...item] as WatchlistSummaryItem;
+          next[5] = nextFolder ?? null;
+          return next;
+        })
+      );
+    }
 
     return true;
   }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Play, Info, Plus, Check, Volume2, VolumeX, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { ContentModal } from "./ContentModal";
-import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
+import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
 import { toast } from "@fishy/ui";
 import type { ContentFeatured } from "../../shared/contentMetadata";
@@ -92,7 +92,14 @@ export function Hero({
       return;
     }
     try {
-      await toggleWatchlist(activeContent._id);
+      const snapshot: WatchlistSnapshot = {
+        title: activeContent.title,
+        type: activeContent.type,
+        genre: activeContent.genre,
+        posterUrl: activeContent.posterUrl,
+        tmdbId: activeContent.tmdbId
+      };
+      await toggleWatchlist(activeContent._id, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Something went wrong");

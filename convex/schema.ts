@@ -29,9 +29,9 @@ export default defineSchema({
     email: v.optional(v.string()),
     name: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
-    watchlistContentIds: v.array(v.id("content")),
+    watchlistContentIds: v.optional(v.array(v.id("content"))),
     watchlistRecommendationType: v.optional(mediaType),
-    watchlistRecommendationGenres: v.array(v.string()),
+    watchlistRecommendationGenres: v.optional(v.array(v.string())),
     createdAt: v.number()
   }).index("by_clerk_user_id", ["clerkUserId"]),
 
@@ -174,11 +174,26 @@ export default defineSchema({
     contentId: v.id("content"),
     addedAt: v.number(),
     folder: v.optional(v.string()),
-    ...cardSnapshotFields
+    contentType: mediaType,
+    title: v.string(),
+    genre: v.array(v.string()),
+    posterUrl: v.string(),
+    tmdbId: v.optional(v.string()),
+    year: v.optional(v.number()),
+    voteAverage: v.optional(v.number()),
+    new: v.optional(v.boolean()),
+    snapshotUpdatedAt: v.optional(v.number())
   })
     .index("by_clerk_added_at", ["clerkUserId", "addedAt"])
     .index("by_clerk_content", ["clerkUserId", "contentId"])
     .index("by_clerk_folder", ["clerkUserId", "folder"]),
+
+  watchlistSummaries: defineTable({
+    clerkUserId: v.string(),
+    items: v.array(v.any()),
+    contentIds: v.array(v.id("content")),
+    updatedAt: v.number()
+  }).index("by_clerk_user_id", ["clerkUserId"]),
 
   watchProgress: defineTable({
     clerkUserId: v.string(),

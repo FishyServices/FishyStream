@@ -26,7 +26,7 @@ import {
   SelectValue
 } from "@fishy/ui";
 import { useUser } from "@clerk/react";
-import { useIsInWatchlist, useToggleWatchlist } from "@/hooks/useWatchlist";
+import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/hooks/useWatchlist";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "@fishy/ui";
@@ -476,7 +476,16 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       return;
     }
     try {
-      await toggleWatchlist(contentData._id);
+      const snapshot: WatchlistSnapshot | undefined = contentData.genre
+        ? {
+            title: contentData.title,
+            type: contentData.type,
+            genre: contentData.genre,
+            posterUrl: contentData.posterUrl,
+            tmdbId: contentData.tmdbId
+          }
+        : undefined;
+      await toggleWatchlist(contentData._id, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Failed to update list");
