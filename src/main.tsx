@@ -160,9 +160,7 @@ function AppShell() {
               path="/my-list"
               element={
                 <GlobalWatchlistProvider>
-                  <WatchProgressProvider>
-                    <MyListPage />
-                  </WatchProgressProvider>
+                  <MyListPage />
                 </GlobalWatchlistProvider>
               }
             />

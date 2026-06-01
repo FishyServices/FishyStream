@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useConvexAuth, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
+import { useLocation } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import {
@@ -20,6 +21,11 @@ import {
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 const LS_KEY = "watchlist_ids";
+const WATCHLIST_GRID_CACHE_TTL_MS = 30_000;
+
+function watchlistGridCacheKey(userId: string) {
+  return `watchlist_grid_${userId}`;
+}
 
 function lsGet(): string[] {
   try {
@@ -36,9 +42,36 @@ function lsSet(ids: string[]) {
   } catch {}
 }
 
+function readWatchlistGridCache(userId: string | undefined): WatchlistGridWire[] | undefined {
+  if (!userId) return undefined;
+  try {
+    const raw = sessionStorage.getItem(watchlistGridCacheKey(userId));
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as { savedAt?: number; data?: WatchlistGridWire[] };
+    if (!parsed.savedAt || Date.now() - parsed.savedAt > WATCHLIST_GRID_CACHE_TTL_MS) {
+      sessionStorage.removeItem(watchlistGridCacheKey(userId));
+      return undefined;
+    }
+    return Array.isArray(parsed.data) ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeWatchlistGridCache(userId: string | undefined, data: WatchlistGridWire[]) {
+  if (!userId) return;
+  try {
+    sessionStorage.setItem(
+      watchlistGridCacheKey(userId),
+      JSON.stringify({ savedAt: Date.now(), data })
+    );
+  } catch {}
+}
+
 type WatchlistCtx = {
   set: Set<string>;
   toggle: (id: Id<"content">, snapshot?: WatchlistSnapshot) => Promise<void>;
+  hydrateFromServerIds: (ids: string[]) => void;
   hydrated: boolean;
 };
 
@@ -54,7 +87,9 @@ const Ctx = createContext<WatchlistCtx | undefined>(undefined);
 
 export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const { user } = useUser();
+  const location = useLocation();
   const { isLoading: isConvexAuthLoading } = useConvexAuth();
+  const isMyListRoute = location.pathname === "/my-list";
 
   const [ids, setIds] = useState<Set<string>>(() => new Set(lsGet()));
   const [hydrated, setHydrated] = useState(() => !user);
@@ -63,10 +98,22 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const removeMutation = useMutation(api.watchlist.removeWatchlistEntry);
   const compactRows = useMutation(api.watchlist.compactWatchlistRows);
   const serverIds = useOneShotConvexQuery<string[]>(
-    !!user && !isConvexAuthLoading,
+    !!user && !isConvexAuthLoading && !isMyListRoute,
     (client) => client.query(api.watchlist.listWatchlistContentIds, { clerkUserId: user!.id }),
-    [user?.id, isConvexAuthLoading]
+    [user?.id, isConvexAuthLoading, isMyListRoute]
   );
+
+  const hydrateFromServerIds = useCallback((serverIds: string[]) => {
+    setHydrated(true);
+    setIds((prev) => {
+      const merged = new Set([...prev, ...serverIds]);
+      if (merged.size === prev.size && Array.from(merged).every((id) => prev.has(id))) {
+        return prev;
+      }
+      lsSet([...merged]);
+      return merged;
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -80,15 +127,8 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!serverIds) return;
-    setIds((prev) => {
-      const merged = new Set([...prev, ...serverIds]);
-      if (merged.size === prev.size && Array.from(merged).every((id) => prev.has(id))) {
-        return prev;
-      }
-      lsSet([...merged]);
-      return merged;
-    });
-  }, [serverIds]);
+    hydrateFromServerIds(serverIds);
+  }, [hydrateFromServerIds, serverIds]);
 
   useEffect(() => {
     if (!user || isConvexAuthLoading || serverIds === undefined) return;
@@ -128,7 +168,11 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
     [ids, user, addMutation, removeMutation]
   );
 
-  return <Ctx.Provider value={{ set: ids, toggle, hydrated }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ set: ids, toggle, hydrateFromServerIds, hydrated }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 function useWatchlistCtx(): WatchlistCtx {
@@ -157,13 +201,35 @@ export function useWatchlistHydrated(): boolean {
 
 export function useMyWatchlist(): WatchlistGridItem[] | undefined {
   const { user } = useUser();
-  const serverData = useOneShotConvexQuery<WatchlistGridWire[]>(
-    !!user,
-    (client) => client.query(api.watchlist.listWatchlist, { clerkUserId: user!.id }),
-    [user?.id]
+  const { hydrateFromServerIds } = useWatchlistCtx();
+  const [cachedServerData, setCachedServerData] = useState<WatchlistGridWire[] | undefined>(() =>
+    readWatchlistGridCache(user?.id)
   );
 
-  return useMemo(() => serverData?.map(fromWatchlistGridWire), [serverData]);
+  useEffect(() => {
+    setCachedServerData(readWatchlistGridCache(user?.id));
+  }, [user?.id]);
+
+  const serverData = useOneShotConvexQuery<WatchlistGridWire[]>(
+    !!user && cachedServerData === undefined,
+    (client) => client.query(api.watchlist.listWatchlist, { clerkUserId: user!.id }),
+    [user?.id, cachedServerData === undefined]
+  );
+
+  useEffect(() => {
+    if (!serverData) return;
+    writeWatchlistGridCache(user?.id, serverData);
+    setCachedServerData(serverData);
+  }, [serverData, user?.id]);
+
+  const effectiveData = serverData ?? cachedServerData;
+
+  useEffect(() => {
+    if (!effectiveData) return;
+    hydrateFromServerIds(effectiveData.map((item) => item[0]));
+  }, [effectiveData, hydrateFromServerIds]);
+
+  return useMemo(() => effectiveData?.map(fromWatchlistGridWire), [effectiveData]);
 }
 
 export function useUpdateWatchlistFolder() {

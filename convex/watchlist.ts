@@ -11,7 +11,7 @@ const watchlistSnapshotValidator = v.object({
 });
 
 function compactGenres(genres: string[]) {
-  return genres.slice(0, 2);
+  return [];
 }
 
 export const listWatchlist = query({

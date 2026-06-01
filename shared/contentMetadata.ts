@@ -2,6 +2,7 @@ import type { Id } from "../convex/_generated/dataModel";
 
 export type ContentId = Id<"content">;
 export type ContentType = "movie" | "tv";
+type ContentTypeWire = 0 | 1;
 
 export interface ContentCard {
   _id: ContentId;
@@ -70,7 +71,7 @@ export interface WatchHistoryItemMeta extends ContentCard {
 export type ContentCardWire = [
   contentId: ContentId,
   title: string,
-  type: ContentType,
+  type: ContentTypeWire,
   posterUrl: string,
   year: number,
   voteAverage: number | null,
@@ -82,7 +83,7 @@ export type ContentCardWire = [
 export type ContentFeaturedWire = [
   contentId: ContentId,
   title: string,
-  type: ContentType,
+  type: ContentTypeWire,
   posterUrl: string,
   year: number,
   voteAverage: number | null,
@@ -110,7 +111,7 @@ export type ContentDetailWire = ContentFeaturedWire;
 export type ContentPlaybackWire = [
   contentId: ContentId,
   title: string,
-  type: ContentType,
+  type: ContentTypeWire,
   year: number,
   tmdbId: string | null,
   imdbId: string | null,
@@ -128,7 +129,7 @@ export type HomeViewWire = {
 export type WatchlistGridWire = [
   contentId: ContentId,
   title: string,
-  type: ContentType,
+  type: ContentTypeWire,
   posterUrl: string,
   tmdbId?: string | null,
   watchlistFolder?: string | null,
@@ -138,7 +139,7 @@ export type WatchlistGridWire = [
 export type WatchHistoryItemWire = [
   contentId: ContentId,
   title: string,
-  type: ContentType,
+  type: ContentTypeWire,
   posterUrl: string,
   progress: number,
   completed: boolean,
@@ -189,6 +190,29 @@ type CardRecord = {
   new: boolean;
 };
 
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/";
+const TMDB_IMAGE_WIRE_PREFIX = "~";
+
+function toContentTypeWire(type: ContentType): ContentTypeWire {
+  return type === "tv" ? 1 : 0;
+}
+
+export function fromContentTypeWire(type: ContentTypeWire | ContentType): ContentType {
+  return type === 1 || type === "tv" ? "tv" : "movie";
+}
+
+export function toImageWire(url: string): string {
+  return url.startsWith(TMDB_IMAGE_BASE)
+    ? `${TMDB_IMAGE_WIRE_PREFIX}${url.slice(TMDB_IMAGE_BASE.length)}`
+    : url;
+}
+
+function fromImageWire(url: string): string {
+  return url.startsWith(TMDB_IMAGE_WIRE_PREFIX)
+    ? `${TMDB_IMAGE_BASE}${url.slice(TMDB_IMAGE_WIRE_PREFIX.length)}`
+    : url;
+}
+
 type DetailRecord = CardRecord & {
   description: string;
   backdropUrl: string;
@@ -218,13 +242,25 @@ export function toContentCardWire(content: CardRecord): ContentCardWire {
   return [
     contentIdOf(content),
     content.title,
-    content.type,
-    content.posterUrl,
+    toContentTypeWire(content.type),
+    toImageWire(content.posterUrl),
     content.year,
     content.voteAverage ?? null,
     content.tmdbId ?? null,
-    content.new,
-    content.genre.slice(0, 2)
+    content.new
+  ];
+}
+
+export function compactContentCardWire(item: ContentCardWire): ContentCardWire {
+  return [
+    item[0],
+    item[1],
+    toContentTypeWire(fromContentTypeWire(item[2])),
+    toImageWire(item[3]),
+    item[4],
+    item[5] ?? null,
+    item[6] ?? null,
+    item[7]
   ];
 }
 
@@ -232,8 +268,8 @@ export function fromContentCardWire(item: ContentCardWire): ContentCard {
   return {
     _id: item[0],
     title: item[1],
-    type: item[2],
-    posterUrl: item[3],
+    type: fromContentTypeWire(item[2]),
+    posterUrl: fromImageWire(item[3]),
     year: item[4],
     voteAverage: item[5] ?? undefined,
     tmdbId: item[6] ?? undefined,
@@ -246,18 +282,18 @@ export function toContentFeaturedWire(content: DetailRecord): ContentFeaturedWir
   return [
     contentIdOf(content),
     content.title,
-    content.type,
-    content.posterUrl,
+    toContentTypeWire(content.type),
+    toImageWire(content.posterUrl),
     content.year,
     content.voteAverage ?? null,
     content.tmdbId ?? null,
     content.new,
     compactDescription(content.description),
-    content.backdropUrl,
+    toImageWire(content.backdropUrl),
     content.rating,
     content.trending,
     content.genre.slice(0, 3),
-    content.logoUrl ?? null,
+    content.logoUrl ? toImageWire(content.logoUrl) : null,
     content.trailerKey ?? null,
     content.duration ?? null,
     content.seasons ?? null,
@@ -270,22 +306,50 @@ export function toContentFeaturedWire(content: DetailRecord): ContentFeaturedWir
   ];
 }
 
+export function compactContentFeaturedWire(item: ContentFeaturedWire): ContentFeaturedWire {
+  return [
+    item[0],
+    item[1],
+    toContentTypeWire(fromContentTypeWire(item[2])),
+    toImageWire(item[3]),
+    item[4],
+    item[5] ?? null,
+    item[6] ?? null,
+    item[7],
+    item[8],
+    toImageWire(item[9]),
+    item[10],
+    item[11],
+    item[12] ?? null,
+    item[13] ? toImageWire(item[13]) : null,
+    item[14] ?? null,
+    item[15] ?? null,
+    item[16] ?? null,
+    item[17] ?? null,
+    item[18] ?? null,
+    item[19] ?? null,
+    item[20] ?? null,
+    item[21] ?? null,
+    item[22] ?? null
+  ];
+}
+
 export function fromContentFeaturedWire(item: ContentFeaturedWire): ContentDetail {
   return {
     _id: item[0],
     title: item[1],
-    type: item[2],
-    posterUrl: item[3],
+    type: fromContentTypeWire(item[2]),
+    posterUrl: fromImageWire(item[3]),
     year: item[4],
     voteAverage: item[5] ?? undefined,
     tmdbId: item[6] ?? undefined,
     new: item[7],
     description: item[8],
-    backdropUrl: item[9],
+    backdropUrl: fromImageWire(item[9]),
     rating: item[10],
     trending: item[11],
     genre: item[12] ?? [],
-    logoUrl: item[13] ?? undefined,
+    logoUrl: item[13] ? fromImageWire(item[13]) : undefined,
     trailerKey: item[14] ?? undefined,
     duration: item[15] ?? undefined,
     seasons: item[16] ?? undefined,
@@ -305,7 +369,7 @@ export function toContentPlaybackWire(content: DetailRecord): ContentPlaybackWir
   return [
     contentIdOf(content),
     content.title,
-    content.type,
+    toContentTypeWire(content.type),
     content.year,
     content.tmdbId ?? null,
     content.imdbId ?? null,
@@ -320,7 +384,7 @@ export function fromContentPlaybackWire(item: ContentPlaybackWire): ContentPlayb
   return {
     _id: item[0],
     title: item[1],
-    type: item[2],
+    type: fromContentTypeWire(item[2]),
     year: item[3],
     tmdbId: item[4] ?? undefined,
     imdbId: item[5] ?? undefined,
@@ -335,8 +399,8 @@ export function toWatchHistoryItemWire(item: WatchHistoryItemMeta): WatchHistory
   const entry: WatchHistoryItemWire = [
     item._id,
     item.title,
-    item.type,
-    item.posterUrl,
+    toContentTypeWire(item.type),
+    toImageWire(item.posterUrl),
     item.progress,
     item.completed
   ];
@@ -362,8 +426,8 @@ export function fromWatchHistoryItemWire(item: WatchHistoryItemWire): WatchHisto
   return {
     _id: item[0],
     title: item[1],
-    type: item[2],
-    posterUrl: item[3],
+    type: fromContentTypeWire(item[2]),
+    posterUrl: fromImageWire(item[3]),
     progress: item[4],
     completed: item[5],
     tmdbId: item[6] ?? undefined,
@@ -415,7 +479,12 @@ export function toWatchProgressEntryMeta(row: {
 }
 
 export function toWatchlistGridWire(item: WatchlistGridItem): WatchlistGridWire {
-  const entry: WatchlistGridWire = [item._id, item.title, item.type, item.posterUrl];
+  const entry: WatchlistGridWire = [
+    item._id,
+    item.title,
+    toContentTypeWire(item.type),
+    toImageWire(item.posterUrl)
+  ];
 
   if (item.tmdbId !== undefined || item.watchlistFolder !== undefined || item.genre !== undefined) {
     entry[4] = item.tmdbId ?? null;
@@ -430,8 +499,8 @@ export function fromWatchlistGridWire(item: WatchlistGridWire): WatchlistGridIte
   return {
     _id: item[0],
     title: item[1],
-    type: item[2],
-    posterUrl: item[3],
+    type: fromContentTypeWire(item[2]),
+    posterUrl: fromImageWire(item[3]),
     tmdbId: item[4] ?? undefined,
     watchlistFolder: item[5] ?? undefined,
     genre: item[6] ?? undefined

@@ -7,6 +7,9 @@ import {
   toContentDetailWire,
   toContentFeaturedWire,
   toContentPlaybackWire,
+  fromContentTypeWire,
+  compactContentCardWire,
+  compactContentFeaturedWire,
   type ContentCardWire,
   type ContentDetailWire,
   type ContentFeaturedWire,
@@ -476,7 +479,7 @@ async function getCatalogPage(
     .first();
 
   return {
-    items: (row?.items ?? []) as ContentCardWire[],
+    items: ((row?.items ?? []) as ContentCardWire[]).map(compactContentCardWire),
     hasNextPage: row?.hasNextPage ?? false
   };
 }
@@ -497,8 +500,11 @@ export const getHomepageView = query({
       .first();
 
     return {
-      featured: (row?.featured ?? []) as ContentFeaturedWire[],
-      categories: (row?.rows ?? []) as HomeViewWire["categories"]
+      featured: ((row?.featured ?? []) as ContentFeaturedWire[]).map(compactContentFeaturedWire),
+      categories: ((row?.rows ?? []) as HomeViewWire["categories"]).map((category) => ({
+        ...category,
+        content: category.content.map(compactContentCardWire)
+      }))
     };
   }
 });
@@ -734,14 +740,14 @@ async function readRecommendationPool(ctx: QueryCtx, type: "movie" | "tv", genre
       .query("recommendationPools")
       .withIndex("by_key", (q) => q.eq("key", recommendationPoolKey(type, genre)))
       .first();
-    if (row?.items.length) return row.items as ContentCardWire[];
+    if (row?.items.length) return (row.items as ContentCardWire[]).map(compactContentCardWire);
   }
 
   const row = await ctx.db
     .query("recommendationPools")
     .withIndex("by_key", (q) => q.eq("key", recommendationPoolKey(type)))
     .first();
-  return (row?.items ?? []) as ContentCardWire[];
+  return ((row?.items ?? []) as ContentCardWire[]).map(compactContentCardWire);
 }
 
 function rankRecommendations(args: {
@@ -758,13 +764,14 @@ function rankRecommendations(args: {
 
   return args.pool
     .filter((item) => !watchlistIdSet.has(item[0]))
-    .filter((item) => args.typeFilter === "all" || item[2] === args.typeFilter)
+    .filter((item) => args.typeFilter === "all" || fromContentTypeWire(item[2]) === args.typeFilter)
     .map((item) => {
+      const itemType = fromContentTypeWire(item[2]);
       let score =
         seededUnitInterval(
           `${signature}:${args.typeFilter}:${args.refreshSeed}:${String(item[0])}`
         ) * 15;
-      if (item[2] === args.preferredType) score += 2;
+      if (itemType === args.preferredType) score += 2;
       if ((item[5] ?? 0) > 7) score += 0.5;
       return { item, score };
     })
