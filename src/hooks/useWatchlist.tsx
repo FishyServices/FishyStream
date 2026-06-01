@@ -94,13 +94,14 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
 
   const [ids, setIds] = useState<Set<string>>(() => new Set(lsGet()));
   const [hydrated, setHydrated] = useState(() => !user);
+  const hasLocalIds = ids.size > 0;
 
   const addMutation = useMutation(api.watchlist.addWatchlistEntry);
   const removeMutation = useMutation(api.watchlist.removeWatchlistEntry);
   const serverIds = useOneShotConvexQuery<string[]>(
-    !!user && !isConvexAuthLoading && !isMyListRoute,
+    !!user && !isConvexAuthLoading && !isMyListRoute && !hasLocalIds,
     (client) => client.query(api.watchlist.listWatchlistContentIds, { clerkUserId: user!.id }),
-    [user?.id, isConvexAuthLoading, isMyListRoute]
+    [user?.id, isConvexAuthLoading, isMyListRoute, hasLocalIds]
   );
 
   const hydrateFromServerIds = useCallback((serverIds: string[]) => {
@@ -121,9 +122,13 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (isConvexAuthLoading) return;
+    if (hasLocalIds) {
+      setHydrated(true);
+      return;
+    }
     if (serverIds === undefined) return;
     setHydrated(true);
-  }, [user, serverIds, isConvexAuthLoading]);
+  }, [hasLocalIds, user, serverIds, isConvexAuthLoading]);
 
   useEffect(() => {
     if (!serverIds) return;
