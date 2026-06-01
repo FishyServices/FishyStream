@@ -61,6 +61,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
 
   const addMutation = useMutation(api.watchlist.addWatchlistEntry);
   const removeMutation = useMutation(api.watchlist.removeWatchlistEntry);
+  const compactRows = useMutation(api.watchlist.compactWatchlistRows);
   const serverIds = useOneShotConvexQuery<string[]>(
     !!user && !isConvexAuthLoading,
     (client) => client.query(api.watchlist.listWatchlistContentIds, { clerkUserId: user!.id }),
@@ -88,6 +89,13 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
       return merged;
     });
   }, [serverIds]);
+
+  useEffect(() => {
+    if (!user || isConvexAuthLoading || serverIds === undefined) return;
+    if (sessionStorage.getItem(`watchlist_compacted_${user.id}`) === "1") return;
+    sessionStorage.setItem(`watchlist_compacted_${user.id}`, "1");
+    void compactRows({ clerkUserId: user.id });
+  }, [compactRows, isConvexAuthLoading, serverIds, user]);
 
   const toggle = useCallback(
     async (id: Id<"content">, snapshot?: WatchlistSnapshot) => {
@@ -149,33 +157,10 @@ export function useWatchlistHydrated(): boolean {
 
 export function useMyWatchlist(): WatchlistGridItem[] | undefined {
   const { user } = useUser();
-  const ensureSummary = useMutation(api.watchlist.ensureWatchlistSummary);
-  const [summaryReadyForUser, setSummaryReadyForUser] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) {
-      setSummaryReadyForUser(null);
-      return;
-    }
-
-    let cancelled = false;
-    ensureSummary({ clerkUserId: user.id })
-      .then(() => {
-        if (!cancelled) setSummaryReadyForUser(user.id);
-      })
-      .catch(() => {
-        if (!cancelled) setSummaryReadyForUser(user.id);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [ensureSummary, user]);
-
   const serverData = useOneShotConvexQuery<WatchlistGridWire[]>(
-    !!user && summaryReadyForUser === user.id,
+    !!user,
     (client) => client.query(api.watchlist.listWatchlist, { clerkUserId: user!.id }),
-    [user?.id, summaryReadyForUser]
+    [user?.id]
   );
 
   return useMemo(() => serverData?.map(fromWatchlistGridWire), [serverData]);

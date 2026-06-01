@@ -24,25 +24,6 @@ export const ensureCurrentUser = mutation({
       });
     }
 
-    const hasChanges =
-      user.email !== email ||
-      user.name !== name ||
-      user.avatarUrl !== avatarUrl ||
-      user.watchlistContentIds !== undefined ||
-      user.watchlistRecommendationType !== undefined ||
-      user.watchlistRecommendationGenres !== undefined;
-
-    if (hasChanges) {
-      await ctx.db.patch(user._id, {
-        email,
-        name,
-        avatarUrl,
-        watchlistContentIds: undefined,
-        watchlistRecommendationType: undefined,
-        watchlistRecommendationGenres: undefined
-      });
-    }
-
     return user._id;
   }
 });

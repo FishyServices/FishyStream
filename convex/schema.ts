@@ -29,9 +29,6 @@ export default defineSchema({
     email: v.optional(v.string()),
     name: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
-    watchlistContentIds: v.optional(v.array(v.id("content"))),
-    watchlistRecommendationType: v.optional(mediaType),
-    watchlistRecommendationGenres: v.optional(v.array(v.string())),
     createdAt: v.number()
   }).index("by_clerk_user_id", ["clerkUserId"]),
 
@@ -185,15 +182,7 @@ export default defineSchema({
     snapshotUpdatedAt: v.optional(v.number())
   })
     .index("by_clerk_added_at", ["clerkUserId", "addedAt"])
-    .index("by_clerk_content", ["clerkUserId", "contentId"])
-    .index("by_clerk_folder", ["clerkUserId", "folder"]),
-
-  watchlistSummaries: defineTable({
-    clerkUserId: v.string(),
-    items: v.array(v.any()),
-    contentIds: v.array(v.id("content")),
-    updatedAt: v.number()
-  }).index("by_clerk_user_id", ["clerkUserId"]),
+    .index("by_clerk_content", ["clerkUserId", "contentId"]),
 
   watchProgress: defineTable({
     clerkUserId: v.string(),
