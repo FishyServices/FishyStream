@@ -111,6 +111,20 @@ export const STREAM_PROVIDERS = [
         tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
     }),
     defineProvider({
+        key: "tryembed",
+        name: "TryEmbed",
+        category: "primary_anime",
+        idType: "tmdb",
+        quality: "1080p",
+        website: "https://tryembed.us.cc",
+        animeIdType: "anilist",
+        dubSupport: true,
+        progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
+        moviePath: (id) => `/embed/movie/${id}`,
+        tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
+        animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
+    }),
+    defineProvider({
         key: "111movies",
         name: "111movies",
         category: "other",
@@ -209,21 +223,6 @@ export const STREAM_PROVIDERS = [
         moviePath: (id) => `/?video_id=${id}&tmdb=1`,
         tvPath: (id, season, episode) => `/?video_id=${id}&tmdb=1&season=${season}&episode=${episode}`,
         animePath: (id, _season, episode, dub) => `/?video_id=${id}&anime=1&episode=${episode}${dub ? "&dub=1" : ""}`
-    }),
-    defineProvider({
-        key: "tryembed",
-        name: "TryEmbed",
-        category: "other",
-        idType: "tmdb",
-        quality: "1080p",
-        website: "https://tryembed.us.cc",
-        animeOnly: true,
-        animeIdType: "anilist",
-        dubSupport: true,
-        progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
-        moviePath: (id) => `/embed/movie/${id}`,
-        tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-        animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
     }),
     defineProvider({
         key: "videasy",
