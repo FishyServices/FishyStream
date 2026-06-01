@@ -21,6 +21,7 @@ import {
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 const LS_KEY = "watchlist_ids";
+const MY_LIST_INITIAL_LIMIT = 24;
 const WATCHLIST_GRID_CACHE_TTL_MS = 30_000;
 
 function watchlistGridCacheKey(userId: string) {
@@ -212,7 +213,11 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
 
   const serverData = useOneShotConvexQuery<WatchlistGridWire[]>(
     !!user && cachedServerData === undefined,
-    (client) => client.query(api.watchlist.listWatchlist, { clerkUserId: user!.id }),
+    (client) =>
+      client.query(api.watchlist.listWatchlist, {
+        clerkUserId: user!.id,
+        limit: MY_LIST_INITIAL_LIMIT
+      }),
     [user?.id, cachedServerData === undefined]
   );
 

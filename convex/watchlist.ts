@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { toWatchlistGridWire, type WatchlistGridWire } from "../shared/contentMetadata";
+import { toImageWire, toWatchlistGridWire, type WatchlistGridWire } from "../shared/contentMetadata";
 
 const watchlistSnapshotValidator = v.object({
   title: v.string(),
@@ -15,13 +15,17 @@ function compactGenres(genres: string[]) {
 }
 
 export const listWatchlist = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchlistGridWire[]> => {
+  args: {
+    clerkUserId: v.string(),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, { clerkUserId, limit = 24 }): Promise<WatchlistGridWire[]> => {
+    const pageSize = Math.max(1, Math.min(48, Math.floor(limit)));
     const items = await ctx.db
       .query("watchlist")
       .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
       .order("desc")
-      .collect();
+      .take(pageSize);
 
     return items.map((item) =>
       toWatchlistGridWire({
@@ -38,13 +42,14 @@ export const listWatchlist = query({
 });
 
 export const listWatchlistContentIds = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<string[]> => {
+  args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, { clerkUserId, limit = 500 }): Promise<string[]> => {
+    const maxIds = Math.max(1, Math.min(500, Math.floor(limit)));
     const items = await ctx.db
       .query("watchlist")
       .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
       .order("desc")
-      .collect();
+      .take(maxIds);
 
     return items.map((item) => item.contentId);
   }
@@ -76,7 +81,7 @@ export const addWatchlistEntry = mutation({
       contentType: content.type,
       title: content.title,
       genre: compactGenres(content.genre),
-      posterUrl: content.posterUrl,
+      posterUrl: toImageWire(content.posterUrl),
       tmdbId: content.tmdbId
     });
 
@@ -136,8 +141,10 @@ export const compactWatchlistRows = mutation({
     let patched = 0;
     for (const item of items) {
       const nextGenre = compactGenres(item.genre);
+      const nextPosterUrl = toImageWire(item.posterUrl);
       const shouldPatch =
         item.genre.length > nextGenre.length ||
+        item.posterUrl !== nextPosterUrl ||
         item.year !== undefined ||
         item.voteAverage !== undefined ||
         item.new !== undefined ||
@@ -147,6 +154,7 @@ export const compactWatchlistRows = mutation({
 
       await ctx.db.patch(item._id, {
         genre: nextGenre,
+        posterUrl: nextPosterUrl,
         year: undefined,
         voteAverage: undefined,
         new: undefined,

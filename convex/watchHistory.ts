@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
+  toImageWire,
   toWatchHistoryItemWire,
   toWatchProgressEntryMeta,
   type WatchHistoryItemWire,
@@ -285,7 +286,9 @@ async function saveProgressForUser(
     watchedAt: clientUpdatedAt,
     clientUpdatedAt,
     serverUpdatedAt: now,
-    ...buildContentSnapshot(content)
+    ...buildContentSnapshot(content),
+    genre: [],
+    posterUrl: toImageWire(content.posterUrl)
   });
 }
 
