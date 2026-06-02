@@ -159,7 +159,7 @@ export function VideoPlayer({
 
   const currentSeasonData = useQuery(
     api.seasons.getSeasonPlaybackMeta,
-    content.type === "tv"
+    content.type === "tv" && animeContent
       ? {
           contentId: content._id,
           seasonNumber: tvTarget.season,

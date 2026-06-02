@@ -61,23 +61,6 @@ function packAniListEpisodeMappings(mappings: AniListEpisodeMapping[] | undefine
     .join("|");
 }
 
-function findPackedAniListEpisodeMapping(pack: string | undefined, episodeNumber?: number) {
-  if (!pack || episodeNumber == null) return undefined;
-  const prefix = `${episodeNumber}:`;
-  const entry = pack.split("|").find((item) => item.startsWith(prefix));
-  if (!entry) return undefined;
-
-  const [, anilistId, anilistEpisodeNumber] = entry.split(":");
-  const parsedEpisodeNumber = Number(anilistEpisodeNumber);
-  if (!anilistId || !Number.isFinite(parsedEpisodeNumber)) return undefined;
-
-  return {
-    episodeNumber,
-    anilistId,
-    anilistEpisodeNumber: parsedEpisodeNumber
-  };
-}
-
 function toEpisodeWire(episode: {
   episodeNumber: number;
   name: string;
@@ -104,6 +87,52 @@ function fromSeasonSummaryWire(row: SeasonSummaryWire): SeasonMetaSummary {
   };
 }
 
+async function readEpisodeMapping(
+  ctx: QueryCtx,
+  contentId: Id<"content">,
+  seasonNumber: number,
+  episodeNumber?: number
+) {
+  if (episodeNumber == null) return null;
+  return await ctx.db
+    .query("seasonEpisodeMappings")
+    .withIndex("by_content_season_episode", (q) =>
+      q.eq("contentId", contentId).eq("seasonNumber", seasonNumber).eq("episodeNumber", episodeNumber)
+    )
+    .first();
+}
+
+async function replaceSeasonEpisodeMappings(
+  ctx: MutationCtx,
+  args: {
+    contentId: Id<"content">;
+    seasonNumber: number;
+    mappings?: AniListEpisodeMapping[];
+    now: number;
+  }
+) {
+  const existingMappings = await ctx.db
+    .query("seasonEpisodeMappings")
+    .withIndex("by_content_season", (q) =>
+      q.eq("contentId", args.contentId).eq("seasonNumber", args.seasonNumber)
+    )
+    .collect();
+  for (const row of existingMappings) {
+    await ctx.db.delete(row._id);
+  }
+
+  for (const mapping of args.mappings ?? []) {
+    await ctx.db.insert("seasonEpisodeMappings", {
+      contentId: args.contentId,
+      seasonNumber: args.seasonNumber,
+      episodeNumber: mapping.episodeNumber,
+      anilistId: mapping.anilistId,
+      anilistEpisodeNumber: mapping.anilistEpisodeNumber,
+      updatedAt: args.now
+    });
+  }
+}
+
 function fromSeasonPlaybackMeta(row: {
   seasonNumber: number;
   episodeCount: number;
@@ -128,53 +157,36 @@ async function upsertSeasonPlaybackMeta(
   ctx: MutationCtx,
   args: {
     contentId: Id<"content">;
-    tmdbId: string;
     seasonNumber: number;
     name: string;
     airDate?: string;
     episodeCount: number;
     storedEpisodeCount: number;
     anilistId?: string;
-    anilistEpisodeMappingPack?: string;
     anilistEpisodeMappingCount?: number;
-    seasonEpisodePayloadHash: string;
     now: number;
     existing?: Awaited<ReturnType<typeof readSeasonPlaybackMeta>>;
   }
 ) {
   const payload = {
     contentId: args.contentId,
-    tmdbId: args.tmdbId,
     seasonNumber: args.seasonNumber,
     name: truncate(args.name, 80) || `Season ${args.seasonNumber}`,
     airDate: args.airDate,
     episodeCount: args.episodeCount,
     storedEpisodeCount: args.storedEpisodeCount,
     anilistId: args.anilistId,
-    anilistEpisodeMappingPack: args.anilistEpisodeMappingPack,
-    anilistEpisodeMappingCount: args.anilistEpisodeMappingCount,
-    seasonEpisodePayloadHash: args.seasonEpisodePayloadHash
+    anilistEpisodeMappingCount: args.anilistEpisodeMappingCount
   };
-  const payloadHash = episodePayloadHash(payload);
 
   const existing = args.existing;
 
   if (existing) {
-    if (existing.payloadHash !== payloadHash) {
-      await ctx.db.patch(existing._id, {
-        ...payload,
-        updatedAt: args.now,
-        payloadHash
-      });
-    }
+    await ctx.db.replace(existing._id, payload);
     return;
   }
 
-  await ctx.db.insert("seasonPlaybackMeta", {
-    ...payload,
-    updatedAt: args.now,
-    payloadHash
-  });
+  await ctx.db.insert("seasonPlaybackMeta", payload);
 }
 
 async function syncContentSeasonAggregates(ctx: MutationCtx, contentId: Id<"content">) {
@@ -267,21 +279,21 @@ export const upsertSeason = internalMutation({
     });
 
     const existingPlaybackMeta = await readSeasonPlaybackMeta(ctx, args.contentId, args.seasonNumber);
+    const existingEpisodes = await ctx.db
+      .query("seasonEpisodes")
+      .withIndex("by_content_season", (q) =>
+        q.eq("contentId", args.contentId).eq("seasonNumber", args.seasonNumber)
+      )
+      .first();
 
-    if (existingPlaybackMeta?.seasonEpisodePayloadHash !== seasonEpisodePayloadHash) {
-      const existingEpisodes = await ctx.db
-        .query("seasonEpisodes")
-        .withIndex("by_content_season", (q) =>
-          q.eq("contentId", args.contentId).eq("seasonNumber", args.seasonNumber)
-        )
-        .first();
+    const seasonPayloadChanged = existingEpisodes?.payloadHash !== seasonEpisodePayloadHash;
+    if (seasonPayloadChanged) {
       const payload = {
         contentId: args.contentId,
         tmdbId: args.tmdbId,
         seasonNumber: args.seasonNumber,
         overview: truncate(args.overview, 180),
         anilistId: args.anilistId,
-        anilistEpisodeMappingPack,
         anilistEpisodeMappingCount: args.anilistEpisodeMappings?.length,
         episodes,
         updatedAt: now,
@@ -293,20 +305,24 @@ export const upsertSeason = internalMutation({
       } else {
         await ctx.db.insert("seasonEpisodes", payload);
       }
+
+      await replaceSeasonEpisodeMappings(ctx, {
+        contentId: args.contentId,
+        seasonNumber: args.seasonNumber,
+        mappings: args.anilistEpisodeMappings,
+        now
+      });
     }
 
     await upsertSeasonPlaybackMeta(ctx, {
       contentId: args.contentId,
-      tmdbId: args.tmdbId,
       seasonNumber: args.seasonNumber,
       name: args.name,
       airDate: args.airDate,
       episodeCount: args.episodeCount,
       storedEpisodeCount: episodes.length,
       anilistId: args.anilistId,
-      anilistEpisodeMappingPack,
       anilistEpisodeMappingCount: args.anilistEpisodeMappings?.length,
-      seasonEpisodePayloadHash,
       now,
       existing: existingPlaybackMeta
     });
@@ -418,9 +434,17 @@ export const getSeasonPlaybackMeta = query({
     const playbackMeta = await readSeasonPlaybackMeta(ctx, contentId, seasonNumber);
 
     if (playbackMeta) {
-      const episodeMapping = includeAnimeMappings
-        ? findPackedAniListEpisodeMapping(playbackMeta.anilistEpisodeMappingPack, episodeNumber)
-        : undefined;
+      const episodeMappingRow = includeAnimeMappings
+        ? await readEpisodeMapping(ctx, contentId, seasonNumber, episodeNumber)
+        : null;
+      const episodeMapping =
+        includeAnimeMappings && episodeMappingRow
+          ? {
+              episodeNumber: episodeMappingRow.episodeNumber,
+              anilistId: episodeMappingRow.anilistId,
+              anilistEpisodeNumber: episodeMappingRow.anilistEpisodeNumber
+            }
+          : undefined;
 
       return {
         seasonNumber,
@@ -449,13 +473,19 @@ export const getSeasonPlaybackMeta = query({
       };
     }
 
-    const season = await readSeasonEpisodes(ctx, contentId, seasonNumber);
+    const [season, episodeMappingRow] = await Promise.all([
+      readSeasonEpisodes(ctx, contentId, seasonNumber),
+      includeAnimeMappings ? readEpisodeMapping(ctx, contentId, seasonNumber, episodeNumber) : null
+    ]);
     if (!season) return null;
 
-    const episodeMapping = findPackedAniListEpisodeMapping(
-      season.anilistEpisodeMappingPack,
-      episodeNumber
-    );
+    const episodeMapping = episodeMappingRow
+      ? {
+          episodeNumber: episodeMappingRow.episodeNumber,
+          anilistId: episodeMappingRow.anilistId,
+          anilistEpisodeNumber: episodeMappingRow.anilistEpisodeNumber
+        }
+      : undefined;
 
     return {
       seasonNumber,

@@ -145,7 +145,6 @@ export default defineSchema({
     seasonNumber: v.number(),
     overview: v.optional(v.string()),
     anilistId: v.optional(v.string()),
-    anilistEpisodeMappingPack: v.optional(v.string()),
     anilistEpisodeMappingCount: v.optional(v.number()),
     episodes: v.array(v.any()),
     updatedAt: v.number(),
@@ -156,21 +155,25 @@ export default defineSchema({
 
   seasonPlaybackMeta: defineTable({
     contentId: v.id("content"),
-    tmdbId: v.string(),
     seasonNumber: v.number(),
     name: v.string(),
     airDate: v.optional(v.string()),
     episodeCount: v.number(),
     storedEpisodeCount: v.number(),
     anilistId: v.optional(v.string()),
-    anilistEpisodeMappingPack: v.optional(v.string()),
-    anilistEpisodeMappingCount: v.optional(v.number()),
-    seasonEpisodePayloadHash: v.optional(v.string()),
-    updatedAt: v.number(),
-    payloadHash: v.string()
+    anilistEpisodeMappingCount: v.optional(v.number())
+  }).index("by_content_season", ["contentId", "seasonNumber"]),
+
+  seasonEpisodeMappings: defineTable({
+    contentId: v.id("content"),
+    seasonNumber: v.number(),
+    episodeNumber: v.number(),
+    anilistId: v.string(),
+    anilistEpisodeNumber: v.number(),
+    updatedAt: v.number()
   })
-    .index("by_content_season", ["contentId", "seasonNumber"])
-    .index("by_tmdb_season", ["tmdbId", "seasonNumber"]),
+    .index("by_content_season_episode", ["contentId", "seasonNumber", "episodeNumber"])
+    .index("by_content_season", ["contentId", "seasonNumber"]),
 
   watchlist: defineTable({
     clerkUserId: v.string(),
