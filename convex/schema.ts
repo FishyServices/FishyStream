@@ -210,14 +210,5 @@ export default defineSchema({
   })
     .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"])
     .index("by_clerk_content", ["clerkUserId", "contentId"])
-    .index("by_clerk_completed_watched_at", ["clerkUserId", "completed", "watchedAt"]),
-
-  syncRuns: defineTable({
-    key: v.string(),
-    status: v.string(),
-    message: v.optional(v.string()),
-    startedAt: v.number(),
-    finishedAt: v.optional(v.number()),
-    stats: v.optional(v.any())
-  }).index("by_key", ["key"])
+    .index("by_clerk_completed_watched_at", ["clerkUserId", "completed", "watchedAt"])
 });
