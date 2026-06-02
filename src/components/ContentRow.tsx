@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { MovieCard } from "./MovieCard";
-import type { ContentCard } from "../../shared/contentMetadata";
+import type { ContentCard, ContentType } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -22,7 +22,8 @@ interface ContentRowProps {
     season?: number,
     episode?: number,
     source?: string,
-    dub?: boolean
+    dub?: boolean,
+    type?: ContentType
   ) => void;
   viewAllHref?: string;
 }

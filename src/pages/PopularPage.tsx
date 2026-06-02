@@ -10,13 +10,19 @@ export function PopularPage() {
 
   const handlePlay = (
     tmdbId: string,
-    _season?: number,
-    _episode?: number,
-    _source?: string,
-    _dub?: boolean,
+    season?: number,
+    episode?: number,
+    source?: string,
+    dub?: boolean,
     type?: "movie" | "tv"
   ) => {
-    navigate(`/watch/${tmdbId}?type=${type ?? "movie"}`);
+    const params = new URLSearchParams();
+    params.set("type", type ?? "movie");
+    if (season !== undefined) params.set("season", String(season));
+    if (episode !== undefined) params.set("episode", String(episode));
+    if (source) params.set("source", source);
+    if (dub) params.set("dub", "true");
+    navigate(`/watch/${tmdbId}?${params}`);
   };
 
   if (popular === undefined) {

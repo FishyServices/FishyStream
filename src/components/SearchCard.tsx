@@ -220,11 +220,13 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
           content={dbContent}
           isOpen={showModal}
           onClose={() => setShowModal(false)}
-          onPlay={(tmdbId, season, episode, type) => {
+          onPlay={(tmdbId, season, episode, source, dub, type) => {
             const params = new URLSearchParams();
             params.set("type", type ?? item.type);
             if (season !== undefined) params.set("season", String(season));
             if (episode !== undefined) params.set("episode", String(episode));
+            if (source) params.set("source", source);
+            if (dub) params.set("dub", "true");
             const qs = params.toString();
             navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
           }}

@@ -88,7 +88,14 @@ interface ContentModalProps {
   content: ModalContent | null;
   isOpen: boolean;
   onClose: () => void;
-  onPlay: (tmdbId: string, season?: number, episode?: number, type?: ContentType) => void;
+  onPlay: (
+    tmdbId: string,
+    season?: number,
+    episode?: number,
+    source?: string,
+    dub?: boolean,
+    type?: ContentType
+  ) => void;
 }
 
 function hasFullContent(
@@ -498,6 +505,8 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
         contentData.tmdbId,
         isTV ? selectedSeason : undefined,
         isTV ? (ep ?? selectedEpisode) : undefined,
+        undefined,
+        undefined,
         contentData.type
       );
       onClose();

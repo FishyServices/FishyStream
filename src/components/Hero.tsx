@@ -9,7 +9,14 @@ import type { ContentFeatured } from "../../shared/contentMetadata";
 
 interface HeroProps {
   contents: ContentFeatured[];
-  onPlay?: (tmdbId: string) => void;
+  onPlay?: (
+    tmdbId: string,
+    season?: number,
+    episode?: number,
+    source?: string,
+    dub?: boolean,
+    type?: "movie" | "tv"
+  ) => void;
   autoPlayTrailer?: boolean;
   trailerMuted?: boolean;
 }
@@ -106,7 +113,16 @@ export function Hero({
     }
   };
 
-  const handlePlay = () => activeContent.tmdbId && onPlay?.(activeContent.tmdbId);
+  const handlePlay = () =>
+    activeContent.tmdbId &&
+    onPlay?.(
+      activeContent.tmdbId,
+      activeContent.type === "tv" ? 1 : undefined,
+      activeContent.type === "tv" ? 1 : undefined,
+      undefined,
+      undefined,
+      activeContent.type
+    );
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev - 1 + contents.length) % contents.length);

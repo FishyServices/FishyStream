@@ -431,31 +431,34 @@ export const getSeasonPlaybackMeta = query({
     includeAnimeMappings: v.optional(v.boolean())
   },
   handler: async (ctx, { contentId, seasonNumber, episodeNumber, includeAnimeMappings }) => {
+    if (includeAnimeMappings) {
+      const episodeMappingRow = await readEpisodeMapping(ctx, contentId, seasonNumber, episodeNumber);
+      if (!episodeMappingRow) return null;
+
+      return {
+        seasonNumber,
+        anilistId: episodeMappingRow.anilistId,
+        anilistEpisodeMappings: [
+          {
+            episodeNumber: episodeMappingRow.episodeNumber,
+            anilistId: episodeMappingRow.anilistId,
+            anilistEpisodeNumber: episodeMappingRow.anilistEpisodeNumber
+          }
+        ]
+      };
+    }
+
     const playbackMeta = await readSeasonPlaybackMeta(ctx, contentId, seasonNumber);
 
     if (playbackMeta) {
-      const episodeMappingRow = includeAnimeMappings
-        ? await readEpisodeMapping(ctx, contentId, seasonNumber, episodeNumber)
-        : null;
-      const episodeMapping =
-        includeAnimeMappings && episodeMappingRow
-          ? {
-              episodeNumber: episodeMappingRow.episodeNumber,
-              anilistId: episodeMappingRow.anilistId,
-              anilistEpisodeNumber: episodeMappingRow.anilistEpisodeNumber
-            }
-          : undefined;
-
       return {
         seasonNumber,
         name: playbackMeta.name,
         airDate: playbackMeta.airDate,
         episodeCount: playbackMeta.episodeCount,
-        anilistId: includeAnimeMappings ? playbackMeta.anilistId : undefined,
-        anilistEpisodeMappingCount: includeAnimeMappings
-          ? playbackMeta.anilistEpisodeMappingCount
-          : undefined,
-        anilistEpisodeMappings: includeAnimeMappings && episodeMapping ? [episodeMapping] : undefined
+        anilistId: undefined,
+        anilistEpisodeMappingCount: undefined,
+        anilistEpisodeMappings: undefined
       };
     }
 
@@ -473,30 +476,17 @@ export const getSeasonPlaybackMeta = query({
       };
     }
 
-    const [season, episodeMappingRow] = await Promise.all([
-      readSeasonEpisodes(ctx, contentId, seasonNumber),
-      includeAnimeMappings ? readEpisodeMapping(ctx, contentId, seasonNumber, episodeNumber) : null
-    ]);
+    const season = await readSeasonEpisodes(ctx, contentId, seasonNumber);
     if (!season) return null;
-
-    const episodeMapping = episodeMappingRow
-      ? {
-          episodeNumber: episodeMappingRow.episodeNumber,
-          anilistId: episodeMappingRow.anilistId,
-          anilistEpisodeNumber: episodeMappingRow.anilistEpisodeNumber
-        }
-      : undefined;
 
     return {
       seasonNumber,
       name: summary?.[5] ?? `Season ${seasonNumber}`,
       airDate: summary?.[6] ?? undefined,
       episodeCount: summary?.[1] ?? (season.episodes as EpisodeWire[]).length,
-      anilistId: includeAnimeMappings ? season.anilistId : undefined,
-      anilistEpisodeMappingCount: includeAnimeMappings
-        ? season.anilistEpisodeMappingCount
-        : undefined,
-      anilistEpisodeMappings: includeAnimeMappings && episodeMapping ? [episodeMapping] : undefined
+      anilistId: undefined,
+      anilistEpisodeMappingCount: undefined,
+      anilistEpisodeMappings: undefined
     };
   }
 });

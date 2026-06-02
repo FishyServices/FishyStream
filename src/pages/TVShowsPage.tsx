@@ -39,11 +39,19 @@ export function TVShowsPage() {
       : settings.defaultTVSort;
   const paginated = usePaginatedContent("tv", genre !== "All" ? genre : undefined, sort, 24, page);
   const shows = paginated.items;
-  const handlePlay = (tmdbId: string, season?: number, episode?: number) => {
+  const handlePlay = (
+    tmdbId: string,
+    season?: number,
+    episode?: number,
+    source?: string,
+    dub?: boolean
+  ) => {
     const p = new URLSearchParams();
     p.set("type", "tv");
-    if (season) p.set("season", String(season));
-    if (episode) p.set("episode", String(episode));
+    if (season !== undefined) p.set("season", String(season));
+    if (episode !== undefined) p.set("episode", String(episode));
+    if (source) p.set("source", source);
+    if (dub) p.set("dub", "true");
     navigate(`/watch/${tmdbId}${p.toString() ? "?" + p : ""}`);
   };
 

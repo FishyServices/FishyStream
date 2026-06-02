@@ -159,7 +159,7 @@ export function VideoPlayer({
 
   const currentSeasonData = useQuery(
     api.seasons.getSeasonPlaybackMeta,
-    content.type === "tv" && animeContent
+    content.type === "tv" && animeContent && tvTarget.season > 1
       ? {
           contentId: content._id,
           seasonNumber: tvTarget.season,
@@ -170,7 +170,10 @@ export function VideoPlayer({
   );
   const currentSeasonKey = content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
   const hasFreshAnimeSeasonMetadata =
-    !animeContent || !currentSeasonKey || freshAnimeSeasonKeys.includes(currentSeasonKey);
+    !animeContent ||
+    tvTarget.season <= 1 ||
+    !currentSeasonKey ||
+    freshAnimeSeasonKeys.includes(currentSeasonKey);
   const waitingForAnimeSeasonMetadata =
     shouldWaitForAnimeSeasonMetadata({
       contentType: content.type,
@@ -184,10 +187,11 @@ export function VideoPlayer({
     if (content.type !== "tv" || !content.tmdbId) return;
 
     const shouldSyncSeason =
-      currentSeasonData === null ||
-      (animeContent &&
-        !hasFreshAnimeSeasonMetadata &&
-        (!currentSeasonData?.anilistId || !hasAnimeEpisodeMappingMetadata(currentSeasonData)));
+      tvTarget.season > 1 &&
+      (currentSeasonData === null ||
+        (animeContent &&
+          !hasFreshAnimeSeasonMetadata &&
+          (!currentSeasonData?.anilistId || !hasAnimeEpisodeMappingMetadata(currentSeasonData))));
     if (!shouldSyncSeason) return;
 
     const key = `${content._id}:${tvTarget.season}`;
@@ -587,6 +591,7 @@ export function VideoPlayer({
 
     if (nextSource) {
       const params = new URLSearchParams(searchParams);
+      params.set("type", content.type);
       params.set("source", nextSource.name);
       navigate({ search: params.toString() }, { replace: true });
     }
@@ -715,6 +720,7 @@ export function VideoPlayer({
     realtimeDetectedRef.current = false;
 
     const params = new URLSearchParams();
+    params.set("type", content.type);
     params.set("season", String(next.season));
     params.set("episode", String(next.episode));
     const currentSource = searchParams.get("source");
@@ -964,14 +970,15 @@ export function VideoPlayer({
         }
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
-        onPlay={(tmdbId, season, episode) => {
+        onPlay={(_tmdbId, season, episode, source, dub, type) => {
           setShowInfoModal(false);
           const params = new URLSearchParams();
+          params.set("type", type ?? content.type);
           if (season !== undefined) params.set("season", String(season));
           if (episode !== undefined) params.set("episode", String(episode));
-          const currentSource = searchParams.get("source");
-          if (currentSource) params.set("source", currentSource);
-          if (isDub) params.set("dub", "true");
+          const nextSource = source ?? searchParams.get("source");
+          if (nextSource) params.set("source", nextSource);
+          if (dub ?? isDub) params.set("dub", "true");
           navigate({ search: params.toString() }, { replace: true });
         }}
       />

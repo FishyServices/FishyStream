@@ -113,6 +113,7 @@ export function hasAnimeEpisodeMappingMetadata(
     | null
     | undefined
 ) {
+  if (currentSeasonData?.anilistEpisodeMappings?.length) return true;
   if (!currentSeasonData?.episodeCount) return false;
   return (
     (currentSeasonData.anilistEpisodeMappingCount ??
