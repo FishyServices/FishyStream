@@ -64,9 +64,34 @@ interface VideoPlayerProps {
 }
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
+const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:anime-season-sync-keys";
 
 function clamp(v: number) {
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
+}
+
+function readSessionAnimeSeasonSyncKeys() {
+  try {
+    const raw = window.sessionStorage.getItem(ANIME_SEASON_SYNC_SESSION_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((key): key is string => typeof key === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function hasSessionAnimeSeasonSyncKey(key: string) {
+  return readSessionAnimeSeasonSyncKeys().includes(key);
+}
+
+function rememberSessionAnimeSeasonSyncKey(key: string) {
+  try {
+    const keys = readSessionAnimeSeasonSyncKeys();
+    if (keys.includes(key)) return;
+    window.sessionStorage.setItem(ANIME_SEASON_SYNC_SESSION_KEY, JSON.stringify([...keys, key]));
+  } catch {}
 }
 
 function safeEp(v: number | null | undefined) {
@@ -173,7 +198,8 @@ export function VideoPlayer({
     !animeContent ||
     tvTarget.season <= 1 ||
     !currentSeasonKey ||
-    freshAnimeSeasonKeys.includes(currentSeasonKey);
+    freshAnimeSeasonKeys.includes(currentSeasonKey) ||
+    hasSessionAnimeSeasonSyncKey(currentSeasonKey);
   const waitingForAnimeSeasonMetadata =
     shouldWaitForAnimeSeasonMetadata({
       contentType: content.type,
@@ -206,6 +232,7 @@ export function VideoPlayer({
       .catch(() => {})
       .finally(() => {
         if (animeContent) {
+          rememberSessionAnimeSeasonSyncKey(key);
           setFreshAnimeSeasonKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
         }
         if (seasonSyncRequestRef.current === key) {

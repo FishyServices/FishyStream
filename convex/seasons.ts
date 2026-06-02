@@ -153,6 +153,29 @@ function episodePayloadHash(value: unknown) {
   return hashString(JSON.stringify(value));
 }
 
+function isSameSeasonPlaybackMeta(
+  existing: NonNullable<Awaited<ReturnType<typeof readSeasonPlaybackMeta>>>,
+  payload: {
+    name: string;
+    airDate?: string;
+    episodeCount: number;
+    storedEpisodeCount: number;
+    anilistId?: string;
+    anilistEpisodeMappingCount?: number;
+    seasonEpisodePayloadHash: string;
+  }
+) {
+  return (
+    existing.name === payload.name &&
+    existing.airDate === payload.airDate &&
+    existing.episodeCount === payload.episodeCount &&
+    existing.storedEpisodeCount === payload.storedEpisodeCount &&
+    existing.anilistId === payload.anilistId &&
+    existing.anilistEpisodeMappingCount === payload.anilistEpisodeMappingCount &&
+    existing.seasonEpisodePayloadHash === payload.seasonEpisodePayloadHash
+  );
+}
+
 async function upsertSeasonPlaybackMeta(
   ctx: MutationCtx,
   args: {
@@ -164,6 +187,7 @@ async function upsertSeasonPlaybackMeta(
     storedEpisodeCount: number;
     anilistId?: string;
     anilistEpisodeMappingCount?: number;
+    seasonEpisodePayloadHash: string;
     now: number;
     existing?: Awaited<ReturnType<typeof readSeasonPlaybackMeta>>;
   }
@@ -176,13 +200,16 @@ async function upsertSeasonPlaybackMeta(
     episodeCount: args.episodeCount,
     storedEpisodeCount: args.storedEpisodeCount,
     anilistId: args.anilistId,
-    anilistEpisodeMappingCount: args.anilistEpisodeMappingCount
+    anilistEpisodeMappingCount: args.anilistEpisodeMappingCount,
+    seasonEpisodePayloadHash: args.seasonEpisodePayloadHash
   };
 
   const existing = args.existing;
 
   if (existing) {
-    await ctx.db.replace(existing._id, payload);
+    if (!isSameSeasonPlaybackMeta(existing, payload)) {
+      await ctx.db.patch(existing._id, payload);
+    }
     return;
   }
 
@@ -279,14 +306,19 @@ export const upsertSeason = internalMutation({
     });
 
     const existingPlaybackMeta = await readSeasonPlaybackMeta(ctx, args.contentId, args.seasonNumber);
-    const existingEpisodes = await ctx.db
-      .query("seasonEpisodes")
-      .withIndex("by_content_season", (q) =>
-        q.eq("contentId", args.contentId).eq("seasonNumber", args.seasonNumber)
-      )
-      .first();
+    const knownPayloadHash = existingPlaybackMeta?.seasonEpisodePayloadHash;
+    const needsEpisodeWrite = knownPayloadHash !== seasonEpisodePayloadHash;
+    const existingEpisodes = needsEpisodeWrite
+      ? await ctx.db
+          .query("seasonEpisodes")
+          .withIndex("by_content_season", (q) =>
+            q.eq("contentId", args.contentId).eq("seasonNumber", args.seasonNumber)
+          )
+          .first()
+      : null;
 
-    const seasonPayloadChanged = existingEpisodes?.payloadHash !== seasonEpisodePayloadHash;
+    const seasonPayloadChanged =
+      needsEpisodeWrite && existingEpisodes?.payloadHash !== seasonEpisodePayloadHash;
     if (seasonPayloadChanged) {
       const payload = {
         contentId: args.contentId,
@@ -323,6 +355,7 @@ export const upsertSeason = internalMutation({
       storedEpisodeCount: episodes.length,
       anilistId: args.anilistId,
       anilistEpisodeMappingCount: args.anilistEpisodeMappings?.length,
+      seasonEpisodePayloadHash,
       now,
       existing: existingPlaybackMeta
     });
