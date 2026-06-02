@@ -1,15 +1,16 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import {
-  toImageWire,
   toWatchHistoryItemWire,
   toWatchProgressEntryMeta,
   type WatchHistoryItemWire,
   type WatchProgressEntryMeta
 } from "../shared/contentMetadata";
-import { buildContentSnapshot } from "./lib/contentSnapshots";
+
+const MIN_PROGRESS_DELTA_TO_WRITE = 5;
+const MIN_POSITION_DELTA_TO_WRITE_SECONDS = 300;
 
 type ProgressDocument = {
   progress: number;
@@ -26,6 +27,7 @@ type ProgressDocument = {
 };
 
 type ProgressWrite = {
+  progressId?: Id<"watchProgress">;
   contentId: Id<"content">;
   progress: number;
   completed?: boolean;
@@ -39,6 +41,7 @@ type ProgressWrite = {
 };
 
 const progressWriteFields = {
+  progressId: v.optional(v.id("watchProgress")),
   contentId: v.id("content"),
   progress: v.number(),
   completed: v.optional(v.boolean()),
@@ -50,8 +53,6 @@ const progressWriteFields = {
   dub: v.optional(v.boolean()),
   clientUpdatedAt: v.optional(v.number())
 };
-
-const progressWriteValidator = v.object(progressWriteFields);
 
 function normalizeProgress(progress: number) {
   if (!Number.isFinite(progress)) return 0;
@@ -80,25 +81,14 @@ function shouldSkipProgressUpdate(
 
   return (
     existing.completed === next.completed &&
-    positionDelta < 15 &&
-    progressDelta < 1 &&
+    positionDelta < MIN_POSITION_DELTA_TO_WRITE_SECONDS &&
+    progressDelta < MIN_PROGRESS_DELTA_TO_WRITE &&
     (existing.durationSeconds ?? 0) === (next.durationSeconds ?? 0) &&
     existing.seasonNumber === next.seasonNumber &&
     existing.episodeNumber === next.episodeNumber &&
     existing.source === next.source &&
     existing.dub === next.dub
   );
-}
-
-function compactProgressEntries(entries: ProgressWrite[]) {
-  const byContent = new Map<string, ProgressWrite>();
-  for (const entry of entries) {
-    const existing = byContent.get(entry.contentId);
-    if (!existing || (entry.clientUpdatedAt ?? 0) >= (existing.clientUpdatedAt ?? 0)) {
-      byContent.set(entry.contentId, entry);
-    }
-  }
-  return Array.from(byContent.values());
 }
 
 function addChangedField<T extends keyof ProgressDocument>(
@@ -112,7 +102,32 @@ function addChangedField<T extends keyof ProgressDocument>(
   }
 }
 
-async function listSnapshotBackedHistory(
+function toHistoryItemWire(
+  row: Doc<"watchProgress">,
+  content: Doc<"content"> | null
+): WatchHistoryItemWire | null {
+  if (!content) return null;
+
+  return toWatchHistoryItemWire({
+    _id: row.contentId,
+    title: content.title,
+    type: content.type,
+    genre: content.genre,
+    year: content.year,
+    voteAverage: content.voteAverage,
+    posterUrl: content.posterUrl,
+    tmdbId: content.tmdbId,
+    new: content.new,
+    progress: row.progress,
+    completed: row.completed,
+    seasonNumber: row.seasonNumber,
+    episodeNumber: row.episodeNumber,
+    source: row.source,
+    dub: row.dub
+  });
+}
+
+async function listHydratedHistory(
   ctx: QueryCtx,
   clerkUserId: string,
   limit: number,
@@ -132,43 +147,23 @@ async function listSnapshotBackedHistory(
         .order("desc")
         .take(limit);
 
-  return progressRows.map((row) =>
-    toWatchHistoryItemWire({
-      _id: row.contentId,
-      title: row.title,
-      type: row.contentType,
-      genre: row.genre,
-      year: row.year,
-      voteAverage: row.voteAverage,
-      posterUrl: row.posterUrl,
-      tmdbId: row.tmdbId,
-      new: row.new,
-      progress: row.progress,
-      completed: row.completed,
-      seasonNumber: row.seasonNumber,
-      episodeNumber: row.episodeNumber,
-      source: row.source,
-      dub: row.dub
-    })
-  );
+  const contentRows = await Promise.all(progressRows.map((row) => ctx.db.get(row.contentId)));
+  return progressRows
+    .map((row, index) => toHistoryItemWire(row, contentRows[index] ?? null))
+    .filter((item): item is WatchHistoryItemWire => item !== null);
 }
 
 export const listWatchHistory = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemWire[]> => {
-    return await listSnapshotBackedHistory(ctx, clerkUserId, 50, true);
+    return await listHydratedHistory(ctx, clerkUserId, 50, true);
   }
 });
 
 export const listContinueWatching = query({
   args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { clerkUserId, limit = 6 }): Promise<WatchHistoryItemWire[]> => {
-    return await listSnapshotBackedHistory(
-      ctx,
-      clerkUserId,
-      Math.max(1, Math.min(10, limit)),
-      false
-    );
+    return await listHydratedHistory(ctx, clerkUserId, Math.max(1, Math.min(10, limit)), false);
   }
 });
 
@@ -190,21 +185,8 @@ export const saveWatchProgress = mutation({
     clerkUserId: v.string(),
     ...progressWriteFields
   },
-  handler: async (ctx, args): Promise<void> => {
-    await saveProgressForUser(ctx, args.clerkUserId, args);
-  }
-});
-
-export const saveWatchProgressBatch = mutation({
-  args: {
-    clerkUserId: v.string(),
-    entries: v.array(progressWriteValidator)
-  },
-  handler: async (ctx, { clerkUserId, entries }): Promise<void> => {
-    const now = Date.now();
-    for (const entry of compactProgressEntries(entries).slice(0, 25)) {
-      await saveProgressForUser(ctx, clerkUserId, entry, now);
-    }
+  handler: async (ctx, args): Promise<Id<"watchProgress"> | null> => {
+    return await saveProgressForUser(ctx, args.clerkUserId, args);
   }
 });
 
@@ -213,12 +195,30 @@ async function saveProgressForUser(
   clerkUserId: string,
   args: ProgressWrite,
   now = Date.now()
-) {
+): Promise<Id<"watchProgress"> | null> {
   const normalizedProgress = normalizeProgress(args.progress);
   const completed = args.completed ?? normalizedProgress >= 95;
   const clientUpdatedAt = args.clientUpdatedAt ?? now;
   const nextPositionSeconds = normalizeOptionalNumber(args.positionSeconds);
   const nextDurationSeconds = normalizeOptionalNumber(args.durationSeconds);
+
+  if (args.progressId) {
+    await ctx.db.patch(args.progressId, {
+      progress: normalizedProgress,
+      completed,
+      positionSeconds: nextPositionSeconds,
+      durationSeconds: nextDurationSeconds,
+      seasonNumber: args.seasonNumber,
+      episodeNumber: args.episodeNumber,
+      source: args.source,
+      dub: args.dub,
+      watchedAt: clientUpdatedAt,
+      clientUpdatedAt,
+      serverUpdatedAt: now
+    });
+    return args.progressId;
+  }
+
   const existing = await ctx.db
     .query("watchProgress")
     .withIndex("by_clerk_content", (q) =>
@@ -229,7 +229,7 @@ async function saveProgressForUser(
   if (existing) {
     const existingClientUpdatedAt = existing.clientUpdatedAt ?? existing.watchedAt;
     if (clientUpdatedAt < existingClientUpdatedAt) {
-      return;
+      return existing._id;
     }
 
     const nextState = {
@@ -244,7 +244,7 @@ async function saveProgressForUser(
     };
 
     if (shouldSkipProgressUpdate(existing, nextState)) {
-      return;
+      return existing._id;
     }
 
     const patch: Partial<ProgressDocument> & {
@@ -266,13 +266,10 @@ async function saveProgressForUser(
     addChangedField(patch, existing, "dub", nextState.dub);
 
     await ctx.db.patch(existing._id, patch);
-    return;
+    return existing._id;
   }
 
-  const content = await ctx.db.get(args.contentId);
-  if (!content) return;
-
-  await ctx.db.insert("watchProgress", {
+  return await ctx.db.insert("watchProgress", {
     clerkUserId,
     contentId: args.contentId,
     progress: normalizedProgress,
@@ -285,10 +282,7 @@ async function saveProgressForUser(
     dub: args.dub,
     watchedAt: clientUpdatedAt,
     clientUpdatedAt,
-    serverUpdatedAt: now,
-    ...buildContentSnapshot(content),
-    genre: [],
-    posterUrl: toImageWire(content.posterUrl)
+    serverUpdatedAt: now
   });
 }
 

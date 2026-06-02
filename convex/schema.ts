@@ -11,18 +11,6 @@ const sortKeysValidator = v.object({
   year: v.number()
 });
 
-const cardSnapshotFields = {
-  contentType: mediaType,
-  title: v.string(),
-  genre: v.array(v.string()),
-  year: v.number(),
-  voteAverage: v.optional(v.number()),
-  posterUrl: v.string(),
-  tmdbId: v.optional(v.string()),
-  new: v.boolean(),
-  snapshotUpdatedAt: v.number()
-};
-
 export default defineSchema({
   users: defineTable({
     clerkUserId: v.string(),
@@ -215,8 +203,7 @@ export default defineSchema({
     completed: v.boolean(),
     watchedAt: v.number(),
     clientUpdatedAt: v.optional(v.number()),
-    serverUpdatedAt: v.optional(v.number()),
-    ...cardSnapshotFields
+    serverUpdatedAt: v.optional(v.number())
   })
     .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"])
     .index("by_clerk_content", ["clerkUserId", "contentId"])

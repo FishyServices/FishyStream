@@ -27,6 +27,7 @@ export interface ProgressState {
 
 interface StoredProgress extends ProgressState {
   contentId: string;
+  progressId?: string;
   clientUpdatedAt: number;
   dirty: boolean;
   syncedClientUpdatedAt?: number;
@@ -34,6 +35,7 @@ interface StoredProgress extends ProgressState {
 
 type ServerProgress = {
   contentId: string;
+  progressId?: string;
   progress: number;
   positionSeconds: number;
   durationSeconds: number;
@@ -46,17 +48,16 @@ type ServerProgress = {
 };
 
 type ProgressStore = {
-  version: 2;
+  version: 3;
   entries: StoredProgress[];
 };
 
-const LS_KEY = "watch_progress_v2";
-const LEGACY_LS_KEY = "watch_progress";
+const LS_KEY = "watch_progress_v3";
 const MAX_ENTRIES = 150;
-const MAX_BATCH_SIZE = 25;
 const FIRST_SYNC_POSITION_SECONDS = 30;
 const MIN_PROGRESS_DELTA_TO_SYNC = 5;
 const MIN_POSITION_DELTA_TO_SYNC_SECONDS = 300;
+const WATCH_PROGRESS_REMOTE_DEBOUNCE_MS = 5_000;
 
 function normalizeProgress(progress: number): number {
   if (!Number.isFinite(progress)) return 0;
@@ -104,7 +105,8 @@ function toServerProgress(entry: WatchProgressEntryMeta): ServerProgress {
     seasonNumber: entry[6] ?? undefined,
     episodeNumber: entry[7] ?? undefined,
     source: entry[8] ?? undefined,
-    dub: entry[9] ?? undefined
+    dub: entry[9] ?? undefined,
+    progressId: entry[10] ?? undefined
   };
 }
 
@@ -112,39 +114,11 @@ function storedFromServer(entry: ServerProgress): StoredProgress {
   return {
     ...toProgressState(entry),
     contentId: entry.contentId,
+    progressId: entry.progressId,
     clientUpdatedAt: entry.watchedAt,
     syncedClientUpdatedAt: entry.watchedAt,
     dirty: false
   };
-}
-
-function migrateLegacyEntries(): StoredProgress[] {
-  try {
-    const raw = localStorage.getItem(LEGACY_LS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Array<
-      ProgressState & { contentId?: string; lastUpdated?: number; needsSync?: boolean }
-    >;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((entry) => entry.contentId)
-      .map((entry) => ({
-        progress: normalizeProgress(entry.progress),
-        positionSeconds: normalizeSeconds(entry.positionSeconds),
-        durationSeconds: normalizeSeconds(entry.durationSeconds),
-        completed: entry.completed,
-        seasonNumber: entry.seasonNumber,
-        episodeNumber: entry.episodeNumber,
-        source: entry.source,
-        dub: entry.dub,
-        contentId: entry.contentId!,
-        clientUpdatedAt: entry.lastUpdated ?? Date.now(),
-        syncedClientUpdatedAt: entry.needsSync ? undefined : entry.lastUpdated,
-        dirty: !!entry.needsSync
-      }));
-  } catch {
-    return [];
-  }
 }
 
 function readStore(): StoredProgress[] {
@@ -152,20 +126,18 @@ function readStore(): StoredProgress[] {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as ProgressStore;
-      if (parsed?.version === 2 && Array.isArray(parsed.entries)) {
+      if (parsed?.version === 3 && Array.isArray(parsed.entries)) {
         return compactEntries(parsed.entries);
       }
     }
   } catch {}
 
-  const migrated = migrateLegacyEntries();
-  if (migrated.length > 0) writeStore(migrated);
-  return migrated;
+  return [];
 }
 
 function writeStore(entries: StoredProgress[]) {
   try {
-    const store: ProgressStore = { version: 2, entries: compactEntries(entries) };
+    const store: ProgressStore = { version: 3, entries: compactEntries(entries) };
     localStorage.setItem(LS_KEY, JSON.stringify(store));
   } catch {}
 }
@@ -192,10 +164,15 @@ function shouldDirtyEntry(next: StoredProgress, baseline: StoredProgress | undef
   ) {
     return true;
   }
-  return (
-    next.clientUpdatedAt - (baseline.syncedClientUpdatedAt ?? baseline.clientUpdatedAt) >=
-    WATCH_PROGRESS_SYNC_INTERVAL_MS
-  );
+  return false;
+}
+
+function syncedBaselineFrom(entry: StoredProgress): StoredProgress {
+  return {
+    ...entry,
+    dirty: false,
+    syncedClientUpdatedAt: entry.clientUpdatedAt
+  };
 }
 
 type ProgressMap = Map<string, ProgressState>;
@@ -268,7 +245,7 @@ export function useWatchProgressContext(): ProgressMap | undefined {
 export function useUpdateProgress() {
   const { user } = useUser();
   const ctx = useContext(Ctx);
-  const dbSync = useMutation(api.watchHistory.saveWatchProgressBatch);
+  const dbSync = useMutation(api.watchHistory.saveWatchProgress);
 
   const storeRef = useRef<Map<string, StoredProgress>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -288,52 +265,89 @@ export function useUpdateProgress() {
     timerRef.current = null;
   }, []);
 
-  const flushToDb = useCallback(async () => {
+  const flushToDb = useCallback(async (force = false) => {
     if (!user || syncingRef.current) return;
 
-    const dirtyEntries = Array.from(storeRef.current.values())
+    const dirtyEntry = Array.from(storeRef.current.values())
       .filter((entry) => entry.dirty)
-      .sort((a, b) => a.clientUpdatedAt - b.clientUpdatedAt)
-      .slice(0, MAX_BATCH_SIZE);
-    if (dirtyEntries.length === 0) return;
+      .sort((a, b) => b.clientUpdatedAt - a.clientUpdatedAt)
+      .at(0);
+    if (!dirtyEntry) return;
+    if (!force && Date.now() - dirtyEntry.clientUpdatedAt < WATCH_PROGRESS_REMOTE_DEBOUNCE_MS) {
+      if (!timerRef.current) {
+        timerRef.current = setTimeout(() => {
+          timerRef.current = null;
+          void flushToDb();
+        }, WATCH_PROGRESS_REMOTE_DEBOUNCE_MS);
+      }
+      return;
+    }
 
     syncingRef.current = true;
+    let saved = false;
 
     try {
-      await dbSync({
+      const savedProgressId = await dbSync({
         clerkUserId: user.id,
-        entries: dirtyEntries.map((entry) => ({
-          contentId: entry.contentId as Id<"content">,
-          progress: entry.progress,
-          completed: entry.completed,
-          positionSeconds: entry.positionSeconds,
-          durationSeconds: entry.durationSeconds,
-          seasonNumber: entry.seasonNumber,
-          episodeNumber: entry.episodeNumber,
-          source: entry.source,
-          dub: entry.dub,
-          clientUpdatedAt: entry.clientUpdatedAt
-        }))
+        progressId: dirtyEntry.progressId as Id<"watchProgress"> | undefined,
+        contentId: dirtyEntry.contentId as Id<"content">,
+        progress: Math.round(dirtyEntry.progress * 10) / 10,
+        completed: dirtyEntry.completed,
+        positionSeconds: Math.round(dirtyEntry.positionSeconds),
+        durationSeconds: Math.round(dirtyEntry.durationSeconds),
+        seasonNumber: dirtyEntry.seasonNumber,
+        episodeNumber: dirtyEntry.episodeNumber,
+        source: dirtyEntry.source,
+        dub: dirtyEntry.dub,
+        clientUpdatedAt: dirtyEntry.clientUpdatedAt
       });
+      saved = true;
 
-      for (const sent of dirtyEntries) {
-        const current = storeRef.current.get(sent.contentId);
-        if (!current || current.clientUpdatedAt > sent.clientUpdatedAt) continue;
-        storeRef.current.set(sent.contentId, {
+      const current = storeRef.current.get(dirtyEntry.contentId);
+      if (current && current.clientUpdatedAt <= dirtyEntry.clientUpdatedAt) {
+        storeRef.current.set(dirtyEntry.contentId, {
           ...current,
+          progressId: savedProgressId ?? current.progressId,
           dirty: false,
-          syncedClientUpdatedAt: sent.clientUpdatedAt
+          syncedClientUpdatedAt: dirtyEntry.clientUpdatedAt
+        });
+      } else if (current) {
+        const syncedBaseline = syncedBaselineFrom(dirtyEntry);
+        const remainsDirty = shouldDirtyEntry(
+          {
+            ...current,
+            dirty: false,
+            syncedClientUpdatedAt: dirtyEntry.clientUpdatedAt
+          },
+          syncedBaseline
+        );
+        storeRef.current.set(dirtyEntry.contentId, {
+          ...current,
+          progressId: savedProgressId ?? current.progressId,
+          dirty: remainsDirty,
+          syncedClientUpdatedAt: dirtyEntry.clientUpdatedAt
         });
       }
       persistCurrentStore();
     } catch {
-      for (const entry of dirtyEntries) {
-        const current = storeRef.current.get(entry.contentId);
-        if (current) storeRef.current.set(entry.contentId, { ...current, dirty: true });
+      const current = storeRef.current.get(dirtyEntry.contentId);
+      if (current) {
+        storeRef.current.set(dirtyEntry.contentId, {
+          ...current,
+          progressId: dirtyEntry.progressId ? undefined : current.progressId,
+          dirty: true
+        });
       }
       persistCurrentStore();
     } finally {
       syncingRef.current = false;
+      const hasMoreDirtyEntries = Array.from(storeRef.current.values()).some((entry) => entry.dirty);
+      if (saved && hasMoreDirtyEntries && !timerRef.current) {
+        timerRef.current = setTimeout(() => {
+          timerRef.current = null;
+          void flushToDb();
+        }, WATCH_PROGRESS_REMOTE_DEBOUNCE_MS);
+      }
     }
   }, [dbSync, persistCurrentStore, user]);
 
@@ -360,7 +374,7 @@ export function useUpdateProgress() {
 
   useEffect(() => {
     const onHide = () => {
-      if (document.visibilityState === "hidden") void flushToDb();
+      if (document.visibilityState === "hidden") void flushToDb(true);
     };
     const onOnline = () => scheduleFlush(0);
 
@@ -371,7 +385,7 @@ export function useUpdateProgress() {
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("online", onOnline);
       clearTimer();
-      void flushToDb();
+      void flushToDb(true);
     };
   }, [clearTimer, flushToDb, scheduleFlush]);
 
@@ -401,6 +415,7 @@ export function useUpdateProgress() {
       const next: StoredProgress = {
         ...state,
         contentId,
+        progressId: previous?.progressId,
         clientUpdatedAt: Date.now(),
         dirty: false,
         syncedClientUpdatedAt: previous?.syncedClientUpdatedAt

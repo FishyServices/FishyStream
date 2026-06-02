@@ -160,7 +160,8 @@ export type WatchProgressEntryMeta = [
   seasonNumber?: number | null,
   episodeNumber?: number | null,
   source?: string | null,
-  dub?: boolean | null
+  dub?: boolean | null,
+  progressId?: Id<"watchProgress"> | null
 ];
 
 export interface SeasonMetaSummary {
@@ -443,6 +444,7 @@ export function fromWatchHistoryItemWire(item: WatchHistoryItemWire): WatchHisto
 }
 
 export function toWatchProgressEntryMeta(row: {
+  _id?: Id<"watchProgress">;
   contentId: ContentId;
   progress: number;
   positionSeconds?: number;
@@ -473,6 +475,13 @@ export function toWatchProgressEntryMeta(row: {
     entry[7] = row.episodeNumber ?? null;
     entry[8] = row.source ?? null;
     entry[9] = row.dub ?? null;
+  }
+  if (row._id !== undefined) {
+    entry[6] = entry[6] ?? null;
+    entry[7] = entry[7] ?? null;
+    entry[8] = entry[8] ?? null;
+    entry[9] = entry[9] ?? null;
+    entry[10] = row._id;
   }
 
   return entry;
