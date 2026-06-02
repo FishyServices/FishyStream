@@ -288,27 +288,35 @@ export function Hero({
 
       {contents.length > 1 && (
         <>
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
             onClick={handlePrev}
             className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 border border-white/10 text-white/80 hover:text-white opacity-0 group-hover/hero:opacity-100 transition-all duration-300 z-20 cursor-pointer animate-in fade-in"
             aria-label="Previous slide"
           >
             <ChevronLeft className="w-6 h-6" />
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
             onClick={handleNext}
             className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 border border-white/10 text-white/80 hover:text-white opacity-0 group-hover/hero:opacity-100 transition-all duration-300 z-20 cursor-pointer animate-in fade-in"
             aria-label="Next slide"
           >
             <ChevronRight className="w-6 h-6" />
-          </button>
+          </Button>
 
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2.5 z-20">
             {contents.map((_, idx) => (
-              <button
+              <Button
                 key={idx}
+                type="button"
+                variant="ghost"
                 onClick={() => selectIndex(idx)}
-                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                className={`h-2 min-h-0 rounded-full p-0 transition-all duration-300 cursor-pointer hover:bg-white/70 ${
                   currentIndex === idx ? "w-6 bg-primary" : "w-2 bg-white/40 hover:bg-white/70"
                 }`}
                 aria-label={`Go to slide ${idx + 1}`}

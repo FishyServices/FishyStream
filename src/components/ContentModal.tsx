@@ -668,47 +668,55 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             {/* Tabs */}
             <div className="flex gap-1 border-b border-border/60">
               {isTV && (
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
                   onClick={() => setActiveTab("episodes")}
-                  className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  className={`h-auto rounded-none bg-transparent px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px hover:bg-transparent ${
                     activeTab === "episodes"
                       ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   Episodes
-                </button>
+                </Button>
               )}
-              <button
+              <Button
+                type="button"
+                variant="ghost"
                 onClick={() => setActiveTab("cast")}
-                className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                className={`h-auto rounded-none bg-transparent px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px hover:bg-transparent ${
                   activeTab === "cast"
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
                 Cast
-              </button>
-              <button
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
                 onClick={() => setActiveTab("videos")}
-                className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                className={`h-auto rounded-none bg-transparent px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px hover:bg-transparent ${
                   activeTab === "videos"
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
                 Trailers
-              </button>
-              <button
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
                 onClick={() => setActiveTab("related")}
-                className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                className={`h-auto rounded-none bg-transparent px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px hover:bg-transparent ${
                   activeTab === "related"
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
                 More Like This
-              </button>
+              </Button>
             </div>
 
             {/* Episodes tab */}

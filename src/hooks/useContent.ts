@@ -92,7 +92,9 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
         tmdbId: tmdbId!,
         type: typeHint
       }),
-    [tmdbId, syncAttempt]
+    [tmdbId, typeHint, syncAttempt],
+    undefined,
+    tmdbId ? `contentPlayback:${tmdbId}:${typeHint ?? "any"}:${syncAttempt}` : undefined
   );
 
   useEffect(() => {

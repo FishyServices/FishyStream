@@ -4,7 +4,7 @@ import { dark } from "@clerk/themes";
 import { Link, useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { AlertCircle, Loader2, Mail, Lock, ShieldCheck } from "lucide-react";
-import { Button, Input } from "@fishy/ui";
+import { Button, Input, Label } from "@fishy/ui";
 
 type NativeSignInMode = "password" | "email-code";
 
@@ -235,7 +235,7 @@ function NativeSignInCard() {
           className="space-y-3"
           onSubmit={mode === "password" ? handleSubmit : handleSendEmailCode}
         >
-          <label className="block">
+          <Label className="block">
             <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
               <Mail className="h-4 w-4" />
               Email
@@ -249,10 +249,10 @@ function NativeSignInCard() {
               placeholder="you@example.com"
               required
             />
-          </label>
+          </Label>
 
           {mode === "password" && (
-            <label className="block">
+            <Label className="block">
               <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
                 <Lock className="h-4 w-4" />
                 Password
@@ -266,7 +266,7 @@ function NativeSignInCard() {
                 placeholder="Your password"
                 required
               />
-            </label>
+            </Label>
           )}
 
           <Button type="submit" className="h-12 w-full text-sm font-semibold" disabled={submitting}>
@@ -279,7 +279,7 @@ function NativeSignInCard() {
           className="space-y-3"
           onSubmit={mode === "email-code" ? handleVerifyEmailCode : handleVerify}
         >
-          <label className="block">
+          <Label className="block">
             <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
               <ShieldCheck className="h-4 w-4" />
               Email Verification Code
@@ -293,7 +293,7 @@ function NativeSignInCard() {
               placeholder="Enter the code from your email"
               required
             />
-          </label>
+          </Label>
 
           <Button type="submit" className="h-12 w-full text-sm font-semibold" disabled={verifying}>
             {verifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

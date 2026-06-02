@@ -1,11 +1,15 @@
 import { useConvex } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 
+const oneShotCache = new Map<string, unknown>();
+const oneShotInFlight = new Map<string, Promise<unknown>>();
+
 export function useOneShotConvexQuery<T>(
   enabled: boolean,
   load: (convex: ReturnType<typeof useConvex>) => Promise<T>,
   deps: readonly unknown[],
-  identityDeps?: readonly unknown[]
+  identityDeps?: readonly unknown[],
+  requestKey?: string
 ) {
   const convex = useConvex();
   const [data, setData] = useState<T | undefined>(undefined);
@@ -40,9 +44,25 @@ export function useOneShotConvexQuery<T>(
     }
 
     let cancelled = false;
+    if (requestKey && oneShotCache.has(requestKey)) {
+      setData(oneShotCache.get(requestKey) as T);
+      return;
+    }
 
-    void load(convex)
+    const request = requestKey
+      ? ((oneShotInFlight.get(requestKey) as Promise<T> | undefined) ??
+        load(convex).finally(() => {
+          oneShotInFlight.delete(requestKey);
+        }))
+      : load(convex);
+
+    if (requestKey && !oneShotInFlight.has(requestKey)) {
+      oneShotInFlight.set(requestKey, request);
+    }
+
+    void request
       .then((result) => {
+        if (requestKey) oneShotCache.set(requestKey, result);
         if (!cancelled) setData(result);
       })
       .catch(() => {
@@ -52,7 +72,7 @@ export function useOneShotConvexQuery<T>(
     return () => {
       cancelled = true;
     };
-  }, [convex, enabled, depsKey]);
+  }, [convex, enabled, depsKey, requestKey]);
 
   return data;
 }

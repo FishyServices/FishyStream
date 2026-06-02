@@ -50,6 +50,8 @@ export function shouldWaitForAnimeSeasonMetadata(args) {
     return currentSeasonData?.seasonNumber !== seasonNumber;
 }
 export function hasAnimeEpisodeMappingMetadata(currentSeasonData) {
+    if (currentSeasonData?.anilistEpisodeMappings?.length)
+        return true;
     if (!currentSeasonData?.episodeCount)
         return false;
     return ((currentSeasonData.anilistEpisodeMappingCount ??

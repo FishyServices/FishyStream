@@ -465,20 +465,77 @@ export const getSeasonPlaybackMeta = query({
     includeAnimeMappings: v.optional(v.boolean())
   },
   handler: async (ctx, { contentId, seasonNumber, episodeNumber, includeAnimeMappings }) => {
+    const episodeMappingRow = includeAnimeMappings
+      ? await readEpisodeMapping(ctx, contentId, seasonNumber, episodeNumber)
+      : null;
+
     if (includeAnimeMappings) {
-      const episodeMappingRow = await readEpisodeMapping(ctx, contentId, seasonNumber, episodeNumber);
-      if (!episodeMappingRow) return null;
+      const playbackMeta = await readSeasonPlaybackMeta(ctx, contentId, seasonNumber);
+
+      if (playbackMeta) {
+        return {
+          seasonNumber,
+          name: playbackMeta.name,
+          airDate: playbackMeta.airDate,
+          episodeCount: playbackMeta.episodeCount,
+          anilistId: episodeMappingRow?.anilistId,
+          anilistEpisodeMappingCount: undefined,
+          anilistEpisodeMappings: episodeMappingRow
+            ? [
+                {
+                  episodeNumber: episodeMappingRow.episodeNumber,
+                  anilistId: episodeMappingRow.anilistId,
+                  anilistEpisodeNumber: episodeMappingRow.anilistEpisodeNumber
+                }
+              ]
+            : undefined
+        };
+      }
+
+      const index = await readSeasonIndex(ctx, contentId);
+      const summary = ((index?.summaries ?? []) as SeasonSummaryWire[]).find(
+        (row) => row[0] === seasonNumber
+      );
+
+      if (summary) {
+        return {
+          seasonNumber,
+          name: summary[5] ?? `Season ${seasonNumber}`,
+          airDate: summary[6] ?? undefined,
+          episodeCount: summary[1],
+          anilistId: episodeMappingRow?.anilistId ?? summary[3] ?? undefined,
+          anilistEpisodeMappingCount: summary[4] ?? undefined,
+          anilistEpisodeMappings: episodeMappingRow
+            ? [
+                {
+                  episodeNumber: episodeMappingRow.episodeNumber,
+                  anilistId: episodeMappingRow.anilistId,
+                  anilistEpisodeNumber: episodeMappingRow.anilistEpisodeNumber
+                }
+              ]
+            : undefined
+        };
+      }
+
+      const season = await readSeasonEpisodes(ctx, contentId, seasonNumber);
+      if (!season && !episodeMappingRow) return null;
 
       return {
         seasonNumber,
-        anilistId: episodeMappingRow.anilistId,
-        anilistEpisodeMappings: [
-          {
-            episodeNumber: episodeMappingRow.episodeNumber,
-            anilistId: episodeMappingRow.anilistId,
-            anilistEpisodeNumber: episodeMappingRow.anilistEpisodeNumber
-          }
-        ]
+        name: summary?.[5] ?? `Season ${seasonNumber}`,
+        airDate: summary?.[6] ?? undefined,
+        episodeCount: season ? (season.episodes as EpisodeWire[]).length : undefined,
+        anilistId: episodeMappingRow?.anilistId,
+        anilistEpisodeMappingCount: undefined,
+        anilistEpisodeMappings: episodeMappingRow
+          ? [
+              {
+                episodeNumber: episodeMappingRow.episodeNumber,
+                anilistId: episodeMappingRow.anilistId,
+                anilistEpisodeNumber: episodeMappingRow.anilistEpisodeNumber
+              }
+            ]
+          : undefined
       };
     }
 
