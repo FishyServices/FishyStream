@@ -3,7 +3,7 @@ import { internalMutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { AniListEpisodeMapping, SeasonMetaSummary } from "../shared/contentMetadata";
-import { fromImageWire, toImageWire } from "../shared/contentMetadata";
+import { toImageWire } from "../shared/contentMetadata";
 
 const episodeValidator = v.object({
   episodeNumber: v.number(),
@@ -449,7 +449,7 @@ export const getSeasonModalView = query({
           episodeNumber: episode[0],
           name: episode[1],
           overview: episode[2] ?? undefined,
-          stillUrl: episode[3] ? fromImageWire(episode[3]) : undefined,
+          stillUrl: episode[3] ?? undefined,
           runtime: episode[4] ?? undefined
         }))
       }

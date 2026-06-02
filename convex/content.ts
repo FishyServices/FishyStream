@@ -162,7 +162,7 @@ function toLeanContent(item: ContentInput, syncHash: string, now: number) {
     genre: item.genre,
     genreKeys,
     year: item.year,
-    posterUrl: item.posterUrl,
+    posterUrl: toImageWire(item.posterUrl),
     voteAverage: item.voteAverage,
     popularity: item.popularity,
     new: item.new,
@@ -360,13 +360,14 @@ async function upsertContentItem(ctx: MutationCtx, item: ContentInput) {
     .first();
 
   let contentId: Id<"content">;
+  const leanContent = toLeanContent(item, syncHash, now);
   if (existing) {
     contentId = existing._id;
-    if (existing.syncHash !== syncHash) {
-      await ctx.db.patch(existing._id, toLeanContent(item, syncHash, now));
+    if (existing.syncHash !== syncHash || existing.posterUrl !== leanContent.posterUrl) {
+      await ctx.db.patch(existing._id, leanContent);
     }
   } else {
-    contentId = await ctx.db.insert("content", toLeanContent(item, syncHash, now));
+    contentId = await ctx.db.insert("content", leanContent);
   }
 
   const detail = toDetailContent(contentId, item, syncHash, now);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Play,
@@ -45,7 +45,7 @@ import type {
   ContentType,
   SeasonMetaSummary
 } from "../../shared/contentMetadata";
-import { fromContentDetailWire } from "../../shared/contentMetadata";
+import { fromContentDetailWire, fromImageWire } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -197,7 +197,18 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen, seasonReloadKey],
     [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen]
   );
-  const dbSeason = seasonModalView?.selectedSeason;
+  const dbSeason = useMemo(() => {
+    const selectedSeason = seasonModalView?.selectedSeason;
+    if (!selectedSeason) return selectedSeason;
+
+    return {
+      ...selectedSeason,
+      episodes: selectedSeason.episodes.map((episode) => ({
+        ...episode,
+        stillUrl: episode.stillUrl ? fromImageWire(episode.stillUrl) : undefined
+      }))
+    };
+  }, [seasonModalView?.selectedSeason]);
   const allSeasons = seasonModalView?.summaries;
 
   const syncSeason = useAction(api.tmdb.syncSeason);
