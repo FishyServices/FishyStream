@@ -10,6 +10,7 @@ import {
   fromContentTypeWire,
   compactContentCardWire,
   compactContentFeaturedWire,
+  toImageWire,
   type ContentCardWire,
   type ContentDetailWire,
   type ContentFeaturedWire,
@@ -120,9 +121,9 @@ function getContentSyncHash(item: ContentInput) {
     duration: item.duration,
     seasons: item.seasons,
     totalEpisodes: item.totalEpisodes,
-    posterUrl: item.posterUrl,
-    backdropUrl: item.backdropUrl,
-    logoUrl: item.logoUrl,
+    posterUrl: toImageWire(item.posterUrl),
+    backdropUrl: toImageWire(item.backdropUrl),
+    logoUrl: item.logoUrl ? toImageWire(item.logoUrl) : undefined,
     trailerKey: item.trailerKey,
     imdbId: item.imdbId,
     tmdbId: item.tmdbId,
@@ -193,11 +194,11 @@ function toDetailContent(
     year: item.year,
     voteAverage: item.voteAverage,
     popularity: item.popularity,
-    posterUrl: item.posterUrl,
-    backdropUrl: item.backdropUrl,
+    posterUrl: toImageWire(item.posterUrl),
+    backdropUrl: toImageWire(item.backdropUrl),
     description: item.description,
     rating: item.rating,
-    logoUrl: item.logoUrl,
+    logoUrl: item.logoUrl ? toImageWire(item.logoUrl) : undefined,
     trailerKey: item.trailerKey,
     imdbId: item.imdbId,
     anilistId: item.anilistId,
@@ -491,7 +492,8 @@ async function getRecommendationSeed(ctx: QueryCtx, clerkUserId: string) {
 
   for (const item of watchlistItems) {
     typeCounts.set(item.contentType, (typeCounts.get(item.contentType) ?? 0) + 1);
-    for (const genre of item.genre) {
+    const content = await ctx.db.get(item.contentId);
+    for (const genre of content?.genre ?? []) {
       genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
     }
   }

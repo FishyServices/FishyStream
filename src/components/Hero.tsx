@@ -102,7 +102,6 @@ export function Hero({
       const snapshot: WatchlistSnapshot = {
         title: activeContent.title,
         type: activeContent.type,
-        genre: activeContent.genre,
         posterUrl: activeContent.posterUrl,
         tmdbId: activeContent.tmdbId
       };

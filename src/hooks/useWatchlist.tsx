@@ -79,7 +79,6 @@ type WatchlistCtx = {
 export type WatchlistSnapshot = {
   title: string;
   type: ContentType;
-  genre: string[];
   posterUrl: string;
   tmdbId?: string;
 };

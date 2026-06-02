@@ -208,7 +208,7 @@ export function toImageWire(url: string): string {
     : url;
 }
 
-function fromImageWire(url: string): string {
+export function fromImageWire(url: string): string {
   return url.startsWith(TMDB_IMAGE_WIRE_PREFIX)
     ? `${TMDB_IMAGE_BASE}${url.slice(TMDB_IMAGE_WIRE_PREFIX.length)}`
     : url;

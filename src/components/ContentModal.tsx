@@ -483,15 +483,12 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       return;
     }
     try {
-      const snapshot: WatchlistSnapshot | undefined = contentData.genre
-        ? {
-            title: contentData.title,
-            type: contentData.type,
-            genre: contentData.genre,
-            posterUrl: contentData.posterUrl,
-            tmdbId: contentData.tmdbId
-          }
-        : undefined;
+      const snapshot: WatchlistSnapshot = {
+        title: contentData.title,
+        type: contentData.type,
+        posterUrl: contentData.posterUrl,
+        tmdbId: contentData.tmdbId
+      };
       await toggleWatchlist(contentData._id, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {

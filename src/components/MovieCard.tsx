@@ -65,15 +65,12 @@ export function MovieCard({
       return;
     }
     try {
-      const snapshot: WatchlistSnapshot | undefined = content.genre
-        ? {
-            title: content.title,
-            type: content.type,
-            genre: content.genre,
-            posterUrl: content.posterUrl,
-            tmdbId: content.tmdbId
-          }
-        : undefined;
+      const snapshot: WatchlistSnapshot = {
+        title: content.title,
+        type: content.type,
+        posterUrl: content.posterUrl,
+        tmdbId: content.tmdbId
+      };
       await toggleWatchlist(content._id, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {

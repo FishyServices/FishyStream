@@ -1,18 +1,17 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { toImageWire, toWatchlistGridWire, type WatchlistGridWire } from "../shared/contentMetadata";
+import {
+  toImageWire,
+  toWatchlistGridWire,
+  type WatchlistGridWire
+} from "../shared/contentMetadata";
 
 const watchlistSnapshotValidator = v.object({
   title: v.string(),
   type: v.union(v.literal("movie"), v.literal("tv")),
-  genre: v.array(v.string()),
   posterUrl: v.string(),
   tmdbId: v.optional(v.string())
 });
-
-function compactGenres(genres: string[]) {
-  return [];
-}
 
 export const listWatchlist = query({
   args: {
@@ -34,8 +33,7 @@ export const listWatchlist = query({
         type: item.contentType,
         posterUrl: item.posterUrl,
         tmdbId: item.tmdbId,
-        watchlistFolder: item.folder,
-        genre: item.genre
+        watchlistFolder: item.folder
       })
     );
   }
@@ -80,7 +78,6 @@ export const addWatchlistEntry = mutation({
       folder: undefined,
       contentType: content.type,
       title: content.title,
-      genre: compactGenres(content.genre),
       posterUrl: toImageWire(content.posterUrl),
       tmdbId: content.tmdbId
     });
@@ -129,4 +126,3 @@ export const setWatchlistFolder = mutation({
     return true;
   }
 });
-

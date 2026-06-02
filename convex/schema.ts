@@ -183,13 +183,8 @@ export default defineSchema({
     folder: v.optional(v.string()),
     contentType: mediaType,
     title: v.string(),
-    genre: v.array(v.string()),
     posterUrl: v.string(),
-    tmdbId: v.optional(v.string()),
-    year: v.optional(v.number()),
-    voteAverage: v.optional(v.number()),
-    new: v.optional(v.boolean()),
-    snapshotUpdatedAt: v.optional(v.number())
+    tmdbId: v.optional(v.string())
   })
     .index("by_clerk_added_at", ["clerkUserId", "addedAt"])
     .index("by_clerk_content", ["clerkUserId", "contentId"]),
