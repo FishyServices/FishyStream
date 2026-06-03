@@ -21,11 +21,11 @@ import {
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 const LS_KEY = "watchlist_ids";
-const MY_LIST_INITIAL_LIMIT = 24;
+const MY_LIST_LIMIT = 500;
 const WATCHLIST_GRID_CACHE_TTL_MS = 30_000;
 
 function watchlistGridCacheKey(userId: string) {
-  return `watchlist_grid_${userId}`;
+  return `watchlist_grid_v2_${userId}`;
 }
 
 function lsGet(): string[] {
@@ -212,7 +212,7 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
     (client) =>
       client.query(api.watchlist.listWatchlist, {
         clerkUserId: user!.id,
-        limit: MY_LIST_INITIAL_LIMIT
+        limit: MY_LIST_LIMIT
       }),
     [user?.id, cachedServerData === undefined]
   );

@@ -18,8 +18,8 @@ export const listWatchlist = query({
     clerkUserId: v.string(),
     limit: v.optional(v.number())
   },
-  handler: async (ctx, { clerkUserId, limit = 24 }): Promise<WatchlistGridWire[]> => {
-    const pageSize = Math.max(1, Math.min(48, Math.floor(limit)));
+  handler: async (ctx, { clerkUserId, limit = 500 }): Promise<WatchlistGridWire[]> => {
+    const pageSize = Math.max(1, Math.min(500, Math.floor(limit)));
     const items = await ctx.db
       .query("watchlist")
       .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
