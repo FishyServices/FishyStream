@@ -16,6 +16,7 @@ import type * as seasons from "../seasons.js";
 import type * as tmdb from "../tmdb.js";
 import type * as users from "../users.js";
 import type * as watchHistory from "../watchHistory.js";
+import type * as watchProgress from "../watchProgress.js";
 import type * as watchlist from "../watchlist.js";
 
 import type {
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   tmdb: typeof tmdb;
   users: typeof users;
   watchHistory: typeof watchHistory;
+  watchProgress: typeof watchProgress;
   watchlist: typeof watchlist;
 }>;
 
