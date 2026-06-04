@@ -37,7 +37,7 @@ export function TVShowsPage() {
     sortParam && VALID_SORTS.has(sortParam as ContentSort)
       ? (sortParam as ContentSort)
       : settings.defaultTVSort;
-  const paginated = usePaginatedContent("tv", genre !== "All" ? genre : undefined, sort, 24, page);
+  const paginated = usePaginatedContent("tv", genre !== "All" ? genre : undefined, sort, 8, page);
   const shows = paginated.items;
   const handlePlay = (
     tmdbId: string,

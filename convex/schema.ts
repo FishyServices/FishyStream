@@ -93,34 +93,6 @@ export default defineSchema({
     sourceHash: v.string()
   }).index("by_key", ["key"]),
 
-  catalogPages: defineTable({
-    key: v.string(),
-    type: mediaType,
-    sortBy: v.union(
-      v.literal("trending"),
-      v.literal("popular"),
-      v.literal("new"),
-      v.literal("rating"),
-      v.literal("year")
-    ),
-    genreKey: v.optional(v.string()),
-    page: v.number(),
-    limit: v.number(),
-    items: v.array(v.any()),
-    hasNextPage: v.boolean(),
-    updatedAt: v.number(),
-    sourceHash: v.string()
-  }).index("by_key", ["key"]),
-
-  recommendationPools: defineTable({
-    key: v.string(),
-    type: mediaType,
-    genreKey: v.optional(v.string()),
-    items: v.array(v.any()),
-    updatedAt: v.number(),
-    sourceHash: v.string()
-  }).index("by_key", ["key"]),
-
   seasonEpisodes: defineTable({
     contentId: v.id("content"),
     tmdbId: v.string(),

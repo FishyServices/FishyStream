@@ -62,14 +62,15 @@ const tmdbContentValidator = v.object({
 type BrowseSort = "trending" | "popular" | "new" | "rating" | "year";
 type ContentInput = typeof tmdbContentValidator.type;
 
-const DEFAULT_PAGE_LIMIT = 24;
-const RECOMMENDATION_POOL_READ_LIMIT = 12;
+const DEFAULT_PAGE_LIMIT = 8;
+const MAX_BROWSE_PAGE_LIMIT = 8;
+const RECOMMENDATION_POOL_READ_LIMIT = 8;
 
 function normalizePage(page?: number) {
   return Math.max(1, Math.floor(page ?? 1));
 }
 
-function normalizeLimit(limit?: number, max = 48) {
+function normalizeLimit(limit?: number, max = MAX_BROWSE_PAGE_LIMIT) {
   return Math.max(1, Math.min(max, Math.floor(limit ?? DEFAULT_PAGE_LIMIT)));
 }
 
@@ -213,20 +214,6 @@ function toDetailContent(
   };
 }
 
-function catalogKey(args: {
-  type: "movie" | "tv";
-  sortBy: BrowseSort;
-  genre?: string;
-  page: number;
-  limit: number;
-}) {
-  return `browse:${args.type}:${args.sortBy}:${args.genre ? genreKey(args.genre) : "all"}:${args.page}:${args.limit}`;
-}
-
-function recommendationPoolKey(type: "movie" | "tv", genre?: string) {
-  return `recommend:${type}:${genre ? genreKey(genre) : "all"}`;
-}
-
 async function getCatalogPage(
   ctx: QueryCtx,
   args: {
@@ -240,20 +227,75 @@ async function getCatalogPage(
   const page = normalizePage(args.page);
   const limit = normalizeLimit(args.limit);
   const sortBy = args.sortBy ?? "popular";
-  const row = await ctx.db
-    .query("catalogPages")
-    .withIndex("by_key", (q) =>
-      q.eq("key", catalogKey({ type: args.type, sortBy, genre: args.genre, page, limit }))
-    )
-    .first();
-
+  const offset = (page - 1) * limit;
+  const requestedGenreKey = genreKey(args.genre);
+  const readLimit = offset + limit + 1;
+  const rows = await listSortedContent(ctx, args.type, sortBy, readLimit);
+  const filteredRows = requestedGenreKey
+    ? rows.filter((row) => row.genreKeys.includes(requestedGenreKey))
+    : rows;
+  const pageItems = filteredRows.slice(offset, offset + limit);
   return {
-    items: ((row?.items ?? []) as ContentCardWire[]).map(compactContentCardWire),
-    hasNextPage: row?.hasNextPage ?? false
+    items: pageItems.map((item) => compactContentCardWire(toContentCardWire(item))),
+    totalCount: requestedGenreKey && rows.length < readLimit ? filteredRows.length : undefined,
+    hasNextPage: filteredRows.length > offset + limit
   };
 }
 
-async function readDetailByContentId(ctx: QueryCtx, contentId: Id<"content">) {
+async function listSortedContent(
+  ctx: QueryCtx | MutationCtx,
+  type: "movie" | "tv",
+  sortBy: BrowseSort,
+  limit: number
+) {
+  switch (sortBy) {
+    case "trending":
+      return await ctx.db
+        .query("content")
+        .withIndex("by_type_trending", (q) => q.eq("type", type))
+        .order("desc")
+        .take(limit);
+    case "new":
+      return await ctx.db
+        .query("content")
+        .withIndex("by_type_new", (q) => q.eq("type", type))
+        .order("desc")
+        .take(limit);
+    case "rating":
+      return await ctx.db
+        .query("content")
+        .withIndex("by_type_rating", (q) => q.eq("type", type))
+        .order("desc")
+        .take(limit);
+    case "year":
+      return await ctx.db
+        .query("content")
+        .withIndex("by_type_year", (q) => q.eq("type", type))
+        .order("desc")
+        .take(limit);
+    case "popular":
+    default:
+      return await ctx.db
+        .query("content")
+        .withIndex("by_type_popular", (q) => q.eq("type", type))
+        .order("desc")
+        .take(limit);
+  }
+}
+
+async function readDetailWiresByContentIds(
+  ctx: QueryCtx | MutationCtx,
+  contentIds: Id<"content">[]
+) {
+  const detailRows = await Promise.all(
+    contentIds.map((contentId) => readDetailByContentId(ctx, contentId))
+  );
+  return detailRows
+    .filter((item): item is Doc<"contentDetails"> => item !== null)
+    .map((item) => compactContentFeaturedWire(toContentFeaturedWire(item)));
+}
+
+async function readDetailByContentId(ctx: QueryCtx | MutationCtx, contentId: Id<"content">) {
   return await ctx.db
     .query("contentDetails")
     .withIndex("by_content", (q) => q.eq("contentId", contentId))
@@ -278,18 +320,10 @@ export const getHomepageView = query({
   }
 });
 
-export const listPopularCards = query({
-  args: {},
-  handler: async (ctx): Promise<ContentCardWire[]> => {
-    return (await getCatalogPage(ctx, { type: "movie", sortBy: "popular", page: 1, limit: 24 }))
-      .items;
-  }
-});
-
 export const listNewReleaseCards = query({
   args: {},
   handler: async (ctx): Promise<ContentCardWire[]> => {
-    return (await getCatalogPage(ctx, { type: "movie", sortBy: "new", page: 1, limit: 24 })).items;
+    return (await getCatalogPage(ctx, { type: "movie", sortBy: "new", page: 1, limit: 8 })).items;
   }
 });
 
@@ -436,55 +470,16 @@ export const getContentSyncContextById = query({
   }
 });
 
-async function getRecommendationSeed(ctx: QueryCtx, clerkUserId: string) {
-  const watchlistItems = await ctx.db
-    .query("watchlist")
-    .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
-    .order("desc")
-    .take(24);
-  if (watchlistItems.length === 0) return null;
-
-  const typeCounts = new Map<"movie" | "tv", number>();
-  const genreCounts = new Map<string, number>();
-
-  for (const item of watchlistItems) {
-    typeCounts.set(item.contentType, (typeCounts.get(item.contentType) ?? 0) + 1);
-    const content = await ctx.db.get(item.contentId);
-    for (const genre of content?.genre ?? []) {
-      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
-    }
-  }
-
-  return {
-    watchlistIds: watchlistItems.map((item) => item.contentId),
-    preferredType: Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "movie",
-    genres: Array.from(genreCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([genre]) => genre)
-  };
-}
-
 async function readRecommendationPool(ctx: QueryCtx, type: "movie" | "tv", genres: string[]) {
-  for (const genre of genres) {
-    const row = await ctx.db
-      .query("recommendationPools")
-      .withIndex("by_key", (q) => q.eq("key", recommendationPoolKey(type, genre)))
-      .first();
-    if (row?.items.length) {
-      return (row.items as ContentCardWire[])
-        .slice(0, RECOMMENDATION_POOL_READ_LIMIT)
-        .map(compactContentCardWire);
-    }
-  }
-
-  const row = await ctx.db
-    .query("recommendationPools")
-    .withIndex("by_key", (q) => q.eq("key", recommendationPoolKey(type)))
-    .first();
-  return ((row?.items ?? []) as ContentCardWire[])
+  const genreKeys = genres.map((genre) => genreKey(genre)).filter(Boolean) as string[];
+  const rows = await listSortedContent(ctx, type, "popular", RECOMMENDATION_POOL_READ_LIMIT);
+  const pool = genreKeys.length
+    ? rows.filter((row) => row.genreKeys.some((key) => genreKeys.includes(key)))
+    : rows;
+  const fallbackPool = pool.length > 0 ? pool : rows;
+  return fallbackPool
     .slice(0, RECOMMENDATION_POOL_READ_LIMIT)
-    .map(compactContentCardWire);
+    .map((item) => compactContentCardWire(toContentCardWire(item)));
 }
 
 function rankRecommendations(args: {
@@ -517,34 +512,6 @@ function rankRecommendations(args: {
     .map(({ item }) => item);
 }
 
-export const listRecommendedCards = query({
-  args: {
-    clerkUserId: v.string(),
-    limit: v.optional(v.number()),
-    typeFilter: v.optional(v.union(v.literal("all"), v.literal("movie"), v.literal("tv"))),
-    refreshSeed: v.optional(v.number())
-  },
-  handler: async (
-    ctx,
-    { clerkUserId, limit = 12, typeFilter = "all", refreshSeed = 0 }
-  ): Promise<ContentCardWire[]> => {
-    const seed = await getRecommendationSeed(ctx, clerkUserId);
-    if (!seed || seed.watchlistIds.length === 0) return [];
-
-    const poolType = typeFilter === "all" ? seed.preferredType : typeFilter;
-    const pool = await readRecommendationPool(ctx, poolType, seed.genres);
-    return rankRecommendations({
-      pool,
-      watchlistIds: seed.watchlistIds,
-      preferredType: seed.preferredType,
-      genres: seed.genres,
-      typeFilter,
-      refreshSeed,
-      limit
-    });
-  }
-});
-
 export const listRecommendedCardsFromSeed = query({
   args: {
     watchlistIds: v.array(v.id("content")),
@@ -556,10 +523,21 @@ export const listRecommendedCardsFromSeed = query({
   },
   handler: async (
     ctx,
-    { watchlistIds, preferredType, genres, limit = 12, typeFilter = "all", refreshSeed = 0 }
+    {
+      watchlistIds,
+      preferredType,
+      genres,
+      limit = RECOMMENDATION_POOL_READ_LIMIT,
+      typeFilter = "all",
+      refreshSeed = 0
+    }
   ): Promise<ContentCardWire[]> => {
     if (watchlistIds.length === 0) return [];
 
+    const normalizedLimit = Math.max(
+      1,
+      Math.min(RECOMMENDATION_POOL_READ_LIMIT, Math.floor(limit))
+    );
     const poolType = typeFilter === "all" ? preferredType : typeFilter;
     const pool = await readRecommendationPool(ctx, poolType, genres);
     return rankRecommendations({
@@ -569,7 +547,7 @@ export const listRecommendedCardsFromSeed = query({
       genres,
       typeFilter,
       refreshSeed,
-      limit
+      limit: normalizedLimit
     });
   }
 });

@@ -5,8 +5,6 @@ import { api } from "../../convex/_generated/api";
 import type {
   ContentCard,
   ContentCardWire,
-  ContentDetail,
-  ContentDetailWire,
   ContentFeatured,
   ContentFeaturedWire,
   ContentPlayback,
@@ -15,7 +13,6 @@ import type {
 } from "../../shared/contentMetadata";
 import {
   fromContentCardWire,
-  fromContentDetailWire,
   fromContentFeaturedWire,
   fromContentPlaybackWire
 } from "../../shared/contentMetadata";
@@ -61,15 +58,6 @@ export function useHomepageContent() {
       content: row.content.map(fromContentCardWire)
     }))
   };
-}
-
-export function usePopularContent() {
-  const data = useOneShotConvexQuery<ContentCardWire[]>(
-    true,
-    (convex) => convex.query(api.content.listPopularCards, {}),
-    []
-  );
-  return data?.map(fromContentCardWire);
 }
 
 export function useNewReleases() {
@@ -122,15 +110,6 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
 
   if (data === null && isSyncingMissing) return undefined;
   return data ? fromContentPlaybackWire(data) : data;
-}
-
-export function useContentDetailByTmdbId(tmdbId: string | undefined) {
-  const data = useOneShotConvexQuery<ContentDetailWire | null>(
-    !!tmdbId,
-    (convex) => convex.query(api.content.getContentDetailByTmdbId, { tmdbId: tmdbId! }),
-    [tmdbId]
-  );
-  return data ? fromContentDetailWire(data) : data;
 }
 
 export function useRelatedContent(
