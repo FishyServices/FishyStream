@@ -1,15 +1,10 @@
 import { createRoot } from "react-dom/client";
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
-import { ClerkProvider, useAuth, useUser } from "@clerk/react";
+import { ClerkProvider, useAuth } from "@clerk/react";
 import { dark } from "@clerk/themes";
 import { applyFishyTheme } from "@fishy/ui";
-import {
-  ConvexProviderWithAuth,
-  ConvexReactClient,
-  useConvexAuth,
-  useMutation
-} from "convex/react";
+import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { App } from "./App";
 import { SignInPage } from "./pages/SignInPage";
@@ -25,7 +20,6 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { GlobalWatchlistProvider } from "./hooks/useWatchlist";
 import { WatchProgressProvider } from "./hooks/useWatchProgress";
 import { AppSettingsProvider } from "./hooks/useAppSettings";
-import { api } from "../convex/_generated/api";
 import "./index.css";
 
 const isNativeShell = Capacitor.isNativePlatform();
@@ -111,7 +105,6 @@ function AppShell() {
   return (
     <ConvexProviderWithAuth client={convex} useAuth={useStableConvexClerkAuth}>
       <AppSettingsProvider>
-        <UserBootstrap />
         <BrowserRouter>
           <Routes>
             <Route path="/sign-in/*" element={<SignInPage />} />
@@ -163,32 +156,6 @@ function AppRouteProviders({
       {withProgress ? <WatchProgressProvider>{page}</WatchProgressProvider> : page}
     </GlobalWatchlistProvider>
   );
-}
-
-function UserBootstrap() {
-  const { user, isLoaded } = useUser();
-  const { isLoading: isConvexAuthLoading, isAuthenticated } = useConvexAuth();
-  const ensureCurrentUser = useMutation(api.users.ensureCurrentUser);
-  const syncedUserRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!isLoaded || isConvexAuthLoading || !isAuthenticated || !user) {
-      return;
-    }
-    if (syncedUserRef.current === user.id) return;
-    syncedUserRef.current = user.id;
-
-    void ensureCurrentUser({
-      clerkUserId: user.id,
-      email: user.primaryEmailAddress?.emailAddress,
-      name: user.fullName ?? user.username ?? undefined,
-      avatarUrl: user.imageUrl
-    }).catch(() => {
-      syncedUserRef.current = null;
-    });
-  }, [ensureCurrentUser, isConvexAuthLoading, isAuthenticated, isLoaded, user]);
-
-  return null;
 }
 
 createRoot(document.getElementById("root")!).render(

@@ -12,14 +12,6 @@ const sortKeysValidator = v.object({
 });
 
 export default defineSchema({
-  users: defineTable({
-    clerkUserId: v.string(),
-    email: v.optional(v.string()),
-    name: v.optional(v.string()),
-    avatarUrl: v.optional(v.string()),
-    createdAt: v.number()
-  }).index("by_clerk_user_id", ["clerkUserId"]),
-
   content: defineTable({
     tmdbId: v.string(),
     type: mediaType,
