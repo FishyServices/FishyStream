@@ -129,16 +129,6 @@ export default defineSchema({
     sourceHash: v.string()
   }).index("by_key", ["key"]),
 
-  seasonIndex: defineTable({
-    contentId: v.id("content"),
-    tmdbId: v.string(),
-    summaries: v.array(v.any()),
-    updatedAt: v.number(),
-    payloadHash: v.string()
-  })
-    .index("by_content", ["contentId"])
-    .index("by_tmdb", ["tmdbId"]),
-
   seasonEpisodes: defineTable({
     contentId: v.id("content"),
     tmdbId: v.string(),

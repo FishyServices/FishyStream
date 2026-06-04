@@ -78,14 +78,6 @@ interface TMDBGenre {
   id: number;
   name: string;
 }
-interface TMDBProductionCountry {
-  iso_3166_1: string;
-  name: string;
-}
-interface TMDBSpokenLanguage {
-  iso_639_1: string;
-  name: string;
-}
 interface TMDBVideo {
   key: string;
   name: string;
@@ -133,10 +125,6 @@ interface TMDBMovieDetails extends TMDBMovieListItem {
   imdb_id?: string;
   status?: string;
   tagline?: string;
-  budget?: number;
-  revenue?: number;
-  production_countries?: TMDBProductionCountry[];
-  spoken_languages?: TMDBSpokenLanguage[];
   videos?: { results: TMDBVideo[] };
   images?: { logos?: TMDBLogo[] };
   external_ids?: { imdb_id?: string };
@@ -149,8 +137,6 @@ interface TMDBTVDetails extends TMDBTVListItem {
   episode_run_time?: number[];
   status?: string;
   tagline?: string;
-  production_countries?: TMDBProductionCountry[];
-  spoken_languages?: TMDBSpokenLanguage[];
   videos?: { results: TMDBVideo[] };
   images?: { logos?: TMDBLogo[] };
   external_ids?: { imdb_id?: string };
@@ -808,10 +794,6 @@ export const syncContent = action({
         status: seed.type === "movie" ? md?.status : td?.status,
         tagline: seed.type === "movie" ? md?.tagline || undefined : td?.tagline || undefined,
         originalLanguage,
-        productionCountries: details?.production_countries?.map((c) => c.name),
-        spokenLanguages: details?.spoken_languages?.map((l) => l.name),
-        budget: seed.type === "movie" ? md?.budget : undefined,
-        revenue: seed.type === "movie" ? md?.revenue : undefined,
         trending: seed.flags.trending,
         popular: seed.flags.popular || seed.order < 60,
         new: seed.flags.new,
@@ -842,45 +824,6 @@ export const syncContent = action({
     }
 
     return synced;
-  }
-});
-
-export const backfillAniListIds = action({
-  args: { limit: v.optional(v.number()) },
-  handler: async (
-    ctx,
-    { limit = 100 }
-  ): Promise<{
-    scanned: number;
-    updated: number;
-  }> => {
-    const candidates: Array<{
-      id: string;
-      tmdbId?: string;
-      title: string;
-      year: number;
-    }> = await ctx.runQuery(internal.content.getAnimeMissingAniListIds, { limit });
-    let updated = 0;
-
-    for (const candidate of candidates) {
-      if (!candidate.tmdbId) continue;
-
-      const anilistId = await resolveAniListId({
-        title: candidate.title,
-        season: 1,
-        year: candidate.year
-      });
-
-      if (!anilistId) continue;
-
-      await ctx.runMutation(internal.content.setAniListId, {
-        id: candidate.id as any,
-        anilistId
-      });
-      updated++;
-    }
-
-    return { scanned: candidates.length, updated };
   }
 });
 
@@ -1240,10 +1183,6 @@ export const syncSingleContent = action({
       status: type === "movie" ? md?.status : td?.status,
       tagline: details.tagline || undefined,
       originalLanguage: details.original_language,
-      productionCountries: details.production_countries?.map((c) => c.name),
-      spokenLanguages: details.spoken_languages?.map((l) => l.name),
-      budget: type === "movie" ? md?.budget : undefined,
-      revenue: type === "movie" ? md?.revenue : undefined,
       trending: existing ? existing.trending : false,
       popular: existing ? existing.popular : false,
       featured: existing ? existing.featured : false,
@@ -1253,12 +1192,6 @@ export const syncSingleContent = action({
     };
 
     await ctx.runMutation(internal.content.upsertBatchFromTMDB, { items: [item] });
-    if (resolvedAniListId && existing?._id) {
-      await ctx.runMutation(internal.content.setAniListId, {
-        id: existing._id,
-        anilistId: resolvedAniListId
-      });
-    }
 
     return {
       alreadyExists: false,

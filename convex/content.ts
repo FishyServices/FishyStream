@@ -54,10 +54,6 @@ const tmdbContentValidator = v.object({
   status: v.optional(v.string()),
   tagline: v.optional(v.string()),
   originalLanguage: v.optional(v.string()),
-  productionCountries: v.optional(v.array(v.string())),
-  spokenLanguages: v.optional(v.array(v.string())),
-  budget: v.optional(v.number()),
-  revenue: v.optional(v.number()),
   createdAt: v.number(),
   updatedAt: v.number(),
   syncHash: v.optional(v.string())
@@ -405,29 +401,6 @@ export const getAllTmdbIds = internalQuery({
   }
 });
 
-export const getAnimeMissingAniListIds = internalQuery({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 250 }) => {
-    const rows = await ctx.db.query("contentDetails").take(5000);
-
-    return rows
-      .filter(
-        (row) =>
-          !row.anilistId &&
-          row.type === "tv" &&
-          row.originalLanguage?.toLowerCase() === "ja" &&
-          row.genre.some((genre) => genre.toLowerCase() === "animation")
-      )
-      .slice(0, limit)
-      .map((row) => ({
-        id: row.contentId,
-        tmdbId: row.tmdbId,
-        title: row.title,
-        year: row.year
-      }));
-  }
-});
-
 export const getSyncMetadataByTmdbId = internalQuery({
   args: { tmdbId: v.string() },
   handler: async (ctx, { tmdbId }) => {
@@ -460,23 +433,6 @@ export const getContentSyncContextById = query({
       tmdbId: item.tmdbId,
       year: item.year
     };
-  }
-});
-
-export const setAniListId = internalMutation({
-  args: { id: v.id("content"), anilistId: v.string() },
-  handler: async (ctx, { id, anilistId }) => {
-    const detail = await ctx.db
-      .query("contentDetails")
-      .withIndex("by_content", (q) => q.eq("contentId", id))
-      .first();
-    if (detail) {
-      await ctx.db.patch(detail._id, {
-        anilistId,
-        updatedAt: Date.now(),
-        syncHash: hashPayload({ ...detail, anilistId })
-      });
-    }
   }
 });
 

@@ -21,16 +21,6 @@ const anilistEpisodeMappingValidator = v.object({
   anilistEpisodeNumber: v.number()
 });
 
-type SeasonSummaryWire = [
-  seasonNumber: number,
-  episodeCount: number,
-  storedEpisodeCount: number,
-  anilistId?: string | null,
-  anilistEpisodeMappingCount?: number | null,
-  name?: string | null,
-  airDate?: string | null
-];
-
 type EpisodeWire = [
   episodeNumber: number,
   name: string,
@@ -76,16 +66,6 @@ function toEpisodeWire(episode: {
     episode.stillUrl ? toImageWire(episode.stillUrl) : null,
     episode.runtime ?? null
   ];
-}
-
-function fromSeasonSummaryWire(row: SeasonSummaryWire): SeasonMetaSummary {
-  return {
-    seasonNumber: row[0],
-    episodeCount: row[1],
-    storedEpisodeCount: row[2],
-    anilistId: row[3] ?? undefined,
-    anilistEpisodeMappingCount: row[4] ?? undefined
-  };
 }
 
 async function readEpisodeMapping(
@@ -215,32 +195,6 @@ async function upsertSeasonPlaybackMeta(
   }
 
   await ctx.db.insert("seasonPlaybackMeta", payload);
-}
-
-async function syncContentSeasonAggregates(ctx: MutationCtx, contentId: Id<"content">) {
-  const seasonMeta = await ctx.db
-    .query("seasonPlaybackMeta")
-    .withIndex("by_content_season", (q) => q.eq("contentId", contentId))
-    .collect();
-  if (seasonMeta.length === 0) return;
-
-  const nextSeasons = Math.max(...seasonMeta.map((row) => row.seasonNumber));
-  const nextTotalEpisodes = seasonMeta.reduce(
-    (sum, row) => sum + (row.episodeCount || row.storedEpisodeCount),
-    0
-  );
-
-  const detail = await ctx.db
-    .query("contentDetails")
-    .withIndex("by_content", (q) => q.eq("contentId", contentId))
-    .first();
-  if (detail) {
-    const seasons = Math.max(detail.seasons ?? 0, nextSeasons);
-    const totalEpisodes = Math.max(detail.totalEpisodes ?? 0, nextTotalEpisodes);
-    if (detail.seasons !== seasons || detail.totalEpisodes !== totalEpisodes) {
-      await ctx.db.patch(detail._id, { seasons, totalEpisodes, updatedAt: Date.now() });
-    }
-  }
 }
 
 async function updateContentSeasonAggregatesForSeason(
@@ -373,13 +327,6 @@ export const upsertSeason = internalMutation({
   }
 });
 
-async function readSeasonIndex(ctx: QueryCtx, contentId: Id<"content">) {
-  return await ctx.db
-    .query("seasonIndex")
-    .withIndex("by_content", (q) => q.eq("contentId", contentId))
-    .first();
-}
-
 async function readSeasonEpisodes(ctx: QueryCtx, contentId: Id<"content">, seasonNumber: number) {
   return await ctx.db
     .query("seasonEpisodes")
@@ -432,10 +379,7 @@ export const getSeasonModalView = query({
       readSeasonEpisodes(ctx, contentId, seasonNumber)
     ]);
 
-    const summaries =
-      playbackMeta.length > 0
-        ? playbackMeta.map(fromSeasonPlaybackMeta)
-        : ((await readSeasonIndex(ctx, contentId))?.summaries ?? []).map(fromSeasonSummaryWire);
+    const summaries = playbackMeta.map(fromSeasonPlaybackMeta);
 
     if (!season) {
       return { summaries, selectedSeason: null };
@@ -492,38 +436,13 @@ export const getSeasonPlaybackMeta = query({
         };
       }
 
-      const index = await readSeasonIndex(ctx, contentId);
-      const summary = ((index?.summaries ?? []) as SeasonSummaryWire[]).find(
-        (row) => row[0] === seasonNumber
-      );
-
-      if (summary) {
-        return {
-          seasonNumber,
-          name: summary[5] ?? `Season ${seasonNumber}`,
-          airDate: summary[6] ?? undefined,
-          episodeCount: summary[1],
-          anilistId: episodeMappingRow?.anilistId ?? summary[3] ?? undefined,
-          anilistEpisodeMappingCount: summary[4] ?? undefined,
-          anilistEpisodeMappings: episodeMappingRow
-            ? [
-                {
-                  episodeNumber: episodeMappingRow.episodeNumber,
-                  anilistId: episodeMappingRow.anilistId,
-                  anilistEpisodeNumber: episodeMappingRow.anilistEpisodeNumber
-                }
-              ]
-            : undefined
-        };
-      }
-
       const season = await readSeasonEpisodes(ctx, contentId, seasonNumber);
       if (!season && !episodeMappingRow) return null;
 
       return {
         seasonNumber,
-        name: summary?.[5] ?? `Season ${seasonNumber}`,
-        airDate: summary?.[6] ?? undefined,
+        name: `Season ${seasonNumber}`,
+        airDate: undefined,
         episodeCount: season ? (season.episodes as EpisodeWire[]).length : undefined,
         anilistId: episodeMappingRow?.anilistId,
         anilistEpisodeMappingCount: undefined,
@@ -553,53 +472,17 @@ export const getSeasonPlaybackMeta = query({
       };
     }
 
-    const index = await readSeasonIndex(ctx, contentId);
-    const summary = ((index?.summaries ?? []) as SeasonSummaryWire[]).find(
-      (row) => row[0] === seasonNumber
-    );
-
-    if (!includeAnimeMappings && summary) {
-      return {
-        seasonNumber,
-        name: summary[5] ?? `Season ${seasonNumber}`,
-        airDate: summary[6] ?? undefined,
-        episodeCount: summary[1]
-      };
-    }
-
     const season = await readSeasonEpisodes(ctx, contentId, seasonNumber);
     if (!season) return null;
 
     return {
       seasonNumber,
-      name: summary?.[5] ?? `Season ${seasonNumber}`,
-      airDate: summary?.[6] ?? undefined,
-      episodeCount: summary?.[1] ?? (season.episodes as EpisodeWire[]).length,
+      name: `Season ${seasonNumber}`,
+      airDate: undefined,
+      episodeCount: (season.episodes as EpisodeWire[]).length,
       anilistId: undefined,
       anilistEpisodeMappingCount: undefined,
       anilistEpisodeMappings: undefined
     };
-  }
-});
-
-export const rebuildContentSeasonAggregates = internalMutation({
-  args: {
-    contentId: v.optional(v.id("content")),
-    limit: v.optional(v.number())
-  },
-  handler: async (ctx, { contentId, limit = 500 }) => {
-    if (contentId) {
-      await syncContentSeasonAggregates(ctx, contentId);
-      return 1;
-    }
-
-    const rows = await ctx.db.query("seasonPlaybackMeta").take(limit);
-    const contentIds = new Set(rows.map((row) => row.contentId));
-    let updated = 0;
-    for (const rowContentId of contentIds) {
-      await syncContentSeasonAggregates(ctx, rowContentId);
-      updated += 1;
-    }
-    return updated;
   }
 });
