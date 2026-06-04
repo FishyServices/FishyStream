@@ -151,6 +151,8 @@ function scoreAniListCandidate(
   else if (media.format === "ONA") score += 4;
   else score -= 6;
   let matchedBaseTitle = false;
+  let bestTitleOverlap = 0;
+  const baseTitleTokens = new Set(baseTitle.split(" ").filter((token) => token.length > 2));
 
   for (const candidate of titles) {
     if (candidate === baseTitle) {
@@ -162,6 +164,14 @@ function scoreAniListCandidate(
     } else if (candidate.includes(baseTitle)) {
       score += 5;
       matchedBaseTitle = true;
+    }
+
+    const candidateTokens = new Set(candidate.split(" ").filter((token) => token.length > 2));
+    const sharedTokenCount = [...baseTitleTokens].filter((token) =>
+      candidateTokens.has(token)
+    ).length;
+    if (baseTitleTokens.size > 0) {
+      bestTitleOverlap = Math.max(bestTitleOverlap, sharedTokenCount / baseTitleTokens.size);
     }
 
     const { explicitSeasonNumbers, partNumbers, courNumbers } = getSeasonSignals(candidate);
@@ -204,6 +214,10 @@ function scoreAniListCandidate(
     ) {
       score -= 20;
     }
+  }
+
+  if (!matchedBaseTitle && bestTitleOverlap < 0.5) {
+    return -1;
   }
 
   if (year) {
