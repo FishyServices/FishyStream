@@ -62,9 +62,9 @@ const tmdbContentValidator = v.object({
 type BrowseSort = "trending" | "popular" | "new" | "rating" | "year";
 type ContentInput = typeof tmdbContentValidator.type;
 
-const DEFAULT_PAGE_LIMIT = 8;
-const MAX_BROWSE_PAGE_LIMIT = 8;
-const RECOMMENDATION_POOL_READ_LIMIT = 8;
+const DEFAULT_PAGE_LIMIT = 12;
+const MAX_BROWSE_PAGE_LIMIT = 12;
+const RECOMMENDATION_POOL_READ_LIMIT = 12;
 
 function normalizePage(page?: number) {
   return Math.max(1, Math.floor(page ?? 1));
