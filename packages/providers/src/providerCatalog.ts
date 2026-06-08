@@ -26,7 +26,8 @@ export type ProviderKey =
   | "vidcore"
   | "megaplay"
   | "peachify"
-  | "cinesrc";
+  | "cinesrc"
+  | "vidup";
 
 export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
@@ -391,6 +392,17 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidup",
+    name: "VidUp",
+    category: "other",
+    idType: "tmdb",
+    quality: "720p",
+    website: "https://vidup.to",
+    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "vidzee",

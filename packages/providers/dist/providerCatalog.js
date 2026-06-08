@@ -307,6 +307,17 @@ export const STREAM_PROVIDERS = [
         tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
     }),
     defineProvider({
+        key: "vidup",
+        name: "VidUp",
+        category: "other",
+        idType: "tmdb",
+        quality: "720p",
+        website: "https://vidup.to",
+        progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+        moviePath: (id) => `/movie/${id}`,
+        tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
+    }),
+    defineProvider({
         key: "vidzee",
         name: "VidZee",
         category: "other",
