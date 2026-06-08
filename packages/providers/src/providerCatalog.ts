@@ -26,8 +26,7 @@ export type ProviderKey =
   | "vidcore"
   | "megaplay"
   | "peachify"
-  | "cinesrc"
-  | "streamrip";
+  | "cinesrc";
 
 export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
@@ -281,19 +280,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "streamrip",
-    name: "StreamRip",
-    category: "other",
-    idType: "tmdb",
-    quality: "1080p",
-    website: "https://streamrip.fun",
-    animeIdType: "anilist",
-    progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/movie/${id}`,
-    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode) => `/anime/${id}/${episode}`
   }),
   defineProvider({
     key: "superembed",

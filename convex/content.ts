@@ -283,18 +283,6 @@ async function listSortedContent(
   }
 }
 
-async function readDetailWiresByContentIds(
-  ctx: QueryCtx | MutationCtx,
-  contentIds: Id<"content">[]
-) {
-  const detailRows = await Promise.all(
-    contentIds.map((contentId) => readDetailByContentId(ctx, contentId))
-  );
-  return detailRows
-    .filter((item): item is Doc<"contentDetails"> => item !== null)
-    .map((item) => compactContentFeaturedWire(toContentFeaturedWire(item)));
-}
-
 async function readDetailByContentId(ctx: QueryCtx | MutationCtx, contentId: Id<"content">) {
   return await ctx.db
     .query("contentDetails")
