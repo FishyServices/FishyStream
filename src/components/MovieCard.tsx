@@ -4,6 +4,8 @@ import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
+import { useAction } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import type { ContentCard, ContentId, ContentType } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
@@ -26,6 +28,10 @@ type CardLikeContent = {
   genre?: string[];
   new?: boolean;
 } & WatchHistoryFields;
+
+function isClientTmdbContentId(id: ContentId | undefined): boolean {
+  return typeof id === "string" && id.startsWith("tmdb:");
+}
 
 interface MovieCardProps {
   content: CardLikeContent;
@@ -56,6 +62,7 @@ export function MovieCard({
 
   const isInWatchlist = useIsInWatchlist(content._id);
   const toggleWatchlist = useToggleWatchlist();
+  const syncSingleContent = useAction(api.tmdb.syncSingleContent);
 
   const handleWatchlist = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -71,7 +78,16 @@ export function MovieCard({
         posterUrl: content.posterUrl,
         tmdbId: content.tmdbId
       };
-      await toggleWatchlist(content._id, snapshot);
+      let contentId = content._id;
+      if (isClientTmdbContentId(content._id) && content.tmdbId) {
+        const synced = await syncSingleContent({
+          tmdbId: Number(content.tmdbId),
+          type: content.type
+        });
+        if (!synced?.contentId) throw new Error("Missing synced content id");
+        contentId = synced.contentId as ContentId;
+      }
+      await toggleWatchlist(contentId, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Failed to update watchlist");

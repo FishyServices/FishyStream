@@ -7,7 +7,6 @@ import {
   toContentDetailWire,
   toContentFeaturedWire,
   toContentPlaybackWire,
-  fromContentTypeWire,
   compactContentCardWire,
   compactContentFeaturedWire,
   toImageWire,
@@ -64,7 +63,6 @@ type ContentInput = typeof tmdbContentValidator.type;
 
 const DEFAULT_PAGE_LIMIT = 12;
 const MAX_BROWSE_PAGE_LIMIT = 12;
-const RECOMMENDATION_POOL_READ_LIMIT = 12;
 
 function normalizePage(page?: number) {
   return Math.max(1, Math.floor(page ?? 1));
@@ -98,10 +96,6 @@ function hashString(value: string) {
 
 function hashPayload(value: unknown) {
   return hashString(JSON.stringify(value));
-}
-
-function seededUnitInterval(seed: string) {
-  return Number(hashString(seed)) / 4294967295;
 }
 
 function getContentSyncHash(item: ContentInput) {
@@ -458,48 +452,6 @@ export const getContentSyncContextById = query({
   }
 });
 
-async function readRecommendationPool(ctx: QueryCtx, type: "movie" | "tv", genres: string[]) {
-  const genreKeys = genres.map((genre) => genreKey(genre)).filter(Boolean) as string[];
-  const rows = await listSortedContent(ctx, type, "popular", RECOMMENDATION_POOL_READ_LIMIT);
-  const pool = genreKeys.length
-    ? rows.filter((row) => row.genreKeys.some((key) => genreKeys.includes(key)))
-    : rows;
-  const fallbackPool = pool.length > 0 ? pool : rows;
-  return fallbackPool
-    .slice(0, RECOMMENDATION_POOL_READ_LIMIT)
-    .map((item) => compactContentCardWire(toContentCardWire(item)));
-}
-
-function rankRecommendations(args: {
-  pool: ContentCardWire[];
-  watchlistIds: Id<"content">[];
-  preferredType: "movie" | "tv";
-  genres: string[];
-  typeFilter: "all" | "movie" | "tv";
-  refreshSeed: number;
-  limit: number;
-}) {
-  const watchlistIdSet = new Set(args.watchlistIds);
-  const signature = args.watchlistIds.map(String).sort().join("|");
-
-  return args.pool
-    .filter((item) => !watchlistIdSet.has(item[0]))
-    .filter((item) => args.typeFilter === "all" || fromContentTypeWire(item[2]) === args.typeFilter)
-    .map((item) => {
-      const itemType = fromContentTypeWire(item[2]);
-      let score =
-        seededUnitInterval(
-          `${signature}:${args.typeFilter}:${args.refreshSeed}:${String(item[0])}`
-        ) * 15;
-      if (itemType === args.preferredType) score += 2;
-      if ((item[5] ?? 0) > 7) score += 0.5;
-      return { item, score };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, args.limit)
-    .map(({ item }) => item);
-}
-
 export const listRecommendedCardsFromSeed = query({
   args: {
     watchlistIds: v.array(v.id("content")),
@@ -509,33 +461,7 @@ export const listRecommendedCardsFromSeed = query({
     typeFilter: v.optional(v.union(v.literal("all"), v.literal("movie"), v.literal("tv"))),
     refreshSeed: v.optional(v.number())
   },
-  handler: async (
-    ctx,
-    {
-      watchlistIds,
-      preferredType,
-      genres,
-      limit = RECOMMENDATION_POOL_READ_LIMIT,
-      typeFilter = "all",
-      refreshSeed = 0
-    }
-  ): Promise<ContentCardWire[]> => {
-    if (watchlistIds.length === 0) return [];
-
-    const normalizedLimit = Math.max(
-      1,
-      Math.min(RECOMMENDATION_POOL_READ_LIMIT, Math.floor(limit))
-    );
-    const poolType = typeFilter === "all" ? preferredType : typeFilter;
-    const pool = await readRecommendationPool(ctx, poolType, genres);
-    return rankRecommendations({
-      pool,
-      watchlistIds,
-      preferredType,
-      genres,
-      typeFilter,
-      refreshSeed,
-      limit: normalizedLimit
-    });
+  handler: async (): Promise<ContentCardWire[]> => {
+    return [];
   }
 });

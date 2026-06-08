@@ -109,6 +109,10 @@ function getSeasonCount(content: ModalContent | null): number | undefined {
   return typeof candidate?.seasons === "number" ? candidate.seasons : undefined;
 }
 
+function isClientTmdbContentId(id: ContentId | undefined): boolean {
+  return typeof id === "string" && id.startsWith("tmdb:");
+}
+
 function EpisodePill({
   ep,
   selected,
@@ -167,10 +171,11 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const [activeTab, setActiveTab] = useState<"episodes" | "cast" | "videos" | "related">(
     "episodes"
   );
+  const hasServerContentId = !!content?._id && !isClientTmdbContentId(content._id);
   const fullContentWire = useOneShotConvexQuery<ContentDetailWire | null>(
-    isOpen && !!content && !hasFullContent(content),
+    isOpen && !!content && hasServerContentId && !hasFullContent(content),
     (convex) => convex.query(api.content.getContentDetailById, { id: content!._id }),
-    [content?._id, isOpen]
+    [content?._id, isOpen, hasServerContentId]
   );
   const fullContent = fullContentWire ? fromContentDetailWire(fullContentWire) : fullContentWire;
   const resolvedContent: ModalContent | null = fullContent
@@ -186,15 +191,24 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
   const isInWatchlist = useIsInWatchlist(resolvedContent?._id);
   const toggleWatchlist = useToggleWatchlist();
+  const hasResolvedServerContentId =
+    !!resolvedContent?._id && !isClientTmdbContentId(resolvedContent._id);
 
   const seasonModalView = useOneShotConvexQuery<SeasonModalView | null>(
-    isOpen && !!resolvedContent && resolvedContent.type === "tv",
+    isOpen && !!resolvedContent && hasResolvedServerContentId && resolvedContent.type === "tv",
     (convex) =>
       convex.query(api.seasons.getSeasonModalView, {
         contentId: resolvedContent!._id,
         seasonNumber: selectedSeason
       }),
-    [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen, seasonReloadKey],
+    [
+      resolvedContent?._id,
+      resolvedContent?.type,
+      selectedSeason,
+      isOpen,
+      seasonReloadKey,
+      hasResolvedServerContentId
+    ],
     [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen]
   );
   const dbSeason = useMemo(() => {
@@ -280,6 +294,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       !resolvedContent ||
       resolvedContent.type !== "tv" ||
       !resolvedContent._id ||
+      isClientTmdbContentId(resolvedContent._id) ||
       !resolvedContent.tmdbId
     ) {
       return;
@@ -349,6 +364,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       !resolvedContent ||
       resolvedContent.type !== "tv" ||
       !resolvedContent._id ||
+      isClientTmdbContentId(resolvedContent._id) ||
       !resolvedContent.tmdbId
     ) {
       return;
@@ -393,6 +409,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       !resolvedContent ||
       resolvedContent.type !== "tv" ||
       !resolvedContent._id ||
+      isClientTmdbContentId(resolvedContent._id) ||
       !resolvedContent.tmdbId
     ) {
       return;
@@ -500,7 +517,16 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
         posterUrl: contentData.posterUrl,
         tmdbId: contentData.tmdbId
       };
-      await toggleWatchlist(contentData._id, snapshot);
+      let contentId = contentData._id;
+      if (isClientTmdbContentId(contentData._id) && contentData.tmdbId) {
+        const synced = await syncSingleContent({
+          tmdbId: Number(contentData.tmdbId),
+          type: contentData.type
+        });
+        if (!synced?.contentId) throw new Error("Missing synced content id");
+        contentId = synced.contentId as ContentId;
+      }
+      await toggleWatchlist(contentId, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Failed to update list");

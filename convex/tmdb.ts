@@ -1124,6 +1124,7 @@ export const syncSingleContent = action({
     { tmdbId, type }
   ): Promise<{
     alreadyExists: boolean;
+    contentId: string | undefined;
     tmdbId: string;
     seasons: number | undefined;
     totalEpisodes: number | undefined;
@@ -1192,9 +1193,13 @@ export const syncSingleContent = action({
     };
 
     await ctx.runMutation(internal.content.upsertBatchFromTMDB, { items: [item] });
+    const synced = await ctx.runQuery(internal.content.getSyncMetadataByTmdbId, {
+      tmdbId: String(tmdbId)
+    });
 
     return {
-      alreadyExists: false,
+      alreadyExists: !!existing,
+      contentId: synced?._id,
       tmdbId: String(tmdbId),
       seasons: item.seasons,
       totalEpisodes: item.totalEpisodes

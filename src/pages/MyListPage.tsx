@@ -79,7 +79,13 @@ export function MyListPage() {
     }
 
     return {
-      watchlistIds: watchlistData.map((item) => item._id),
+      tmdbSeeds: watchlistData
+        .filter((item) => item.tmdbId)
+        .map((item) => ({
+          tmdbId: item.tmdbId!,
+          type: item.type,
+          genres: item.genre
+        })),
       preferredType:
         Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "movie",
       genres: Array.from(genreCounts.entries())

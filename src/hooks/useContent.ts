@@ -1,9 +1,9 @@
 import { useAction } from "convex/react";
 import { useEffect, useState, useRef } from "react";
-import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
 import type {
   ContentCard,
+  ContentId,
   ContentCardWire,
   ContentFeatured,
   ContentFeaturedWire,
@@ -16,9 +16,7 @@ import {
   fromContentFeaturedWire,
   fromContentPlaybackWire
 } from "../../shared/contentMetadata";
-import type { Id } from "../../convex/_generated/dataModel";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
-import { useWatchlistContentIds, useWatchlistHydrated } from "./useWatchlist";
 
 export interface BrowsePageResult {
   items: ContentCard[];
@@ -41,6 +39,133 @@ export interface TMDBItem {
   rating?: string;
   voteAverage?: number;
   type: "movie" | "tv";
+}
+
+type TMDBMediaType = "movie" | "tv";
+
+type TMDBRecommendationSeed = {
+  tmdbId: string;
+  type: TMDBMediaType;
+  genres?: string[];
+};
+
+type TMDBListItem = {
+  id: number;
+  media_type?: "movie" | "tv" | "person";
+  title?: string;
+  name?: string;
+  poster_path?: string | null;
+  release_date?: string;
+  first_air_date?: string;
+  vote_average?: number;
+  genre_ids?: number[];
+};
+
+type TMDBListResponse = {
+  results?: TMDBListItem[];
+};
+
+const TMDB_API_KEY = import.meta.env.VITE_TMDB_KEY ?? "84259f99204eeb7d45c7e3d8e36c6123";
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
+const TMDB_DISCOVER_GENRES: Record<string, number> = {
+  action: 28,
+  adventure: 12,
+  animation: 16,
+  comedy: 35,
+  crime: 80,
+  documentary: 99,
+  drama: 18,
+  family: 10751,
+  fantasy: 14,
+  history: 36,
+  horror: 27,
+  music: 10402,
+  mystery: 9648,
+  romance: 10749,
+  "science fiction": 878,
+  "sci-fi": 878,
+  thriller: 53,
+  war: 10752,
+  western: 37
+};
+
+function tmdbImage(path?: string | null) {
+  return path
+    ? `${TMDB_IMAGE_BASE}${path}`
+    : "https://placehold.co/300x450/1a1a2e/555?text=No+Poster";
+}
+
+function tmdbYear(value?: string) {
+  if (!value) return new Date().getFullYear();
+  const year = Number(value.slice(0, 4));
+  return Number.isFinite(year) ? year : new Date().getFullYear();
+}
+
+function tmdbUrl(path: string, params: Record<string, string | number | undefined> = {}) {
+  const url = new URL(`${TMDB_BASE_URL}${path}`);
+  url.searchParams.set("api_key", TMDB_API_KEY);
+  url.searchParams.set("language", "en-US");
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+  return url.toString();
+}
+
+function clientTmdbContentId(type: TMDBMediaType, tmdbId: number | string): ContentId {
+  return `tmdb:${type}:${tmdbId}` as ContentId;
+}
+
+function toClientContentCard(item: TMDBListItem, typeHint?: TMDBMediaType): ContentCard | null {
+  const type =
+    typeHint ?? (item.media_type === "movie" || item.media_type === "tv" ? item.media_type : null);
+  if (!type || item.media_type === "person") return null;
+  const title = type === "movie" ? item.title : item.name;
+  if (!item.id || !title || !item.poster_path) return null;
+
+  return {
+    _id: clientTmdbContentId(type, item.id),
+    title,
+    type,
+    genre: [],
+    year: tmdbYear(type === "movie" ? item.release_date : item.first_air_date),
+    voteAverage: item.vote_average,
+    posterUrl: tmdbImage(item.poster_path),
+    tmdbId: String(item.id),
+    new: false
+  };
+}
+
+async function fetchTmdbList(
+  path: string,
+  signal: AbortSignal,
+  params?: Record<string, string | number | undefined>
+) {
+  const res = await fetch(tmdbUrl(path, params), { signal });
+  if (!res.ok) throw new Error(`TMDB request failed: ${res.status}`);
+  return (await res.json()) as TMDBListResponse;
+}
+
+async function fetchTmdbListOrEmpty(
+  path: string,
+  signal: AbortSignal,
+  params?: Record<string, string | number | undefined>
+) {
+  try {
+    return await fetchTmdbList(path, signal, params);
+  } catch {
+    return { results: [] };
+  }
+}
+
+function shuffleWithSeed<T>(items: T[], seed: number) {
+  return items
+    .map((item, index) => {
+      const score = Math.sin((index + 1) * 999 + seed * 9973) * 10000;
+      return { item, score: score - Math.floor(score) };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map(({ item }) => item);
 }
 
 export function useHomepageContent() {
@@ -312,52 +437,133 @@ export function useRecommendations(
   refreshSeed = 0,
   enabled = true,
   seed?: {
-    watchlistIds: Id<"content">[];
+    tmdbSeeds?: TMDBRecommendationSeed[];
     preferredType: "movie" | "tv";
     genres: string[];
   }
 ) {
-  const { user } = useUser();
-  const cachedWatchlistIds = useWatchlistContentIds();
-  const watchlistHydrated = useWatchlistHydrated();
-  const effectiveSeed =
-    seed ??
-    (cachedWatchlistIds.length > 0
-      ? {
-          watchlistIds: cachedWatchlistIds,
-          preferredType: "movie" as const,
-          genres: []
-        }
-      : undefined);
-  const shouldQuery = enabled && !!effectiveSeed && (!user || watchlistHydrated);
+  const [recommendations, setRecommendations] = useState<ContentCard[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const seedSignature = seed?.tmdbSeeds
+    ?.map((item) => `${item.type}:${item.tmdbId}`)
+    .sort()
+    .join("|");
 
-  const recommendations = useOneShotConvexQuery<ContentCardWire[]>(
-    shouldQuery,
-    (convex) => {
-      const querySeed = effectiveSeed!;
-      return convex.query(api.content.listRecommendedCardsFromSeed, {
-        watchlistIds: querySeed.watchlistIds,
-        preferredType: querySeed.preferredType,
-        genres: querySeed.genres,
-        limit,
-        typeFilter,
-        refreshSeed
-      });
-    },
-    [
-      user?.id,
-      limit,
-      typeFilter,
-      refreshSeed,
-      watchlistHydrated,
-      effectiveSeed?.preferredType,
-      effectiveSeed?.watchlistIds.join("|"),
-      effectiveSeed?.genres.join("|")
-    ]
-  );
+  useEffect(() => {
+    if (!enabled) {
+      setRecommendations([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const excludedIds = new Set(seed?.tmdbSeeds?.map((item) => `${item.type}:${item.tmdbId}`));
+    const genreIds = Array.from(
+      new Set(
+        (seed?.genres ?? [])
+          .map((genre) => TMDB_DISCOVER_GENRES[genre.trim().toLowerCase()])
+          .filter((id): id is number => typeof id === "number")
+      )
+    ).slice(0, 3);
+    const seedItems = shuffleWithSeed(seed?.tmdbSeeds ?? [], refreshSeed)
+      .filter((item) => typeFilter === "all" || item.type === typeFilter)
+      .slice(0, 5);
+
+    const collectCards = (responses: Array<{ data: TMDBListResponse; type?: TMDBMediaType }>) => {
+      const seen = new Set<string>();
+      const cards: ContentCard[] = [];
+      for (const response of responses) {
+        for (const item of response.data.results ?? []) {
+          const card = toClientContentCard(item, response.type);
+          if (!card?.tmdbId) continue;
+          const key = `${card.type}:${card.tmdbId}`;
+          if (excludedIds.has(key) || seen.has(key)) continue;
+          if (typeFilter !== "all" && card.type !== typeFilter) continue;
+          seen.add(key);
+          cards.push(card);
+        }
+      }
+      return cards;
+    };
+
+    const fallbackTypes: TMDBMediaType[] =
+      typeFilter === "all" ? [seed?.preferredType ?? "movie", "tv", "movie"] : [typeFilter];
+
+    async function load() {
+      setIsLoading(true);
+      try {
+        const recommendationResponses = seedItems.length
+          ? await Promise.all(
+              seedItems.flatMap((item) => [
+                fetchTmdbListOrEmpty(
+                  `/${item.type}/${item.tmdbId}/recommendations`,
+                  controller.signal,
+                  { page: 1 }
+                ).then((data) => ({ data, type: item.type })),
+                fetchTmdbListOrEmpty(`/${item.type}/${item.tmdbId}/similar`, controller.signal, {
+                  page: 1
+                }).then((data) => ({ data, type: item.type }))
+              ])
+            )
+          : [];
+
+        let cards = collectCards(recommendationResponses);
+
+        if (cards.length < limit) {
+          const genreResponses = genreIds.length
+            ? await Promise.all(
+                fallbackTypes.map((type) =>
+                  fetchTmdbListOrEmpty(`/discover/${type}`, controller.signal, {
+                    page: (refreshSeed % 5) + 1,
+                    sort_by: "popularity.desc",
+                    with_genres: genreIds.join("|")
+                  }).then((data) => ({ data, type }))
+                )
+              )
+            : [];
+          cards = [...cards, ...collectCards(genreResponses)];
+        }
+
+        if (cards.length < limit) {
+          const trendingResponses = await Promise.all(
+            (typeFilter === "all" ? ([undefined] as const) : ([typeFilter] as const)).map((type) =>
+              fetchTmdbListOrEmpty(
+                type ? `/trending/${type}/week` : "/trending/all/week",
+                controller.signal,
+                { page: (refreshSeed % 5) + 1 }
+              ).then((data) => ({ data, type }))
+            )
+          );
+          cards = [...cards, ...collectCards(trendingResponses)];
+        }
+
+        if (!controller.signal.aborted) {
+          const deduped = Array.from(
+            new Map(cards.map((card) => [`${card.type}:${card.tmdbId}`, card])).values()
+          );
+          setRecommendations(shuffleWithSeed(deduped, refreshSeed).slice(0, limit));
+        }
+      } catch {
+        if (!controller.signal.aborted) setRecommendations([]);
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
+      }
+    }
+
+    void load();
+    return () => controller.abort();
+  }, [
+    enabled,
+    limit,
+    typeFilter,
+    refreshSeed,
+    seed?.preferredType,
+    seedSignature,
+    seed?.genres.join("|")
+  ]);
 
   return {
-    recommendations: recommendations?.map(fromContentCardWire) ?? [],
-    isLoading: shouldQuery ? recommendations === undefined : false
+    recommendations,
+    isLoading
   };
 }
