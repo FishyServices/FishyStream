@@ -561,8 +561,14 @@ export async function fetchTmdbCredits(
   try {
     const res = await fetch(url, { signal });
     if (!res.ok) return null;
-    const data = await res.json() as {
-      cast: Array<{ id: number; name: string; character: string; profile_path: string | null; order: number }>;
+    const data = (await res.json()) as {
+      cast: Array<{
+        id: number;
+        name: string;
+        character: string;
+        profile_path: string | null;
+        order: number;
+      }>;
       crew: Array<{ id: number; name: string; job: string; department: string }>;
     };
     return {
@@ -597,7 +603,7 @@ export async function fetchTmdbVideos(
   try {
     const res = await fetch(url, { signal });
     if (!res.ok) return [];
-    const data = await res.json() as { results: TMDBVideo[] };
+    const data = (await res.json()) as { results: TMDBVideo[] };
     return (data.results ?? [])
       .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
       .map((v) => ({ key: v.key, name: v.name, type: v.type, official: v.official }));
@@ -626,7 +632,7 @@ export async function fetchTmdbRelated(
   try {
     const res = await fetch(url, { signal });
     if (!res.ok) return [];
-    const data = await res.json() as { results: TMDBListItem[] };
+    const data = (await res.json()) as { results: TMDBListItem[] };
     return (data.results ?? []).slice(0, limit).map((item) => {
       const isMovie = "title" in item;
       return {
@@ -634,7 +640,11 @@ export async function fetchTmdbRelated(
         title: isMovie ? (item as TMDBMovieListItem).title : (item as TMDBTVListItem).name,
         type: isMovie ? "movie" : "tv",
         posterUrl: getPosterUrl(item.poster_path),
-        year: getYear(isMovie ? (item as TMDBMovieListItem).release_date : (item as TMDBTVListItem).first_air_date),
+        year: getYear(
+          isMovie
+            ? (item as TMDBMovieListItem).release_date
+            : (item as TMDBTVListItem).first_air_date
+        ),
         voteAverage: item.vote_average
       };
     });
@@ -645,10 +655,12 @@ export async function fetchTmdbRelated(
 
 // ─── Client-side ─────────────────────────────────────────
 
+export type TMDBMediaType = "movie" | "tv";
+
 export interface TMDBContentCard {
   tmdbId: string;
   title: string;
-  type: "movie" | "tv";
+  type: TMDBMediaType;
   year: number;
   posterUrl: string;
   voteAverage?: number;
@@ -658,7 +670,7 @@ export interface TMDBContentCard {
 
 export function toTMDBContentCard(
   item: TMDBBrowseListItem,
-  typeHint?: "movie" | "tv"
+  typeHint?: TMDBMediaType
 ): TMDBContentCard | null {
   const type =
     typeHint ?? (item.media_type === "movie" || item.media_type === "tv" ? item.media_type : null);
@@ -679,4 +691,155 @@ export function toTMDBContentCard(
     genre: (item.genre_ids ?? []).map((id) => GENRE_MAP[id]).filter(Boolean) as string[],
     isNew: false
   };
+}
+
+export interface TMDBItem {
+  tmdbId: number;
+  title: string;
+  posterUrl: string;
+  year: number;
+  genre: string[];
+  rating: string;
+  voteAverage?: number;
+  type: TMDBMediaType;
+}
+
+export function toTMDBItem(item: TMDBBrowseListItem, type: TMDBMediaType): TMDBItem {
+  return {
+    tmdbId: item.id,
+    title: (type === "movie" ? item.title : item.name) ?? "",
+    posterUrl: getPosterUrl(item.poster_path ?? null),
+    year: getYear(type === "movie" ? item.release_date : item.first_air_date),
+    genre: (item.genre_ids ?? []).map((id) => GENRE_MAP[id]).filter(Boolean) as string[],
+    rating: getRating(item.vote_average ?? 0),
+    voteAverage: item.vote_average,
+    type
+  };
+}
+
+export function tmdbSortParam(sortBy: string, type: TMDBMediaType): string {
+  if (sortBy === "new" || sortBy === "year")
+    return type === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
+  if (sortBy === "rating") return "vote_average.desc";
+  return "popularity.desc";
+}
+
+export interface TMDBDetailsResult {
+  description: string;
+  backdropUrl: string;
+  rating: string;
+  logoUrl?: string;
+  trailerKey?: string;
+  duration?: string;
+  seasons?: number;
+  tagline?: string;
+  originalLanguage?: string;
+}
+
+export async function fetchTmdbDetails(
+  tmdbId: string,
+  type: TMDBMediaType,
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<TMDBDetailsResult | null> {
+  const url = buildTmdbUrl(`/${type}/${tmdbId}`, apiKey, { append_to_response: "videos,images" });
+  try {
+    const res = await fetch(url, { signal });
+    if (!res.ok) return null;
+    const d = (await res.json()) as TMDBMovieDetails & TMDBTVDetails;
+    return {
+      description: d.overview ?? "No description available",
+      backdropUrl: d.backdrop_path ? getBackdropUrl(d.backdrop_path) : "",
+      rating: getRating(d.vote_average ?? 0),
+      logoUrl: getLogoUrl(d.images?.logos),
+      trailerKey: getTrailerKey(d.videos?.results),
+      duration: type === "movie" ? formatRuntime(d.runtime) : undefined,
+      seasons: type === "tv" ? d.number_of_seasons : undefined,
+      tagline: d.tagline ?? undefined,
+      originalLanguage: d.original_language
+    };
+  } catch {
+    return null;
+  }
+}
+
+export interface TMDBSearchResult {
+  movies: TMDBItem[];
+  shows: TMDBItem[];
+}
+
+export async function fetchTmdbSearch(
+  query: string,
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<TMDBSearchResult> {
+  const encoded = encodeURIComponent(query);
+  const [moviesRes, showsRes] = await Promise.all([
+    fetchTmdbListOrEmpty("/search/movie", apiKey, signal ?? new AbortController().signal, {
+      query: encoded
+    }),
+    fetchTmdbListOrEmpty("/search/tv", apiKey, signal ?? new AbortController().signal, {
+      query: encoded
+    })
+  ]);
+  return {
+    movies: (moviesRes.results ?? []).map((item) => toTMDBItem(item, "movie")),
+    shows: (showsRes.results ?? []).map((item) => toTMDBItem(item, "tv"))
+  };
+}
+
+export interface TMDBDiscoverResult {
+  items: TMDBContentCard[];
+  totalPages: number;
+  totalResults: number;
+}
+
+export async function fetchTmdbDiscover(
+  type: TMDBMediaType,
+  apiKey: string,
+  signal: AbortSignal,
+  opts: {
+    page?: number;
+    sortBy?: string;
+    genreId?: number;
+    minVoteCount?: number;
+  } = {}
+): Promise<TMDBDiscoverResult> {
+  const params: Record<string, string | number | undefined> = {
+    page: opts.page ?? 1,
+    sort_by: tmdbSortParam(opts.sortBy ?? "popular", type),
+    with_genres: opts.genreId,
+    "vote_count.gte": opts.minVoteCount ?? 25
+  };
+  const res = await fetchTmdbListOrEmpty(`/discover/${type}`, apiKey, signal, params);
+  return {
+    items: (res.results ?? [])
+      .map((item) => toTMDBContentCard(item, type))
+      .filter((c): c is TMDBContentCard => !!c),
+    totalPages: res.total_pages ?? 1,
+    totalResults: res.total_results ?? 0
+  };
+}
+
+export function collectTmdbCards(
+  responses: Array<{ data: TMDBBrowseListResponse; type?: TMDBMediaType }>,
+  opts: {
+    excludedIds?: Set<string>;
+    typeFilter?: "all" | TMDBMediaType;
+  } = {}
+): TMDBContentCard[] {
+  const seen = new Set<string>();
+  const cards: TMDBContentCard[] = [];
+  for (const { data, type } of responses) {
+    for (const item of data.results ?? []) {
+      const card = toTMDBContentCard(item, type);
+      if (!card?.tmdbId) continue;
+      const key = `${card.type}:${card.tmdbId}`;
+      if (opts.excludedIds?.has(key) || seen.has(key)) continue;
+      if (opts.typeFilter && opts.typeFilter !== "all" && card.type !== opts.typeFilter) continue;
+      seen.add(key);
+      cards.push(card);
+    }
+  }
+  return cards;
 }

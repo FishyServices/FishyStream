@@ -12,27 +12,26 @@ import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 import {
   TMDB_DISCOVER_GENRES,
   TMDB_API_KEY,
-  getPosterUrl,
-  getBackdropUrl,
-  getYear,
-  getGenres,
-  getRating,
-  getLogoUrl,
-  getTrailerKey,
-  formatRuntime,
   shuffleWithSeed,
   fetchTmdbListOrEmpty,
   fetchTmdbCredits,
   fetchTmdbVideos,
   fetchTmdbRelated,
-  buildTmdbUrl,
+  fetchTmdbDetails,
+  fetchTmdbSearch,
+  fetchTmdbDiscover,
+  collectTmdbCards,
   toTMDBContentCard,
+  type TMDBItem,
+  type TMDBMediaType,
+  type TMDBContentCard,
   type TMDBCreditResult,
   type TMDBVideoResult,
   type TMDBRelatedItem,
-  type TMDBBrowseListItem,
   type TMDBBrowseListResponse
 } from "@fishy/providers/tmdb";
+
+export type { TMDBItem };
 
 export interface BrowsePageResult {
   items: ContentCard[];
@@ -46,19 +45,6 @@ export interface BrowsePageResult {
   goPrevious: () => void;
 }
 
-export interface TMDBItem {
-  tmdbId: number;
-  title: string;
-  posterUrl: string;
-  year: number;
-  genre?: string[];
-  rating?: string;
-  voteAverage?: number;
-  type: "movie" | "tv";
-}
-
-type TMDBMediaType = "movie" | "tv";
-
 type TMDBRecommendationSeed = {
   tmdbId: string;
   type: TMDBMediaType;
@@ -70,7 +56,7 @@ function clientTmdbContentId(type: TMDBMediaType, tmdbId: number | string): Cont
 }
 
 function toClientContentCard(
-  item: TMDBBrowseListItem,
+  item: Parameters<typeof toTMDBContentCard>[0],
   typeHint?: TMDBMediaType
 ): ContentCard | null {
   const card = toTMDBContentCard(item, typeHint);
@@ -88,6 +74,26 @@ function toClientContentCard(
   };
 }
 
+function tmdbCardToContentCard(card: TMDBContentCard): ContentCard {
+  return {
+    _id: clientTmdbContentId(card.type, card.tmdbId),
+    title: card.title,
+    type: card.type,
+    genre: card.genre,
+    year: card.year,
+    voteAverage: card.voteAverage,
+    posterUrl: card.posterUrl,
+    tmdbId: card.tmdbId,
+    new: card.isNew
+  };
+}
+
+function getApiKey(): string {
+  return (import.meta.env.VITE_TMDB_KEY as string | undefined) ?? TMDB_API_KEY;
+}
+
+// ─── Homepage ─────────────────────────────────────────────────────────────────
+
 export function useHomepageContent() {
   const [homepage, setHomepage] = useState<
     | {
@@ -99,11 +105,10 @@ export function useHomepageContent() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const apiKey = getApiKey();
 
     async function load() {
       try {
-        const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
-
         const [moviesRes, tvRes, newRes] = await Promise.all([
           fetchTmdbListOrEmpty("/movie/popular", apiKey, controller.signal),
           fetchTmdbListOrEmpty("/tv/popular", apiKey, controller.signal),
@@ -127,30 +132,25 @@ export function useHomepageContent() {
         const featuredDetails = await Promise.all(
           featuredCandidates.map(async (card) => {
             try {
-              const url = buildTmdbUrl(`/${card.type}/${card.tmdbId}`, apiKey, {
-                append_to_response: "videos,images"
-              });
-              const res = await fetch(url, { signal: controller.signal });
-              if (!res.ok) return null;
-              const details = await res.json();
-
-              const logoUrl = getLogoUrl(details.images?.logos);
-              const trailerKey = getTrailerKey(details.videos?.results);
-              const rating = getRating(details.vote_average ?? card.voteAverage ?? 0);
-              const backdropUrl = getBackdropUrl(details.backdrop_path);
-
+              const details = await fetchTmdbDetails(
+                card.tmdbId!,
+                card.type,
+                apiKey,
+                controller.signal
+              );
+              if (!details) return null;
               return {
                 ...card,
-                description: details.overview ?? "No description available",
-                backdropUrl: details.backdrop_path ? backdropUrl : card.posterUrl,
-                rating,
-                logoUrl,
-                trailerKey,
-                duration: card.type === "movie" ? formatRuntime(details.runtime) : undefined,
-                seasons: card.type === "tv" ? details.number_of_seasons : undefined,
+                description: details.description,
+                backdropUrl: details.backdropUrl || card.posterUrl,
+                rating: details.rating,
+                logoUrl: details.logoUrl,
+                trailerKey: details.trailerKey,
+                duration: details.duration,
+                seasons: details.seasons,
                 trending: true,
                 tagline: details.tagline,
-                originalLanguage: details.original_language
+                originalLanguage: details.originalLanguage
               } as ContentFeatured;
             } catch {
               return null;
@@ -158,11 +158,9 @@ export function useHomepageContent() {
           })
         );
 
-        const featured = featuredDetails.filter((item): item is ContentFeatured => !!item);
-
         if (!controller.signal.aborted) {
           setHomepage({
-            featured,
+            featured: featuredDetails.filter((item): item is ContentFeatured => !!item),
             categories: [
               { id: "movies", title: "Popular Movies", content: popularMovies },
               { id: "tvshows", title: "Popular TV Shows", content: popularTv },
@@ -184,6 +182,8 @@ export function useHomepageContent() {
   return homepage;
 }
 
+// ─── New releases ─────────────────────────────────────────────────────────────
+
 export function useNewReleases() {
   const [newReleases, setNewReleases] = useState<ContentCard[] | undefined>(undefined);
 
@@ -192,19 +192,18 @@ export function useNewReleases() {
 
     async function load() {
       try {
-        const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
-        const res = await fetchTmdbListOrEmpty("/movie/now_playing", apiKey, controller.signal);
+        const res = await fetchTmdbListOrEmpty(
+          "/movie/now_playing",
+          getApiKey(),
+          controller.signal
+        );
         const cards = (res.results ?? [])
           .map((item) => toClientContentCard(item, "movie"))
           .filter((item): item is ContentCard => !!item);
 
-        if (!controller.signal.aborted) {
-          setNewReleases(cards);
-        }
+        if (!controller.signal.aborted) setNewReleases(cards);
       } catch {
-        if (!controller.signal.aborted) {
-          setNewReleases([]);
-        }
+        if (!controller.signal.aborted) setNewReleases([]);
       }
     }
 
@@ -215,17 +214,16 @@ export function useNewReleases() {
   return newReleases;
 }
 
-export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?: "movie" | "tv") {
+// ─── Playback ─────────────────────────────────────────────────────────────────
+
+export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?: TMDBMediaType) {
   const syncSingleContent = useAction(api.tmdb.syncSingleContent);
   const [syncAttempt, setSyncAttempt] = useState(0);
   const [isSyncingMissing, setIsSyncingMissing] = useState(false);
   const data = useOneShotConvexQuery<ContentPlaybackWire | null>(
     !!tmdbId,
     (convex) =>
-      convex.query(api.content.getContentPlaybackByTmdbId, {
-        tmdbId: tmdbId!,
-        type: typeHint
-      }),
+      convex.query(api.content.getContentPlaybackByTmdbId, { tmdbId: tmdbId!, type: typeHint }),
     [tmdbId, typeHint, syncAttempt],
     undefined,
     tmdbId ? `contentPlayback:${tmdbId}:${typeHint ?? "any"}:${syncAttempt}` : undefined
@@ -238,16 +236,14 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
 
     let cancelled = false;
     setIsSyncingMissing(true);
-    const syncMissing = async () => {
-      await syncSingleContent({ tmdbId: parsedTmdbId, type: typeHint });
-      if (!cancelled) {
-        setSyncAttempt((value) => value + 1);
-      }
-    };
 
-    void syncMissing().finally(() => {
-      if (!cancelled) setIsSyncingMissing(false);
-    });
+    void syncSingleContent({ tmdbId: parsedTmdbId, type: typeHint })
+      .then(() => {
+        if (!cancelled) setSyncAttempt((v) => v + 1);
+      })
+      .finally(() => {
+        if (!cancelled) setIsSyncingMissing(false);
+      });
 
     return () => {
       cancelled = true;
@@ -258,9 +254,11 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
   return data ? fromContentPlaybackWire(data) : data;
 }
 
+// ─── Related / Credits / Videos ──────────────────────────────────────────────
+
 export function useRelatedContent(
   tmdbId: number | undefined,
-  type: "movie" | "tv" | undefined,
+  type: TMDBMediaType | undefined,
   limit = 10,
   enabled = true
 ) {
@@ -276,10 +274,9 @@ export function useRelatedContent(
     cancelRef.current = false;
     setIsLoading(true);
     const controller = new AbortController();
-    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
     const t = setTimeout(async () => {
       try {
-        const res = await fetchTmdbRelated(tmdbId, type, apiKey, limit, controller.signal);
+        const res = await fetchTmdbRelated(tmdbId, type, getApiKey(), limit, controller.signal);
         if (!cancelRef.current) setRelated(res);
       } catch {}
       if (!cancelRef.current) setIsLoading(false);
@@ -296,7 +293,7 @@ export function useRelatedContent(
 
 export function useContentCredits(
   tmdbId: number | undefined,
-  type: "movie" | "tv" | undefined,
+  type: TMDBMediaType | undefined,
   enabled = true
 ) {
   const [credits, setCredits] = useState<TMDBCreditResult | null>(null);
@@ -311,10 +308,9 @@ export function useContentCredits(
     cancelRef.current = false;
     setIsLoading(true);
     const controller = new AbortController();
-    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
     const t = setTimeout(async () => {
       try {
-        const res = await fetchTmdbCredits(tmdbId, type, apiKey, controller.signal);
+        const res = await fetchTmdbCredits(tmdbId, type, getApiKey(), controller.signal);
         if (!cancelRef.current) setCredits(res);
       } catch {}
       if (!cancelRef.current) setIsLoading(false);
@@ -331,7 +327,7 @@ export function useContentCredits(
 
 export function useContentVideos(
   tmdbId: number | undefined,
-  type: "movie" | "tv" | undefined,
+  type: TMDBMediaType | undefined,
   enabled = true
 ) {
   const [videos, setVideos] = useState<TMDBVideoResult[]>([]);
@@ -346,10 +342,9 @@ export function useContentVideos(
     cancelRef.current = false;
     setIsLoading(true);
     const controller = new AbortController();
-    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
     const t = setTimeout(async () => {
       try {
-        const res = await fetchTmdbVideos(tmdbId, type, apiKey, controller.signal);
+        const res = await fetchTmdbVideos(tmdbId, type, getApiKey(), controller.signal);
         if (!cancelRef.current) setVideos(res);
       } catch {}
       if (!cancelRef.current) setIsLoading(false);
@@ -363,6 +358,8 @@ export function useContentVideos(
 
   return { videos, isLoading };
 }
+
+// ─── Search ───────────────────────────────────────────────────────────────────
 
 export function useSearchAll(query: string) {
   const [results, setResults] = useState<TMDBItem[]>([]);
@@ -380,52 +377,14 @@ export function useSearchAll(query: string) {
     setError(null);
 
     const controller = new AbortController();
-    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
-
     const t = setTimeout(async () => {
       try {
-        const [moviesRes, showsRes] = await Promise.all([
-          fetchTmdbListOrEmpty("/search/movie", apiKey, controller.signal, {
-            query: encodeURIComponent(query)
-          }),
-          fetchTmdbListOrEmpty("/search/tv", apiKey, controller.signal, {
-            query: encodeURIComponent(query)
-          })
-        ]);
-
-        const movies = (moviesRes.results ?? []).map((item) => ({
-          tmdbId: item.id,
-          title: item.title ?? "",
-          posterUrl: getPosterUrl(item.poster_path ?? null),
-          year: getYear(item.release_date),
-          genre: getGenres(item),
-          rating: getRating(item.vote_average ?? 0),
-          voteAverage: item.vote_average,
-          type: "movie" as const
-        }));
-
-        const shows = (showsRes.results ?? []).map((item) => ({
-          tmdbId: item.id,
-          title: item.name ?? "",
-          posterUrl: getPosterUrl(item.poster_path ?? null),
-          year: getYear(item.first_air_date),
-          genre: getGenres(item),
-          rating: getRating(item.vote_average ?? 0),
-          voteAverage: item.vote_average,
-          type: "tv" as const
-        }));
-
-        if (!controller.signal.aborted) {
-          setResults([...movies, ...shows]);
-        }
+        const { movies, shows } = await fetchTmdbSearch(query, getApiKey(), controller.signal);
+        if (!controller.signal.aborted) setResults([...movies, ...shows]);
       } catch (e) {
-        if (!controller.signal.aborted) {
-          setError(e instanceof Error ? e.message : "Search failed");
-        }
+        if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Search failed");
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        if (!controller.signal.aborted) setLoading(false);
       }
     }, 350);
 
@@ -438,24 +397,18 @@ export function useSearchAll(query: string) {
   return { results, loading, error };
 }
 
+// ─── Browse ───────────────────────────────────────────────────────────────────
+
 export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
 
 export function usePaginatedContent(
-  type: "movie" | "tv",
+  type: TMDBMediaType,
   genre: string | undefined,
   sortBy: ContentSort,
-  limit = 24,
+  _limit = 24,
   page = 1
 ): BrowsePageResult {
-  const [result, setResult] = useState<{
-    items: ContentCard[];
-    currentPage: number;
-    totalPages?: number;
-    totalCount?: number;
-    hasNextPage: boolean;
-    canGoBack: boolean;
-    isLoading: boolean;
-  }>({
+  const [result, setResult] = useState<Omit<BrowsePageResult, "goNext" | "goPrevious">>({
     items: [],
     currentPage: page,
     hasNextPage: false,
@@ -465,50 +418,31 @@ export function usePaginatedContent(
 
   useEffect(() => {
     const controller = new AbortController();
-    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
 
     async function load() {
       setResult((prev) => ({ ...prev, isLoading: true }));
       try {
         const genreId = genre ? TMDB_DISCOVER_GENRES[genre.toLowerCase()] : undefined;
-        const path = `/discover/${type}`;
-
-        let tmdbSort = "popularity.desc";
-        if (sortBy === "new") {
-          tmdbSort = type === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
-        } else if (sortBy === "rating") {
-          tmdbSort = "vote_average.desc";
-        } else if (sortBy === "year") {
-          tmdbSort = type === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
-        }
-
-        const params: Record<string, string | number | undefined> = {
-          page,
-          sort_by: tmdbSort,
-          with_genres: genreId,
-          "vote_count.gte": sortBy === "rating" ? 100 : 25
-        };
-
-        const res = await fetchTmdbListOrEmpty(path, apiKey, controller.signal, params);
-        const items = (res.results ?? [])
-          .map((item) => toClientContentCard(item, type))
-          .filter((item): item is ContentCard => !!item);
+        const { items, totalPages, totalResults } = await fetchTmdbDiscover(
+          type,
+          getApiKey(),
+          controller.signal,
+          { page, sortBy, genreId, minVoteCount: sortBy === "rating" ? 100 : 25 }
+        );
 
         if (!controller.signal.aborted) {
           setResult({
-            items,
+            items: items.map(tmdbCardToContentCard),
             currentPage: page,
-            totalPages: res.total_pages,
-            totalCount: res.total_results,
-            hasNextPage: page < (res.total_pages ?? 1),
+            totalPages,
+            totalCount: totalResults,
+            hasNextPage: page < totalPages,
             canGoBack: page > 1,
             isLoading: false
           });
         }
       } catch {
-        if (!controller.signal.aborted) {
-          setResult((prev) => ({ ...prev, isLoading: false }));
-        }
+        if (!controller.signal.aborted) setResult((prev) => ({ ...prev, isLoading: false }));
       }
     }
 
@@ -516,21 +450,19 @@ export function usePaginatedContent(
     return () => controller.abort();
   }, [type, genre, sortBy, page]);
 
-  return {
-    ...result,
-    goNext: () => {},
-    goPrevious: () => {}
-  };
+  return { ...result, goNext: () => {}, goPrevious: () => {} };
 }
+
+// ─── Recommendations ──────────────────────────────────────────────────────────
 
 export function useRecommendations(
   limit = 12,
-  typeFilter: "all" | "movie" | "tv" = "all",
+  typeFilter: "all" | TMDBMediaType = "all",
   refreshSeed = 0,
   enabled = true,
   seed?: {
     tmdbSeeds?: TMDBRecommendationSeed[];
-    preferredType: "movie" | "tv";
+    preferredType: TMDBMediaType;
     genres: string[];
   }
 ) {
@@ -549,37 +481,21 @@ export function useRecommendations(
     }
 
     const controller = new AbortController();
-    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
-    const excludedIds = new Set(seed?.tmdbSeeds?.map((item) => `${item.type}:${item.tmdbId}`));
+    const apiKey = getApiKey();
+    const excludedIds = new Set(seed?.tmdbSeeds?.map((s) => `${s.type}:${s.tmdbId}`));
     const genreIds = Array.from(
       new Set(
         (seed?.genres ?? [])
-          .map((genre) => TMDB_DISCOVER_GENRES[genre.trim().toLowerCase()])
+          .map((g) => TMDB_DISCOVER_GENRES[g.trim().toLowerCase()])
           .filter((id): id is number => typeof id === "number")
       )
     ).slice(0, 3);
     const seedItems = shuffleWithSeed(seed?.tmdbSeeds ?? [], refreshSeed)
-      .filter((item) => typeFilter === "all" || item.type === typeFilter)
+      .filter((s) => typeFilter === "all" || s.type === typeFilter)
       .slice(0, 5);
 
-    const collectCards = (
-      responses: Array<{ data: TMDBBrowseListResponse; type?: TMDBMediaType }>
-    ) => {
-      const seen = new Set<string>();
-      const cards: ContentCard[] = [];
-      for (const response of responses) {
-        for (const item of response.data.results ?? []) {
-          const card = toClientContentCard(item, response.type);
-          if (!card?.tmdbId) continue;
-          const key = `${card.type}:${card.tmdbId}`;
-          if (excludedIds.has(key) || seen.has(key)) continue;
-          if (typeFilter !== "all" && card.type !== typeFilter) continue;
-          seen.add(key);
-          cards.push(card);
-        }
-      }
-      return cards;
-    };
+    const collect = (responses: Array<{ data: TMDBBrowseListResponse; type?: TMDBMediaType }>) =>
+      collectTmdbCards(responses, { excludedIds, typeFilter }).map(tmdbCardToContentCard);
 
     const fallbackTypes: TMDBMediaType[] =
       typeFilter === "all" ? [seed?.preferredType ?? "movie", "tv", "movie"] : [typeFilter];
@@ -587,59 +503,54 @@ export function useRecommendations(
     async function load() {
       setIsLoading(true);
       try {
-        const recommendationResponses = seedItems.length
+        const recResponses = seedItems.length
           ? await Promise.all(
-              seedItems.flatMap((item) => [
+              seedItems.flatMap((s) => [
                 fetchTmdbListOrEmpty(
-                  `/${item.type}/${item.tmdbId}/recommendations`,
+                  `/${s.type}/${s.tmdbId}/recommendations`,
                   apiKey,
                   controller.signal,
                   { page: 1 }
-                ).then((data) => ({ data, type: item.type })),
-                fetchTmdbListOrEmpty(
-                  `/${item.type}/${item.tmdbId}/similar`,
-                  apiKey,
-                  controller.signal,
-                  { page: 1 }
-                ).then((data) => ({ data, type: item.type }))
+                ).then((data) => ({ data, type: s.type })),
+                fetchTmdbListOrEmpty(`/${s.type}/${s.tmdbId}/similar`, apiKey, controller.signal, {
+                  page: 1
+                }).then((data) => ({ data, type: s.type }))
               ])
             )
           : [];
 
-        let cards = collectCards(recommendationResponses);
+        let cards = collect(recResponses);
 
-        if (cards.length < limit) {
-          const genreResponses = genreIds.length
-            ? await Promise.all(
-                fallbackTypes.map((type) =>
-                  fetchTmdbListOrEmpty(`/discover/${type}`, apiKey, controller.signal, {
-                    page: (refreshSeed % 5) + 1,
-                    sort_by: "popularity.desc",
-                    with_genres: genreIds.join("|")
-                  }).then((data) => ({ data, type }))
-                )
-              )
-            : [];
-          cards = [...cards, ...collectCards(genreResponses)];
+        if (cards.length < limit && genreIds.length) {
+          const genreResponses = await Promise.all(
+            fallbackTypes.map((t) =>
+              fetchTmdbListOrEmpty(`/discover/${t}`, apiKey, controller.signal, {
+                page: (refreshSeed % 5) + 1,
+                sort_by: "popularity.desc",
+                with_genres: genreIds.join("|")
+              }).then((data) => ({ data, type: t }))
+            )
+          );
+          cards = [...cards, ...collect(genreResponses)];
         }
 
         if (cards.length < limit) {
           const trendingResponses = await Promise.all(
-            (typeFilter === "all" ? ([undefined] as const) : ([typeFilter] as const)).map((type) =>
+            (typeFilter === "all" ? ([undefined] as const) : ([typeFilter] as const)).map((t) =>
               fetchTmdbListOrEmpty(
-                type ? `/trending/${type}/week` : "/trending/all/week",
+                t ? `/trending/${t}/week` : "/trending/all/week",
                 apiKey,
                 controller.signal,
                 { page: (refreshSeed % 5) + 1 }
-              ).then((data) => ({ data, type }))
+              ).then((data) => ({ data, type: t }))
             )
           );
-          cards = [...cards, ...collectCards(trendingResponses)];
+          cards = [...cards, ...collect(trendingResponses)];
         }
 
         if (!controller.signal.aborted) {
           const deduped = Array.from(
-            new Map(cards.map((card) => [`${card.type}:${card.tmdbId}`, card])).values()
+            new Map(cards.map((c) => [`${c.type}:${c.tmdbId}`, c])).values()
           );
           setRecommendations(shuffleWithSeed(deduped, refreshSeed).slice(0, limit));
         }
@@ -662,8 +573,5 @@ export function useRecommendations(
     seed?.genres.join("|")
   ]);
 
-  return {
-    recommendations,
-    isLoading
-  };
+  return { recommendations, isLoading };
 }

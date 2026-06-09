@@ -209,14 +209,62 @@ export interface TMDBRelatedItem {
     voteAverage?: number;
 }
 export declare function fetchTmdbRelated(tmdbId: number, type: "movie" | "tv", apiKey: string, limit?: number, signal?: AbortSignal): Promise<TMDBRelatedItem[]>;
+export type TMDBMediaType = "movie" | "tv";
 export interface TMDBContentCard {
     tmdbId: string;
     title: string;
-    type: "movie" | "tv";
+    type: TMDBMediaType;
     year: number;
     posterUrl: string;
     voteAverage?: number;
     genre: string[];
     isNew: boolean;
 }
-export declare function toTMDBContentCard(item: TMDBBrowseListItem, typeHint?: "movie" | "tv"): TMDBContentCard | null;
+export declare function toTMDBContentCard(item: TMDBBrowseListItem, typeHint?: TMDBMediaType): TMDBContentCard | null;
+export interface TMDBItem {
+    tmdbId: number;
+    title: string;
+    posterUrl: string;
+    year: number;
+    genre: string[];
+    rating: string;
+    voteAverage?: number;
+    type: TMDBMediaType;
+}
+export declare function toTMDBItem(item: TMDBBrowseListItem, type: TMDBMediaType): TMDBItem;
+export declare function tmdbSortParam(sortBy: string, type: TMDBMediaType): string;
+export interface TMDBDetailsResult {
+    description: string;
+    backdropUrl: string;
+    rating: string;
+    logoUrl?: string;
+    trailerKey?: string;
+    duration?: string;
+    seasons?: number;
+    tagline?: string;
+    originalLanguage?: string;
+}
+export declare function fetchTmdbDetails(tmdbId: string, type: TMDBMediaType, apiKey: string, signal?: AbortSignal): Promise<TMDBDetailsResult | null>;
+export interface TMDBSearchResult {
+    movies: TMDBItem[];
+    shows: TMDBItem[];
+}
+export declare function fetchTmdbSearch(query: string, apiKey: string, signal?: AbortSignal): Promise<TMDBSearchResult>;
+export interface TMDBDiscoverResult {
+    items: TMDBContentCard[];
+    totalPages: number;
+    totalResults: number;
+}
+export declare function fetchTmdbDiscover(type: TMDBMediaType, apiKey: string, signal: AbortSignal, opts?: {
+    page?: number;
+    sortBy?: string;
+    genreId?: number;
+    minVoteCount?: number;
+}): Promise<TMDBDiscoverResult>;
+export declare function collectTmdbCards(responses: Array<{
+    data: TMDBBrowseListResponse;
+    type?: TMDBMediaType;
+}>, opts?: {
+    excludedIds?: Set<string>;
+    typeFilter?: "all" | TMDBMediaType;
+}): TMDBContentCard[];
