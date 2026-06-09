@@ -38,6 +38,10 @@
     "./types": {
       "types": "./dist/types.d.ts",
       "import": "./dist/types.js"
+    },
+    "./tmdb": {
+      "types": "./dist/tmdb.d.ts",
+      "import": "./dist/tmdb.js"
     }
   },
   "scripts": {

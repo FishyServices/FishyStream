@@ -20,7 +20,7 @@ import {
   getGenres,
   getRating,
   getYear
-} from "../shared/tmdb";
+} from "@fishy/providers/tmdb";
 
 // ─── Cache Implementation ─────────────────────────────────────────────────────
 

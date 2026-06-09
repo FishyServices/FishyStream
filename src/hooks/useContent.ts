@@ -4,19 +4,20 @@ import { api } from "../../convex/_generated/api";
 import type {
   ContentCard,
   ContentId,
-  ContentCardWire,
   ContentFeatured,
-  ContentFeaturedWire,
-  ContentPlayback,
-  ContentPlaybackWire,
-  HomeViewWire
+  ContentPlaybackWire
 } from "../../shared/contentMetadata";
-import {
-  fromContentCardWire,
-  fromContentFeaturedWire,
-  fromContentPlaybackWire
-} from "../../shared/contentMetadata";
+import { fromContentPlaybackWire } from "../../shared/contentMetadata";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
+import {
+  TMDB_BASE_URL,
+  TMDB_IMAGE_BASE,
+  TMDB_DISCOVER_GENRES,
+  getPosterUrl,
+  getYear,
+  getGenres,
+  getRating
+} from "@fishy/providers/tmdb";
 
 export interface BrowsePageResult {
   items: ContentCard[];
@@ -67,17 +68,6 @@ type TMDBListResponse = {
   total_results?: number;
 };
 
-const TMDB_API_KEY = import.meta.env.VITE_TMDB_KEY ?? "84259f99204eeb7d45c7e3d8e36c6123";
-import {
-  TMDB_BASE_URL,
-  TMDB_IMAGE_BASE,
-  TMDB_DISCOVER_GENRES,
-  getPosterUrl,
-  getYear,
-  getGenres,
-  getRating
-} from "../../shared/tmdb";
-
 function tmdbImage(path?: string | null) {
   return path
     ? `${TMDB_IMAGE_BASE}/w500${path}`
@@ -91,8 +81,9 @@ function tmdbYear(value?: string) {
 }
 
 function tmdbUrl(path: string, params: Record<string, string | number | undefined> = {}) {
+  const apiKey = import.meta.env.VITE_TMDB_KEY ?? "84259f99204eeb7d45c7e3d8e36c6123";
   const url = new URL(`${TMDB_BASE_URL}${path}`);
-  url.searchParams.set("api_key", TMDB_API_KEY);
+  url.searchParams.set("api_key", apiKey);
   url.searchParams.set("language", "en-US");
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) url.searchParams.set(key, String(value));
