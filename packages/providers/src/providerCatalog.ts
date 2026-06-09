@@ -27,7 +27,8 @@ export type ProviderKey =
   | "megaplay"
   | "peachify"
   | "cinesrc"
-  | "vidup";
+  | "vidup"
+  | "lordflix";
 
 export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
@@ -52,7 +53,6 @@ export interface ProviderCatalogEntry {
   name: string;
   category: ProviderCategory;
   idType: ProviderIdType;
-  quality: string;
   website?: string;
   animeOnly?: boolean;
   animeIdType?: AnimeIdType;
@@ -67,7 +67,6 @@ export interface StreamSource {
   key: string;
   name: string;
   url: string;
-  quality: string;
 }
 
 type ProviderDefinition = Omit<
@@ -108,7 +107,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "Peachify",
     category: "primary",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://peachify.top",
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
@@ -119,7 +117,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidCore",
     category: "primary",
     idType: "both",
-    quality: "4K",
     website: "https://vidcore.net",
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
     moviePath: (id) => `/movie/${id}`,
@@ -130,7 +127,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidKing",
     category: "primary",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://www.vidking.net",
     progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
@@ -141,7 +137,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidZen",
     category: "primary",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://vidzen.fun",
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
@@ -152,7 +147,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "filmu",
     category: "primary_anime",
     idType: "both",
-    quality: "1080p",
     website: "https://embed.filmu.in",
     animeIdType: "anilist",
     dubSupport: true,
@@ -167,7 +161,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "MegaPlay",
     category: "primary_anime",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://megaplay.buzz",
     animeOnly: true,
     animeIdType: "anilist",
@@ -182,7 +175,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidFast",
     category: "primary_anime",
     idType: "both",
-    quality: "1080p",
     website: "https://vidfast.pro",
     progress: {
       origins: ALL_ORIGINS,
@@ -197,7 +189,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "TryEmbed",
     category: "primary_anime",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://tryembed.us.cc",
     animeIdType: "anilist",
     dubSupport: true,
@@ -211,7 +202,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "111movies",
     category: "other",
     idType: "both",
-    quality: "720p",
     website: "https://111movies.net",
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
@@ -222,7 +212,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "2Embed",
     category: "other",
     idType: "imdb",
-    quality: "720p",
     website: "https://www.2embed.cc",
     animeIdType: "anilist",
     dubSupport: true,
@@ -237,7 +226,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "AutoEmbed",
     category: "other",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://player.autoembed.cc",
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
@@ -248,7 +236,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "cinesrc",
     category: "other",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://cinesrc.st",
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
     moviePath: (id) => `/embed/movie/${id}`,
@@ -259,7 +246,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "Cinezo",
     category: "other",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://player.cinezo.live",
     animeIdType: "anilist",
     dubSupport: true,
@@ -270,11 +256,20 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
       `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
   }),
   defineProvider({
+    key: "lordflix",
+    name: "LordFlix",
+    category: "other",
+    idType: "tmdb",
+    website: "https://lordflix.org",
+    progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/watch/movie/${id}`,
+    tvPath: (id, season, episode) => `/watch/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
     key: "mafiaembed",
     name: "MafiaEmbed",
     category: "other",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://nhdapi.com",
     animeIdType: "anilist",
     dubSupport: true,
@@ -287,7 +282,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "SuperEmbed",
     category: "other",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://www.multiembed.mov",
     animeIdType: "anilist",
     dubSupport: true,
@@ -301,7 +295,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidEasy",
     category: "other",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://player.videasy.net",
     animeIdType: "anilist",
     progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
@@ -314,7 +307,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidNest",
     category: "other",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://vidnest.fun",
     animeIdType: "anilist",
     dubSupport: true,
@@ -328,7 +320,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidPlays",
     category: "other",
     idType: "tmdb",
-    quality: "1080p",
     website: "/vidplays-proxy",
     progress: {
       origins: ALL_ORIGINS,
@@ -343,7 +334,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidPlus (Ads)",
     category: "other",
     idType: "both",
-    quality: "1080p",
     website: "https://player.vidplus.to",
     animeIdType: "anilist",
     dubSupport: true,
@@ -358,7 +348,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidRock",
     category: "other",
     idType: "both",
-    quality: "1080p",
     website: "https://vidrock.ru",
     animeIdType: "anilist",
     dubSupport: true,
@@ -373,7 +362,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidSrc",
     category: "other",
     idType: "both",
-    quality: "1080p",
     website: "https://vidsrc.to",
     animeIdType: "anilist",
     dubSupport: true,
@@ -387,7 +375,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidSrc Pro",
     category: "other",
     idType: "both",
-    quality: "1080p",
     website: "https://vidsrc.mov",
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/embed/movie/${id}`,
@@ -398,7 +385,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidUp",
     category: "other",
     idType: "tmdb",
-    quality: "720p",
     website: "https://vidup.to",
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
@@ -409,7 +395,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidZee",
     category: "other",
     idType: "tmdb",
-    quality: "720p",
     website: "https://player.vidzee.wtf",
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
     moviePath: (id) => `/v2/embed/movie/${id}`,
@@ -420,7 +405,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VixSrc",
     category: "other",
     idType: "tmdb",
-    quality: "1080p",
     website: "https://vixsrc.to",
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
     moviePath: (id) => `/movie/${id}`,
@@ -433,7 +417,7 @@ export function getProviderByKey(key: string): ProviderCatalogEntry | undefined 
 }
 
 export function getProviderCapabilities(provider: ProviderCatalogEntry): string[] {
-  const capabilities = [provider.quality];
+  const capabilities = [];
 
   if (provider.idType === "both") capabilities.push("TMDB/IMDb");
   else capabilities.push(provider.idType.toUpperCase());
@@ -515,8 +499,7 @@ export function buildMovieSources(args: { imdbId?: string; tmdbId?: string }): S
       {
         key: provider.key,
         name: provider.name,
-        url: provider.getMovieUrl(id),
-        quality: provider.quality
+        url: provider.getMovieUrl(id)
       }
     ];
   });
@@ -597,8 +580,7 @@ export async function buildTvSources(args: {
     sources.push({
       key: provider.key,
       name: provider.name,
-      url,
-      quality: provider.quality
+      url
     });
   }
 

@@ -170,7 +170,7 @@ function ProviderPicker({
                 {group.providers.map((provider) => (
                   <CommandItem
                     key={provider.key}
-                    value={`${provider.name} ${provider.key} ${provider.quality}`}
+                    value={`${provider.name} ${provider.key}`}
                     onSelect={() => {
                       onValueChange(provider.key);
                       setOpen(false);
