@@ -371,12 +371,14 @@ export async function fetchTmdbRelated(tmdbId, type, apiKey, limit = 10, signal)
             return {
                 tmdbId: item.id,
                 title: isMovie ? item.title : item.name,
-                type: isMovie ? "movie" : "tv",
+                type: (isMovie ? "movie" : "tv"),
                 posterUrl: getPosterUrl(item.poster_path),
                 year: getYear(isMovie
                     ? item.release_date
                     : item.first_air_date),
-                voteAverage: item.vote_average
+                voteAverage: item.vote_average,
+                genre: getGenres(item),
+                rating: getRating(item.vote_average ?? 0)
             };
         });
     }

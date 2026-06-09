@@ -612,22 +612,13 @@ export async function fetchTmdbVideos(
   }
 }
 
-export interface TMDBRelatedItem {
-  tmdbId: number;
-  title: string;
-  type: "movie" | "tv";
-  posterUrl: string;
-  year: number;
-  voteAverage?: number;
-}
-
 export async function fetchTmdbRelated(
   tmdbId: number,
   type: "movie" | "tv",
   apiKey: string,
   limit = 10,
   signal?: AbortSignal
-): Promise<TMDBRelatedItem[]> {
+): Promise<TMDBItem[]> {
   const url = buildTmdbUrl(`/${type}/${tmdbId}/recommendations`, apiKey);
   try {
     const res = await fetch(url, { signal });
@@ -638,14 +629,16 @@ export async function fetchTmdbRelated(
       return {
         tmdbId: item.id,
         title: isMovie ? (item as TMDBMovieListItem).title : (item as TMDBTVListItem).name,
-        type: isMovie ? "movie" : "tv",
+        type: (isMovie ? "movie" : "tv") as TMDBMediaType,
         posterUrl: getPosterUrl(item.poster_path),
         year: getYear(
           isMovie
             ? (item as TMDBMovieListItem).release_date
             : (item as TMDBTVListItem).first_air_date
         ),
-        voteAverage: item.vote_average
+        voteAverage: item.vote_average,
+        genre: getGenres(item),
+        rating: getRating(item.vote_average ?? 0)
       };
     });
   } catch {

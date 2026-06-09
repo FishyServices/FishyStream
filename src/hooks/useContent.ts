@@ -22,12 +22,11 @@ import {
   fetchTmdbDiscover,
   collectTmdbCards,
   toTMDBContentCard,
-  type TMDBItem,
   type TMDBMediaType,
   type TMDBContentCard,
   type TMDBCreditResult,
   type TMDBVideoResult,
-  type TMDBRelatedItem,
+  type TMDBItem,
   type TMDBBrowseListResponse
 } from "@fishy/providers/tmdb";
 
@@ -262,7 +261,7 @@ export function useRelatedContent(
   limit = 10,
   enabled = true
 ) {
-  const [related, setRelated] = useState<TMDBRelatedItem[]>([]);
+  const [related, setRelated] = useState<TMDBItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const cancelRef = useRef(false);
 

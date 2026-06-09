@@ -200,15 +200,7 @@ export interface TMDBVideoResult {
     official: boolean;
 }
 export declare function fetchTmdbVideos(tmdbId: number, type: "movie" | "tv", apiKey: string, signal?: AbortSignal): Promise<TMDBVideoResult[]>;
-export interface TMDBRelatedItem {
-    tmdbId: number;
-    title: string;
-    type: "movie" | "tv";
-    posterUrl: string;
-    year: number;
-    voteAverage?: number;
-}
-export declare function fetchTmdbRelated(tmdbId: number, type: "movie" | "tv", apiKey: string, limit?: number, signal?: AbortSignal): Promise<TMDBRelatedItem[]>;
+export declare function fetchTmdbRelated(tmdbId: number, type: "movie" | "tv", apiKey: string, limit?: number, signal?: AbortSignal): Promise<TMDBItem[]>;
 export type TMDBMediaType = "movie" | "tv";
 export interface TMDBContentCard {
     tmdbId: string;
