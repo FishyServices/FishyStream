@@ -22,6 +22,7 @@ function defineProvider(definition) {
     };
 }
 export const STREAM_PROVIDERS = [
+    // ── Primary ──────────────────────────────────────────────────────────────
     defineProvider({
         key: "peachify",
         name: "Peachify",
@@ -62,6 +63,7 @@ export const STREAM_PROVIDERS = [
         moviePath: (id) => `/movie/${id}`,
         tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
     }),
+    // ── Primary Anime ─────────────────────────────────────────────────────────
     defineProvider({
         key: "filmu",
         name: "filmu",
@@ -90,6 +92,19 @@ export const STREAM_PROVIDERS = [
         animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`
     }),
     defineProvider({
+        key: "tryembed",
+        name: "TryEmbed",
+        category: "primary_anime",
+        idType: "tmdb",
+        website: "https://tryembed.us.cc",
+        animeIdType: "anilist",
+        dubSupport: true,
+        progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
+        moviePath: (id) => `/embed/movie/${id}`,
+        tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
+        animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
+    }),
+    defineProvider({
         key: "vidfast",
         name: "VidFast",
         category: "primary_anime",
@@ -103,19 +118,7 @@ export const STREAM_PROVIDERS = [
         moviePath: (id) => `/movie/${id}`,
         tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
     }),
-    defineProvider({
-        key: "tryembed",
-        name: "TryEmbed",
-        category: "primary_anime",
-        idType: "tmdb",
-        website: "https://tryembed.us.cc",
-        animeIdType: "anilist",
-        dubSupport: true,
-        progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
-        moviePath: (id) => `/embed/movie/${id}`,
-        tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-        animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
-    }),
+    // ── Other ─────────────────────────────────────────────────────────────────
     defineProvider({
         key: "111movies",
         name: "111movies",

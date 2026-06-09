@@ -3,33 +3,33 @@ import { mapCanonicalToProviderOrder } from "./tvSeasonMappings";
 import type { AniListEpisodeMapping } from "./types";
 
 export type ProviderKey =
-  | "vidking"
-  | "vidfast"
-  | "videasy"
-  | "vidnest"
-  | "vidrock"
-  | "vidplus (ads)"
-  | "filmu"
-  | "vidzen"
-  | "vixsrc"
-  | "vidsrcpro"
-  | "cinezo"
-  | "mafiaembed"
-  | "superembed"
-  | "autoembed"
-  | "vidsrc"
-  | "2embed"
-  | "vidzee"
   | "111movies"
-  | "vidplays"
-  | "tryembed"
-  | "vidcore"
+  | "2embed"
+  | "autoembed"
+  | "cinesrc"
+  | "cinezo"
+  | "filmu"
+  | "flickystream"
+  | "lordflix"
+  | "mafiaembed"
   | "megaplay"
   | "peachify"
-  | "cinesrc"
+  | "superembed"
+  | "tryembed"
+  | "vidcore"
+  | "videasy"
+  | "vidfast"
+  | "vidking"
+  | "vidnest"
+  | "vidplays"
+  | "vidplus (ads)"
+  | "vidrock"
+  | "vidsrc"
+  | "vidsrcpro"
   | "vidup"
-  | "lordflix"
-  | "flickystream";
+  | "vidzee"
+  | "vidzen"
+  | "vixsrc";
 
 export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
@@ -103,6 +103,7 @@ function defineProvider(definition: ProviderDefinition): ProviderCatalogEntry {
 }
 
 export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
+  // ── Primary ──────────────────────────────────────────────────────────────
   defineProvider({
     key: "peachify",
     name: "Peachify",
@@ -143,6 +144,8 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
+
+  // ── Primary Anime ─────────────────────────────────────────────────────────
   defineProvider({
     key: "filmu",
     name: "filmu",
@@ -172,6 +175,19 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`
   }),
   defineProvider({
+    key: "tryembed",
+    name: "TryEmbed",
+    category: "primary_anime",
+    idType: "tmdb",
+    website: "https://tryembed.us.cc",
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
+  }),
+  defineProvider({
     key: "vidfast",
     name: "VidFast",
     category: "primary_anime",
@@ -185,19 +201,8 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
-  defineProvider({
-    key: "tryembed",
-    name: "TryEmbed",
-    category: "primary_anime",
-    idType: "tmdb",
-    website: "https://tryembed.us.cc",
-    animeIdType: "anilist",
-    dubSupport: true,
-    progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
-  }),
+
+  // ── Other ─────────────────────────────────────────────────────────────────
   defineProvider({
     key: "111movies",
     name: "111movies",

@@ -1,5 +1,5 @@
 import type { AniListEpisodeMapping } from "./types";
-export type ProviderKey = "vidking" | "vidfast" | "videasy" | "vidnest" | "vidrock" | "vidplus (ads)" | "filmu" | "vidzen" | "vixsrc" | "vidsrcpro" | "cinezo" | "mafiaembed" | "superembed" | "autoembed" | "vidsrc" | "2embed" | "vidzee" | "111movies" | "vidplays" | "tryembed" | "vidcore" | "megaplay" | "peachify" | "cinesrc" | "vidup" | "lordflix" | "flickystream";
+export type ProviderKey = "111movies" | "2embed" | "autoembed" | "cinesrc" | "cinezo" | "filmu" | "flickystream" | "lordflix" | "mafiaembed" | "megaplay" | "peachify" | "superembed" | "tryembed" | "vidcore" | "videasy" | "vidfast" | "vidking" | "vidnest" | "vidplays" | "vidplus (ads)" | "vidrock" | "vidsrc" | "vidsrcpro" | "vidup" | "vidzee" | "vidzen" | "vixsrc";
 export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
 export type AnimeIdType = "same" | "anilist";
