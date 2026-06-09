@@ -28,7 +28,8 @@ export type ProviderKey =
   | "peachify"
   | "cinesrc"
   | "vidup"
-  | "lordflix";
+  | "lordflix"
+  | "flickystream";
 
 export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
@@ -254,6 +255,16 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) =>
       `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
+  }),
+  defineProvider({
+    key: "flickystream",
+    name: "FlickyStream",
+    category: "other",
+    idType: "tmdb",
+    website: "https://flickystream.su",
+    progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
+    moviePath: (id) => `/player/movie/${id}`,
+    tvPath: (id, season, episode) => `/player/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "lordflix",

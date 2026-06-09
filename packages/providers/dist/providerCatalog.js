@@ -173,6 +173,16 @@ export const STREAM_PROVIDERS = [
         animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
     }),
     defineProvider({
+        key: "flickystream",
+        name: "FlickyStream",
+        category: "other",
+        idType: "tmdb",
+        website: "https://flickystream.su",
+        progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
+        moviePath: (id) => `/player/movie/${id}`,
+        tvPath: (id, season, episode) => `/player/tv/${id}/${season}/${episode}`
+    }),
+    defineProvider({
         key: "lordflix",
         name: "LordFlix",
         category: "other",
