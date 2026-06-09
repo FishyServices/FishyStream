@@ -56,32 +56,14 @@ export default defineConfig(({ mode }) => {
           replacement: path.resolve(__dirname, "./node_modules/@fishy/ui/src/index.ts")
         },
         {
-          find: "@fishy/providers/providerCatalog",
-          replacement: path.resolve(__dirname, "./packages/providers/src/providerCatalog.ts")
-        },
-        {
-          find: "@fishy/providers/providerProxy",
-          replacement: path.resolve(__dirname, "./packages/providers/src/providerProxy.ts")
-        },
-        {
-          find: "@fishy/providers/playerProviders",
-          replacement: path.resolve(__dirname, "./packages/providers/src/playerProviders.ts")
-        },
-        {
-          find: "@fishy/providers/providerPlayback",
-          replacement: path.resolve(__dirname, "./packages/providers/src/providerPlayback.ts")
-        },
-        {
-          find: "@fishy/providers/tvSeasonMappings",
-          replacement: path.resolve(__dirname, "./packages/providers/src/tvSeasonMappings.ts")
-        },
-        {
-          find: "@fishy/providers/anilistResolver",
-          replacement: path.resolve(__dirname, "./packages/providers/src/anilistResolver.ts")
-        },
-        {
-          find: "@fishy/providers",
-          replacement: path.resolve(__dirname, "./packages/providers/src/index.ts")
+          find: /^@fishy\/providers(\/.*)?$/,
+          replacement: "",
+          customResolver(source) {
+            const match = source.match(/^@fishy\/providers(\/(.+))?$/);
+            if (!match) return null;
+            const subpath = match[2] ?? "index";
+            return path.resolve(__dirname, `./packages/providers/src/${subpath}.ts`);
+          }
         },
         { find: "react", replacement: path.resolve(__dirname, "./node_modules/react") },
         { find: "react-dom", replacement: path.resolve(__dirname, "./node_modules/react-dom") }

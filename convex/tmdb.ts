@@ -1,6 +1,6 @@
 "use node";
 import { v } from "convex/values";
-import { action, query, internalAction } from "./_generated/server";
+import { action } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import {
   getCanonicalSeasonCount,
@@ -10,385 +10,35 @@ import {
 import { resolveAniListEpisodeAddress, resolveAniListId } from "@fishy/providers/anilistResolver";
 import type { AniListEpisodeMapping } from "../shared/contentMetadata";
 import {
-  TMDB_API_KEY,
-  TMDB_BASE_URL,
-  TMDB_BASE_URL_2,
   TMDB_IMAGE_BASE,
+  tmdbGet,
   getPosterUrl,
   getBackdropUrl,
   getStillUrl,
+  getProfileUrl,
   getGenres,
   getRating,
-  getYear
+  getYear,
+  getLogoUrl,
+  getTrailerKey,
+  isAnimeLikeContent,
+  formatRuntime,
+  mapInBatches,
+  mapTmdbSeasonToCanonicalPayload,
+  compactSeasonEpisodesForDb,
+  hasEpisodes,
+  type TMDBGenre,
+  type TMDBVideo,
+  type TMDBLogo,
+  type TMDBMovieListItem,
+  type TMDBTVListItem,
+  type TMDBMovieDetails,
+  type TMDBTVDetails,
+  type TMDBSeasonDetails,
+  type TMDBListItem,
+  type TMDBListResponse,
+  type CanonicalSeasonPayload
 } from "@fishy/providers/tmdb";
-
-// ─── Cache Implementation ─────────────────────────────────────────────────────
-
-interface CacheEntry<T> {
-  value: T;
-  expiry: number;
-}
-
-class SimpleCache<K, V> {
-  private store = new Map<string, CacheEntry<V>>();
-  private keySerializer: (key: K) => string;
-
-  constructor(keySerializer?: (key: K) => string) {
-    this.keySerializer = keySerializer || ((k) => JSON.stringify(k));
-  }
-
-  get(key: K): V | undefined {
-    const serialized = this.keySerializer(key);
-    const entry = this.store.get(serialized);
-    if (!entry) return undefined;
-    if (Date.now() > entry.expiry) {
-      this.store.delete(serialized);
-      return undefined;
-    }
-    return entry.value;
-  }
-
-  set(key: K, value: V, ttlSeconds: number): void {
-    const serialized = this.keySerializer(key);
-    this.store.set(serialized, {
-      value,
-      expiry: Date.now() + ttlSeconds * 1000
-    });
-  }
-
-  clear(): void {
-    this.store.clear();
-  }
-}
-
-interface TMDBCacheKey {
-  url: string;
-  params: Record<string, string>;
-  language: string;
-}
-
-const tmdbCache = new SimpleCache<TMDBCacheKey, any>(
-  (key) => `${key.url}|${JSON.stringify(key.params)}|${key.language}`
-);
-
-let proxyRotationIndex = 0;
-function getNextProxy(proxyUrls: string[]): string | undefined {
-  if (!proxyUrls.length) return undefined;
-  const proxy = proxyUrls[proxyRotationIndex % proxyUrls.length];
-  proxyRotationIndex += 1;
-  return proxy;
-}
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface TMDBGenre {
-  id: number;
-  name: string;
-}
-interface TMDBVideo {
-  key: string;
-  name: string;
-  site: string;
-  type: string;
-  official: boolean;
-}
-interface TMDBLogo {
-  file_path: string;
-  iso_639_1: string;
-  vote_average: number;
-}
-
-interface TMDBMovieListItem {
-  id: number;
-  title: string;
-  overview: string;
-  poster_path: string | null;
-  backdrop_path: string | null;
-  release_date?: string;
-  genre_ids?: number[];
-  vote_average: number;
-  vote_count?: number;
-  popularity?: number;
-  original_language?: string;
-}
-
-interface TMDBTVListItem {
-  id: number;
-  name: string;
-  overview: string;
-  poster_path: string | null;
-  backdrop_path: string | null;
-  first_air_date?: string;
-  genre_ids?: number[];
-  vote_average: number;
-  vote_count?: number;
-  popularity?: number;
-  original_language?: string;
-}
-
-interface TMDBMovieDetails extends TMDBMovieListItem {
-  genres?: TMDBGenre[];
-  runtime?: number;
-  imdb_id?: string;
-  status?: string;
-  tagline?: string;
-  videos?: { results: TMDBVideo[] };
-  images?: { logos?: TMDBLogo[] };
-  external_ids?: { imdb_id?: string };
-}
-
-interface TMDBTVDetails extends TMDBTVListItem {
-  genres?: TMDBGenre[];
-  number_of_seasons?: number;
-  number_of_episodes?: number;
-  episode_run_time?: number[];
-  status?: string;
-  tagline?: string;
-  videos?: { results: TMDBVideo[] };
-  images?: { logos?: TMDBLogo[] };
-  external_ids?: { imdb_id?: string };
-  seasons?: Array<{
-    id: number;
-    season_number: number;
-    name: string;
-    overview: string;
-    poster_path: string | null;
-    air_date: string | null;
-    episode_count: number;
-  }>;
-}
-
-interface TMDBEpisode {
-  episode_number: number;
-  name: string;
-  overview: string;
-  still_path: string | null;
-  air_date: string | null;
-  runtime: number | null;
-  vote_average: number;
-}
-
-interface TMDBSeasonDetails {
-  season_number: number;
-  name: string;
-  overview: string;
-  poster_path: string | null;
-  air_date: string | null;
-  episodes: TMDBEpisode[];
-}
-
-interface CanonicalSeasonPayload {
-  seasonNumber: number;
-  name: string;
-  overview?: string;
-  posterUrl?: string;
-  airDate?: string;
-  episodeCount: number;
-  year?: number;
-  episodes: Array<{
-    episodeNumber: number;
-    name: string;
-    overview?: string;
-    stillUrl?: string;
-    airDate?: string;
-    runtime?: number;
-    voteAverage: number;
-  }>;
-}
-
-type TMDBListItem = TMDBMovieListItem | TMDBTVListItem;
-interface TMDBListResponse<T> {
-  page: number;
-  total_pages: number;
-  results: T[];
-}
-
-// ─── Core API Client  ──────────────────────────────────────────
-
-function isV4Token(key: string): boolean {
-  return key.split(".").length === 3;
-}
-
-async function get<T>(
-  endpoint: string,
-  params: Record<string, string> = {},
-  proxyUrls: string[] = []
-): Promise<T | null> {
-  const language = params.language || "en-US";
-
-  const cacheKey: TMDBCacheKey = { url: endpoint, params, language };
-  const cached = tmdbCache.get(cacheKey);
-  if (cached) return cached as T;
-
-  const apiKey = TMDB_API_KEY;
-  const headers: Record<string, string> = { accept: "application/json" };
-  if (isV4Token(apiKey)) {
-    headers.Authorization = `Bearer ${apiKey}`;
-  }
-
-  const allParams = {
-    ...params,
-    language,
-    ...(!isV4Token(apiKey) ? { api_key: apiKey } : {})
-  };
-
-  const buildUrl = (base: string) => {
-    const url = new URL(base + endpoint);
-    Object.entries(allParams).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        url.searchParams.append(key, String(value));
-      }
-    });
-    return url.toString();
-  };
-
-  let result: T | null = null;
-  const proxy = getNextProxy(proxyUrls);
-
-  if (proxy) {
-    try {
-      const proxyUrl = `${proxy}/?destination=${encodeURIComponent(buildUrl(TMDB_BASE_URL))}`;
-      const res = await fetch(proxyUrl, {
-        headers,
-        signal: AbortSignal.timeout(5000)
-      });
-      if (res.ok) {
-        result = (await res.json()) as T;
-      }
-    } catch {}
-  }
-
-  if (!result) {
-    try {
-      const res = await fetch(buildUrl(TMDB_BASE_URL), {
-        headers,
-        signal: AbortSignal.timeout(5000)
-      });
-      if (res.ok) {
-        result = (await res.json()) as T;
-      }
-    } catch {}
-  }
-
-  if (!result) {
-    try {
-      const res = await fetch(buildUrl(TMDB_BASE_URL_2), {
-        headers,
-        signal: AbortSignal.timeout(30000)
-      });
-      if (res.ok) {
-        result = (await res.json()) as T;
-      }
-    } catch {
-      return null;
-    }
-  }
-
-  if (result) {
-    tmdbCache.set(cacheKey, result, 3600);
-  }
-
-  return result;
-}
-
-async function fetchTMDB<T>(
-  endpoint: string,
-  extraParams: Record<string, string> = {}
-): Promise<T | null> {
-  return get<T>(endpoint, extraParams);
-}
-
-function getLogoUrl(logos: TMDBLogo[] | undefined): string | undefined {
-  if (!logos?.length) return undefined;
-  const en = logos
-    .filter((l) => l.iso_639_1 === "en")
-    .sort((a, b) => b.vote_average - a.vote_average)[0];
-  const best = en ?? logos.sort((a, b) => b.vote_average - a.vote_average)[0];
-  if (!best) return undefined;
-  return `${TMDB_IMAGE_BASE}/w500${best.file_path}`;
-}
-
-function getTrailerKey(videos: TMDBVideo[] | undefined): string | undefined {
-  if (!videos?.length) return undefined;
-  const priority = ["Official Trailer", "Trailer", "Teaser", "Clip", "Featurette"];
-  for (const type of priority) {
-    const v = videos.find((v) => v.site === "YouTube" && v.type === type && v.official);
-    if (v) return v.key;
-  }
-  const any = videos.find((v) => v.site === "YouTube" && v.type === "Trailer");
-  return any?.key;
-}
-
-function isAnimeLikeContent(args: {
-  type: "movie" | "tv";
-  genres: string[];
-  originalLanguage?: string;
-}) {
-  if (args.type !== "tv") return false;
-  return (
-    args.originalLanguage?.toLowerCase() === "ja" &&
-    args.genres.some((genre) => genre.toLowerCase() === "animation")
-  );
-}
-
-function formatRuntime(minutes?: number): string | undefined {
-  if (!minutes || minutes <= 0) return undefined;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
-
-async function mapInBatches<T, R>(
-  items: T[],
-  batchSize: number,
-  fn: (item: T, i: number) => Promise<R>
-): Promise<R[]> {
-  const out: R[] = [];
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize);
-    const results = await Promise.all(batch.map((item, bi) => fn(item, i + bi)));
-    out.push(...results);
-  }
-  return out;
-}
-
-function mapTmdbSeasonToCanonicalPayload(
-  data: TMDBSeasonDetails,
-  seasonNumber: number
-): CanonicalSeasonPayload {
-  return {
-    seasonNumber,
-    name: data.name,
-    overview: data.overview || undefined,
-    posterUrl: data.poster_path ? getPosterUrl(data.poster_path) : undefined,
-    airDate: data.air_date ?? undefined,
-    episodeCount: data.episodes?.length ?? 0,
-    year: getYear(data.air_date ?? undefined),
-    episodes: (data.episodes ?? []).map((ep) => ({
-      episodeNumber: ep.episode_number,
-      name: ep.name,
-      overview: ep.overview || undefined,
-      stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
-      airDate: ep.air_date ?? undefined,
-      runtime: ep.runtime ?? undefined,
-      voteAverage: ep.vote_average
-    }))
-  };
-}
-
-function compactSeasonEpisodesForDb(episodes: CanonicalSeasonPayload["episodes"]) {
-  return episodes.map((episode) => ({
-    episodeNumber: episode.episodeNumber,
-    name: episode.name,
-    stillUrl: episode.stillUrl,
-    runtime: episode.runtime,
-    voteAverage: episode.voteAverage
-  }));
-}
-
-function hasEpisodes(data: TMDBSeasonDetails | null): data is TMDBSeasonDetails {
-  return (data?.episodes?.length ?? 0) > 0;
-}
 
 async function buildAniListEpisodeMappings(args: {
   anilistId?: string | null;
@@ -410,7 +60,6 @@ async function buildAniListEpisodeMappings(args: {
         year: args.year,
         episode: episode.episodeNumber
       });
-
       return address
         ? {
             episodeNumber: episode.episodeNumber,
@@ -421,8 +70,8 @@ async function buildAniListEpisodeMappings(args: {
     })
   );
 
-  const validMappings = mappings.filter((mapping): mapping is AniListEpisodeMapping => !!mapping);
-  return validMappings.length > 0 ? validMappings : undefined;
+  const valid = mappings.filter((m): m is AniListEpisodeMapping => !!m);
+  return valid.length > 0 ? valid : undefined;
 }
 
 async function buildCanonicalSeasonPayload(
@@ -430,14 +79,15 @@ async function buildCanonicalSeasonPayload(
   seasonNumber: number,
   override = getTvOrderingOverride(tmdbId)
 ): Promise<CanonicalSeasonPayload | null> {
-  const seasonDef = override?.canonicalSeasons.find((entry) => entry.seasonNumber === seasonNumber);
+  const seasonDef = override?.canonicalSeasons.find((s) => s.seasonNumber === seasonNumber);
+
   if (!seasonDef) {
-    const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
+    const data = await tmdbGet<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
     if (!data) return null;
     return mapTmdbSeasonToCanonicalPayload(data, data.season_number);
   }
 
-  const data = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonDef.sourceSeason}`);
+  const data = await tmdbGet<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonDef.sourceSeason}`);
   if (!data) return null;
 
   const startIndex = Math.max(0, seasonDef.sourceEpisodeStart - 1);
@@ -448,9 +98,9 @@ async function buildCanonicalSeasonPayload(
   );
 
   if (slicedEpisodes.length === 0 && seasonDef.sourceSeason !== seasonNumber) {
-    const directSeasonData = await get<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
-    if (hasEpisodes(directSeasonData)) {
-      sourceData = directSeasonData;
+    const direct = await tmdbGet<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
+    if (hasEpisodes(direct)) {
+      sourceData = direct;
       slicedEpisodes = sourceData.episodes.slice(0, seasonDef.episodeCount);
     }
   }
@@ -458,19 +108,19 @@ async function buildCanonicalSeasonPayload(
   if (slicedEpisodes.length === 0) return null;
 
   const airDate = slicedEpisodes[0]?.air_date ?? sourceData.air_date ?? undefined;
-  const usesSplitCanonicalSeason =
+  const isSplit =
     seasonDef.sourceSeason !== seasonDef.seasonNumber || seasonDef.sourceEpisodeStart !== 1;
 
   return {
     seasonNumber,
-    name: usesSplitCanonicalSeason ? `Season ${seasonNumber}` : sourceData.name,
+    name: isSplit ? `Season ${seasonNumber}` : sourceData.name,
     overview: sourceData.overview || undefined,
     posterUrl: sourceData.poster_path ? getPosterUrl(sourceData.poster_path) : undefined,
     airDate,
     episodeCount: slicedEpisodes.length,
     year: getYear(airDate),
-    episodes: slicedEpisodes.map((ep, index) => ({
-      episodeNumber: index + 1,
+    episodes: slicedEpisodes.map((ep, i) => ({
+      episodeNumber: i + 1,
       name: ep.name,
       overview: ep.overview || undefined,
       stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
@@ -480,55 +130,6 @@ async function buildCanonicalSeasonPayload(
     }))
   };
 }
-
-// ─── Public Actions ───────────────────────────────────────────────────────────
-
-export const searchMovies = action({
-  args: { query: v.string() },
-  handler: async (_ctx, { query }) => {
-    const data = await get<{ results: (TMDBMovieListItem & { popularity: number })[] }>(
-      `/search/movie`,
-      { query: encodeURIComponent(query), sort_by: "popularity.desc" }
-    );
-    if (!data?.results) return [];
-    return data.results
-      .sort((a, b) => b.popularity - a.popularity)
-      .slice(0, 20)
-      .map((movie) => ({
-        tmdbId: movie.id,
-        title: movie.title,
-        posterUrl: getPosterUrl(movie.poster_path),
-        year: getYear(movie.release_date),
-        genre: getGenres(movie),
-        rating: getRating(movie.vote_average),
-        voteAverage: movie.vote_average
-      }));
-  }
-});
-
-export const searchTVShows = action({
-  args: { query: v.string() },
-  handler: async (_ctx, { query }) => {
-    const data = await get<{ results: (TMDBTVListItem & { popularity: number })[] }>(`/search/tv`, {
-      query: encodeURIComponent(query)
-    });
-    if (!data?.results) return [];
-    const sorted = data.results.sort((a, b) => b.popularity - a.popularity).slice(0, 20);
-    return sorted.map((show) => {
-      return {
-        tmdbId: show.id,
-        title: show.name,
-        posterUrl: getPosterUrl(show.poster_path),
-        year: getYear(show.first_air_date),
-        genre: getGenres(show),
-        rating: getRating(show.vote_average),
-        voteAverage: show.vote_average
-      };
-    });
-  }
-});
-
-// ─── Internal Sync ────────────────────────────────────────────────────────────
 
 type SyncType = "movies" | "tv";
 type SyncFlags = { trending: boolean; popular: boolean; new: boolean; featured: boolean };
@@ -571,9 +172,7 @@ async function collectFlagMap(type: SyncType, pages: number): Promise<Map<number
 
   for (const src of sources) {
     for (let p = 1; p <= pages; p++) {
-      const data = await get<TMDBListResponse<TMDBListItem>>(`${src.ep}`, {
-        page: String(p)
-      });
+      const data = await tmdbGet<TMDBListResponse<TMDBListItem>>(src.ep, { page: String(p) });
       if (!data?.results?.length) break;
       for (const item of data.results) {
         merged.set(item.id, mergeFlags(merged.get(item.id) ?? getEmptyFlags(), src.flags));
@@ -626,12 +225,11 @@ export const syncContent = action({
     const maxPages = Math.max(requiredPages, 50);
 
     while (seeds.length < normalizedCount && page <= maxPages) {
-      const data = await get<TMDBListResponse<TMDBListItem>>(getCatalogEndpoint(type, page));
+      const data = await tmdbGet<TMDBListResponse<TMDBListItem>>(getCatalogEndpoint(type, page));
       if (!data?.results?.length) break;
 
       for (const item of data.results) {
         if (existingTmdbIds.has(String(item.id))) continue;
-
         const isMovie = "title" in item;
         seeds.push({
           id: item.id,
@@ -650,12 +248,9 @@ export const syncContent = action({
           flags: flagMap.get(item.id) ?? getEmptyFlags(),
           order: seeds.length
         });
-
         if (seeds.length >= normalizedCount) break;
       }
-
       page++;
-
       if (page > maxPages && seeds.length === 0) break;
     }
 
@@ -668,7 +263,7 @@ export const syncContent = action({
 
       let details: TMDBMovieDetails | TMDBTVDetails | null = null;
       if (wantsDetails) {
-        details = await get<TMDBMovieDetails | TMDBTVDetails>(
+        details = await tmdbGet<TMDBMovieDetails | TMDBTVDetails>(
           seed.type === "movie" ? `/movie/${seed.id}` : `/tv/${seed.id}`,
           { append_to_response: "external_ids,videos,images" }
         );
@@ -678,11 +273,7 @@ export const syncContent = action({
       const td = details as TMDBTVDetails | null;
       const genres = getGenres(details ?? { genre_ids: seed.genreIds });
       const originalLanguage = details?.original_language ?? seed.originalLanguage;
-      const animeLike = isAnimeLikeContent({
-        type: seed.type,
-        genres,
-        originalLanguage
-      });
+      const animeLike = isAnimeLikeContent({ type: seed.type, genres, originalLanguage });
       const resolvedAniListId = animeLike
         ? await resolveAniListId({
             title: seed.title,
@@ -759,7 +350,6 @@ export const syncContent = action({
         items: items.slice(i, i + 50)
       });
     }
-
     return synced;
   }
 });
@@ -772,8 +362,9 @@ export const syncSeasons = action({
     });
     const contentTitle = content?.title;
     const override = getTvOrderingOverride(tmdbId);
+
     if (override?.episodeGroupId) {
-      const groupData = await get<{
+      const groupData = await tmdbGet<{
         groups: Array<{
           order: number;
           name: string;
@@ -791,14 +382,15 @@ export const syncSeasons = action({
       if (groupData?.groups?.length) {
         let groupSynced = 0;
         for (const group of groupData.groups.slice(0, override.canonicalSeasonCount)) {
+          const seasonNum = Math.max(1, group.order);
           const resolvedAniListId = await resolveAniListId({
             title: contentTitle,
-            season: Math.max(1, group.order),
+            season: seasonNum,
             seasonTitle: group.name,
             year: getYear(group.episodes[0]?.air_date ?? undefined)
           });
-          const episodes = group.episodes.map((ep, index) => ({
-            episodeNumber: index + 1,
+          const episodes = group.episodes.map((ep, i) => ({
+            episodeNumber: i + 1,
             name: ep.name,
             overview: ep.overview || undefined,
             stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
@@ -809,7 +401,7 @@ export const syncSeasons = action({
           const anilistEpisodeMappings = await buildAniListEpisodeMappings({
             anilistId: resolvedAniListId,
             title: contentTitle,
-            season: Math.max(1, group.order),
+            season: seasonNum,
             seasonTitle: group.name,
             year: getYear(group.episodes[0]?.air_date ?? undefined),
             episodes
@@ -819,7 +411,7 @@ export const syncSeasons = action({
             tmdbId,
             anilistId: resolvedAniListId ?? undefined,
             anilistEpisodeMappings,
-            seasonNumber: Math.max(1, group.order),
+            seasonNumber: seasonNum,
             name: group.name,
             overview: undefined,
             posterUrl: undefined,
@@ -851,7 +443,6 @@ export const syncSeasons = action({
         year: payload.year,
         episodes: payload.episodes
       });
-
       await ctx.runMutation(internal.seasons.upsertSeason, {
         contentId: contentId as any,
         tmdbId,
@@ -879,8 +470,9 @@ export const syncSeason = action({
     });
     const contentTitle = content?.title;
     const override = getTvOrderingOverride(tmdbId);
+
     if (override?.episodeGroupId) {
-      const groupData = await get<{
+      const groupData = await tmdbGet<{
         groups: Array<{
           order: number;
           name: string;
@@ -895,16 +487,17 @@ export const syncSeason = action({
         }>;
       }>(`/tv/episode_group/${override.episodeGroupId}`);
 
-      const group = groupData?.groups?.find((entry) => Math.max(1, entry.order) === seasonNumber);
+      const group = groupData?.groups?.find((g) => Math.max(1, g.order) === seasonNumber);
       if (!group) return null;
+
       const resolvedAniListId = await resolveAniListId({
         title: contentTitle,
         season: seasonNumber,
         seasonTitle: group.name,
         year: getYear(group.episodes[0]?.air_date ?? undefined)
       });
-      const episodes = group.episodes.map((ep, index) => ({
-        episodeNumber: index + 1,
+      const episodes = group.episodes.map((ep, i) => ({
+        episodeNumber: i + 1,
         name: ep.name,
         overview: ep.overview || undefined,
         stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
@@ -920,7 +513,6 @@ export const syncSeason = action({
         year: getYear(group.episodes[0]?.air_date ?? undefined),
         episodes
       });
-
       await ctx.runMutation(internal.seasons.upsertSeason, {
         contentId: contentId as any,
         tmdbId,
@@ -934,12 +526,12 @@ export const syncSeason = action({
         episodeCount: group.episodes.length,
         episodes: compactSeasonEpisodesForDb(episodes)
       });
-
       return { seasonNumber, episodeCount: group.episodes.length };
     }
 
     const payload = await buildCanonicalSeasonPayload(tmdbId, seasonNumber, override);
     if (!payload) return null;
+
     const resolvedAniListId = await resolveAniListId({
       title: contentTitle,
       season: payload.seasonNumber,
@@ -954,7 +546,6 @@ export const syncSeason = action({
       year: payload.year,
       episodes: payload.episodes
     });
-
     await ctx.runMutation(internal.seasons.upsertSeason, {
       contentId: contentId as any,
       tmdbId,
@@ -968,18 +559,15 @@ export const syncSeason = action({
       episodeCount: payload.episodeCount,
       episodes: compactSeasonEpisodesForDb(payload.episodes)
     });
-
     return { seasonNumber: payload.seasonNumber, episodeCount: payload.episodeCount };
   }
 });
-
-// ─── Additional TMDB Features  ────────────────────────────────
 
 export const getCredits = action({
   args: { tmdbId: v.number(), type: v.union(v.literal("movie"), v.literal("tv")) },
   handler: async (_ctx, { tmdbId, type }) => {
     const endpoint = type === "movie" ? `/movie/${tmdbId}/credits` : `/tv/${tmdbId}/credits`;
-    const data = await get<{
+    const data = await tmdbGet<{
       cast: Array<{
         id: number;
         name: string;
@@ -991,13 +579,12 @@ export const getCredits = action({
     }>(endpoint);
 
     if (!data) return null;
-
     return {
       cast: data.cast.slice(0, 20).map((c) => ({
         id: c.id,
         name: c.name,
         character: c.character,
-        profileUrl: c.profile_path ? `${TMDB_IMAGE_BASE}/w185${c.profile_path}` : undefined,
+        profileUrl: getProfileUrl(c.profile_path),
         order: c.order
       })),
       directors: data.crew.filter((c) => c.job === "Director").map((c) => c.name)
@@ -1009,18 +596,11 @@ export const getVideos = action({
   args: { tmdbId: v.number(), type: v.union(v.literal("movie"), v.literal("tv")) },
   handler: async (_ctx, { tmdbId, type }) => {
     const endpoint = type === "movie" ? `/movie/${tmdbId}/videos` : `/tv/${tmdbId}/videos`;
-    const data = await get<{ results: TMDBVideo[] }>(endpoint);
-
+    const data = await tmdbGet<{ results: TMDBVideo[] }>(endpoint);
     if (!data?.results) return [];
-
     return data.results
       .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
-      .map((v) => ({
-        key: v.key,
-        name: v.name,
-        type: v.type,
-        official: v.official
-      }));
+      .map((v) => ({ key: v.key, name: v.name, type: v.type, official: v.official }));
   }
 });
 
@@ -1033,10 +613,8 @@ export const getRelated = action({
   handler: async (_ctx, { tmdbId, type, limit = 10 }) => {
     const endpoint =
       type === "movie" ? `/movie/${tmdbId}/recommendations` : `/tv/${tmdbId}/recommendations`;
-    const data = await get<{ results: TMDBListItem[] }>(endpoint);
-
+    const data = await tmdbGet<{ results: TMDBListItem[] }>(endpoint);
     if (!data?.results) return [];
-
     return data.results.slice(0, limit).map((item) => {
       const isMovie = "title" in item;
       return {
@@ -1066,11 +644,10 @@ export const syncSingleContent = action({
     seasons: number | undefined;
     totalEpisodes: number | undefined;
   } | null> => {
-    const details = await get<TMDBMovieDetails | TMDBTVDetails>(
+    const details = await tmdbGet<TMDBMovieDetails | TMDBTVDetails>(
       type === "movie" ? `/movie/${tmdbId}` : `/tv/${tmdbId}`,
       { append_to_response: "external_ids,videos,images" }
     );
-
     if (!details) return null;
 
     const existing = await ctx.runQuery(internal.content.getSyncMetadataByTmdbId, {

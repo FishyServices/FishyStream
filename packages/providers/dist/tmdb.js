@@ -1,3 +1,4 @@
+// ─── Constants ────────────────────────────────────────────────────────────────
 export const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
 export const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 export const TMDB_BASE_URL_2 = "https://api.tmdb.org/3";
@@ -52,6 +53,7 @@ export const TMDB_DISCOVER_GENRES = {
     war: 10752,
     western: 37
 };
+// ─── Image / URL helpers ──────────────────────────────────────────────────────
 export function getPosterUrl(path, size = "w500") {
     if (!path)
         return "https://placehold.co/500x750/1a1a2e/666?text=No+Poster";
@@ -67,6 +69,12 @@ export function getStillUrl(path) {
         return "";
     return `${TMDB_IMAGE_BASE}/w500${path}`;
 }
+export function getProfileUrl(path) {
+    if (!path)
+        return "";
+    return `${TMDB_IMAGE_BASE}/w185${path}`;
+}
+// ─── Metadata helpers ─────────────────────────────────────────────────────────
 export function getGenres(item) {
     if (item.genres?.length)
         return item.genres.map((g) => g.name);
@@ -100,4 +108,237 @@ export function getRating(voteAverage, certificationOrRating) {
     if (voteAverage >= 5)
         return "PG";
     return "G";
+}
+export function getLogoUrl(logos) {
+    if (!logos?.length)
+        return undefined;
+    const en = logos
+        .filter((l) => l.iso_639_1 === "en")
+        .sort((a, b) => b.vote_average - a.vote_average)[0];
+    const best = en ?? logos.sort((a, b) => b.vote_average - a.vote_average)[0];
+    if (!best)
+        return undefined;
+    return `${TMDB_IMAGE_BASE}/w500${best.file_path}`;
+}
+export function getTrailerKey(videos) {
+    if (!videos?.length)
+        return undefined;
+    const priority = ["Official Trailer", "Trailer", "Teaser", "Clip", "Featurette"];
+    for (const type of priority) {
+        const v = videos.find((v) => v.site === "YouTube" && v.type === type && v.official);
+        if (v)
+            return v.key;
+    }
+    return videos.find((v) => v.site === "YouTube" && v.type === "Trailer")?.key;
+}
+export function isAnimeLikeContent(args) {
+    if (args.type !== "tv")
+        return false;
+    return (args.originalLanguage?.toLowerCase() === "ja" &&
+        args.genres.some((g) => g.toLowerCase() === "animation"));
+}
+export function formatRuntime(minutes) {
+    if (!minutes || minutes <= 0)
+        return undefined;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+export function shuffleWithSeed(items, seed) {
+    return items
+        .map((item, index) => {
+        const score = Math.sin((index + 1) * 999 + seed * 9973) * 10000;
+        return { item, score: score - Math.floor(score) };
+    })
+        .sort((a, b) => b.score - a.score)
+        .map(({ item }) => item);
+}
+export async function mapInBatches(items, batchSize, fn) {
+    const out = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const results = await Promise.all(batch.map((item, bi) => fn(item, i + bi)));
+        out.push(...results);
+    }
+    return out;
+}
+// ─── Season payload helpers ───────────────────────────────────────────────────
+export function mapTmdbSeasonToCanonicalPayload(data, seasonNumber) {
+    return {
+        seasonNumber,
+        name: data.name,
+        overview: data.overview || undefined,
+        posterUrl: data.poster_path ? getPosterUrl(data.poster_path) : undefined,
+        airDate: data.air_date ?? undefined,
+        episodeCount: data.episodes?.length ?? 0,
+        year: getYear(data.air_date ?? undefined),
+        episodes: (data.episodes ?? []).map((ep) => ({
+            episodeNumber: ep.episode_number,
+            name: ep.name,
+            overview: ep.overview || undefined,
+            stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
+            airDate: ep.air_date ?? undefined,
+            runtime: ep.runtime ?? undefined,
+            voteAverage: ep.vote_average
+        }))
+    };
+}
+export function compactSeasonEpisodesForDb(episodes) {
+    return episodes.map((ep) => ({
+        episodeNumber: ep.episodeNumber,
+        name: ep.name,
+        stillUrl: ep.stillUrl,
+        runtime: ep.runtime,
+        voteAverage: ep.voteAverage
+    }));
+}
+export function hasEpisodes(data) {
+    return (data?.episodes?.length ?? 0) > 0;
+}
+class SimpleCache {
+    store = new Map();
+    keySerializer;
+    constructor(keySerializer) {
+        this.keySerializer = keySerializer ?? ((k) => JSON.stringify(k));
+    }
+    get(key) {
+        const s = this.keySerializer(key);
+        const entry = this.store.get(s);
+        if (!entry)
+            return undefined;
+        if (Date.now() > entry.expiry) {
+            this.store.delete(s);
+            return undefined;
+        }
+        return entry.value;
+    }
+    set(key, value, ttlSeconds) {
+        this.store.set(this.keySerializer(key), {
+            value,
+            expiry: Date.now() + ttlSeconds * 1000
+        });
+    }
+    clear() {
+        this.store.clear();
+    }
+}
+const _serverCache = new SimpleCache((k) => `${k.url}|${JSON.stringify(k.params)}|${k.language}`);
+let _proxyIndex = 0;
+function _nextProxy(proxyUrls) {
+    if (!proxyUrls.length)
+        return undefined;
+    return proxyUrls[_proxyIndex++ % proxyUrls.length];
+}
+function _isV4Token(key) {
+    return key.split(".").length === 3;
+}
+export async function tmdbGet(endpoint, params = {}, proxyUrls = []) {
+    const language = params.language ?? "en-US";
+    const cacheKey = { url: endpoint, params, language };
+    const cached = _serverCache.get(cacheKey);
+    if (cached !== undefined)
+        return cached;
+    const apiKey = TMDB_API_KEY;
+    const headers = { accept: "application/json" };
+    if (_isV4Token(apiKey))
+        headers.Authorization = `Bearer ${apiKey}`;
+    const allParams = {
+        ...params,
+        language,
+        ...(!_isV4Token(apiKey) ? { api_key: apiKey } : {})
+    };
+    const buildUrl = (base) => {
+        const url = new URL(base + endpoint);
+        for (const [k, v] of Object.entries(allParams)) {
+            if (v !== undefined && v !== null)
+                url.searchParams.append(k, String(v));
+        }
+        return url.toString();
+    };
+    let result = null;
+    const proxy = _nextProxy(proxyUrls);
+    if (proxy) {
+        try {
+            const res = await fetch(`${proxy}/?destination=${encodeURIComponent(buildUrl(TMDB_BASE_URL))}`, { headers, signal: AbortSignal.timeout(5000) });
+            if (res.ok)
+                result = (await res.json());
+        }
+        catch {
+            /* fall through */
+        }
+    }
+    if (!result) {
+        try {
+            const res = await fetch(buildUrl(TMDB_BASE_URL), {
+                headers,
+                signal: AbortSignal.timeout(5000)
+            });
+            if (res.ok)
+                result = (await res.json());
+        }
+        catch {
+            /* fall through */
+        }
+    }
+    if (!result) {
+        try {
+            const res = await fetch(buildUrl(TMDB_BASE_URL_2), {
+                headers,
+                signal: AbortSignal.timeout(30000)
+            });
+            if (res.ok)
+                result = (await res.json());
+        }
+        catch {
+            return null;
+        }
+    }
+    if (result)
+        _serverCache.set(cacheKey, result, 3600);
+    return result;
+}
+// ─── Browser-side fetch helpers ───────────────────────────────────────────────
+export function buildTmdbUrl(path, apiKey, params = {}) {
+    const url = new URL(`${TMDB_BASE_URL}${path}`);
+    url.searchParams.set("api_key", apiKey);
+    url.searchParams.set("language", "en-US");
+    for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined)
+            url.searchParams.set(k, String(v));
+    }
+    return url.toString();
+}
+export async function fetchTmdbList(path, apiKey, signal, params) {
+    const res = await fetch(buildTmdbUrl(path, apiKey, params), { signal });
+    if (!res.ok)
+        throw new Error(`TMDB ${path} failed: ${res.status}`);
+    return (await res.json());
+}
+export async function fetchTmdbListOrEmpty(path, apiKey, signal, params) {
+    try {
+        return await fetchTmdbList(path, apiKey, signal, params);
+    }
+    catch {
+        return { results: [] };
+    }
+}
+export function toTMDBContentCard(item, typeHint) {
+    const type = typeHint ?? (item.media_type === "movie" || item.media_type === "tv" ? item.media_type : null);
+    if (!type || item.media_type === "person")
+        return null;
+    const title = type === "movie" ? item.title : item.name;
+    if (!item.id || !title || !item.poster_path)
+        return null;
+    const dateStr = type === "movie" ? item.release_date : item.first_air_date;
+    const year = dateStr ? getYear(dateStr) : new Date().getFullYear();
+    return {
+        tmdbId: String(item.id),
+        title,
+        type,
+        year,
+        posterUrl: getPosterUrl(item.poster_path),
+        voteAverage: item.vote_average,
+        genre: (item.genre_ids ?? []).map((id) => GENRE_MAP[id]).filter(Boolean),
+        isNew: false
+    };
 }

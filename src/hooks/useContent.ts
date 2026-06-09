@@ -10,13 +10,23 @@ import type {
 import { fromContentPlaybackWire } from "../../shared/contentMetadata";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 import {
-  TMDB_BASE_URL,
   TMDB_IMAGE_BASE,
   TMDB_DISCOVER_GENRES,
+  TMDB_API_KEY,
   getPosterUrl,
+  getBackdropUrl,
   getYear,
   getGenres,
-  getRating
+  getRating,
+  getLogoUrl,
+  getTrailerKey,
+  formatRuntime,
+  shuffleWithSeed,
+  fetchTmdbListOrEmpty,
+  buildTmdbUrl,
+  toTMDBContentCard,
+  type TMDBBrowseListItem,
+  type TMDBBrowseListResponse
 } from "@fishy/providers/tmdb";
 
 export interface BrowsePageResult {
@@ -50,101 +60,27 @@ type TMDBRecommendationSeed = {
   genres?: string[];
 };
 
-type TMDBListItem = {
-  id: number;
-  media_type?: "movie" | "tv" | "person";
-  title?: string;
-  name?: string;
-  poster_path?: string | null;
-  release_date?: string;
-  first_air_date?: string;
-  vote_average?: number;
-  genre_ids?: number[];
-};
-
-type TMDBListResponse = {
-  results?: TMDBListItem[];
-  total_pages?: number;
-  total_results?: number;
-};
-
-function tmdbImage(path?: string | null) {
-  return path
-    ? `${TMDB_IMAGE_BASE}/w500${path}`
-    : "https://placehold.co/300x450/1a1a2e/555?text=No+Poster";
-}
-
-function tmdbYear(value?: string) {
-  if (!value) return new Date().getFullYear();
-  const year = Number(value.slice(0, 4));
-  return Number.isFinite(year) ? year : new Date().getFullYear();
-}
-
-function tmdbUrl(path: string, params: Record<string, string | number | undefined> = {}) {
-  const apiKey = import.meta.env.VITE_TMDB_KEY ?? "84259f99204eeb7d45c7e3d8e36c6123";
-  const url = new URL(`${TMDB_BASE_URL}${path}`);
-  url.searchParams.set("api_key", apiKey);
-  url.searchParams.set("language", "en-US");
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined) url.searchParams.set(key, String(value));
-  }
-  return url.toString();
-}
-
 function clientTmdbContentId(type: TMDBMediaType, tmdbId: number | string): ContentId {
   return `tmdb:${type}:${tmdbId}` as ContentId;
 }
 
-function toClientContentCard(item: TMDBListItem, typeHint?: TMDBMediaType): ContentCard | null {
-  const type =
-    typeHint ?? (item.media_type === "movie" || item.media_type === "tv" ? item.media_type : null);
-  if (!type || item.media_type === "person") return null;
-  const title = type === "movie" ? item.title : item.name;
-  if (!item.id || !title || !item.poster_path) return null;
-
+function toClientContentCard(
+  item: TMDBBrowseListItem,
+  typeHint?: TMDBMediaType
+): ContentCard | null {
+  const card = toTMDBContentCard(item, typeHint);
+  if (!card) return null;
   return {
-    _id: clientTmdbContentId(type, item.id),
-    title,
-    type,
-    genre: [],
-    year: tmdbYear(type === "movie" ? item.release_date : item.first_air_date),
-    voteAverage: item.vote_average,
-    posterUrl: tmdbImage(item.poster_path),
-    tmdbId: String(item.id),
-    new: false
+    _id: clientTmdbContentId(card.type, card.tmdbId),
+    title: card.title,
+    type: card.type,
+    genre: card.genre,
+    year: card.year,
+    voteAverage: card.voteAverage,
+    posterUrl: card.posterUrl,
+    tmdbId: card.tmdbId,
+    new: card.isNew
   };
-}
-
-async function fetchTmdbList(
-  path: string,
-  signal: AbortSignal,
-  params?: Record<string, string | number | undefined>
-) {
-  const res = await fetch(tmdbUrl(path, params), { signal });
-  if (!res.ok) throw new Error(`TMDB request failed: ${res.status}`);
-  return (await res.json()) as TMDBListResponse;
-}
-
-async function fetchTmdbListOrEmpty(
-  path: string,
-  signal: AbortSignal,
-  params?: Record<string, string | number | undefined>
-) {
-  try {
-    return await fetchTmdbList(path, signal, params);
-  } catch {
-    return { results: [] };
-  }
-}
-
-function shuffleWithSeed<T>(items: T[], seed: number) {
-  return items
-    .map((item, index) => {
-      const score = Math.sin((index + 1) * 999 + seed * 9973) * 10000;
-      return { item, score: score - Math.floor(score) };
-    })
-    .sort((a, b) => b.score - a.score)
-    .map(({ item }) => item);
 }
 
 export function useHomepageContent() {
@@ -161,10 +97,12 @@ export function useHomepageContent() {
 
     async function load() {
       try {
+        const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
+
         const [moviesRes, tvRes, newRes] = await Promise.all([
-          fetchTmdbListOrEmpty("/movie/popular", controller.signal),
-          fetchTmdbListOrEmpty("/tv/popular", controller.signal),
-          fetchTmdbListOrEmpty("/movie/now_playing", controller.signal)
+          fetchTmdbListOrEmpty("/movie/popular", apiKey, controller.signal),
+          fetchTmdbListOrEmpty("/tv/popular", apiKey, controller.signal),
+          fetchTmdbListOrEmpty("/movie/now_playing", apiKey, controller.signal)
         ]);
 
         const popularMovies = (moviesRes.results ?? [])
@@ -184,46 +122,26 @@ export function useHomepageContent() {
         const featuredDetails = await Promise.all(
           featuredCandidates.map(async (card) => {
             try {
-              const res = await fetch(
-                tmdbUrl(`/${card.type}/${card.tmdbId}`, { append_to_response: "videos,images" }),
-                { signal: controller.signal }
-              );
+              const url = buildTmdbUrl(`/${card.type}/${card.tmdbId}`, apiKey, {
+                append_to_response: "videos,images"
+              });
+              const res = await fetch(url, { signal: controller.signal });
               if (!res.ok) return null;
               const details = await res.json();
 
-              const logos = details.images?.logos;
-              const logoPath = logos && logos.length > 0 ? logos[0].file_path : null;
-              const logoUrl = logoPath ? `${TMDB_IMAGE_BASE}/w500${logoPath}` : undefined;
-
-              const videos = details.videos?.results;
-              const trailerKey =
-                videos && videos.length > 0
-                  ? videos.find((v: any) => v.type === "Trailer")?.key || videos[0].key
-                  : undefined;
-
-              const voteAverage = details.vote_average ?? card.voteAverage;
-              const rating =
-                voteAverage && voteAverage >= 7.5
-                  ? "PG-13"
-                  : voteAverage && voteAverage >= 5
-                    ? "PG"
-                    : "G";
+              const logoUrl = getLogoUrl(details.images?.logos);
+              const trailerKey = getTrailerKey(details.videos?.results);
+              const rating = getRating(details.vote_average ?? card.voteAverage ?? 0);
+              const backdropUrl = getBackdropUrl(details.backdrop_path);
 
               return {
                 ...card,
                 description: details.overview ?? "No description available",
-                backdropUrl: details.backdrop_path
-                  ? `https://image.tmdb.org/t/p/original${details.backdrop_path}`
-                  : card.posterUrl,
+                backdropUrl: details.backdrop_path ? backdropUrl : card.posterUrl,
                 rating,
                 logoUrl,
                 trailerKey,
-                duration:
-                  card.type === "movie"
-                    ? details.runtime
-                      ? `${details.runtime}m`
-                      : undefined
-                    : undefined,
+                duration: card.type === "movie" ? formatRuntime(details.runtime) : undefined,
                 seasons: card.type === "tv" ? details.number_of_seasons : undefined,
                 trending: true,
                 tagline: details.tagline,
@@ -269,7 +187,8 @@ export function useNewReleases() {
 
     async function load() {
       try {
-        const res = await fetchTmdbListOrEmpty("/movie/now_playing", controller.signal);
+        const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
+        const res = await fetchTmdbListOrEmpty("/movie/now_playing", apiKey, controller.signal);
         const cards = (res.results ?? [])
           .map((item) => toClientContentCard(item, "movie"))
           .filter((item): item is ContentCard => !!item);
@@ -461,45 +380,40 @@ export function useSearchAll(query: string) {
     setError(null);
 
     const controller = new AbortController();
+    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
 
     const t = setTimeout(async () => {
       try {
         const [moviesRes, showsRes] = await Promise.all([
-          fetchTmdbListOrEmpty("/search/movie", controller.signal, {
+          fetchTmdbListOrEmpty("/search/movie", apiKey, controller.signal, {
             query: encodeURIComponent(query)
           }),
-          fetchTmdbListOrEmpty("/search/tv", controller.signal, {
+          fetchTmdbListOrEmpty("/search/tv", apiKey, controller.signal, {
             query: encodeURIComponent(query)
           })
         ]);
 
-        const movies = (moviesRes.results ?? []).map((item) => {
-          const yearVal = getYear(item.release_date);
-          return {
-            tmdbId: item.id,
-            title: item.title ?? "",
-            posterUrl: getPosterUrl(item.poster_path ?? null),
-            year: yearVal,
-            genre: getGenres(item),
-            rating: getRating(item.vote_average ?? 0),
-            voteAverage: item.vote_average,
-            type: "movie" as const
-          };
-        });
+        const movies = (moviesRes.results ?? []).map((item) => ({
+          tmdbId: item.id,
+          title: item.title ?? "",
+          posterUrl: getPosterUrl(item.poster_path ?? null),
+          year: getYear(item.release_date),
+          genre: getGenres(item),
+          rating: getRating(item.vote_average ?? 0),
+          voteAverage: item.vote_average,
+          type: "movie" as const
+        }));
 
-        const shows = (showsRes.results ?? []).map((item) => {
-          const yearVal = getYear(item.first_air_date);
-          return {
-            tmdbId: item.id,
-            title: item.name ?? "",
-            posterUrl: getPosterUrl(item.poster_path ?? null),
-            year: yearVal,
-            genre: getGenres(item),
-            rating: getRating(item.vote_average ?? 0),
-            voteAverage: item.vote_average,
-            type: "tv" as const
-          };
-        });
+        const shows = (showsRes.results ?? []).map((item) => ({
+          tmdbId: item.id,
+          title: item.name ?? "",
+          posterUrl: getPosterUrl(item.poster_path ?? null),
+          year: getYear(item.first_air_date),
+          genre: getGenres(item),
+          rating: getRating(item.vote_average ?? 0),
+          voteAverage: item.vote_average,
+          type: "tv" as const
+        }));
 
         if (!controller.signal.aborted) {
           setResults([...movies, ...shows]);
@@ -551,6 +465,7 @@ export function usePaginatedContent(
 
   useEffect(() => {
     const controller = new AbortController();
+    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
 
     async function load() {
       setResult((prev) => ({ ...prev, isLoading: true }));
@@ -574,7 +489,7 @@ export function usePaginatedContent(
           "vote_count.gte": sortBy === "rating" ? 100 : 25
         };
 
-        const res = await fetchTmdbListOrEmpty(path, controller.signal, params);
+        const res = await fetchTmdbListOrEmpty(path, apiKey, controller.signal, params);
         const items = (res.results ?? [])
           .map((item) => toClientContentCard(item, type))
           .filter((item): item is ContentCard => !!item);
@@ -634,6 +549,7 @@ export function useRecommendations(
     }
 
     const controller = new AbortController();
+    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
     const excludedIds = new Set(seed?.tmdbSeeds?.map((item) => `${item.type}:${item.tmdbId}`));
     const genreIds = Array.from(
       new Set(
@@ -646,7 +562,9 @@ export function useRecommendations(
       .filter((item) => typeFilter === "all" || item.type === typeFilter)
       .slice(0, 5);
 
-    const collectCards = (responses: Array<{ data: TMDBListResponse; type?: TMDBMediaType }>) => {
+    const collectCards = (
+      responses: Array<{ data: TMDBBrowseListResponse; type?: TMDBMediaType }>
+    ) => {
       const seen = new Set<string>();
       const cards: ContentCard[] = [];
       for (const response of responses) {
@@ -674,12 +592,16 @@ export function useRecommendations(
               seedItems.flatMap((item) => [
                 fetchTmdbListOrEmpty(
                   `/${item.type}/${item.tmdbId}/recommendations`,
+                  apiKey,
                   controller.signal,
                   { page: 1 }
                 ).then((data) => ({ data, type: item.type })),
-                fetchTmdbListOrEmpty(`/${item.type}/${item.tmdbId}/similar`, controller.signal, {
-                  page: 1
-                }).then((data) => ({ data, type: item.type }))
+                fetchTmdbListOrEmpty(
+                  `/${item.type}/${item.tmdbId}/similar`,
+                  apiKey,
+                  controller.signal,
+                  { page: 1 }
+                ).then((data) => ({ data, type: item.type }))
               ])
             )
           : [];
@@ -690,7 +612,7 @@ export function useRecommendations(
           const genreResponses = genreIds.length
             ? await Promise.all(
                 fallbackTypes.map((type) =>
-                  fetchTmdbListOrEmpty(`/discover/${type}`, controller.signal, {
+                  fetchTmdbListOrEmpty(`/discover/${type}`, apiKey, controller.signal, {
                     page: (refreshSeed % 5) + 1,
                     sort_by: "popularity.desc",
                     with_genres: genreIds.join("|")
@@ -706,6 +628,7 @@ export function useRecommendations(
             (typeFilter === "all" ? ([undefined] as const) : ([typeFilter] as const)).map((type) =>
               fetchTmdbListOrEmpty(
                 type ? `/trending/${type}/week` : "/trending/all/week",
+                apiKey,
                 controller.signal,
                 { page: (refreshSeed % 5) + 1 }
               ).then((data) => ({ data, type }))

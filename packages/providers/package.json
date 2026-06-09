@@ -11,37 +11,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./providerCatalog": {
-      "types": "./dist/providerCatalog.d.ts",
-      "import": "./dist/providerCatalog.js"
-    },
-    "./providerProxy": {
-      "types": "./dist/providerProxy.d.ts",
-      "import": "./dist/providerProxy.js"
-    },
-    "./providerPlayback": {
-      "types": "./dist/providerPlayback.d.ts",
-      "import": "./dist/providerPlayback.js"
-    },
-    "./playerProviders": {
-      "types": "./dist/playerProviders.d.ts",
-      "import": "./dist/playerProviders.js"
-    },
-    "./tvSeasonMappings": {
-      "types": "./dist/tvSeasonMappings.d.ts",
-      "import": "./dist/tvSeasonMappings.js"
-    },
-    "./anilistResolver": {
-      "types": "./dist/anilistResolver.d.ts",
-      "import": "./dist/anilistResolver.js"
-    },
-    "./types": {
-      "types": "./dist/types.d.ts",
-      "import": "./dist/types.js"
-    },
-    "./tmdb": {
-      "types": "./dist/tmdb.d.ts",
-      "import": "./dist/tmdb.js"
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
     }
   },
   "scripts": {
