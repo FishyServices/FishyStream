@@ -10,7 +10,6 @@ import type {
 import { fromContentPlaybackWire } from "../../shared/contentMetadata";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 import {
-  TMDB_IMAGE_BASE,
   TMDB_DISCOVER_GENRES,
   TMDB_API_KEY,
   getPosterUrl,
@@ -23,8 +22,14 @@ import {
   formatRuntime,
   shuffleWithSeed,
   fetchTmdbListOrEmpty,
+  fetchTmdbCredits,
+  fetchTmdbVideos,
+  fetchTmdbRelated,
   buildTmdbUrl,
   toTMDBContentCard,
+  type TMDBCreditResult,
+  type TMDBVideoResult,
+  type TMDBRelatedItem,
   type TMDBBrowseListItem,
   type TMDBBrowseListResponse
 } from "@fishy/providers/tmdb";
@@ -259,9 +264,8 @@ export function useRelatedContent(
   limit = 10,
   enabled = true
 ) {
-  const [related, setRelated] = useState<TMDBItem[]>([]);
+  const [related, setRelated] = useState<TMDBRelatedItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const getRelated = useAction(api.tmdb.getRelated);
   const cancelRef = useRef(false);
 
   useEffect(() => {
@@ -271,15 +275,18 @@ export function useRelatedContent(
     }
     cancelRef.current = false;
     setIsLoading(true);
+    const controller = new AbortController();
+    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
     const t = setTimeout(async () => {
       try {
-        const res = await getRelated({ tmdbId, type, limit });
-        if (!cancelRef.current) setRelated(res as TMDBItem[]);
+        const res = await fetchTmdbRelated(tmdbId, type, apiKey, limit, controller.signal);
+        if (!cancelRef.current) setRelated(res);
       } catch {}
       if (!cancelRef.current) setIsLoading(false);
     }, 100);
     return () => {
       clearTimeout(t);
+      controller.abort();
       cancelRef.current = true;
     };
   }, [tmdbId, type, limit, enabled]);
@@ -292,18 +299,8 @@ export function useContentCredits(
   type: "movie" | "tv" | undefined,
   enabled = true
 ) {
-  const [credits, setCredits] = useState<{
-    cast: Array<{
-      id: number;
-      name: string;
-      character: string;
-      profileUrl?: string;
-      order: number;
-    }>;
-    directors: string[];
-  } | null>(null);
+  const [credits, setCredits] = useState<TMDBCreditResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const getCredits = useAction(api.tmdb.getCredits);
   const cancelRef = useRef(false);
 
   useEffect(() => {
@@ -313,15 +310,18 @@ export function useContentCredits(
     }
     cancelRef.current = false;
     setIsLoading(true);
+    const controller = new AbortController();
+    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
     const t = setTimeout(async () => {
       try {
-        const res = await getCredits({ tmdbId, type });
+        const res = await fetchTmdbCredits(tmdbId, type, apiKey, controller.signal);
         if (!cancelRef.current) setCredits(res);
       } catch {}
       if (!cancelRef.current) setIsLoading(false);
     }, 150);
     return () => {
       clearTimeout(t);
+      controller.abort();
       cancelRef.current = true;
     };
   }, [tmdbId, type, enabled]);
@@ -334,11 +334,8 @@ export function useContentVideos(
   type: "movie" | "tv" | undefined,
   enabled = true
 ) {
-  const [videos, setVideos] = useState<
-    Array<{ key: string; name: string; type: string; official: boolean }>
-  >([]);
+  const [videos, setVideos] = useState<TMDBVideoResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const getVideos = useAction(api.tmdb.getVideos);
   const cancelRef = useRef(false);
 
   useEffect(() => {
@@ -348,15 +345,18 @@ export function useContentVideos(
     }
     cancelRef.current = false;
     setIsLoading(true);
+    const controller = new AbortController();
+    const apiKey = import.meta.env.VITE_TMDB_KEY ?? TMDB_API_KEY;
     const t = setTimeout(async () => {
       try {
-        const res = await getVideos({ tmdbId, type });
+        const res = await fetchTmdbVideos(tmdbId, type, apiKey, controller.signal);
         if (!cancelRef.current) setVideos(res);
       } catch {}
       if (!cancelRef.current) setIsLoading(false);
     }, 200);
     return () => {
       clearTimeout(t);
+      controller.abort();
       cancelRef.current = true;
     };
   }, [tmdbId, type, enabled]);

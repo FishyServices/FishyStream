@@ -4,6 +4,20 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { matchProviderProxyPath, proxyProviderRequest } from "@fishy/providers/providerProxy";
 
+function fishyProvidersPlugin(): Plugin {
+  const providersRoot = path.resolve(__dirname, "./packages/providers/src");
+  return {
+    name: "fishy-providers",
+    enforce: "pre",
+    resolveId(source) {
+      const match = source.match(/^@fishy\/providers(\/(.+))?$/);
+      if (!match) return null;
+      const subpath = match[2] ?? "index";
+      return path.resolve(providersRoot, `${subpath}.ts`);
+    }
+  };
+}
+
 function providerProxyPlugin(): Plugin {
   const handleProviderProxyRequest: Connect.NextHandleFunction = async (req, res, next) => {
     const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -47,23 +61,13 @@ export default defineConfig(({ mode }) => {
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL;
 
   return {
-    plugins: [providerProxyPlugin(), tailwindcss(), react()],
+    plugins: [fishyProvidersPlugin(), providerProxyPlugin(), tailwindcss(), react()],
     resolve: {
       alias: [
         { find: "@", replacement: path.resolve(__dirname, "./src") },
         {
           find: "@fishy/ui",
           replacement: path.resolve(__dirname, "./node_modules/@fishy/ui/src/index.ts")
-        },
-        {
-          find: /^@fishy\/providers(\/.*)?$/,
-          replacement: "",
-          customResolver(source) {
-            const match = source.match(/^@fishy\/providers(\/(.+))?$/);
-            if (!match) return null;
-            const subpath = match[2] ?? "index";
-            return path.resolve(__dirname, `./packages/providers/src/${subpath}.ts`);
-          }
         },
         { find: "react", replacement: path.resolve(__dirname, "./node_modules/react") },
         { find: "react-dom", replacement: path.resolve(__dirname, "./node_modules/react-dom") }

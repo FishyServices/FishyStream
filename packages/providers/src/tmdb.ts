@@ -538,6 +538,111 @@ export async function fetchTmdbListOrEmpty(
   }
 }
 
+// ─── Browser-side detail fetchers ────────────────────────────────────────────
+
+export interface TMDBCreditResult {
+  cast: Array<{
+    id: number;
+    name: string;
+    character: string;
+    profileUrl?: string;
+    order: number;
+  }>;
+  directors: string[];
+}
+
+export async function fetchTmdbCredits(
+  tmdbId: number,
+  type: "movie" | "tv",
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<TMDBCreditResult | null> {
+  const url = buildTmdbUrl(`/${type}/${tmdbId}/credits`, apiKey);
+  try {
+    const res = await fetch(url, { signal });
+    if (!res.ok) return null;
+    const data = await res.json() as {
+      cast: Array<{ id: number; name: string; character: string; profile_path: string | null; order: number }>;
+      crew: Array<{ id: number; name: string; job: string; department: string }>;
+    };
+    return {
+      cast: data.cast.slice(0, 20).map((c) => ({
+        id: c.id,
+        name: c.name,
+        character: c.character,
+        profileUrl: getProfileUrl(c.profile_path),
+        order: c.order
+      })),
+      directors: data.crew.filter((c) => c.job === "Director").map((c) => c.name)
+    };
+  } catch {
+    return null;
+  }
+}
+
+export interface TMDBVideoResult {
+  key: string;
+  name: string;
+  type: string;
+  official: boolean;
+}
+
+export async function fetchTmdbVideos(
+  tmdbId: number,
+  type: "movie" | "tv",
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<TMDBVideoResult[]> {
+  const url = buildTmdbUrl(`/${type}/${tmdbId}/videos`, apiKey);
+  try {
+    const res = await fetch(url, { signal });
+    if (!res.ok) return [];
+    const data = await res.json() as { results: TMDBVideo[] };
+    return (data.results ?? [])
+      .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
+      .map((v) => ({ key: v.key, name: v.name, type: v.type, official: v.official }));
+  } catch {
+    return [];
+  }
+}
+
+export interface TMDBRelatedItem {
+  tmdbId: number;
+  title: string;
+  type: "movie" | "tv";
+  posterUrl: string;
+  year: number;
+  voteAverage?: number;
+}
+
+export async function fetchTmdbRelated(
+  tmdbId: number,
+  type: "movie" | "tv",
+  apiKey: string,
+  limit = 10,
+  signal?: AbortSignal
+): Promise<TMDBRelatedItem[]> {
+  const url = buildTmdbUrl(`/${type}/${tmdbId}/recommendations`, apiKey);
+  try {
+    const res = await fetch(url, { signal });
+    if (!res.ok) return [];
+    const data = await res.json() as { results: TMDBListItem[] };
+    return (data.results ?? []).slice(0, limit).map((item) => {
+      const isMovie = "title" in item;
+      return {
+        tmdbId: item.id,
+        title: isMovie ? (item as TMDBMovieListItem).title : (item as TMDBTVListItem).name,
+        type: isMovie ? "movie" : "tv",
+        posterUrl: getPosterUrl(item.poster_path),
+        year: getYear(isMovie ? (item as TMDBMovieListItem).release_date : (item as TMDBTVListItem).first_air_date),
+        voteAverage: item.vote_average
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 // ─── Client-side ─────────────────────────────────────────
 
 export interface TMDBContentCard {

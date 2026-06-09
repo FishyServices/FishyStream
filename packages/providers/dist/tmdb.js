@@ -322,6 +322,66 @@ export async function fetchTmdbListOrEmpty(path, apiKey, signal, params) {
         return { results: [] };
     }
 }
+export async function fetchTmdbCredits(tmdbId, type, apiKey, signal) {
+    const url = buildTmdbUrl(`/${type}/${tmdbId}/credits`, apiKey);
+    try {
+        const res = await fetch(url, { signal });
+        if (!res.ok)
+            return null;
+        const data = await res.json();
+        return {
+            cast: data.cast.slice(0, 20).map((c) => ({
+                id: c.id,
+                name: c.name,
+                character: c.character,
+                profileUrl: getProfileUrl(c.profile_path),
+                order: c.order
+            })),
+            directors: data.crew.filter((c) => c.job === "Director").map((c) => c.name)
+        };
+    }
+    catch {
+        return null;
+    }
+}
+export async function fetchTmdbVideos(tmdbId, type, apiKey, signal) {
+    const url = buildTmdbUrl(`/${type}/${tmdbId}/videos`, apiKey);
+    try {
+        const res = await fetch(url, { signal });
+        if (!res.ok)
+            return [];
+        const data = await res.json();
+        return (data.results ?? [])
+            .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
+            .map((v) => ({ key: v.key, name: v.name, type: v.type, official: v.official }));
+    }
+    catch {
+        return [];
+    }
+}
+export async function fetchTmdbRelated(tmdbId, type, apiKey, limit = 10, signal) {
+    const url = buildTmdbUrl(`/${type}/${tmdbId}/recommendations`, apiKey);
+    try {
+        const res = await fetch(url, { signal });
+        if (!res.ok)
+            return [];
+        const data = await res.json();
+        return (data.results ?? []).slice(0, limit).map((item) => {
+            const isMovie = "title" in item;
+            return {
+                tmdbId: item.id,
+                title: isMovie ? item.title : item.name,
+                type: isMovie ? "movie" : "tv",
+                posterUrl: getPosterUrl(item.poster_path),
+                year: getYear(isMovie ? item.release_date : item.first_air_date),
+                voteAverage: item.vote_average
+            };
+        });
+    }
+    catch {
+        return [];
+    }
+}
 export function toTMDBContentCard(item, typeHint) {
     const type = typeHint ?? (item.media_type === "movie" || item.media_type === "tv" ? item.media_type : null);
     if (!type || item.media_type === "person")

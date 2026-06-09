@@ -182,6 +182,33 @@ export interface TMDBBrowseListResponse {
 }
 export declare function fetchTmdbList(path: string, apiKey: string, signal: AbortSignal, params?: Record<string, string | number | undefined>): Promise<TMDBBrowseListResponse>;
 export declare function fetchTmdbListOrEmpty(path: string, apiKey: string, signal: AbortSignal, params?: Record<string, string | number | undefined>): Promise<TMDBBrowseListResponse>;
+export interface TMDBCreditResult {
+    cast: Array<{
+        id: number;
+        name: string;
+        character: string;
+        profileUrl?: string;
+        order: number;
+    }>;
+    directors: string[];
+}
+export declare function fetchTmdbCredits(tmdbId: number, type: "movie" | "tv", apiKey: string, signal?: AbortSignal): Promise<TMDBCreditResult | null>;
+export interface TMDBVideoResult {
+    key: string;
+    name: string;
+    type: string;
+    official: boolean;
+}
+export declare function fetchTmdbVideos(tmdbId: number, type: "movie" | "tv", apiKey: string, signal?: AbortSignal): Promise<TMDBVideoResult[]>;
+export interface TMDBRelatedItem {
+    tmdbId: number;
+    title: string;
+    type: "movie" | "tv";
+    posterUrl: string;
+    year: number;
+    voteAverage?: number;
+}
+export declare function fetchTmdbRelated(tmdbId: number, type: "movie" | "tv", apiKey: string, limit?: number, signal?: AbortSignal): Promise<TMDBRelatedItem[]>;
 export interface TMDBContentCard {
     tmdbId: string;
     title: string;

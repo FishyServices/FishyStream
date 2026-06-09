@@ -10,12 +10,10 @@ import {
 import { resolveAniListEpisodeAddress, resolveAniListId } from "@fishy/providers/anilistResolver";
 import type { AniListEpisodeMapping } from "../shared/contentMetadata";
 import {
-  TMDB_IMAGE_BASE,
   tmdbGet,
   getPosterUrl,
   getBackdropUrl,
   getStillUrl,
-  getProfileUrl,
   getGenres,
   getRating,
   getYear,
@@ -27,9 +25,7 @@ import {
   mapTmdbSeasonToCanonicalPayload,
   compactSeasonEpisodesForDb,
   hasEpisodes,
-  type TMDBGenre,
   type TMDBVideo,
-  type TMDBLogo,
   type TMDBMovieListItem,
   type TMDBTVListItem,
   type TMDBMovieDetails,
@@ -560,72 +556,6 @@ export const syncSeason = action({
       episodes: compactSeasonEpisodesForDb(payload.episodes)
     });
     return { seasonNumber: payload.seasonNumber, episodeCount: payload.episodeCount };
-  }
-});
-
-export const getCredits = action({
-  args: { tmdbId: v.number(), type: v.union(v.literal("movie"), v.literal("tv")) },
-  handler: async (_ctx, { tmdbId, type }) => {
-    const endpoint = type === "movie" ? `/movie/${tmdbId}/credits` : `/tv/${tmdbId}/credits`;
-    const data = await tmdbGet<{
-      cast: Array<{
-        id: number;
-        name: string;
-        character: string;
-        profile_path: string | null;
-        order: number;
-      }>;
-      crew: Array<{ id: number; name: string; job: string; department: string }>;
-    }>(endpoint);
-
-    if (!data) return null;
-    return {
-      cast: data.cast.slice(0, 20).map((c) => ({
-        id: c.id,
-        name: c.name,
-        character: c.character,
-        profileUrl: getProfileUrl(c.profile_path),
-        order: c.order
-      })),
-      directors: data.crew.filter((c) => c.job === "Director").map((c) => c.name)
-    };
-  }
-});
-
-export const getVideos = action({
-  args: { tmdbId: v.number(), type: v.union(v.literal("movie"), v.literal("tv")) },
-  handler: async (_ctx, { tmdbId, type }) => {
-    const endpoint = type === "movie" ? `/movie/${tmdbId}/videos` : `/tv/${tmdbId}/videos`;
-    const data = await tmdbGet<{ results: TMDBVideo[] }>(endpoint);
-    if (!data?.results) return [];
-    return data.results
-      .filter((v) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"))
-      .map((v) => ({ key: v.key, name: v.name, type: v.type, official: v.official }));
-  }
-});
-
-export const getRelated = action({
-  args: {
-    tmdbId: v.number(),
-    type: v.union(v.literal("movie"), v.literal("tv")),
-    limit: v.optional(v.number())
-  },
-  handler: async (_ctx, { tmdbId, type, limit = 10 }) => {
-    const endpoint =
-      type === "movie" ? `/movie/${tmdbId}/recommendations` : `/tv/${tmdbId}/recommendations`;
-    const data = await tmdbGet<{ results: TMDBListItem[] }>(endpoint);
-    if (!data?.results) return [];
-    return data.results.slice(0, limit).map((item) => {
-      const isMovie = "title" in item;
-      return {
-        tmdbId: item.id,
-        title: isMovie ? item.title : item.name,
-        type: isMovie ? "movie" : "tv",
-        posterUrl: getPosterUrl(item.poster_path),
-        year: getYear(isMovie ? item.release_date : item.first_air_date),
-        voteAverage: item.vote_average
-      };
-    });
   }
 });
 
