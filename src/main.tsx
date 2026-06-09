@@ -109,15 +109,9 @@ function AppShell() {
           <Routes>
             <Route path="/sign-in/*" element={<SignInPage />} />
             <Route path="/sign-up/*" element={<SignUpPage />} />
-            <Route
-              path="/watch/:id"
-              element={<AppRouteProviders page={<WatchPage />} />}
-            />
+            <Route path="/watch/:id" element={<AppRouteProviders page={<WatchPage />} />} />
             <Route path="/movies" element={<AppRouteProviders page={<MoviesPage />} />} />
-            <Route
-              path="/tv-shows"
-              element={<AppRouteProviders page={<TVShowsPage />} />}
-            />
+            <Route path="/tv-shows" element={<AppRouteProviders page={<TVShowsPage />} />} />
             <Route
               path="/new-releases"
               element={<AppRouteProviders page={<NewReleasesPage />} />}
@@ -126,15 +120,9 @@ function AppShell() {
               path="/my-list"
               element={<AppRouteProviders page={<MyListPage />} withProgress={false} />}
             />
-            <Route
-              path="/history"
-              element={<AppRouteProviders page={<WatchHistoryPage />} />}
-            />
+            <Route path="/history" element={<AppRouteProviders page={<WatchHistoryPage />} />} />
             <Route path="/search" element={<AppRouteProviders page={<SearchPage />} />} />
-            <Route
-              path="/settings"
-              element={<AppRouteProviders page={<SettingsPage />} />}
-            />
+            <Route path="/settings" element={<AppRouteProviders page={<SettingsPage />} />} />
             <Route path="/" element={<AppRouteProviders page={<App />} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

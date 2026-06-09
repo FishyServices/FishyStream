@@ -21,6 +21,7 @@ import {
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 const LS_KEY = "watchlist_ids";
+const LS_TMDB_KEY = "watchlist_tmdb_map";
 const MY_LIST_LIMIT = 500;
 const WATCHLIST_GRID_CACHE_TTL_MS = 30_000;
 
@@ -40,6 +41,25 @@ function lsGet(): string[] {
 function lsSet(ids: string[]) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(ids));
+  } catch {}
+}
+
+function lsTmdbGet(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(LS_TMDB_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function lsTmdbSet(map: Map<string, string>) {
+  try {
+    const obj: Record<string, string> = {};
+    map.forEach((v, k) => {
+      obj[k] = v;
+    });
+    localStorage.setItem(LS_TMDB_KEY, JSON.stringify(obj));
   } catch {}
 }
 
@@ -93,42 +113,52 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const isMyListRoute = location.pathname === "/my-list";
 
   const [ids, setIds] = useState<Set<string>>(() => new Set(lsGet()));
-  const [tmdbIds, setTmdbIds] = useState<Set<string>>(() => new Set());
-  const [idToTmdbMap, setIdToTmdbMap] = useState<Map<string, string>>(() => new Map());
+  const [idToTmdbMap, setIdToTmdbMap] = useState<Map<string, string>>(() => {
+    const stored = lsTmdbGet();
+    return new Map(Object.entries(stored));
+  });
+  const [tmdbIds, setTmdbIds] = useState<Set<string>>(() => {
+    const stored = lsTmdbGet();
+    return new Set(Object.values(stored));
+  });
   const [hydrated, setHydrated] = useState(() => !user);
   const hasLocalIds = ids.size > 0;
 
   const addMutation = useMutation(api.watchlist.addWatchlistEntry);
   const removeMutation = useMutation(api.watchlist.removeWatchlistEntry);
   const serverIds = useOneShotConvexQuery<Array<{ id: string; tmdbId?: string }>>(
-    !!user && !isConvexAuthLoading && !isMyListRoute && !hasLocalIds,
+    !!user && !isConvexAuthLoading && !isMyListRoute,
     (client) => client.query(api.watchlist.listWatchlistContentIds, { clerkUserId: user!.id }),
-    [user?.id, isConvexAuthLoading, isMyListRoute, hasLocalIds]
+    [user?.id, isConvexAuthLoading, isMyListRoute]
   );
 
-  const hydrateFromServerIds = useCallback((serverIds: Array<{ id: string; tmdbId?: string }>) => {
-    setHydrated(true);
-    const newIds = serverIds.map((x) => x.id);
-    const newTmdbIds = serverIds.map((x) => x.tmdbId).filter((x): x is string => !!x);
+  const hydrateFromServerIds = useCallback(
+    (serverEntries: Array<{ id: string; tmdbId?: string }>) => {
+      setHydrated(true);
+      const newIds = serverEntries.map((x) => x.id);
 
-    setIds((prev) => {
-      const merged = new Set([...prev, ...newIds]);
-      lsSet([...merged]);
-      return merged;
-    });
-    setTmdbIds((prev) => {
-      return new Set([...prev, ...newTmdbIds]);
-    });
-    setIdToTmdbMap((prev) => {
-      const next = new Map(prev);
-      for (const item of serverIds) {
-        if (item.tmdbId) {
-          next.set(item.id, item.tmdbId);
+      setIds((prev) => {
+        const merged = new Set([...prev, ...newIds]);
+        lsSet([...merged]);
+        return merged;
+      });
+      setIdToTmdbMap((prev) => {
+        const next = new Map(prev);
+        for (const item of serverEntries) {
+          if (item.tmdbId) {
+            next.set(item.id, item.tmdbId);
+          }
         }
-      }
-      return next;
-    });
-  }, []);
+        lsTmdbSet(next);
+        return next;
+      });
+      setTmdbIds(() => {
+        const freshMap = lsTmdbGet();
+        return new Set(Object.values(freshMap));
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     if (!user) {
@@ -167,19 +197,16 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
           adding ? next.add(tmdbId) : next.delete(tmdbId);
           return next;
         });
-        if (adding) {
-          setIdToTmdbMap((prev) => {
-            const next = new Map(prev);
+        setIdToTmdbMap((prev) => {
+          const next = new Map(prev);
+          if (adding) {
             next.set(id, tmdbId);
-            return next;
-          });
-        } else {
-          setIdToTmdbMap((prev) => {
-            const next = new Map(prev);
+          } else {
             next.delete(id);
-            return next;
-          });
-        }
+          }
+          lsTmdbSet(next);
+          return next;
+        });
       }
 
       if (!user) return;
@@ -201,6 +228,16 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
           setTmdbIds((prev) => {
             const next = new Set(prev);
             adding ? next.delete(tmdbId) : next.add(tmdbId);
+            return next;
+          });
+          setIdToTmdbMap((prev) => {
+            const next = new Map(prev);
+            if (adding) {
+              next.delete(id);
+            } else {
+              next.set(id, tmdbId);
+            }
+            lsTmdbSet(next);
             return next;
           });
         }
@@ -278,7 +315,9 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
 
   useEffect(() => {
     if (!effectiveData) return;
-    hydrateFromServerIds(effectiveData.map((item) => ({ id: item[0], tmdbId: item[4] ?? undefined })));
+    hydrateFromServerIds(
+      effectiveData.map((item) => ({ id: item[0], tmdbId: item[4] ?? undefined }))
+    );
   }, [effectiveData, hydrateFromServerIds]);
 
   return useMemo(() => effectiveData?.map(fromWatchlistGridWire), [effectiveData]);

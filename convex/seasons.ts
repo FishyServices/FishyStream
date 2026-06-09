@@ -78,7 +78,10 @@ async function readEpisodeMapping(
   return await ctx.db
     .query("seasonEpisodeMappings")
     .withIndex("by_content_season_episode", (q) =>
-      q.eq("contentId", contentId).eq("seasonNumber", seasonNumber).eq("episodeNumber", episodeNumber)
+      q
+        .eq("contentId", contentId)
+        .eq("seasonNumber", seasonNumber)
+        .eq("episodeNumber", episodeNumber)
     )
     .first();
 }
@@ -260,7 +263,11 @@ export const upsertSeason = internalMutation({
       episodes
     });
 
-    const existingPlaybackMeta = await readSeasonPlaybackMeta(ctx, args.contentId, args.seasonNumber);
+    const existingPlaybackMeta = await readSeasonPlaybackMeta(
+      ctx,
+      args.contentId,
+      args.seasonNumber
+    );
     const knownPayloadHash = existingPlaybackMeta?.seasonEpisodePayloadHash;
     const needsEpisodeWrite = knownPayloadHash !== seasonEpisodePayloadHash;
     const existingEpisodes = needsEpisodeWrite
