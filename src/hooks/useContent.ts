@@ -63,36 +63,24 @@ type TMDBListItem = {
 
 type TMDBListResponse = {
   results?: TMDBListItem[];
+  total_pages?: number;
+  total_results?: number;
 };
 
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_KEY ?? "84259f99204eeb7d45c7e3d8e36c6123";
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
-const TMDB_DISCOVER_GENRES: Record<string, number> = {
-  action: 28,
-  adventure: 12,
-  animation: 16,
-  comedy: 35,
-  crime: 80,
-  documentary: 99,
-  drama: 18,
-  family: 10751,
-  fantasy: 14,
-  history: 36,
-  horror: 27,
-  music: 10402,
-  mystery: 9648,
-  romance: 10749,
-  "science fiction": 878,
-  "sci-fi": 878,
-  thriller: 53,
-  war: 10752,
-  western: 37
-};
+import {
+  TMDB_BASE_URL,
+  TMDB_IMAGE_BASE,
+  TMDB_DISCOVER_GENRES,
+  getPosterUrl,
+  getYear,
+  getGenres,
+  getRating
+} from "../../shared/tmdb";
 
 function tmdbImage(path?: string | null) {
   return path
-    ? `${TMDB_IMAGE_BASE}${path}`
+    ? `${TMDB_IMAGE_BASE}/w500${path}`
     : "https://placehold.co/300x450/1a1a2e/555?text=No+Poster";
 }
 
@@ -169,29 +157,147 @@ function shuffleWithSeed<T>(items: T[], seed: number) {
 }
 
 export function useHomepageContent() {
-  const data = useOneShotConvexQuery<HomeViewWire>(
-    true,
-    (convex) => convex.query(api.content.getHomepageView, {}),
-    []
-  );
+  const [homepage, setHomepage] = useState<
+    | {
+        featured: ContentFeatured[];
+        categories: Array<{ id: string; title: string; content: ContentCard[] }>;
+      }
+    | undefined
+  >(undefined);
 
-  if (!data) return data as undefined;
-  return {
-    featured: data.featured.map(fromContentFeaturedWire) as ContentFeatured[],
-    categories: data.categories.map((row) => ({
-      ...row,
-      content: row.content.map(fromContentCardWire)
-    }))
-  };
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function load() {
+      try {
+        const [moviesRes, tvRes, newRes] = await Promise.all([
+          fetchTmdbListOrEmpty("/movie/popular", controller.signal),
+          fetchTmdbListOrEmpty("/tv/popular", controller.signal),
+          fetchTmdbListOrEmpty("/movie/now_playing", controller.signal)
+        ]);
+
+        const popularMovies = (moviesRes.results ?? [])
+          .map((item) => toClientContentCard(item, "movie"))
+          .filter((item): item is ContentCard => !!item);
+
+        const popularTv = (tvRes.results ?? [])
+          .map((item) => toClientContentCard(item, "tv"))
+          .filter((item): item is ContentCard => !!item);
+
+        const newReleases = (newRes.results ?? [])
+          .map((item) => toClientContentCard(item, "movie"))
+          .filter((item): item is ContentCard => !!item);
+
+        const featuredCandidates = [...popularMovies.slice(0, 2), ...popularTv.slice(0, 2)];
+
+        const featuredDetails = await Promise.all(
+          featuredCandidates.map(async (card) => {
+            try {
+              const res = await fetch(
+                tmdbUrl(`/${card.type}/${card.tmdbId}`, { append_to_response: "videos,images" }),
+                { signal: controller.signal }
+              );
+              if (!res.ok) return null;
+              const details = await res.json();
+
+              const logos = details.images?.logos;
+              const logoPath = logos && logos.length > 0 ? logos[0].file_path : null;
+              const logoUrl = logoPath ? `${TMDB_IMAGE_BASE}/w500${logoPath}` : undefined;
+
+              const videos = details.videos?.results;
+              const trailerKey =
+                videos && videos.length > 0
+                  ? videos.find((v: any) => v.type === "Trailer")?.key || videos[0].key
+                  : undefined;
+
+              const voteAverage = details.vote_average ?? card.voteAverage;
+              const rating =
+                voteAverage && voteAverage >= 7.5
+                  ? "PG-13"
+                  : voteAverage && voteAverage >= 5
+                    ? "PG"
+                    : "G";
+
+              return {
+                ...card,
+                description: details.overview ?? "No description available",
+                backdropUrl: details.backdrop_path
+                  ? `https://image.tmdb.org/t/p/original${details.backdrop_path}`
+                  : card.posterUrl,
+                rating,
+                logoUrl,
+                trailerKey,
+                duration:
+                  card.type === "movie"
+                    ? details.runtime
+                      ? `${details.runtime}m`
+                      : undefined
+                    : undefined,
+                seasons: card.type === "tv" ? details.number_of_seasons : undefined,
+                trending: true,
+                tagline: details.tagline,
+                originalLanguage: details.original_language
+              } as ContentFeatured;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const featured = featuredDetails.filter((item): item is ContentFeatured => !!item);
+
+        if (!controller.signal.aborted) {
+          setHomepage({
+            featured,
+            categories: [
+              { id: "movies", title: "Popular Movies", content: popularMovies },
+              { id: "tvshows", title: "Popular TV Shows", content: popularTv },
+              { id: "new", title: "New Releases", content: newReleases }
+            ]
+          });
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setHomepage({ featured: [], categories: [] });
+        }
+      }
+    }
+
+    void load();
+    return () => controller.abort();
+  }, []);
+
+  return homepage;
 }
 
 export function useNewReleases() {
-  const data = useOneShotConvexQuery<ContentCardWire[]>(
-    true,
-    (convex) => convex.query(api.content.listNewReleaseCards, {}),
-    []
-  );
-  return data?.map(fromContentCardWire);
+  const [newReleases, setNewReleases] = useState<ContentCard[] | undefined>(undefined);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function load() {
+      try {
+        const res = await fetchTmdbListOrEmpty("/movie/now_playing", controller.signal);
+        const cards = (res.results ?? [])
+          .map((item) => toClientContentCard(item, "movie"))
+          .filter((item): item is ContentCard => !!item);
+
+        if (!controller.signal.aborted) {
+          setNewReleases(cards);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setNewReleases([]);
+        }
+      }
+    }
+
+    void load();
+    return () => controller.abort();
+  }, []);
+
+  return newReleases;
 }
 
 export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?: "movie" | "tv") {
@@ -353,9 +459,6 @@ export function useSearchAll(query: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const searchMovies = useAction(api.tmdb.searchMovies);
-  const searchTVShows = useAction(api.tmdb.searchTVShows);
-
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
@@ -366,25 +469,65 @@ export function useSearchAll(query: string) {
     setLoading(true);
     setError(null);
 
+    const controller = new AbortController();
+
     const t = setTimeout(async () => {
       try {
-        const [movies, shows] = (await Promise.all([
-          searchMovies({ query }),
-          searchTVShows({ query })
-        ])) as [TMDBItem[], TMDBItem[]];
-        const combined = [
-          ...movies.map((m) => ({ ...m, type: "movie" as const })),
-          ...shows.map((s) => ({ ...s, type: "tv" as const }))
-        ];
-        setResults(combined as TMDBItem[]);
+        const [moviesRes, showsRes] = await Promise.all([
+          fetchTmdbListOrEmpty("/search/movie", controller.signal, {
+            query: encodeURIComponent(query)
+          }),
+          fetchTmdbListOrEmpty("/search/tv", controller.signal, {
+            query: encodeURIComponent(query)
+          })
+        ]);
+
+        const movies = (moviesRes.results ?? []).map((item) => {
+          const yearVal = getYear(item.release_date);
+          return {
+            tmdbId: item.id,
+            title: item.title ?? "",
+            posterUrl: getPosterUrl(item.poster_path ?? null),
+            year: yearVal,
+            genre: getGenres(item),
+            rating: getRating(item.vote_average ?? 0),
+            voteAverage: item.vote_average,
+            type: "movie" as const
+          };
+        });
+
+        const shows = (showsRes.results ?? []).map((item) => {
+          const yearVal = getYear(item.first_air_date);
+          return {
+            tmdbId: item.id,
+            title: item.name ?? "",
+            posterUrl: getPosterUrl(item.poster_path ?? null),
+            year: yearVal,
+            genre: getGenres(item),
+            rating: getRating(item.vote_average ?? 0),
+            voteAverage: item.vote_average,
+            type: "tv" as const
+          };
+        });
+
+        if (!controller.signal.aborted) {
+          setResults([...movies, ...shows]);
+        }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Search failed");
+        if (!controller.signal.aborted) {
+          setError(e instanceof Error ? e.message : "Search failed");
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     }, 350);
 
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
   }, [query]);
 
   return { results, loading, error };
@@ -399,33 +542,76 @@ export function usePaginatedContent(
   limit = 24,
   page = 1
 ): BrowsePageResult {
-  const normalizedPage = Math.max(1, Math.floor(page));
-  const pageData = useOneShotConvexQuery<{
-    items: ContentCardWire[];
+  const [result, setResult] = useState<{
+    items: ContentCard[];
+    currentPage: number;
     totalPages?: number;
     totalCount?: number;
     hasNextPage: boolean;
-  }>(
-    true,
-    (convex) =>
-      convex.query(api.content.getBrowseCardsPage, {
-        type,
-        genre,
-        sortBy,
-        page: normalizedPage,
-        limit
-      }),
-    [type, genre, sortBy, normalizedPage, limit]
-  );
+    canGoBack: boolean;
+    isLoading: boolean;
+  }>({
+    items: [],
+    currentPage: page,
+    hasNextPage: false,
+    canGoBack: false,
+    isLoading: true
+  });
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function load() {
+      setResult((prev) => ({ ...prev, isLoading: true }));
+      try {
+        const genreId = genre ? TMDB_DISCOVER_GENRES[genre.toLowerCase()] : undefined;
+        const path = `/discover/${type}`;
+
+        let tmdbSort = "popularity.desc";
+        if (sortBy === "new") {
+          tmdbSort = type === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
+        } else if (sortBy === "rating") {
+          tmdbSort = "vote_average.desc";
+        } else if (sortBy === "year") {
+          tmdbSort = type === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
+        }
+
+        const params: Record<string, string | number | undefined> = {
+          page,
+          sort_by: tmdbSort,
+          with_genres: genreId,
+          "vote_count.gte": sortBy === "rating" ? 100 : 25
+        };
+
+        const res = await fetchTmdbListOrEmpty(path, controller.signal, params);
+        const items = (res.results ?? [])
+          .map((item) => toClientContentCard(item, type))
+          .filter((item): item is ContentCard => !!item);
+
+        if (!controller.signal.aborted) {
+          setResult({
+            items,
+            currentPage: page,
+            totalPages: res.total_pages,
+            totalCount: res.total_results,
+            hasNextPage: page < (res.total_pages ?? 1),
+            canGoBack: page > 1,
+            isLoading: false
+          });
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setResult((prev) => ({ ...prev, isLoading: false }));
+        }
+      }
+    }
+
+    void load();
+    return () => controller.abort();
+  }, [type, genre, sortBy, page]);
 
   return {
-    items: pageData?.items.map(fromContentCardWire) ?? [],
-    currentPage: normalizedPage,
-    totalPages: pageData?.totalPages,
-    totalCount: pageData?.totalCount,
-    hasNextPage: pageData?.hasNextPage ?? false,
-    canGoBack: normalizedPage > 1,
-    isLoading: pageData === undefined,
+    ...result,
     goNext: () => {},
     goPrevious: () => {}
   };

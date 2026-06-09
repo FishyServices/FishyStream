@@ -41,7 +41,7 @@ export const listWatchlist = query({
 
 export const listWatchlistContentIds = query({
   args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx, { clerkUserId, limit = 500 }): Promise<string[]> => {
+  handler: async (ctx, { clerkUserId, limit = 500 }): Promise<Array<{ id: string; tmdbId?: string }>> => {
     const maxIds = Math.max(1, Math.min(500, Math.floor(limit)));
     const items = await ctx.db
       .query("watchlist")
@@ -49,7 +49,7 @@ export const listWatchlistContentIds = query({
       .order("desc")
       .take(maxIds);
 
-    return items.map((item) => item.contentId);
+    return items.map((item) => ({ id: item.contentId, tmdbId: item.tmdbId }));
   }
 });
 

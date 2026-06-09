@@ -9,11 +9,18 @@ import {
 } from "@fishy/providers/tvSeasonMappings";
 import { resolveAniListEpisodeAddress, resolveAniListId } from "@fishy/providers/anilistResolver";
 import type { AniListEpisodeMapping } from "../shared/contentMetadata";
-
-const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const TMDB_BASE_URL_2 = "https://api.tmdb.org/3";
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
+import {
+  TMDB_API_KEY,
+  TMDB_BASE_URL,
+  TMDB_BASE_URL_2,
+  TMDB_IMAGE_BASE,
+  getPosterUrl,
+  getBackdropUrl,
+  getStillUrl,
+  getGenres,
+  getRating,
+  getYear
+} from "../shared/tmdb";
 
 // ─── Cache Implementation ─────────────────────────────────────────────────────
 
@@ -291,21 +298,6 @@ async function fetchTMDB<T>(
   return get<T>(endpoint, extraParams);
 }
 
-function getPosterUrl(path: string | null, size = "w500"): string {
-  if (!path) return `https://placehold.co/500x750/1a1a2e/666?text=No+Poster`;
-  return `${TMDB_IMAGE_BASE}/${size}${path}`;
-}
-
-function getBackdropUrl(path: string | null): string {
-  if (!path) return `https://placehold.co/1920x1080/0a0a12/333?text=No+Backdrop`;
-  return `${TMDB_IMAGE_BASE}/original${path}`;
-}
-
-function getStillUrl(path: string | null): string {
-  if (!path) return "";
-  return `${TMDB_IMAGE_BASE}/w500${path}`;
-}
-
 function getLogoUrl(logos: TMDBLogo[] | undefined): string | undefined {
   if (!logos?.length) return undefined;
   const en = logos
@@ -327,57 +319,6 @@ function getTrailerKey(videos: TMDBVideo[] | undefined): string | undefined {
   return any?.key;
 }
 
-const GENRE_MAP: Record<number, string> = {
-  28: "Action",
-  12: "Adventure",
-  16: "Animation",
-  35: "Comedy",
-  80: "Crime",
-  99: "Documentary",
-  18: "Drama",
-  10751: "Family",
-  14: "Fantasy",
-  36: "History",
-  27: "Horror",
-  10402: "Music",
-  9648: "Mystery",
-  10749: "Romance",
-  878: "Sci-Fi",
-  10770: "TV Movie",
-  53: "Thriller",
-  10752: "War",
-  37: "Western",
-  10759: "Action & Adventure",
-  10762: "Kids",
-  10763: "News",
-  10764: "Reality",
-  10765: "Sci-Fi & Fantasy",
-  10766: "Soap",
-  10767: "Talk",
-  10768: "War & Politics"
-};
-
-function getGenres(item: { genres?: TMDBGenre[]; genre_ids?: number[] }): string[] {
-  if (item.genres?.length) return item.genres.map((g) => g.name);
-  return (item.genre_ids ?? []).map((id) => GENRE_MAP[id]).filter(Boolean) as string[];
-}
-
-function getRating(voteAverage: number, certificationOrRating?: string | null): string {
-  if (certificationOrRating) {
-    const r = certificationOrRating.trim().toUpperCase();
-    const known = ["G", "PG", "PG-13", "R", "NC-17", "TV-Y", "TV-G", "TV-PG", "TV-14", "TV-MA"];
-    if (known.includes(r)) return r;
-    if (r === "U" || r === "U/A") return "PG";
-    if (r === "A") return "R";
-    if (r === "18" || r === "18+") return "R";
-    if (r === "15" || r === "16+") return "PG-13";
-    if (r === "12" || r === "12A" || r === "13+") return "PG-13";
-  }
-  if (voteAverage >= 7.5) return "PG-13";
-  if (voteAverage >= 5) return "PG";
-  return "G";
-}
-
 function isAnimeLikeContent(args: {
   type: "movie" | "tv";
   genres: string[];
@@ -388,10 +329,6 @@ function isAnimeLikeContent(args: {
     args.originalLanguage?.toLowerCase() === "ja" &&
     args.genres.some((genre) => genre.toLowerCase() === "animation")
   );
-}
-
-function getYear(date?: string): number {
-  return parseInt(date?.split("-")[0] ?? "2024") || 2024;
 }
 
 function formatRuntime(minutes?: number): string | undefined {

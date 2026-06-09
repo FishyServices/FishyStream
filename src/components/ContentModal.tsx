@@ -172,15 +172,32 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     "episodes"
   );
   const hasServerContentId = !!content?._id && !isClientTmdbContentId(content._id);
+  const [syncAttempt, setSyncAttempt] = useState(0);
+  const [isSyncingMain, setIsSyncingMain] = useState(false);
+
   const fullContentWire = useOneShotConvexQuery<ContentDetailWire | null>(
     isOpen && !!content && hasServerContentId && !hasFullContent(content),
     (convex) => convex.query(api.content.getContentDetailById, { id: content!._id }),
     [content?._id, isOpen, hasServerContentId]
   );
-  const fullContent = fullContentWire ? fromContentDetailWire(fullContentWire) : fullContentWire;
+
+  const fullContentByTmdbWire = useOneShotConvexQuery<ContentDetailWire | null>(
+    isOpen && !!content && !hasServerContentId && !!content.tmdbId && !hasFullContent(content),
+    (convex) =>
+      convex.query(api.content.getContentDetailByTmdbId, {
+        tmdbId: content!.tmdbId!,
+        type: content!.type
+      }),
+    [content?.tmdbId, content?.type, isOpen, hasServerContentId, syncAttempt]
+  );
+
+  const activeDetailWire = hasServerContentId ? fullContentWire : fullContentByTmdbWire;
+  const fullContent = activeDetailWire ? fromContentDetailWire(activeDetailWire) : activeDetailWire;
+
   const resolvedContent: ModalContent | null = fullContent
-    ? { ...fullContent, ...content }
+    ? { ...fullContent, ...content, _id: fullContent._id }
     : content;
+
   const detailContent = hasFullContent(resolvedContent) ? resolvedContent : null;
   const navigate = useNavigate();
   const { isSignedIn } = useUser();

@@ -71,8 +71,9 @@ function writeWatchlistGridCache(userId: string | undefined, data: WatchlistGrid
 
 type WatchlistCtx = {
   set: Set<string>;
+  tmdbSet: Set<string>;
   toggle: (id: Id<"content">, snapshot?: WatchlistSnapshot) => Promise<void>;
-  hydrateFromServerIds: (ids: string[]) => void;
+  hydrateFromServerIds: (ids: Array<{ id: string; tmdbId?: string }>) => void;
   hydrated: boolean;
 };
 
@@ -92,26 +93,40 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const isMyListRoute = location.pathname === "/my-list";
 
   const [ids, setIds] = useState<Set<string>>(() => new Set(lsGet()));
+  const [tmdbIds, setTmdbIds] = useState<Set<string>>(() => new Set());
+  const [idToTmdbMap, setIdToTmdbMap] = useState<Map<string, string>>(() => new Map());
   const [hydrated, setHydrated] = useState(() => !user);
   const hasLocalIds = ids.size > 0;
 
   const addMutation = useMutation(api.watchlist.addWatchlistEntry);
   const removeMutation = useMutation(api.watchlist.removeWatchlistEntry);
-  const serverIds = useOneShotConvexQuery<string[]>(
+  const serverIds = useOneShotConvexQuery<Array<{ id: string; tmdbId?: string }>>(
     !!user && !isConvexAuthLoading && !isMyListRoute && !hasLocalIds,
     (client) => client.query(api.watchlist.listWatchlistContentIds, { clerkUserId: user!.id }),
     [user?.id, isConvexAuthLoading, isMyListRoute, hasLocalIds]
   );
 
-  const hydrateFromServerIds = useCallback((serverIds: string[]) => {
+  const hydrateFromServerIds = useCallback((serverIds: Array<{ id: string; tmdbId?: string }>) => {
     setHydrated(true);
+    const newIds = serverIds.map((x) => x.id);
+    const newTmdbIds = serverIds.map((x) => x.tmdbId).filter((x): x is string => !!x);
+
     setIds((prev) => {
-      const merged = new Set([...prev, ...serverIds]);
-      if (merged.size === prev.size && Array.from(merged).every((id) => prev.has(id))) {
-        return prev;
-      }
+      const merged = new Set([...prev, ...newIds]);
       lsSet([...merged]);
       return merged;
+    });
+    setTmdbIds((prev) => {
+      return new Set([...prev, ...newTmdbIds]);
+    });
+    setIdToTmdbMap((prev) => {
+      const next = new Map(prev);
+      for (const item of serverIds) {
+        if (item.tmdbId) {
+          next.set(item.id, item.tmdbId);
+        }
+      }
+      return next;
     });
   }, []);
 
@@ -137,6 +152,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(
     async (id: Id<"content">, snapshot?: WatchlistSnapshot) => {
       const adding = !ids.has(id);
+      const tmdbId = snapshot?.tmdbId || idToTmdbMap.get(id);
 
       setIds((prev) => {
         const next = new Set(prev);
@@ -144,6 +160,27 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
         lsSet([...next]);
         return next;
       });
+
+      if (tmdbId) {
+        setTmdbIds((prev) => {
+          const next = new Set(prev);
+          adding ? next.add(tmdbId) : next.delete(tmdbId);
+          return next;
+        });
+        if (adding) {
+          setIdToTmdbMap((prev) => {
+            const next = new Map(prev);
+            next.set(id, tmdbId);
+            return next;
+          });
+        } else {
+          setIdToTmdbMap((prev) => {
+            const next = new Map(prev);
+            next.delete(id);
+            return next;
+          });
+        }
+      }
 
       if (!user) return;
 
@@ -160,13 +197,20 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
           lsSet([...next]);
           return next;
         });
+        if (tmdbId) {
+          setTmdbIds((prev) => {
+            const next = new Set(prev);
+            adding ? next.delete(tmdbId) : next.add(tmdbId);
+            return next;
+          });
+        }
       }
     },
-    [ids, user, addMutation, removeMutation]
+    [ids, idToTmdbMap, user, addMutation, removeMutation]
   );
 
   return (
-    <Ctx.Provider value={{ set: ids, toggle, hydrateFromServerIds, hydrated }}>
+    <Ctx.Provider value={{ set: ids, tmdbSet: tmdbIds, toggle, hydrateFromServerIds, hydrated }}>
       {children}
     </Ctx.Provider>
   );
@@ -178,9 +222,16 @@ function useWatchlistCtx(): WatchlistCtx {
   return ctx;
 }
 
-export function useIsInWatchlist(id: Id<"content"> | undefined): boolean {
-  const { set } = useWatchlistCtx();
-  return id ? set.has(id) : false;
+export function useIsInWatchlist(id: string | undefined): boolean {
+  const { set, tmdbSet } = useWatchlistCtx();
+  if (!id) return false;
+  if (set.has(id)) return true;
+  if (id.startsWith("tmdb:")) {
+    const parts = id.split(":");
+    const extractedTmdbId = parts[parts.length - 1];
+    if (extractedTmdbId && tmdbSet.has(extractedTmdbId)) return true;
+  }
+  return false;
 }
 
 export function useToggleWatchlist() {
@@ -227,7 +278,7 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
 
   useEffect(() => {
     if (!effectiveData) return;
-    hydrateFromServerIds(effectiveData.map((item) => item[0]));
+    hydrateFromServerIds(effectiveData.map((item) => ({ id: item[0], tmdbId: item[4] ?? undefined })));
   }, [effectiveData, hydrateFromServerIds]);
 
   return useMemo(() => effectiveData?.map(fromWatchlistGridWire), [effectiveData]);

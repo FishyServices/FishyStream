@@ -44,7 +44,7 @@ export function MoviesPage() {
     "movie",
     genre !== "All" ? genre : undefined,
     sort,
-    8,
+    12,
     page
   );
   const movies = paginated.items;
