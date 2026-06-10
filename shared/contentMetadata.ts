@@ -68,46 +68,6 @@ export interface WatchHistoryItemMeta extends ContentCard {
   dub?: boolean;
 }
 
-export type ContentCardWire = [
-  contentId: ContentId,
-  title: string,
-  type: ContentTypeWire,
-  posterUrl: string,
-  year: number,
-  voteAverage: number | null,
-  tmdbId: string | null,
-  isNew: boolean,
-  genre?: string[]
-];
-
-export type ContentFeaturedWire = [
-  contentId: ContentId,
-  title: string,
-  type: ContentTypeWire,
-  posterUrl: string,
-  year: number,
-  voteAverage: number | null,
-  tmdbId: string | null,
-  isNew: boolean,
-  description: string,
-  backdropUrl: string,
-  rating: string,
-  trending: boolean,
-  genre?: string[] | null,
-  logoUrl?: string | null,
-  trailerKey?: string | null,
-  duration?: string | null,
-  seasons?: number | null,
-  tagline?: string | null,
-  originalLanguage?: string | null,
-  imdbId?: string | null,
-  anilistId?: string | null,
-  totalEpisodes?: number | null,
-  status?: string | null
-];
-
-export type ContentDetailWire = ContentFeaturedWire;
-
 export type ContentPlaybackWire = [
   contentId: ContentId,
   title: string,
@@ -120,11 +80,6 @@ export type ContentPlaybackWire = [
   seasons: number | null,
   genre?: string[]
 ];
-
-export type HomeViewWire = {
-  featured: ContentFeaturedWire[];
-  categories: Array<{ id: string; title: string; content: ContentCardWire[] }>;
-};
 
 export type WatchlistGridWire = [
   contentId: ContentId,
@@ -178,19 +133,6 @@ export interface AniListEpisodeMapping {
   anilistEpisodeNumber: number;
 }
 
-type CardRecord = {
-  _id?: unknown;
-  contentId?: ContentId;
-  title: string;
-  type: ContentType;
-  genre: string[];
-  year: number;
-  voteAverage?: number;
-  posterUrl: string;
-  tmdbId?: string;
-  new: boolean;
-};
-
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/";
 const TMDB_IMAGE_WIRE_PREFIX = "~";
 
@@ -214,161 +156,22 @@ export function fromImageWire(url: string): string {
     : url;
 }
 
-type DetailRecord = CardRecord & {
-  description: string;
-  backdropUrl: string;
-  rating: string;
-  logoUrl?: string;
-  trailerKey?: string;
-  duration?: string;
-  seasons?: number;
-  trending: boolean;
-  tagline?: string;
-  originalLanguage?: string;
+export function toContentPlaybackWire(content: {
+  _id?: unknown;
+  contentId?: ContentId;
+  title: string;
+  type: ContentType;
+  genre: string[];
+  year: number;
+  tmdbId?: string;
   imdbId?: string;
   anilistId?: string;
-  totalEpisodes?: number;
-  status?: string;
-};
-
-function contentIdOf(record: CardRecord): ContentId {
-  return (record.contentId ?? record._id) as ContentId;
-}
-
-function compactDescription(value: string) {
-  return value.length > 200 ? `${value.slice(0, 200).trimEnd()}...` : value;
-}
-
-export function toContentCardWire(content: CardRecord): ContentCardWire {
+  originalLanguage?: string;
+  seasons?: number;
+}): ContentPlaybackWire {
+  const contentId = (content.contentId ?? content._id) as ContentId;
   return [
-    contentIdOf(content),
-    content.title,
-    toContentTypeWire(content.type),
-    toImageWire(content.posterUrl),
-    content.year,
-    content.voteAverage ?? null,
-    content.tmdbId ?? null,
-    content.new
-  ];
-}
-
-export function compactContentCardWire(item: ContentCardWire): ContentCardWire {
-  return [
-    item[0],
-    item[1],
-    toContentTypeWire(fromContentTypeWire(item[2])),
-    toImageWire(item[3]),
-    item[4],
-    item[5] ?? null,
-    item[6] ?? null,
-    item[7]
-  ];
-}
-
-export function fromContentCardWire(item: ContentCardWire): ContentCard {
-  return {
-    _id: item[0],
-    title: item[1],
-    type: fromContentTypeWire(item[2]),
-    posterUrl: fromImageWire(item[3]),
-    year: item[4],
-    voteAverage: item[5] ?? undefined,
-    tmdbId: item[6] ?? undefined,
-    new: item[7],
-    genre: item[8] ?? []
-  };
-}
-
-export function toContentFeaturedWire(content: DetailRecord): ContentFeaturedWire {
-  return [
-    contentIdOf(content),
-    content.title,
-    toContentTypeWire(content.type),
-    toImageWire(content.posterUrl),
-    content.year,
-    content.voteAverage ?? null,
-    content.tmdbId ?? null,
-    content.new,
-    compactDescription(content.description),
-    toImageWire(content.backdropUrl),
-    content.rating,
-    content.trending,
-    content.genre.slice(0, 3),
-    content.logoUrl ? toImageWire(content.logoUrl) : null,
-    content.trailerKey ?? null,
-    content.duration ?? null,
-    content.seasons ?? null,
-    content.tagline ?? null,
-    content.originalLanguage ?? null,
-    content.imdbId ?? null,
-    content.anilistId ?? null,
-    content.totalEpisodes ?? null,
-    content.status ?? null
-  ];
-}
-
-export function compactContentFeaturedWire(item: ContentFeaturedWire): ContentFeaturedWire {
-  return [
-    item[0],
-    item[1],
-    toContentTypeWire(fromContentTypeWire(item[2])),
-    toImageWire(item[3]),
-    item[4],
-    item[5] ?? null,
-    item[6] ?? null,
-    item[7],
-    item[8],
-    toImageWire(item[9]),
-    item[10],
-    item[11],
-    item[12] ?? null,
-    item[13] ? toImageWire(item[13]) : null,
-    item[14] ?? null,
-    item[15] ?? null,
-    item[16] ?? null,
-    item[17] ?? null,
-    item[18] ?? null,
-    item[19] ?? null,
-    item[20] ?? null,
-    item[21] ?? null,
-    item[22] ?? null
-  ];
-}
-
-export function fromContentFeaturedWire(item: ContentFeaturedWire): ContentDetail {
-  return {
-    _id: item[0],
-    title: item[1],
-    type: fromContentTypeWire(item[2]),
-    posterUrl: fromImageWire(item[3]),
-    year: item[4],
-    voteAverage: item[5] ?? undefined,
-    tmdbId: item[6] ?? undefined,
-    new: item[7],
-    description: item[8],
-    backdropUrl: fromImageWire(item[9]),
-    rating: item[10],
-    trending: item[11],
-    genre: item[12] ?? [],
-    logoUrl: item[13] ? fromImageWire(item[13]) : undefined,
-    trailerKey: item[14] ?? undefined,
-    duration: item[15] ?? undefined,
-    seasons: item[16] ?? undefined,
-    tagline: item[17] ?? undefined,
-    originalLanguage: item[18] ?? undefined,
-    imdbId: item[19] ?? undefined,
-    anilistId: item[20] ?? undefined,
-    totalEpisodes: item[21] ?? undefined,
-    status: item[22] ?? undefined
-  };
-}
-
-export const fromContentDetailWire = fromContentFeaturedWire;
-export const toContentDetailWire = toContentFeaturedWire;
-
-export function toContentPlaybackWire(content: DetailRecord): ContentPlaybackWire {
-  return [
-    contentIdOf(content),
+    contentId,
     content.title,
     toContentTypeWire(content.type),
     content.year,

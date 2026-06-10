@@ -222,6 +222,8 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
   const syncSingleContent = useAction(api.tmdb.syncSingleContent);
   const [syncAttempt, setSyncAttempt] = useState(0);
   const [isSyncingMissing, setIsSyncingMissing] = useState(false);
+  const [syncFailed, setSyncFailed] = useState(false);
+  
   const data = useOneShotConvexQuery<ContentPlaybackWire | null>(
     !!tmdbId,
     (convex) =>
@@ -238,10 +240,14 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
 
     let cancelled = false;
     setIsSyncingMissing(true);
+    setSyncFailed(false);
 
     void syncSingleContent({ tmdbId: parsedTmdbId, type: typeHint })
       .then(() => {
         if (!cancelled) setSyncAttempt((v) => v + 1);
+      })
+      .catch(() => {
+        if (!cancelled) setSyncFailed(true);
       })
       .finally(() => {
         if (!cancelled) setIsSyncingMissing(false);
@@ -253,6 +259,9 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
   }, [data, isSyncingMissing, syncAttempt, syncSingleContent, tmdbId, typeHint]);
 
   if (data === null && isSyncingMissing) return undefined;
+  
+  if (syncFailed || (!typeHint && data === null)) return null;
+  
   return data ? fromContentPlaybackWire(data) : data;
 }
 

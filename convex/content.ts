@@ -1,30 +1,14 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import {
-  toContentCardWire,
-  toContentDetailWire,
-  toContentFeaturedWire,
   toContentPlaybackWire,
-  compactContentCardWire,
-  compactContentFeaturedWire,
   toImageWire,
-  type ContentCardWire,
-  type ContentDetailWire,
-  type ContentFeaturedWire,
-  type ContentPlaybackWire,
-  type HomeViewWire
+  type ContentPlaybackWire
 } from "../shared/contentMetadata";
 
 const contentTypeValidator = v.union(v.literal("movie"), v.literal("tv"));
-const browseSortValidator = v.union(
-  v.literal("trending"),
-  v.literal("popular"),
-  v.literal("new"),
-  v.literal("rating"),
-  v.literal("year")
-);
 
 const tmdbContentValidator = v.object({
   title: v.string(),
@@ -58,19 +42,7 @@ const tmdbContentValidator = v.object({
   syncHash: v.optional(v.string())
 });
 
-type BrowseSort = "trending" | "popular" | "new" | "rating" | "year";
 type ContentInput = typeof tmdbContentValidator.type;
-
-const DEFAULT_PAGE_LIMIT = 12;
-const MAX_BROWSE_PAGE_LIMIT = 12;
-
-function normalizePage(page?: number) {
-  return Math.max(1, Math.floor(page ?? 1));
-}
-
-function normalizeLimit(limit?: number, max = MAX_BROWSE_PAGE_LIMIT) {
-  return Math.max(1, Math.min(max, Math.floor(limit ?? DEFAULT_PAGE_LIMIT)));
-}
 
 function genreKey(value?: string) {
   return value
@@ -208,131 +180,6 @@ function toDetailContent(
   };
 }
 
-async function getCatalogPage(
-  ctx: QueryCtx,
-  args: {
-    type: "movie" | "tv";
-    sortBy?: BrowseSort;
-    genre?: string;
-    page?: number;
-    limit?: number;
-  }
-) {
-  const page = normalizePage(args.page);
-  const limit = normalizeLimit(args.limit);
-  const sortBy = args.sortBy ?? "popular";
-  const offset = (page - 1) * limit;
-  const requestedGenreKey = genreKey(args.genre);
-  const readLimit = offset + limit + 1;
-  const rows = await listSortedContent(ctx, args.type, sortBy, readLimit);
-  const filteredRows = requestedGenreKey
-    ? rows.filter((row) => row.genreKeys.includes(requestedGenreKey))
-    : rows;
-  const pageItems = filteredRows.slice(offset, offset + limit);
-  return {
-    items: pageItems.map((item) => compactContentCardWire(toContentCardWire(item))),
-    totalCount: requestedGenreKey && rows.length < readLimit ? filteredRows.length : undefined,
-    hasNextPage: filteredRows.length > offset + limit
-  };
-}
-
-async function listSortedContent(
-  ctx: QueryCtx | MutationCtx,
-  type: "movie" | "tv",
-  sortBy: BrowseSort,
-  limit: number
-) {
-  switch (sortBy) {
-    case "trending":
-      return await ctx.db
-        .query("content")
-        .withIndex("by_type_trending", (q) => q.eq("type", type))
-        .order("desc")
-        .take(limit);
-    case "new":
-      return await ctx.db
-        .query("content")
-        .withIndex("by_type_new", (q) => q.eq("type", type))
-        .order("desc")
-        .take(limit);
-    case "rating":
-      return await ctx.db
-        .query("content")
-        .withIndex("by_type_rating", (q) => q.eq("type", type))
-        .order("desc")
-        .take(limit);
-    case "year":
-      return await ctx.db
-        .query("content")
-        .withIndex("by_type_year", (q) => q.eq("type", type))
-        .order("desc")
-        .take(limit);
-    case "popular":
-    default:
-      return await ctx.db
-        .query("content")
-        .withIndex("by_type_popular", (q) => q.eq("type", type))
-        .order("desc")
-        .take(limit);
-  }
-}
-
-async function readDetailByContentId(ctx: QueryCtx | MutationCtx, contentId: Id<"content">) {
-  return await ctx.db
-    .query("contentDetails")
-    .withIndex("by_content", (q) => q.eq("contentId", contentId))
-    .first();
-}
-
-export const getHomepageView = query({
-  args: {},
-  handler: async (ctx): Promise<HomeViewWire> => {
-    const row = await ctx.db
-      .query("homeViews")
-      .withIndex("by_key", (q) => q.eq("key", "default"))
-      .first();
-
-    return {
-      featured: ((row?.featured ?? []) as ContentFeaturedWire[]).map(compactContentFeaturedWire),
-      categories: ((row?.rows ?? []) as HomeViewWire["categories"]).map((category) => ({
-        ...category,
-        content: category.content.map(compactContentCardWire)
-      }))
-    };
-  }
-});
-
-export const listNewReleaseCards = query({
-  args: {},
-  handler: async (ctx): Promise<ContentCardWire[]> => {
-    return (await getCatalogPage(ctx, { type: "movie", sortBy: "new", page: 1, limit: 8 })).items;
-  }
-});
-
-export const getContentDetailById = query({
-  args: { id: v.id("content") },
-  handler: async (ctx, { id }): Promise<ContentDetailWire | null> => {
-    const item = await readDetailByContentId(ctx, id);
-    return item ? toContentDetailWire(item) : null;
-  }
-});
-
-export const getContentDetailByTmdbId = query({
-  args: { tmdbId: v.string(), type: v.optional(contentTypeValidator) },
-  handler: async (ctx, { tmdbId, type }): Promise<ContentDetailWire | null> => {
-    const item = type
-      ? await ctx.db
-          .query("contentDetails")
-          .withIndex("by_type_tmdb_id", (q) => q.eq("type", type).eq("tmdbId", tmdbId))
-          .first()
-      : await ctx.db
-          .query("contentDetails")
-          .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
-          .first();
-    return item ? toContentDetailWire(item) : null;
-  }
-});
-
 export const getContentPlaybackByTmdbId = query({
   args: { tmdbId: v.string(), type: v.optional(contentTypeValidator) },
   handler: async (ctx, { tmdbId, type }): Promise<ContentPlaybackWire | null> => {
@@ -346,19 +193,6 @@ export const getContentPlaybackByTmdbId = query({
           .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", tmdbId))
           .first();
     return item ? toContentPlaybackWire(item) : null;
-  }
-});
-
-export const getBrowseCardsPage = query({
-  args: {
-    type: contentTypeValidator,
-    genre: v.optional(v.string()),
-    sortBy: v.optional(browseSortValidator),
-    page: v.optional(v.number()),
-    limit: v.optional(v.number())
-  },
-  handler: async (ctx, args) => {
-    return await getCatalogPage(ctx, args);
   }
 });
 
@@ -449,19 +283,5 @@ export const getContentSyncContextById = query({
       tmdbId: item.tmdbId,
       year: item.year
     };
-  }
-});
-
-export const listRecommendedCardsFromSeed = query({
-  args: {
-    watchlistIds: v.array(v.id("content")),
-    preferredType: contentTypeValidator,
-    genres: v.array(v.string()),
-    limit: v.optional(v.number()),
-    typeFilter: v.optional(v.union(v.literal("all"), v.literal("movie"), v.literal("tv"))),
-    refreshSeed: v.optional(v.number())
-  },
-  handler: async (): Promise<ContentCardWire[]> => {
-    return [];
   }
 });

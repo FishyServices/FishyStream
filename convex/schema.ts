@@ -79,20 +79,6 @@ export default defineSchema({
     .index("by_tmdb_id", ["tmdbId"])
     .index("by_type_tmdb_id", ["type", "tmdbId"]),
 
-  homeViews: defineTable({
-    key: v.string(),
-    featured: v.array(v.any()),
-    rows: v.array(
-      v.object({
-        id: v.string(),
-        title: v.string(),
-        content: v.array(v.any())
-      })
-    ),
-    updatedAt: v.number(),
-    sourceHash: v.string()
-  }).index("by_key", ["key"]),
-
   seasonEpisodes: defineTable({
     contentId: v.id("content"),
     tmdbId: v.string(),
