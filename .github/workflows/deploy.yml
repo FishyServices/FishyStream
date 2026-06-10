@@ -30,7 +30,7 @@ jobs:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
           VITE_CONVEX_URL: ${{ secrets.VITE_CONVEX_URL }}
           VITE_CONVEX_SITE_URL: ${{ secrets.VITE_CONVEX_SITE_URL }}
-        run: tsc -b && vite build
+        run: bunx tsc -b && bunx vite build
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
