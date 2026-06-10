@@ -25,6 +25,9 @@ jobs:
       - name: Build providers package
         run: bun run --cwd packages/providers build
 
+      - name: Sync providers dist to node_modules
+        run: cp -r packages/providers/dist node_modules/@fishy/providers/
+
       - name: Build
         env:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
