@@ -213,3 +213,27 @@ export interface TMDBDiscoverResult {
   totalPages: number;
   totalResults: number;
 }
+
+export interface TMDBFullDetail {
+  tmdbId: string;
+  type: TMDBMediaType;
+  title: string;
+  description: string;
+  year: number;
+  rating: string;
+  voteAverage?: number;
+  posterUrl: string;
+  backdropUrl: string;
+  logoUrl?: string;
+  trailerKey?: string;
+  duration?: string;
+  seasons?: number;
+  totalEpisodes?: number;
+  genre: string[];
+  imdbId?: string;
+  originalLanguage?: string;
+  tagline?: string;
+  status?: string;
+  trending: boolean;
+  isNew: boolean;
+}

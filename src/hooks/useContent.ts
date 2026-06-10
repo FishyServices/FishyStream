@@ -18,6 +18,8 @@ import {
   fetchTmdbVideos,
   fetchTmdbRelated,
   fetchTmdbDetails,
+  fetchTmdbFullDetail,
+  fetchTmdbSeasonEpisodes,
   fetchTmdbSearch,
   fetchTmdbDiscover,
   collectTmdbCards,
@@ -27,10 +29,11 @@ import {
   type TMDBCreditResult,
   type TMDBVideoResult,
   type TMDBItem,
-  type TMDBBrowseListResponse
+  type TMDBBrowseListResponse,
+  type TMDBFullDetail
 } from "@fishy/providers/tmdb";
 
-export type { TMDBItem };
+export type { TMDBItem, TMDBFullDetail };
 
 export interface BrowsePageResult {
   items: ContentCard[];
@@ -573,4 +576,96 @@ export function useRecommendations(
   ]);
 
   return { recommendations, isLoading };
+}
+
+export function useContentDetail(
+  tmdbId: string | undefined,
+  type: TMDBMediaType | undefined,
+  enabled = true
+) {
+  const [detail, setDetail] = useState<TMDBFullDetail | null | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(false);
+  const cancelRef = useRef(false);
+
+  useEffect(() => {
+    if (!enabled || !tmdbId || !type) {
+      setDetail(undefined);
+      return;
+    }
+    cancelRef.current = false;
+    setIsLoading(true);
+    setDetail(undefined);
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const result = await fetchTmdbFullDetail(tmdbId, type, getApiKey(), controller.signal);
+        if (!cancelRef.current) setDetail(result);
+      } catch {
+        if (!cancelRef.current) setDetail(null);
+      } finally {
+        if (!cancelRef.current) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      controller.abort();
+      cancelRef.current = true;
+    };
+  }, [tmdbId, type, enabled]);
+
+  return { detail, isLoading };
+}
+
+export function useSeasonEpisodes(
+  tmdbId: string | undefined,
+  seasonNumber: number,
+  enabled = true
+) {
+  const [season, setSeason] = useState<{
+    overview?: string;
+    episodes: Array<{
+      episodeNumber: number;
+      name: string;
+      overview?: string;
+      stillUrl?: string;
+      runtime?: number;
+    }>;
+  } | null | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(false);
+  const cancelRef = useRef(false);
+
+  useEffect(() => {
+    if (!enabled || !tmdbId) {
+      setSeason(undefined);
+      return;
+    }
+    cancelRef.current = false;
+    setIsLoading(true);
+    setSeason(undefined);
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const result = await fetchTmdbSeasonEpisodes(
+          tmdbId,
+          seasonNumber,
+          getApiKey(),
+          controller.signal
+        );
+        if (!cancelRef.current) setSeason(result);
+      } catch {
+        if (!cancelRef.current) setSeason(null);
+      } finally {
+        if (!cancelRef.current) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      controller.abort();
+      cancelRef.current = true;
+    };
+  }, [tmdbId, seasonNumber, enabled]);
+
+  return { season, isLoading };
 }

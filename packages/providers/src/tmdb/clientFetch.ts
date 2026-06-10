@@ -17,7 +17,8 @@ import type {
   TMDBVideoResult,
   TMDBDetailsResult,
   TMDBSearchResult,
-  TMDBDiscoverResult
+  TMDBDiscoverResult,
+  TMDBFullDetail
 } from "./types";
 import { GENRE_MAP } from "./constants";
 
@@ -264,6 +265,93 @@ export function toTMDBItem(item: TMDBBrowseListItem, type: TMDBMediaType): TMDBI
     voteAverage: item.vote_average,
     type
   };
+}
+
+export async function fetchTmdbFullDetail(
+  tmdbId: string,
+  type: TMDBMediaType,
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<TMDBFullDetail | null> {
+  const url = buildTmdbUrl(`/${type}/${tmdbId}`, apiKey, {
+    append_to_response: "external_ids,videos,images"
+  });
+  try {
+    const res = await fetch(url, { signal });
+    if (!res.ok) return null;
+    const d = (await res.json()) as TMDBMovieDetails & TMDBTVDetails;
+    const genres = getGenres(d);
+    const releaseDate = type === "movie" ? d.release_date : d.first_air_date;
+    return {
+      tmdbId,
+      type,
+      title: (type === "movie" ? d.title : d.name) ?? "",
+      description: d.overview ?? "No description available",
+      year: getYear(releaseDate),
+      rating: getRating(d.vote_average ?? 0),
+      voteAverage: d.vote_average,
+      posterUrl: getPosterUrl(d.poster_path ?? null),
+      backdropUrl: d.backdrop_path ? getBackdropUrl(d.backdrop_path) : "",
+      logoUrl: getLogoUrl(d.images?.logos),
+      trailerKey: getTrailerKey(d.videos?.results),
+      duration: type === "movie" ? formatRuntime(d.runtime) : undefined,
+      seasons: type === "tv" ? d.number_of_seasons : undefined,
+      totalEpisodes: type === "tv" ? d.number_of_episodes : undefined,
+      genre: genres,
+      imdbId: (type === "movie" ? d.imdb_id ?? d.external_ids?.imdb_id : d.external_ids?.imdb_id) || undefined,
+      originalLanguage: d.original_language,
+      tagline: d.tagline || undefined,
+      status: d.status || undefined,
+      trending: false,
+      isNew: false
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchTmdbSeasonEpisodes(
+  tmdbId: string,
+  seasonNumber: number,
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<{
+  overview?: string;
+  episodes: Array<{
+    episodeNumber: number;
+    name: string;
+    overview?: string;
+    stillUrl?: string;
+    runtime?: number;
+  }>;
+} | null> {
+  const url = buildTmdbUrl(`/tv/${tmdbId}/season/${seasonNumber}`, apiKey);
+  try {
+    const res = await fetch(url, { signal });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      overview?: string;
+      episodes?: Array<{
+        episode_number: number;
+        name: string;
+        overview?: string;
+        still_path?: string | null;
+        runtime?: number | null;
+      }>;
+    };
+    return {
+      overview: data.overview || undefined,
+      episodes: (data.episodes ?? []).map((ep) => ({
+        episodeNumber: ep.episode_number,
+        name: ep.name,
+        overview: ep.overview || undefined,
+        stillUrl: ep.still_path ? getPosterUrl(ep.still_path, "w300") : undefined,
+        runtime: ep.runtime ?? undefined
+      }))
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function collectTmdbCards(

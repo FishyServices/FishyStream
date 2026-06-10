@@ -30,7 +30,7 @@ import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "@fishy/ui";
-import { useContentCredits, useContentVideos, useRelatedContent } from "@/hooks/useContent";
+import { useContentCredits, useContentVideos, useRelatedContent, useContentDetail, useSeasonEpisodes } from "@/hooks/useContent";
 import { useOneShotConvexQuery } from "@/hooks/useOneShotConvexQuery";
 import type { TMDBItem } from "@/hooks/useContent";
 import {
@@ -40,12 +40,11 @@ import {
 import { isAnimeProviderContent } from "@fishy/providers/providerPlayback";
 import type {
   ContentDetail,
-  ContentDetailWire,
   ContentId,
   ContentType,
   SeasonMetaSummary
 } from "../../shared/contentMetadata";
-import { fromContentDetailWire, fromImageWire } from "../../shared/contentMetadata";
+import { fromImageWire } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -167,32 +166,45 @@ function EpisodePill({
 
 export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalProps) {
   const [seasonReloadKey, setSeasonReloadKey] = useState(0);
-  const [relatedReloadKey, setRelatedReloadKey] = useState(0);
   const [activeTab, setActiveTab] = useState<"episodes" | "cast" | "videos" | "related">(
     "episodes"
   );
   const hasServerContentId = !!content?._id && !isClientTmdbContentId(content._id);
-  const [syncAttempt, setSyncAttempt] = useState(0);
-  const [isSyncingMain, setIsSyncingMain] = useState(false);
 
-  const fullContentWire = useOneShotConvexQuery<ContentDetailWire | null>(
-    isOpen && !!content && hasServerContentId && !hasFullContent(content),
-    (convex) => convex.query(api.content.getContentDetailById, { id: content!._id }),
-    [content?._id, isOpen, hasServerContentId]
+  const tmdbDetailEnabled =
+    isOpen && !!content && !!content.tmdbId && !hasFullContent(content);
+  const { detail: tmdbDetail } = useContentDetail(
+    tmdbDetailEnabled ? content?.tmdbId : undefined,
+    tmdbDetailEnabled ? content?.type : undefined,
+    tmdbDetailEnabled
   );
 
-  const fullContentByTmdbWire = useOneShotConvexQuery<ContentDetailWire | null>(
-    isOpen && !!content && !hasServerContentId && !!content.tmdbId && !hasFullContent(content),
-    (convex) =>
-      convex.query(api.content.getContentDetailByTmdbId, {
-        tmdbId: content!.tmdbId!,
-        type: content!.type
-      }),
-    [content?.tmdbId, content?.type, isOpen, hasServerContentId, syncAttempt]
-  );
-
-  const activeDetailWire = hasServerContentId ? fullContentWire : fullContentByTmdbWire;
-  const fullContent = activeDetailWire ? fromContentDetailWire(activeDetailWire) : activeDetailWire;
+  const fullContent: ContentDetail | null | undefined = tmdbDetail
+    ? ({
+        _id: content!._id,
+        title: tmdbDetail.title,
+        type: tmdbDetail.type,
+        year: tmdbDetail.year,
+        posterUrl: tmdbDetail.posterUrl,
+        backdropUrl: tmdbDetail.backdropUrl,
+        description: tmdbDetail.description,
+        rating: tmdbDetail.rating,
+        voteAverage: tmdbDetail.voteAverage,
+        genre: tmdbDetail.genre,
+        tmdbId: tmdbDetail.tmdbId,
+        logoUrl: tmdbDetail.logoUrl,
+        trailerKey: tmdbDetail.trailerKey,
+        duration: tmdbDetail.duration,
+        seasons: tmdbDetail.seasons,
+        tagline: tmdbDetail.tagline,
+        originalLanguage: tmdbDetail.originalLanguage,
+        imdbId: tmdbDetail.imdbId,
+        totalEpisodes: tmdbDetail.totalEpisodes,
+        status: tmdbDetail.status,
+        trending: tmdbDetail.trending,
+        new: tmdbDetail.isNew
+      } as ContentDetail)
+    : tmdbDetail;
 
   const resolvedContent: ModalContent | null = fullContent
     ? { ...fullContent, ...content, _id: fullContent._id }
@@ -228,22 +240,39 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     ],
     [resolvedContent?._id, resolvedContent?.type, selectedSeason, isOpen]
   );
-  const dbSeason = useMemo(() => {
-    const selectedSeason = seasonModalView?.selectedSeason;
-    if (!selectedSeason) return selectedSeason;
+  const isClientTmdbContent = !hasResolvedServerContentId;
+  const { season: tmdbSeason, isLoading: tmdbSeasonLoading } = useSeasonEpisodes(
+    isClientTmdbContent && isOpen && resolvedContent?.type === "tv"
+      ? resolvedContent?.tmdbId
+      : undefined,
+    selectedSeason,
+    isClientTmdbContent && isOpen && resolvedContent?.type === "tv"
+  );
 
+  const dbSeason = useMemo(() => {
+    const raw = hasResolvedServerContentId
+      ? seasonModalView?.selectedSeason
+      : (tmdbSeason ?? undefined);
+    if (!raw) return raw;
     return {
-      ...selectedSeason,
-      episodes: selectedSeason.episodes.map((episode) => ({
+      ...raw,
+      episodes: raw.episodes.map((episode) => ({
         ...episode,
-        stillUrl: episode.stillUrl ? fromImageWire(episode.stillUrl) : undefined
+        stillUrl:
+          hasResolvedServerContentId && episode.stillUrl
+            ? fromImageWire(episode.stillUrl)
+            : episode.stillUrl
       }))
     };
-  }, [seasonModalView?.selectedSeason]);
-  const allSeasons = seasonModalView?.summaries;
+  }, [hasResolvedServerContentId, seasonModalView?.selectedSeason, tmdbSeason]);
+
+  const knownSeasonsFromTmdb =
+    isClientTmdbContent && resolvedContent
+      ? getSeasonCount(resolvedContent)
+      : undefined;
+  const allSeasons = hasResolvedServerContentId ? seasonModalView?.summaries : undefined;
 
   const syncSeason = useAction(api.tmdb.syncSeason);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isRefreshingTv, setIsRefreshingTv] = useState(false);
   const [episodeLoadError, setEpisodeLoadError] = useState<string | null>(null);
   const [seasonCountOverride, setSeasonCountOverride] = useState<number | undefined>(undefined);
@@ -277,31 +306,52 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const [relatedDbContent, setRelatedDbContent] = useState<ContentDetail | null | undefined>(
     undefined
   );
-  const [relatedSyncing, setRelatedSyncing] = useState(false);
 
   const knownSeasonCount = getSeasonCount(resolvedContent);
 
-  const relatedContentQuery = useOneShotConvexQuery<ContentDetailWire | null>(
-    !!relatedModalItem,
-    (convex) =>
-      convex.query(api.content.getContentDetailByTmdbId, {
-        tmdbId: String(relatedModalItem!.tmdbId)
-      }),
-    [relatedModalItem?.tmdbId, relatedReloadKey]
+  const { detail: relatedTmdbDetail } = useContentDetail(
+    relatedModalItem ? String(relatedModalItem.tmdbId) : undefined,
+    relatedModalItem?.type,
+    !!relatedModalItem
   );
 
-  useEffect(() => {
-    if (relatedContentQuery) {
-      setRelatedDbContent(fromContentDetailWire(relatedContentQuery));
-    }
-  }, [relatedContentQuery]);
+  const relatedSyncing = !!relatedModalItem && relatedTmdbDetail === undefined;
 
   useEffect(() => {
     if (!relatedModalItem) {
       setRelatedDbContent(undefined);
-      setRelatedSyncing(false);
+      return;
     }
-  }, [relatedModalItem]);
+    if (relatedTmdbDetail === undefined) return;
+    if (!relatedTmdbDetail) {
+      setRelatedDbContent(null);
+      return;
+    }
+    setRelatedDbContent({
+      _id: `tmdb:${relatedTmdbDetail.type}:${relatedTmdbDetail.tmdbId}` as ContentId,
+      title: relatedTmdbDetail.title,
+      type: relatedTmdbDetail.type,
+      year: relatedTmdbDetail.year,
+      posterUrl: relatedTmdbDetail.posterUrl,
+      backdropUrl: relatedTmdbDetail.backdropUrl,
+      description: relatedTmdbDetail.description,
+      rating: relatedTmdbDetail.rating,
+      voteAverage: relatedTmdbDetail.voteAverage,
+      genre: relatedTmdbDetail.genre,
+      tmdbId: relatedTmdbDetail.tmdbId,
+      logoUrl: relatedTmdbDetail.logoUrl,
+      trailerKey: relatedTmdbDetail.trailerKey,
+      duration: relatedTmdbDetail.duration,
+      seasons: relatedTmdbDetail.seasons,
+      tagline: relatedTmdbDetail.tagline,
+      originalLanguage: relatedTmdbDetail.originalLanguage,
+      imdbId: relatedTmdbDetail.imdbId,
+      totalEpisodes: relatedTmdbDetail.totalEpisodes,
+      status: relatedTmdbDetail.status,
+      trending: relatedTmdbDetail.trending,
+      new: relatedTmdbDetail.isNew
+    } as ContentDetail);
+  }, [relatedTmdbDetail, relatedModalItem]);
 
   const requestSeasonSync = (
     seasonNumber: number,
@@ -326,7 +376,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     syncedSeasonKeysRef.current.add(seasonKey);
     setEpisodeLoadError(null);
     if (options?.showLoader) {
-      setIsSyncing(true);
+      //setIsSyncing(true);
     }
 
     void syncSeason({
@@ -353,7 +403,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
       })
       .finally(() => {
         if (options?.showLoader) {
-          setIsSyncing(false);
+          //setIsSyncing(false);
         }
       });
   };
@@ -431,7 +481,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     ) {
       return;
     }
-    if (!isOpen || isSyncing) return;
+    if (!isOpen) return;
 
     const seasonKey = `${resolvedContent._id}:${selectedSeason}`;
     const selectedSeasonSummary = allSeasons?.find(
@@ -464,20 +514,13 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     resolvedContent,
     dbSeason,
     isOpen,
-    isSyncing,
     selectedSeason,
     syncSeason
   ]);
 
-  const handleRelatedClick = async (item: TMDBItem) => {
+  const handleRelatedClick = (item: TMDBItem) => {
     setRelatedModalItem(item);
     setRelatedDbContent(undefined);
-    setRelatedSyncing(true);
-    try {
-      await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
-      setRelatedReloadKey((value) => value + 1);
-    } catch {}
-    setRelatedSyncing(false);
   };
 
   const userHasSelectedRef = useRef(false);
@@ -517,7 +560,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   const isTV = contentData.type === "tv";
   const totalSeasons = getCanonicalSeasonCount(
     contentData.tmdbId,
-    seasonCountOverride ?? knownSeasonCount
+    seasonCountOverride ?? knownSeasonCount ?? knownSeasonsFromTmdb
   );
   const episodes = dbSeason?.episodes ?? [];
   const ratingLabel: string | undefined = detailContent?.rating;
@@ -805,7 +848,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                   <p className="mb-3 text-sm text-muted-foreground">{dbSeason.overview}</p>
                 )}
 
-                {isSyncing && episodes.length === 0 ? (
+                {(tmdbSeasonLoading) && episodes.length === 0 ? (
                   <p className="py-8 text-center text-xs text-muted-foreground">
                     Loading episodes…
                   </p>
@@ -970,7 +1013,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
           open={true}
           onOpenChange={() => {
             setRelatedModalItem(null);
-            setRelatedSyncing(false);
           }}
         >
           <DialogContent className="flex max-w-xs items-center justify-center border-border/80 bg-card p-8 text-card-foreground">

@@ -7,13 +7,11 @@ import {
   getCanonicalTotalEpisodes,
   getTvOrderingOverride
 } from "@fishy/providers/tvSeasonMappings";
-import { resolveAniListEpisodeAddress, resolveAniListId } from "@fishy/providers/anilistResolver";
-import type { AniListEpisodeMapping } from "../shared/contentMetadata";
+import { resolveAniListId } from "@fishy/providers/anilistResolver";
 import {
   tmdbGet,
   getPosterUrl,
   getBackdropUrl,
-  getStillUrl,
   getGenres,
   getRating,
   getYear,
@@ -22,166 +20,23 @@ import {
   isAnimeLikeContent,
   formatRuntime,
   mapInBatches,
-  mapTmdbSeasonToCanonicalPayload,
   compactSeasonEpisodesForDb,
-  hasEpisodes,
-  type TMDBVideo,
+  collectFlagMap,
+  getCatalogEndpoint,
+  getEmptyFlags,
+  buildCanonicalSeasonPayload,
+  buildAniListEpisodeMappings,
+  buildEpisodeGroupEpisodes,
+  resolveSeasonAniListId,
+  type SyncType,
+  type SyncFlags,
   type TMDBMovieListItem,
   type TMDBTVListItem,
   type TMDBMovieDetails,
   type TMDBTVDetails,
-  type TMDBSeasonDetails,
   type TMDBListItem,
-  type TMDBListResponse,
-  type CanonicalSeasonPayload
+  type TMDBListResponse
 } from "@fishy/providers/tmdb";
-
-async function buildAniListEpisodeMappings(args: {
-  anilistId?: string | null;
-  title?: string;
-  season: number;
-  seasonTitle?: string;
-  year?: number;
-  episodes: Array<{ episodeNumber: number }>;
-}): Promise<AniListEpisodeMapping[] | undefined> {
-  if (!args.anilistId || args.episodes.length === 0) return undefined;
-
-  const mappings = await Promise.all(
-    args.episodes.map(async (episode) => {
-      const address = await resolveAniListEpisodeAddress({
-        anilistId: args.anilistId,
-        title: args.title,
-        season: args.season,
-        seasonTitle: args.seasonTitle,
-        year: args.year,
-        episode: episode.episodeNumber
-      });
-      return address
-        ? {
-            episodeNumber: episode.episodeNumber,
-            anilistId: address.anilistId,
-            anilistEpisodeNumber: address.episode
-          }
-        : null;
-    })
-  );
-
-  const valid = mappings.filter((m): m is AniListEpisodeMapping => !!m);
-  return valid.length > 0 ? valid : undefined;
-}
-
-async function buildCanonicalSeasonPayload(
-  tmdbId: string,
-  seasonNumber: number,
-  override = getTvOrderingOverride(tmdbId)
-): Promise<CanonicalSeasonPayload | null> {
-  const seasonDef = override?.canonicalSeasons.find((s) => s.seasonNumber === seasonNumber);
-
-  if (!seasonDef) {
-    const data = await tmdbGet<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
-    if (!data) return null;
-    return mapTmdbSeasonToCanonicalPayload(data, data.season_number);
-  }
-
-  const data = await tmdbGet<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonDef.sourceSeason}`);
-  if (!data) return null;
-
-  const startIndex = Math.max(0, seasonDef.sourceEpisodeStart - 1);
-  let sourceData = data;
-  let slicedEpisodes = (sourceData.episodes ?? []).slice(
-    startIndex,
-    startIndex + seasonDef.episodeCount
-  );
-
-  if (slicedEpisodes.length === 0 && seasonDef.sourceSeason !== seasonNumber) {
-    const direct = await tmdbGet<TMDBSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`);
-    if (hasEpisodes(direct)) {
-      sourceData = direct;
-      slicedEpisodes = sourceData.episodes.slice(0, seasonDef.episodeCount);
-    }
-  }
-
-  if (slicedEpisodes.length === 0) return null;
-
-  const airDate = slicedEpisodes[0]?.air_date ?? sourceData.air_date ?? undefined;
-  const isSplit =
-    seasonDef.sourceSeason !== seasonDef.seasonNumber || seasonDef.sourceEpisodeStart !== 1;
-
-  return {
-    seasonNumber,
-    name: isSplit ? `Season ${seasonNumber}` : sourceData.name,
-    overview: sourceData.overview || undefined,
-    posterUrl: sourceData.poster_path ? getPosterUrl(sourceData.poster_path) : undefined,
-    airDate,
-    episodeCount: slicedEpisodes.length,
-    year: getYear(airDate),
-    episodes: slicedEpisodes.map((ep, i) => ({
-      episodeNumber: i + 1,
-      name: ep.name,
-      overview: ep.overview || undefined,
-      stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
-      airDate: ep.air_date ?? undefined,
-      runtime: ep.runtime ?? undefined,
-      voteAverage: ep.vote_average
-    }))
-  };
-}
-
-type SyncType = "movies" | "tv";
-type SyncFlags = { trending: boolean; popular: boolean; new: boolean; featured: boolean };
-
-function getEmptyFlags(): SyncFlags {
-  return { trending: false, popular: false, new: false, featured: false };
-}
-
-function mergeFlags(a: SyncFlags, b: Partial<SyncFlags>): SyncFlags {
-  return {
-    trending: a.trending || !!b.trending,
-    popular: a.popular || !!b.popular,
-    new: a.new || !!b.new,
-    featured: a.featured || !!b.featured
-  };
-}
-
-async function collectFlagMap(type: SyncType, pages: number): Promise<Map<number, SyncFlags>> {
-  const merged = new Map<number, SyncFlags>();
-  const sources =
-    type === "movies"
-      ? [
-          {
-            ep: "/trending/movie/week",
-            flags: { trending: true, featured: true } as Partial<SyncFlags>
-          },
-          { ep: "/movie/popular", flags: { popular: true } as Partial<SyncFlags> },
-          { ep: "/movie/now_playing", flags: { new: true } as Partial<SyncFlags> },
-          { ep: "/movie/top_rated", flags: {} as Partial<SyncFlags> }
-        ]
-      : [
-          {
-            ep: "/trending/tv/week",
-            flags: { trending: true, featured: true } as Partial<SyncFlags>
-          },
-          { ep: "/tv/popular", flags: { popular: true } as Partial<SyncFlags> },
-          { ep: "/tv/on_the_air", flags: { new: true } as Partial<SyncFlags> },
-          { ep: "/tv/top_rated", flags: {} as Partial<SyncFlags> }
-        ];
-
-  for (const src of sources) {
-    for (let p = 1; p <= pages; p++) {
-      const data = await tmdbGet<TMDBListResponse<TMDBListItem>>(src.ep, { page: String(p) });
-      if (!data?.results?.length) break;
-      for (const item of data.results) {
-        merged.set(item.id, mergeFlags(merged.get(item.id) ?? getEmptyFlags(), src.flags));
-      }
-    }
-  }
-  return merged;
-}
-
-function getCatalogEndpoint(type: SyncType, page: number): string {
-  const base = `page=${page}&include_adult=false&sort_by=popularity.desc&vote_count.gte=25`;
-  return type === "movies" ? `/discover/movie?${base}&include_video=false` : `/discover/tv?${base}`;
-}
 
 export const syncContent = action({
   args: {
@@ -192,7 +47,7 @@ export const syncContent = action({
     const normalizedCount = Math.max(1, Math.min(count, 2000));
     const requiredPages = Math.ceil(normalizedCount / 20);
     const flagPages = Math.min(10, Math.ceil(requiredPages / 4) + 2);
-    const flagMap = await collectFlagMap(type, flagPages);
+    const flagMap = await collectFlagMap(type as SyncType, flagPages);
 
     const existingContent = await ctx.runQuery(internal.content.getAllTmdbIds, {});
     const existingTmdbIds = new Set(
@@ -221,7 +76,9 @@ export const syncContent = action({
     const maxPages = Math.max(requiredPages, 50);
 
     while (seeds.length < normalizedCount && page <= maxPages) {
-      const data = await tmdbGet<TMDBListResponse<TMDBListItem>>(getCatalogEndpoint(type, page));
+      const data = await tmdbGet<TMDBListResponse<TMDBListItem>>(
+        getCatalogEndpoint(type as SyncType, page)
+      );
       if (!data?.results?.length) break;
 
       for (const item of data.results) {
@@ -240,7 +97,7 @@ export const syncContent = action({
           voteCount: item.vote_count ?? 0,
           popularity: item.popularity ?? 0,
           genreIds: item.genre_ids ?? [],
-          originalLanguage: (item as any).original_language ?? "en",
+          originalLanguage: (item as TMDBMovieListItem).original_language ?? "en",
           flags: flagMap.get(item.id) ?? getEmptyFlags(),
           order: seeds.length
         });
@@ -354,46 +211,27 @@ export const syncSeasons = action({
   args: { tmdbId: v.string(), contentId: v.string(), totalSeasons: v.number() },
   handler: async (ctx, { tmdbId, contentId, totalSeasons }) => {
     const content = await ctx.runQuery(api.content.getContentSyncContextById, {
-      id: contentId as any
+      id: contentId as never
     });
     const contentTitle = content?.title;
     const override = getTvOrderingOverride(tmdbId);
 
     if (override?.episodeGroupId) {
       const groupData = await tmdbGet<{
-        groups: Array<{
-          order: number;
-          name: string;
-          episodes: Array<{
-            air_date: string | null;
-            name: string;
-            overview: string;
-            runtime: number | null;
-            still_path: string | null;
-            vote_average: number;
-          }>;
-        }>;
+        groups: Array<import("@fishy/providers/tmdb").EpisodeGroupRaw>;
       }>(`/tv/episode_group/${override.episodeGroupId}`);
 
       if (groupData?.groups?.length) {
         let groupSynced = 0;
         for (const group of groupData.groups.slice(0, override.canonicalSeasonCount)) {
           const seasonNum = Math.max(1, group.order);
-          const resolvedAniListId = await resolveAniListId({
+          const resolvedAniListId = await resolveSeasonAniListId({
             title: contentTitle,
-            season: seasonNum,
+            seasonNumber: seasonNum,
             seasonTitle: group.name,
             year: getYear(group.episodes[0]?.air_date ?? undefined)
           });
-          const episodes = group.episodes.map((ep, i) => ({
-            episodeNumber: i + 1,
-            name: ep.name,
-            overview: ep.overview || undefined,
-            stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
-            airDate: ep.air_date ?? undefined,
-            runtime: ep.runtime ?? undefined,
-            voteAverage: ep.vote_average
-          }));
+          const episodes = buildEpisodeGroupEpisodes(group);
           const anilistEpisodeMappings = await buildAniListEpisodeMappings({
             anilistId: resolvedAniListId,
             title: contentTitle,
@@ -403,7 +241,7 @@ export const syncSeasons = action({
             episodes
           });
           await ctx.runMutation(internal.seasons.upsertSeason, {
-            contentId: contentId as any,
+            contentId: contentId as never,
             tmdbId,
             anilistId: resolvedAniListId ?? undefined,
             anilistEpisodeMappings,
@@ -425,9 +263,9 @@ export const syncSeasons = action({
     for (let s = 1; s <= Math.min(totalSeasons, 20); s++) {
       const payload = await buildCanonicalSeasonPayload(tmdbId, s, override);
       if (!payload) continue;
-      const resolvedAniListId = await resolveAniListId({
+      const resolvedAniListId = await resolveSeasonAniListId({
         title: contentTitle,
-        season: payload.seasonNumber,
+        seasonNumber: payload.seasonNumber,
         seasonTitle: payload.name,
         year: payload.year
       });
@@ -440,7 +278,7 @@ export const syncSeasons = action({
         episodes: payload.episodes
       });
       await ctx.runMutation(internal.seasons.upsertSeason, {
-        contentId: contentId as any,
+        contentId: contentId as never,
         tmdbId,
         anilistId: resolvedAniListId ?? undefined,
         anilistEpisodeMappings,
@@ -462,45 +300,26 @@ export const syncSeason = action({
   args: { tmdbId: v.string(), contentId: v.string(), seasonNumber: v.number() },
   handler: async (ctx, { tmdbId, contentId, seasonNumber }) => {
     const content = await ctx.runQuery(api.content.getContentSyncContextById, {
-      id: contentId as any
+      id: contentId as never
     });
     const contentTitle = content?.title;
     const override = getTvOrderingOverride(tmdbId);
 
     if (override?.episodeGroupId) {
       const groupData = await tmdbGet<{
-        groups: Array<{
-          order: number;
-          name: string;
-          episodes: Array<{
-            air_date: string | null;
-            name: string;
-            overview: string;
-            runtime: number | null;
-            still_path: string | null;
-            vote_average: number;
-          }>;
-        }>;
+        groups: Array<import("@fishy/providers/tmdb").EpisodeGroupRaw>;
       }>(`/tv/episode_group/${override.episodeGroupId}`);
 
       const group = groupData?.groups?.find((g) => Math.max(1, g.order) === seasonNumber);
       if (!group) return null;
 
-      const resolvedAniListId = await resolveAniListId({
+      const resolvedAniListId = await resolveSeasonAniListId({
         title: contentTitle,
-        season: seasonNumber,
+        seasonNumber,
         seasonTitle: group.name,
         year: getYear(group.episodes[0]?.air_date ?? undefined)
       });
-      const episodes = group.episodes.map((ep, i) => ({
-        episodeNumber: i + 1,
-        name: ep.name,
-        overview: ep.overview || undefined,
-        stillUrl: ep.still_path ? getStillUrl(ep.still_path) : undefined,
-        airDate: ep.air_date ?? undefined,
-        runtime: ep.runtime ?? undefined,
-        voteAverage: ep.vote_average
-      }));
+      const episodes = buildEpisodeGroupEpisodes(group);
       const anilistEpisodeMappings = await buildAniListEpisodeMappings({
         anilistId: resolvedAniListId,
         title: contentTitle,
@@ -510,7 +329,7 @@ export const syncSeason = action({
         episodes
       });
       await ctx.runMutation(internal.seasons.upsertSeason, {
-        contentId: contentId as any,
+        contentId: contentId as never,
         tmdbId,
         anilistId: resolvedAniListId ?? undefined,
         anilistEpisodeMappings,
@@ -528,9 +347,9 @@ export const syncSeason = action({
     const payload = await buildCanonicalSeasonPayload(tmdbId, seasonNumber, override);
     if (!payload) return null;
 
-    const resolvedAniListId = await resolveAniListId({
+    const resolvedAniListId = await resolveSeasonAniListId({
       title: contentTitle,
-      season: payload.seasonNumber,
+      seasonNumber: payload.seasonNumber,
       seasonTitle: payload.name,
       year: payload.year
     });
@@ -543,7 +362,7 @@ export const syncSeason = action({
       episodes: payload.episodes
     });
     await ctx.runMutation(internal.seasons.upsertSeason, {
-      contentId: contentId as any,
+      contentId: contentId as never,
       tmdbId,
       anilistId: resolvedAniListId ?? undefined,
       anilistEpisodeMappings,

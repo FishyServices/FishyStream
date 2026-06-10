@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { Play, ChevronDown, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { TMDBItem } from "@/hooks/useContent";
+import type { TMDBItem, TMDBFullDetail } from "@/hooks/useContent";
 import { ContentModal } from "./ContentModal";
 import { Button } from "@fishy/ui";
-import { useAction, useConvex } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import type { ContentDetail, ContentDetailWire } from "../../shared/contentMetadata";
-import { fromContentDetailWire } from "../../shared/contentMetadata";
+import { TMDB_API_KEY, fetchTmdbFullDetail } from "@fishy/providers/tmdb";
 
 interface SearchCardProps {
   item: TMDBItem;
@@ -19,33 +16,20 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const [dbContent, setDbContent] = useState<ContentDetail | null | undefined>(undefined);
+  const [tmdbDetail, setTmdbDetail] = useState<TMDBFullDetail | null | undefined>(undefined);
   const [isResolvingContent, setIsResolvingContent] = useState(false);
   const navigate = useNavigate();
-  const convex = useConvex();
 
-  const syncSingleContent = useAction(api.tmdb.syncSingleContent);
+  const apiKey = (import.meta.env.VITE_TMDB_KEY as string | undefined) ?? TMDB_API_KEY;
 
-  const ensureDbContent = async () => {
-    if (dbContent) return dbContent;
+  const ensureDetail = async () => {
+    if (tmdbDetail) return tmdbDetail;
     if (isResolvingContent) return null;
-
     setIsResolvingContent(true);
     try {
-      let existing = await convex.query(api.content.getContentDetailByTmdbId, {
-        tmdbId: String(item.tmdbId)
-      });
-
-      if (!existing) {
-        await syncSingleContent({ tmdbId: item.tmdbId, type: item.type });
-        existing = await convex.query(api.content.getContentDetailByTmdbId, {
-          tmdbId: String(item.tmdbId)
-        });
-      }
-
-      const decoded = existing ? fromContentDetailWire(existing as ContentDetailWire) : null;
-      setDbContent(decoded);
-      return decoded;
+      const result = await fetchTmdbFullDetail(String(item.tmdbId), item.type, apiKey);
+      setTmdbDetail(result);
+      return result;
     } finally {
       setIsResolvingContent(false);
     }
@@ -58,7 +42,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
   };
 
   const handleCardClick = async () => {
-    await ensureDbContent();
+    await ensureDetail();
     setShowModal(true);
   };
 
@@ -215,9 +199,32 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
         </div>
       </div>
 
-      {showModal && dbContent && (
+      {showModal && tmdbDetail && (
         <ContentModal
-          content={dbContent}
+          content={{
+            _id: `tmdb:${tmdbDetail.type}:${tmdbDetail.tmdbId}` as import("../../shared/contentMetadata").ContentId,
+            title: tmdbDetail.title,
+            type: tmdbDetail.type,
+            year: tmdbDetail.year,
+            posterUrl: tmdbDetail.posterUrl,
+            backdropUrl: tmdbDetail.backdropUrl,
+            description: tmdbDetail.description,
+            rating: tmdbDetail.rating,
+            voteAverage: tmdbDetail.voteAverage,
+            genre: tmdbDetail.genre,
+            tmdbId: tmdbDetail.tmdbId,
+            logoUrl: tmdbDetail.logoUrl,
+            trailerKey: tmdbDetail.trailerKey,
+            duration: tmdbDetail.duration,
+            seasons: tmdbDetail.seasons,
+            tagline: tmdbDetail.tagline,
+            originalLanguage: tmdbDetail.originalLanguage,
+            imdbId: tmdbDetail.imdbId,
+            totalEpisodes: tmdbDetail.totalEpisodes,
+            status: tmdbDetail.status,
+            trending: tmdbDetail.trending,
+            new: tmdbDetail.isNew
+          }}
           isOpen={showModal}
           onClose={() => setShowModal(false)}
           onPlay={(tmdbId, season, episode, source, dub, type) => {
