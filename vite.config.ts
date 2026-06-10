@@ -13,7 +13,11 @@ function fishyProvidersPlugin(): Plugin {
       const match = source.match(/^@fishy\/providers(\/(.+))?$/);
       if (!match) return null;
       const subpath = match[2] ?? "index";
-      return path.resolve(providersRoot, `${subpath}.ts`);
+      const flat = path.resolve(providersRoot, `${subpath}.ts`);
+      const folderIndex = path.resolve(providersRoot, subpath, "index.ts");
+      const fs = require("fs") as typeof import("fs");
+      if (!fs.existsSync(flat) && fs.existsSync(folderIndex)) return folderIndex;
+      return flat;
     }
   };
 }

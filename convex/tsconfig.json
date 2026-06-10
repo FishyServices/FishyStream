@@ -12,6 +12,7 @@
     "jsx": "react-jsx",
     "paths": {
       "@fishy/providers": ["../packages/providers/src/index.ts"],
+      "@fishy/providers/tmdb": ["../packages/providers/src/tmdb/index.ts"],
       "@fishy/providers/providerCatalog": ["../packages/providers/src/providerCatalog.ts"],
       "@fishy/providers/providerProxy": ["../packages/providers/src/providerProxy.ts"],
       "@fishy/providers/playerProviders": ["../packages/providers/src/playerProviders.ts"],
