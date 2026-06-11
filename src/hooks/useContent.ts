@@ -223,7 +223,7 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
   const [syncAttempt, setSyncAttempt] = useState(0);
   const [isSyncingMissing, setIsSyncingMissing] = useState(false);
   const [syncFailed, setSyncFailed] = useState(false);
-  
+
   const data = useOneShotConvexQuery<ContentPlaybackWire | null>(
     !!tmdbId,
     (convex) =>
@@ -259,9 +259,9 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
   }, [data, isSyncingMissing, syncAttempt, syncSingleContent, tmdbId, typeHint]);
 
   if (data === null && isSyncingMissing) return undefined;
-  
+
   if (syncFailed || (!typeHint && data === null)) return null;
-  
+
   return data ? fromContentPlaybackWire(data) : data;
 }
 
@@ -631,16 +631,20 @@ export function useSeasonEpisodes(
   seasonNumber: number,
   enabled = true
 ) {
-  const [season, setSeason] = useState<{
-    overview?: string;
-    episodes: Array<{
-      episodeNumber: number;
-      name: string;
-      overview?: string;
-      stillUrl?: string;
-      runtime?: number;
-    }>;
-  } | null | undefined>(undefined);
+  const [season, setSeason] = useState<
+    | {
+        overview?: string;
+        episodes: Array<{
+          episodeNumber: number;
+          name: string;
+          overview?: string;
+          stillUrl?: string;
+          runtime?: number;
+        }>;
+      }
+    | null
+    | undefined
+  >(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const cancelRef = useRef(false);
 

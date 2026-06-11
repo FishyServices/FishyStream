@@ -30,7 +30,13 @@ import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "@fishy/ui";
-import { useContentCredits, useContentVideos, useRelatedContent, useContentDetail, useSeasonEpisodes } from "@/hooks/useContent";
+import {
+  useContentCredits,
+  useContentVideos,
+  useRelatedContent,
+  useContentDetail,
+  useSeasonEpisodes
+} from "@/hooks/useContent";
 import { useOneShotConvexQuery } from "@/hooks/useOneShotConvexQuery";
 import type { TMDBItem } from "@/hooks/useContent";
 import {
@@ -171,8 +177,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   );
   const hasServerContentId = !!content?._id && !isClientTmdbContentId(content._id);
 
-  const tmdbDetailEnabled =
-    isOpen && !!content && !!content.tmdbId && !hasFullContent(content);
+  const tmdbDetailEnabled = isOpen && !!content && !!content.tmdbId && !hasFullContent(content);
   const { detail: tmdbDetail } = useContentDetail(
     tmdbDetailEnabled ? content?.tmdbId : undefined,
     tmdbDetailEnabled ? content?.type : undefined,
@@ -267,9 +272,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
   }, [hasResolvedServerContentId, seasonModalView?.selectedSeason, tmdbSeason]);
 
   const knownSeasonsFromTmdb =
-    isClientTmdbContent && resolvedContent
-      ? getSeasonCount(resolvedContent)
-      : undefined;
+    isClientTmdbContent && resolvedContent ? getSeasonCount(resolvedContent) : undefined;
   const allSeasons = hasResolvedServerContentId ? seasonModalView?.summaries : undefined;
 
   const syncSeason = useAction(api.tmdb.syncSeason);
@@ -508,15 +511,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
     if (!needsSync || syncedSeasonKeysRef.current.has(seasonKey)) return;
     requestSeasonSync(selectedSeason, { showLoader: !hasEpisodes });
-  }, [
-    animeContent,
-    allSeasons,
-    resolvedContent,
-    dbSeason,
-    isOpen,
-    selectedSeason,
-    syncSeason
-  ]);
+  }, [animeContent, allSeasons, resolvedContent, dbSeason, isOpen, selectedSeason, syncSeason]);
 
   const handleRelatedClick = (item: TMDBItem) => {
     setRelatedModalItem(item);
@@ -848,7 +843,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                   <p className="mb-3 text-sm text-muted-foreground">{dbSeason.overview}</p>
                 )}
 
-                {(tmdbSeasonLoading) && episodes.length === 0 ? (
+                {tmdbSeasonLoading && episodes.length === 0 ? (
                   <p className="py-8 text-center text-xs text-muted-foreground">
                     Loading episodes…
                   </p>

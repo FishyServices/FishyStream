@@ -195,17 +195,17 @@ function scoreAniListCandidate(
     if (hasCourMismatch) score -= 20;
     if (hasPartMismatch) score -= 20;
 
-    if (
-      !hasExplicitSeasonMatch &&
-      !hasExplicitSeasonMismatch &&
-      !hasRomanSeasonMatch &&
-      !hasRomanSeasonMismatch
-    ) {
+    const hasSeasonSignal =
+      hasExplicitSeasonMatch ||
+      hasExplicitSeasonMismatch ||
+      hasRomanSeasonMatch ||
+      hasRomanSeasonMismatch;
+
+    if (!hasSeasonSignal) {
       if (hasPartMatch) score += 4;
       if (hasCourMatch) score += 3;
-    } else {
-      if (hasPartMatch) score += 1;
-      if (hasCourMatch) score += 1;
+    } else if (hasExplicitSeasonMatch || hasRomanSeasonMatch) {
+      if (hasPartMatch || hasCourMatch) score -= 16;
     }
 
     const seasonWord = getSeasonWord(season);

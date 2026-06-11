@@ -298,7 +298,9 @@ export async function fetchTmdbFullDetail(
       seasons: type === "tv" ? d.number_of_seasons : undefined,
       totalEpisodes: type === "tv" ? d.number_of_episodes : undefined,
       genre: genres,
-      imdbId: (type === "movie" ? d.imdb_id ?? d.external_ids?.imdb_id : d.external_ids?.imdb_id) || undefined,
+      imdbId:
+        (type === "movie" ? (d.imdb_id ?? d.external_ids?.imdb_id) : d.external_ids?.imdb_id) ||
+        undefined,
       originalLanguage: d.original_language,
       tagline: d.tagline || undefined,
       status: d.status || undefined,
