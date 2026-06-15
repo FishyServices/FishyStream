@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import {
+  fromImageWire,
   toImageWire,
   toWatchlistGridWire,
   type WatchlistGridWire
@@ -26,16 +27,32 @@ export const listWatchlist = query({
       .order("desc")
       .take(pageSize);
 
-    return items.map((item) =>
-      toWatchlistGridWire({
-        _id: item.contentId,
-        title: item.title,
-        type: item.contentType,
-        posterUrl: item.posterUrl,
-        tmdbId: item.tmdbId,
-        watchlistFolder: item.folder
+    const hydrated = await Promise.all(
+      items.map(async (item) => {
+        if (item.title && item.contentType && item.posterUrl) {
+          return toWatchlistGridWire({
+            _id: item.contentId,
+            title: item.title,
+            type: item.contentType,
+            posterUrl: fromImageWire(item.posterUrl),
+            tmdbId: item.tmdbId,
+            watchlistFolder: item.folder
+          });
+        }
+        const content = await ctx.db.get(item.contentId);
+        if (!content) return null;
+        return toWatchlistGridWire({
+          _id: item.contentId,
+          title: content.title,
+          type: content.type,
+          posterUrl: content.posterUrl,
+          tmdbId: content.tmdbId,
+          watchlistFolder: item.folder
+        });
       })
     );
+
+    return hydrated.filter((x): x is WatchlistGridWire => x !== null);
   }
 });
 

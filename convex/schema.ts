@@ -121,9 +121,9 @@ export default defineSchema({
     contentId: v.id("content"),
     addedAt: v.number(),
     folder: v.optional(v.string()),
-    contentType: mediaType,
-    title: v.string(),
-    posterUrl: v.string(),
+    contentType: v.optional(mediaType),
+    title: v.optional(v.string()),
+    posterUrl: v.optional(v.string()),
     tmdbId: v.optional(v.string())
   })
     .index("by_clerk_added_at", ["clerkUserId", "addedAt"])
