@@ -280,18 +280,6 @@ export function SettingsPage() {
               }
             />
 
-            <SettingRow
-              label="Content sync tools"
-              description="Show the TMDB sync panel on the home page for quick library refreshes."
-              control={
-                <ToggleSettingControl
-                  id="sync-panel"
-                  label="Show panel"
-                  checked={settings.showSyncPanel}
-                  onCheckedChange={(checked) => updateSetting("showSyncPanel", checked)}
-                />
-              }
-            />
           </SettingsSection>
 
           <SettingsSection icon={<Tv2 className="h-4 w-4 text-primary" />} title="Browse Defaults">

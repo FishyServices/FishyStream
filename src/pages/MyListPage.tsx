@@ -39,7 +39,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from "@fishy/ui";
-import type { Id } from "../../convex/_generated/dataModel";
+import type { ContentId } from "../../shared/contentMetadata";
 
 export function MyListPage() {
   const navigate = useNavigate();
@@ -60,9 +60,9 @@ export function MyListPage() {
       return [];
     }
   });
-  const [draggedContentId, setDraggedContentId] = useState<Id<"content"> | null>(null);
+  const [draggedContentId, setDraggedContentId] = useState<ContentId | null>(null);
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<string | null>(null);
-  const [folderMenuForContentId, setFolderMenuForContentId] = useState<Id<"content"> | null>(null);
+  const [folderMenuForContentId, setFolderMenuForContentId] = useState<ContentId | null>(null);
   const [sortBy, setSortBy] = useState<"recently" | "oldest" | "title-az" | "title-za">("recently");
   const [viewLayout, setViewLayout] = useState<"grid" | "list">("grid");
   const [canDragCards, setCanDragCards] = useState(false);
@@ -254,7 +254,7 @@ export function MyListPage() {
   };
 
   const handleAssignFolder = async (
-    contentId: Id<"content">,
+    contentId: ContentId,
     folderValue: string,
     options?: { silent?: boolean }
   ) => {

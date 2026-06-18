@@ -1,14 +1,11 @@
-import { useAction } from "convex/react";
 import { useEffect, useState, useRef } from "react";
-import { api } from "../../convex/_generated/api";
 import type {
   ContentCard,
   ContentId,
   ContentFeatured,
-  ContentPlaybackWire
+  ContentPlayback
 } from "../../shared/contentMetadata";
-import { fromContentPlaybackWire } from "../../shared/contentMetadata";
-import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
+import { makeContentId } from "../../shared/contentMetadata";
 import {
   TMDB_DISCOVER_GENRES,
   TMDB_API_KEY,
@@ -54,7 +51,7 @@ type TMDBRecommendationSeed = {
 };
 
 function clientTmdbContentId(type: TMDBMediaType, tmdbId: number | string): ContentId {
-  return `tmdb:${type}:${tmdbId}` as ContentId;
+  return makeContentId(type, tmdbId);
 }
 
 function toClientContentCard(
@@ -219,50 +216,53 @@ export function useNewReleases() {
 // ─── Playback ─────────────────────────────────────────────────────────────────
 
 export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?: TMDBMediaType) {
-  const syncSingleContent = useAction(api.tmdb.syncSingleContent);
-  const [syncAttempt, setSyncAttempt] = useState(0);
-  const [isSyncingMissing, setIsSyncingMissing] = useState(false);
-  const [syncFailed, setSyncFailed] = useState(false);
-
-  const data = useOneShotConvexQuery<ContentPlaybackWire | null>(
-    !!tmdbId,
-    (convex) =>
-      convex.query(api.content.getContentPlaybackByTmdbId, { tmdbId: tmdbId!, type: typeHint }),
-    [tmdbId, typeHint, syncAttempt],
-    undefined,
-    tmdbId ? `contentPlayback:${tmdbId}:${typeHint ?? "any"}:${syncAttempt}` : undefined
-  );
+  const [content, setContent] = useState<ContentPlayback | null | undefined>(undefined);
 
   useEffect(() => {
-    if (!tmdbId || !typeHint || data !== null || isSyncingMissing || syncAttempt > 0) return;
-    const parsedTmdbId = Number(tmdbId);
-    if (!Number.isFinite(parsedTmdbId)) return;
-
+    if (!tmdbId) {
+      setContent(null);
+      return;
+    }
     let cancelled = false;
-    setIsSyncingMissing(true);
-    setSyncFailed(false);
+    const controller = new AbortController();
+    setContent(undefined);
 
-    void syncSingleContent({ tmdbId: parsedTmdbId, type: typeHint })
-      .then(() => {
-        if (!cancelled) setSyncAttempt((v) => v + 1);
-      })
-      .catch(() => {
-        if (!cancelled) setSyncFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setIsSyncingMissing(false);
-      });
+    async function load() {
+      const types: TMDBMediaType[] = typeHint ? [typeHint] : ["movie", "tv"];
+      for (const type of types) {
+        const detail = await fetchTmdbFullDetail(tmdbId!, type, getApiKey(), controller.signal);
+        if (!detail) continue;
+        if (cancelled) return;
+        setContent({
+          _id: makeContentId(detail.type, detail.tmdbId),
+          title: detail.title,
+          type: detail.type,
+          genre: detail.genre,
+          year: detail.year,
+          posterUrl: detail.posterUrl,
+          voteAverage: detail.voteAverage,
+          tmdbId: detail.tmdbId,
+          imdbId: detail.imdbId,
+          anilistId: undefined,
+          originalLanguage: detail.originalLanguage,
+          seasons: detail.seasons
+        });
+        return;
+      }
+      if (!cancelled) setContent(null);
+    }
+
+    void load().catch(() => {
+      if (!cancelled) setContent(null);
+    });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [data, isSyncingMissing, syncAttempt, syncSingleContent, tmdbId, typeHint]);
+  }, [tmdbId, typeHint]);
 
-  if (data === null && isSyncingMissing) return undefined;
-
-  if (syncFailed || (!typeHint && data === null)) return null;
-
-  return data ? fromContentPlaybackWire(data) : data;
+  return content;
 }
 
 // ─── Related / Credits / Videos ──────────────────────────────────────────────

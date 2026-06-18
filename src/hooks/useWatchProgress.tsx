@@ -10,8 +10,7 @@ import {
 import { useMutation, useConvex } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
-import type { WatchProgressEntryMeta } from "../../shared/contentMetadata";
+import type { ContentId, ContentType, WatchProgressEntryMeta } from "../../shared/contentMetadata";
 import { WATCH_PROGRESS_SYNC_INTERVAL_MS } from "@fishy/providers/providerPlayback";
 
 export interface ProgressState {
@@ -31,6 +30,7 @@ interface StoredProgress extends ProgressState {
   clientUpdatedAt: number;
   dirty: boolean;
   syncedClientUpdatedAt?: number;
+  snapshot?: WatchProgressSnapshot;
 }
 
 type ServerProgress = {
@@ -50,6 +50,16 @@ type ServerProgress = {
 type ProgressStore = {
   version: 3;
   entries: StoredProgress[];
+};
+
+export type WatchProgressSnapshot = {
+  title: string;
+  type: ContentType;
+  posterUrl: string;
+  tmdbId: string;
+  genre?: string[];
+  year?: number;
+  voteAverage?: number;
 };
 
 const LS_KEY = "watch_progress_v3";
@@ -272,7 +282,7 @@ export function WatchProgressProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={{ map, setEntry }}>{children}</Ctx.Provider>;
 }
 
-export function useGetProgress(contentId: Id<"content"> | undefined): ProgressState | undefined {
+export function useGetProgress(contentId: ContentId | undefined): ProgressState | undefined {
   const ctx = useContext(Ctx);
   if (!contentId) return undefined;
   if (ctx) return ctx.map.get(contentId);
@@ -332,7 +342,13 @@ export function useUpdateProgress() {
       try {
         const savedProgressId = await dbSync({
           u: user.id,
-          p: toProgressPayload(dirtyEntry)
+          p: toProgressPayload(dirtyEntry),
+          snapshot: dirtyEntry.snapshot ?? {
+            title: "Unknown title",
+            type: "movie",
+            posterUrl: "",
+            tmdbId: dirtyEntry.contentId.split(":").at(-1) ?? ""
+          }
         });
         saved = true;
 
@@ -428,7 +444,7 @@ export function useUpdateProgress() {
 
   return useCallback(
     (
-      contentId: Id<"content">,
+      contentId: ContentId,
       progress: number,
       completed = false,
       positionSeconds = 0,
@@ -436,7 +452,8 @@ export function useUpdateProgress() {
       seasonNumber?: number,
       episodeNumber?: number,
       source?: string,
-      dub?: boolean
+      dub?: boolean,
+      snapshot?: WatchProgressSnapshot
     ) => {
       const previous = storeRef.current.get(contentId);
       const state: ProgressState = {
@@ -455,7 +472,8 @@ export function useUpdateProgress() {
         progressId: previous?.progressId,
         clientUpdatedAt: Date.now(),
         dirty: false,
-        syncedClientUpdatedAt: previous?.syncedClientUpdatedAt
+        syncedClientUpdatedAt: previous?.syncedClientUpdatedAt,
+        snapshot: snapshot ?? previous?.snapshot
       };
 
       next.dirty = shouldDirtyEntry(next, previous);

@@ -1,7 +1,5 @@
-import type { Id } from "../convex/_generated/dataModel";
-
-export type ContentId = Id<"content">;
 export type ContentType = "movie" | "tv";
+export type ContentId = `tmdb:${ContentType}:${string}`;
 type ContentTypeWire = 0 | 1;
 
 export interface ContentCard {
@@ -42,6 +40,8 @@ export interface ContentPlayback {
   type: ContentType;
   genre: string[];
   year: number;
+  posterUrl?: string;
+  voteAverage?: number;
   tmdbId?: string;
   imdbId?: string;
   anilistId?: string;
@@ -116,7 +116,7 @@ export type WatchProgressEntryMeta = [
   episodeNumber?: number | null,
   source?: string | null,
   dub?: boolean | null,
-  progressId?: Id<"watchProgress"> | null
+  progressId?: string | null
 ];
 
 export interface SeasonMetaSummary {
@@ -138,6 +138,17 @@ const TMDB_IMAGE_WIRE_PREFIX = "~";
 
 function toContentTypeWire(type: ContentType): ContentTypeWire {
   return type === "tv" ? 1 : 0;
+}
+
+export function makeContentId(type: ContentType, tmdbId: string | number): ContentId {
+  return `tmdb:${type}:${String(tmdbId)}` as ContentId;
+}
+
+export function parseContentId(id: string): { type: ContentType; tmdbId: string } | null {
+  const [prefix, type, ...rest] = id.split(":");
+  const tmdbId = rest.join(":");
+  if (prefix !== "tmdb" || (type !== "movie" && type !== "tv") || !tmdbId) return null;
+  return { type, tmdbId };
 }
 
 export function fromContentTypeWire(type: ContentTypeWire | ContentType): ContentType {
@@ -247,7 +258,7 @@ export function fromWatchHistoryItemWire(item: WatchHistoryItemWire): WatchHisto
 }
 
 export function toWatchProgressEntryMeta(row: {
-  _id?: Id<"watchProgress">;
+  _id?: string;
   contentId: ContentId;
   progress: number;
   positionSeconds?: number;

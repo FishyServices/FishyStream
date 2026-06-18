@@ -11,9 +11,9 @@ import { useConvexAuth, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { useLocation } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
 import {
   fromWatchlistGridWire,
+  type ContentId,
   type ContentType,
   type WatchlistGridItem,
   type WatchlistGridWire
@@ -22,7 +22,7 @@ import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 const LS_KEY = "watchlist_ids";
 const LS_TMDB_KEY = "watchlist_tmdb_map";
-const MY_LIST_LIMIT = 500;
+const MY_LIST_LIMIT = 150;
 const WATCHLIST_GRID_CACHE_TTL_MS = 30_000;
 
 function watchlistGridCacheKey(userId: string) {
@@ -92,7 +92,7 @@ function writeWatchlistGridCache(userId: string | undefined, data: WatchlistGrid
 type WatchlistCtx = {
   set: Set<string>;
   tmdbSet: Set<string>;
-  toggle: (id: Id<"content">, snapshot?: WatchlistSnapshot) => Promise<void>;
+  toggle: (id: ContentId, snapshot: WatchlistSnapshot) => Promise<void>;
   hydrateFromServerIds: (ids: Array<{ id: string; tmdbId?: string }>) => void;
   hydrated: boolean;
 };
@@ -101,7 +101,10 @@ export type WatchlistSnapshot = {
   title: string;
   type: ContentType;
   posterUrl: string;
-  tmdbId?: string;
+  tmdbId: string;
+  genre?: string[];
+  year?: number;
+  voteAverage?: number;
 };
 
 const Ctx = createContext<WatchlistCtx | undefined>(undefined);
@@ -180,7 +183,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   }, [hydrateFromServerIds, serverIds]);
 
   const toggle = useCallback(
-    async (id: Id<"content">, snapshot?: WatchlistSnapshot) => {
+    async (id: ContentId, snapshot: WatchlistSnapshot) => {
       const adding = !ids.has(id);
       const tmdbId = snapshot?.tmdbId || idToTmdbMap.get(id);
 
@@ -275,9 +278,9 @@ export function useToggleWatchlist() {
   return useWatchlistCtx().toggle;
 }
 
-export function useWatchlistContentIds(): Id<"content">[] {
+export function useWatchlistContentIds(): ContentId[] {
   const { set } = useWatchlistCtx();
-  return useMemo(() => Array.from(set) as Id<"content">[], [set]);
+  return useMemo(() => Array.from(set) as ContentId[], [set]);
 }
 
 export function useWatchlistHydrated(): boolean {

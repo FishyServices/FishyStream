@@ -103,7 +103,10 @@ export function Hero({
         title: activeContent.title,
         type: activeContent.type,
         posterUrl: activeContent.posterUrl,
-        tmdbId: activeContent.tmdbId
+        tmdbId: activeContent.tmdbId ?? activeContent._id.split(":").at(-1) ?? "",
+        genre: activeContent.genre,
+        year: activeContent.year,
+        voteAverage: activeContent.voteAverage
       };
       await toggleWatchlist(activeContent._id, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
