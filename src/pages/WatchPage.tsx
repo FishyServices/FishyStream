@@ -1,20 +1,17 @@
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearch } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { useContentPlaybackByTmdbId } from "@/hooks/useContent";
 
 export function WatchPage() {
-  const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
-  const typeParam = searchParams.get("type");
-  const typeHint = typeParam === "movie" || typeParam === "tv" ? typeParam : undefined;
+  const { id } = useParams({ from: "/watch/$id" });
+  const search = useSearch({ from: "/watch/$id" });
+  const typeHint = search.type;
   const content = useContentPlaybackByTmdbId(id, typeHint);
 
-  const initialSeason = searchParams.get("season");
-  const initialEpisode = searchParams.get("episode");
-  const initialSource = searchParams.get("source");
-  const seasonOverride = initialSeason ? Number(initialSeason) : undefined;
-  const episodeOverride = initialEpisode ? Number(initialEpisode) : undefined;
+  const seasonOverride = search.season;
+  const episodeOverride = search.episode;
+  const initialSource = search.source;
 
   if (content === undefined) {
     return (
@@ -43,7 +40,7 @@ export function WatchPage() {
       content={content}
       initialSeason={seasonOverride}
       initialEpisode={episodeOverride}
-      initialSource={initialSource || undefined}
+      initialSource={initialSource}
     />
   );
 }

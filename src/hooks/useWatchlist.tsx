@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useConvexAuth, useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
 import {
   fromWatchlistGridWire,

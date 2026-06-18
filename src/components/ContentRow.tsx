@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { MovieCard } from "./MovieCard";
@@ -59,7 +59,7 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(viewAllHref)}
+            onClick={() => navigate({ to: viewAllHref })}
             className="relative z-40 ml-4 whitespace-nowrap rounded-full border border-white/10 bg-white/3 text-muted-foreground hover:bg-card/80 hover:text-foreground"
           >
             View all

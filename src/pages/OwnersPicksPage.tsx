@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import { Loader2, Award, Film, Tv, Star } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
@@ -16,14 +16,17 @@ export function OwnersPicksPage() {
     dub?: boolean,
     type?: "movie" | "tv"
   ) => {
-    const params = new URLSearchParams();
-    if (type) params.set("type", type);
-    if (season !== undefined) params.set("season", String(season));
-    if (episode !== undefined) params.set("episode", String(episode));
-    if (source) params.set("source", source);
-    if (dub) params.set("dub", "true");
-    const qs = params.toString();
-    navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
+    navigate({
+      to: "/watch/$id",
+      params: { id: tmdbId },
+      search: {
+        type,
+        season,
+        episode,
+        source,
+        dub
+      }
+    });
   };
 
   if (isLoading) {

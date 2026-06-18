@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Loader2,
   Sparkles,
@@ -193,13 +193,17 @@ export function MyListPage() {
     dub?: boolean,
     type?: "movie" | "tv"
   ) => {
-    const params = new URLSearchParams();
-    params.set("type", type ?? "movie");
-    if (season !== undefined) params.set("season", String(season));
-    if (episode !== undefined) params.set("episode", String(episode));
-    if (source) params.set("source", source);
-    if (dub) params.set("dub", "true");
-    navigate(`/watch/${tmdbId}?${params}`);
+    navigate({
+      to: "/watch/$id",
+      params: { id: tmdbId },
+      search: {
+        type: type ?? "movie",
+        season,
+        episode,
+        source,
+        dub
+      }
+    });
   };
 
   const handleRefresh = () => {

@@ -12,7 +12,7 @@ import {
   Info
 } from "lucide-react";
 import { Button } from "@fishy/ui";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ContentModal } from "@/components/ContentModal";
 import { useSeasonEpisodes } from "@/hooks/useContent";
 import {
@@ -148,8 +148,8 @@ export function VideoPlayer({
   initialEpisode,
   initialSource
 }: VideoPlayerProps) {
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate({ from: "/watch/$id" });
+  const search = useSearch({ from: "/watch/$id" });
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { settings } = useAppSettings();
 
@@ -163,7 +163,7 @@ export function VideoPlayer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentProgress, setCurrentProgress] = useState(0);
-  const isDub = searchParams.get("dub") === "true";
+  const isDub = search.dub === true;
   const prefersDub = settings.defaultAnimeLanguage === "dub";
 
   const historyInitRef = useRef(false);
@@ -401,7 +401,7 @@ export function VideoPlayer({
                 year: getSeasonYear(currentSeasonData?.airDate) ?? content.year,
                 season,
                 episode,
-                dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
+                dub: animeContent ? isDub || (search.dub === undefined && prefersDub) : undefined
               })
             : buildMovieSources({
                 imdbId: content.imdbId ?? undefined,
@@ -457,7 +457,7 @@ export function VideoPlayer({
     settings.defaultProvider,
     sources.length,
     watchState,
-    searchParams,
+    search,
     currentSeasonData?.name,
     currentSeasonData?.anilistId,
     currentSeasonData?.anilistEpisodeMappings,
@@ -645,10 +645,14 @@ export function VideoPlayer({
     realtimeDetectedRef.current = false;
 
     if (nextSource) {
-      const params = new URLSearchParams(searchParams);
-      params.set("type", content.type);
-      params.set("source", nextSource.name);
-      navigate({ search: params.toString() }, { replace: true });
+      navigate({
+        search: (prev: any) => ({
+          ...prev,
+          type: content.type,
+          source: nextSource.name
+        }),
+        replace: true
+      });
     }
 
     if (!needsReload) {
@@ -683,7 +687,7 @@ export function VideoPlayer({
         year: getSeasonYear(currentSeasonData?.airDate) ?? content.year,
         season: tvTargetRef.current.season,
         episode: tvTargetRef.current.episode,
-        dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
+        dub: animeContent ? isDub || (search.dub === undefined && prefersDub) : undefined
       });
 
       if (requestId !== sourceRequestIdRef.current) {
@@ -716,13 +720,13 @@ export function VideoPlayer({
 
   const handleDubToggle = (newIsDub: boolean) => {
     if (newIsDub === isDub) return;
-    const params = new URLSearchParams(searchParams);
-    if (newIsDub) {
-      params.set("dub", "true");
-    } else {
-      params.delete("dub");
-    }
-    setSearchParams(params, { replace: true });
+    navigate({
+      search: (prev: any) => ({
+        ...prev,
+        dub: newIsDub ? true : undefined
+      }),
+      replace: true
+    });
     sourceRequestIdRef.current += 1;
     setSources([]);
     setSelectedSource("");
@@ -778,18 +782,15 @@ export function VideoPlayer({
     lastStoredProgressSampleRef.current = undefined;
     realtimeDetectedRef.current = false;
 
-    const params = new URLSearchParams();
-    params.set("type", content.type);
-    params.set("season", String(next.season));
-    params.set("episode", String(next.episode));
-    const currentSource = searchParams.get("source");
-    if (currentSource) {
-      params.set("source", currentSource);
-    }
-    if (isDub) {
-      params.set("dub", "true");
-    }
-    navigate({ search: params.toString() }, { replace: true });
+    navigate({
+      search: (prev: any) => ({
+        ...prev,
+        type: content.type,
+        season: next.season,
+        episode: next.episode
+      }),
+      replace: true
+    });
 
     sourceRequestIdRef.current += 1;
     setSources([]);
@@ -886,7 +887,7 @@ export function VideoPlayer({
             {error ?? "Could not find any streaming sources for this content."}
           </p>
           <div className="flex gap-3 justify-center">
-            <Button onClick={() => navigate(-1)} variant="outline">
+            <Button onClick={() => window.history.back()} variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Go Back
             </Button>
@@ -916,7 +917,7 @@ export function VideoPlayer({
               variant="ghost"
               size="icon"
               className="text-white hover:bg-white/10 shrink-0"
-              onClick={() => navigate(-1)}
+              onClick={() => window.history.back()}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
@@ -1041,14 +1042,18 @@ export function VideoPlayer({
         onClose={() => setShowInfoModal(false)}
         onPlay={(_tmdbId, season, episode, source, dub, type) => {
           setShowInfoModal(false);
-          const params = new URLSearchParams();
-          params.set("type", type ?? content.type);
-          if (season !== undefined) params.set("season", String(season));
-          if (episode !== undefined) params.set("episode", String(episode));
-          const nextSource = source ?? searchParams.get("source");
-          if (nextSource) params.set("source", nextSource);
-          if (dub ?? isDub) params.set("dub", "true");
-          navigate({ search: params.toString() }, { replace: true });
+          const nextSource = source ?? search.source;
+          navigate({
+            search: (prev: any) => ({
+              ...prev,
+              type: type ?? content.type,
+              season: season !== undefined ? season : prev.season,
+              episode: episode !== undefined ? episode : prev.episode,
+              source: nextSource ?? undefined,
+              dub: (dub ?? isDub) ? true : undefined
+            }),
+            replace: true
+          });
         }}
       />
     </div>

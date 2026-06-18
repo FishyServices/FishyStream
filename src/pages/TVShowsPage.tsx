@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Loader2, Tv2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
@@ -21,18 +21,13 @@ const GENRES = [
 ];
 const VALID_SORTS = new Set<ContentSort>(TV_SORT_OPTIONS.map((sort) => sort.value));
 
-function parsePageParam(value: string | null) {
-  const page = Number(value);
-  return Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
-}
-
 export function TVShowsPage() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const genre = searchParams.get("genre") ?? "All";
-  const page = parsePageParam(searchParams.get("page"));
-  const sortParam = searchParams.get("sort");
+  const search = useSearch({ from: "/tv-shows" });
+  const genre = search.genre ?? "All";
+  const page = search.page ?? 1;
+  const sortParam = search.sort;
   const sort: ContentSort =
     sortParam && VALID_SORTS.has(sortParam as ContentSort)
       ? (sortParam as ContentSort)
@@ -46,35 +41,43 @@ export function TVShowsPage() {
     source?: string,
     dub?: boolean
   ) => {
-    const p = new URLSearchParams();
-    p.set("type", "tv");
-    if (season !== undefined) p.set("season", String(season));
-    if (episode !== undefined) p.set("episode", String(episode));
-    if (source) p.set("source", source);
-    if (dub) p.set("dub", "true");
-    navigate(`/watch/${tmdbId}${p.toString() ? "?" + p : ""}`);
+    navigate({
+      to: "/watch/$id",
+      params: { id: tmdbId },
+      search: {
+        type: "tv",
+        season,
+        episode,
+        source,
+        dub
+      }
+    });
   };
 
   const updateBrowseParams = (updates: { sort?: string; genre?: string; page?: number }) => {
-    setSearchParams((p) => {
-      if (updates.sort !== undefined) {
-        p.set("sort", updates.sort);
-      }
-      if (updates.genre !== undefined) {
-        if (updates.genre === "All") {
-          p.delete("genre");
-        } else {
-          p.set("genre", updates.genre);
+    navigate({
+      to: "/tv-shows",
+      search: (prev: any) => {
+        const next = { ...prev };
+        if (updates.sort !== undefined) {
+          next.sort = updates.sort;
         }
-      }
-      if (updates.page !== undefined) {
-        if (updates.page <= 1) {
-          p.delete("page");
-        } else {
-          p.set("page", String(updates.page));
+        if (updates.genre !== undefined) {
+          if (updates.genre === "All") {
+            delete next.genre;
+          } else {
+            next.genre = updates.genre;
+          }
         }
+        if (updates.page !== undefined) {
+          if (updates.page <= 1) {
+            delete next.page;
+          } else {
+            next.page = updates.page;
+          }
+        }
+        return next;
       }
-      return p;
     });
   };
 

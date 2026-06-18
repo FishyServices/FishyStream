@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Play, ChevronDown, Star } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import type { TMDBItem, TMDBFullDetail } from "@/hooks/useContent";
 import { ContentModal } from "./ContentModal";
 import { Button } from "@fishy/ui";
@@ -38,7 +38,11 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    navigate(`/watch/${item.tmdbId}?type=${item.type}`);
+    navigate({
+      to: "/watch/$id",
+      params: { id: String(item.tmdbId) },
+      search: { type: item.type }
+    });
   };
 
   const handleCardClick = async () => {
@@ -228,14 +232,17 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
           isOpen={showModal}
           onClose={() => setShowModal(false)}
           onPlay={(tmdbId, season, episode, source, dub, type) => {
-            const params = new URLSearchParams();
-            params.set("type", type ?? item.type);
-            if (season !== undefined) params.set("season", String(season));
-            if (episode !== undefined) params.set("episode", String(episode));
-            if (source) params.set("source", source);
-            if (dub) params.set("dub", "true");
-            const qs = params.toString();
-            navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
+            void navigate({
+              to: "/watch/$id",
+              params: { id: String(tmdbId) },
+              search: {
+                type: type ?? item.type,
+                season,
+                episode,
+                source: source ?? undefined,
+                dub: dub ? true : undefined
+              }
+            });
           }}
         />
       )}

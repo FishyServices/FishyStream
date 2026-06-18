@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Loader2, Film, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
@@ -24,18 +24,13 @@ const GENRES = [
 ];
 const VALID_SORTS = new Set<ContentSort>(MOVIE_SORT_OPTIONS.map((sort) => sort.value));
 
-function parsePageParam(value: string | null) {
-  const page = Number(value);
-  return Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
-}
-
 export function MoviesPage() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const genre = searchParams.get("genre") ?? "All";
-  const page = parsePageParam(searchParams.get("page"));
-  const sortParam = searchParams.get("sort");
+  const search = useSearch({ from: "/movies" });
+  const genre = search.genre ?? "All";
+  const page = search.page ?? 1;
+  const sortParam = search.sort;
   const sort: ContentSort =
     sortParam && VALID_SORTS.has(sortParam as ContentSort)
       ? (sortParam as ContentSort)
@@ -49,28 +44,37 @@ export function MoviesPage() {
   );
   const movies = paginated.items;
 
-  const handlePlay = (tmdbId: string) => navigate(`/watch/${tmdbId}?type=movie`);
+  const handlePlay = (tmdbId: string) =>
+    navigate({
+      to: "/watch/$id",
+      params: { id: tmdbId },
+      search: { type: "movie" }
+    });
 
   const updateBrowseParams = (updates: { sort?: string; genre?: string; page?: number }) => {
-    setSearchParams((p) => {
-      if (updates.sort !== undefined) {
-        p.set("sort", updates.sort);
-      }
-      if (updates.genre !== undefined) {
-        if (updates.genre === "All") {
-          p.delete("genre");
-        } else {
-          p.set("genre", updates.genre);
+    navigate({
+      to: "/movies",
+      search: (prev: any) => {
+        const next = { ...prev };
+        if (updates.sort !== undefined) {
+          next.sort = updates.sort;
         }
-      }
-      if (updates.page !== undefined) {
-        if (updates.page <= 1) {
-          p.delete("page");
-        } else {
-          p.set("page", String(updates.page));
+        if (updates.genre !== undefined) {
+          if (updates.genre === "All") {
+            delete next.genre;
+          } else {
+            next.genre = updates.genre;
+          }
         }
+        if (updates.page !== undefined) {
+          if (updates.page <= 1) {
+            delete next.page;
+          } else {
+            next.page = updates.page;
+          }
+        }
+        return next;
       }
-      return p;
     });
   };
 

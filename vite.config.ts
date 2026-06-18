@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { matchProviderProxyPath, proxyProviderRequest } from "@fishy/providers/providerProxy";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 function fishyProvidersPlugin(): Plugin {
   const providersRoot = path.resolve(__dirname, "./packages/providers/src");
@@ -65,7 +66,13 @@ export default defineConfig(({ mode }) => {
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL;
 
   return {
-    plugins: [fishyProvidersPlugin(), providerProxyPlugin(), tailwindcss(), react()],
+    plugins: [
+      tanstackRouter(),
+      fishyProvidersPlugin(),
+      providerProxyPlugin(),
+      tailwindcss(),
+      react()
+    ],
     resolve: {
       alias: [
         { find: "@", replacement: path.resolve(__dirname, "./src") },

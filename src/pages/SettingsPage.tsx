@@ -279,7 +279,6 @@ export function SettingsPage() {
                 />
               }
             />
-
           </SettingsSection>
 
           <SettingsSection icon={<Tv2 className="h-4 w-4 text-primary" />} title="Browse Defaults">

@@ -1,5 +1,5 @@
 import { useUser } from "@clerk/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
@@ -8,14 +8,7 @@ import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { Film, Loader2 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Toaster,
-} from "@fishy/ui";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Toaster } from "@fishy/ui";
 
 function Footer() {
   return (
@@ -103,14 +96,17 @@ export function App() {
     dub?: boolean,
     type?: "movie" | "tv"
   ) => {
-    const params = new URLSearchParams();
-    if (type) params.set("type", type);
-    if (season !== undefined) params.set("season", String(season));
-    if (episode !== undefined) params.set("episode", String(episode));
-    if (source) params.set("source", source);
-    if (dub) params.set("dub", "true");
-    const qs = params.toString();
-    navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
+    navigate({
+      to: "/watch/$id",
+      params: { id: tmdbId },
+      search: {
+        type,
+        season,
+        episode,
+        source,
+        dub
+      }
+    });
   };
 
   if (!isLoaded || isConvexAuthLoading) {
@@ -240,11 +236,7 @@ function HomepageContent({
               content={cat.content}
               onPlay={handlePlay}
               viewAllHref={
-                cat.id === "movies"
-                  ? "/movies"
-                  : cat.id === "tvshows"
-                    ? "/tv-shows"
-                    : undefined
+                cat.id === "movies" ? "/movies" : cat.id === "tvshows" ? "/tv-shows" : undefined
               }
             />
           ))}

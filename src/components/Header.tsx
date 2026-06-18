@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useUser, useClerk } from "@clerk/react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "@tanstack/react-router";
 import {
   Search,
   Menu,
@@ -59,6 +59,19 @@ const navLinks = [
   { label: "Owner's Picks", href: "/best", icon: Crown }
 ];
 
+function parseLinkHref(href: string): { to: string; search?: Record<string, string> } {
+  const [pathname, searchStr] = href.split("?") as [string, string | undefined];
+  if (!searchStr) {
+    return { to: pathname };
+  }
+  const searchParams = new URLSearchParams(searchStr);
+  const searchObj: Record<string, string> = {};
+  searchParams.forEach((val, key) => {
+    searchObj[key] = val;
+  });
+  return { to: pathname, search: searchObj };
+}
+
 export function Header() {
   const { user, isSignedIn } = useUser();
   const { signOut } = useClerk();
@@ -91,7 +104,7 @@ export function Header() {
     e.preventDefault();
     const q = searchQuery.trim();
     if (!q) return;
-    navigate(`/search?q=${encodeURIComponent(q)}`);
+    navigate({ to: "/search", search: { q } });
     setSearchOpen(false);
     setSearchQuery("");
   };
@@ -147,7 +160,10 @@ export function Header() {
                           <DropdownMenuItem
                             key={item.label}
                             className="rounded-xl px-4 py-2.5 text-sm text-foreground/74 focus:bg-accent focus:text-accent-foreground"
-                            onClick={() => navigate(item.href)}
+                            onClick={() => {
+                              const { to, search } = parseLinkHref(item.href);
+                              void navigate({ to: to as any, search: search as any });
+                            }}
                           >
                             {item.label}
                           </DropdownMenuItem>
@@ -156,7 +172,8 @@ export function Header() {
                     </DropdownMenu>
                   ) : (
                     <Link
-                      to={link.href}
+                      to={parseLinkHref(link.href).to as any}
+                      search={parseLinkHref(link.href).search as any}
                       className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-all ${
                         location.pathname === link.href
                           ? "bg-white text-black"
@@ -264,7 +281,8 @@ export function Header() {
                         className="mx-1 flex w-[calc(100%-0.5rem)] items-center justify-start gap-3 rounded-xl px-4 py-2.5 text-left text-sm text-foreground/74 hover:bg-accent hover:text-accent-foreground"
                         onClick={() => {
                           setProfileOpen(false);
-                          navigate(item.href);
+                          const { to, search } = parseLinkHref(item.href);
+                          void navigate({ to: to as any, search: search as any });
                         }}
                       >
                         <item.icon className="h-4 w-4" />
@@ -291,7 +309,7 @@ export function Header() {
               <Button
                 size="sm"
                 className="hidden rounded-full bg-primary px-4 text-white hover:bg-primary/90 sm:inline-flex"
-                onClick={() => navigate("/sign-in")}
+                onClick={() => navigate({ to: "/sign-in/$" })}
               >
                 Sign In
               </Button>
@@ -352,7 +370,8 @@ export function Header() {
               {navLinks.map((link) => (
                 <div key={link.label} className="rounded-2xl border border-white/6 bg-white/2">
                   <Link
-                    to={link.href}
+                    to={parseLinkHref(link.href).to as any}
+                    search={parseLinkHref(link.href).search as any}
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3.5 text-sm font-medium transition-colors ${
                       location.pathname === link.href
@@ -368,7 +387,8 @@ export function Header() {
                       {link.dropdown.map((item) => (
                         <Link
                           key={item.label}
-                          to={item.href}
+                          to={parseLinkHref(item.href).to as any}
+                          search={parseLinkHref(item.href).search as any}
                           onClick={() => setMobileOpen(false)}
                           className="rounded-xl bg-white/4 px-3 py-2 text-xs text-white/65 transition-colors hover:bg-white/8 hover:text-white"
                         >
@@ -418,7 +438,7 @@ export function Header() {
                 ) : (
                   <Button
                     className="w-full bg-primary text-white hover:bg-primary/90"
-                    onClick={() => navigate("/sign-in")}
+                    onClick={() => navigate({ to: "/sign-in/$" })}
                   >
                     Sign In
                   </Button>

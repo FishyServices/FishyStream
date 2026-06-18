@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Filter, Loader2, Search, X, Tv, Film } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useSearchAll, type TMDBItem } from "@/hooks/useContent";
@@ -48,16 +48,20 @@ function sortSearchResults(items: TMDBItem[], sort: SearchSort) {
 }
 
 export function SearchPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const query = searchParams.get("q") ?? "";
-  const typeParam = searchParams.get("type");
-  const sortParam = searchParams.get("sort");
+  const navigate = useNavigate({ from: "/search" });
+  const searchParams = useSearch({ from: "/search" });
+
+  const query = searchParams.q ?? "";
+  const typeParam = searchParams.type;
+  const sortParam = searchParams.sort;
+
   const typeFilter: SearchTypeFilter =
     typeParam && VALID_TYPE_FILTERS.has(typeParam as SearchTypeFilter)
       ? (typeParam as SearchTypeFilter)
       : "all";
   const sort: SearchSort =
     sortParam && VALID_SORTS.has(sortParam as SearchSort) ? (sortParam as SearchSort) : "relevance";
+
   const [input, setInput] = useState(query);
   const { results, loading, error } = useSearchAll(query);
 
@@ -75,37 +79,40 @@ export function SearchPage() {
 
   const handleInput = (val: string) => {
     setInput(val);
-    setSearchParams((params) => {
-      const next = new URLSearchParams(params);
-      if (val.trim()) {
-        next.set("q", val.trim());
-      } else {
-        next.delete("q");
-        next.delete("type");
-        next.delete("sort");
+    void navigate({
+      search: (prev) => {
+        if (val.trim()) {
+          return { ...prev, q: val.trim() };
+        }
+        const next = { ...prev };
+        delete next.q;
+        delete next.type;
+        delete next.sort;
+        return next;
       }
-      return next;
     });
   };
 
   const updateSearchParams = (updates: { type?: SearchTypeFilter; sort?: SearchSort }) => {
-    setSearchParams((params) => {
-      const next = new URLSearchParams(params);
-      if (updates.type !== undefined) {
-        if (updates.type === "all") {
-          next.delete("type");
-        } else {
-          next.set("type", updates.type);
+    void navigate({
+      search: (prev) => {
+        const next = { ...prev };
+        if (updates.type !== undefined) {
+          if (updates.type === "all") {
+            delete next.type;
+          } else {
+            next.type = updates.type;
+          }
         }
-      }
-      if (updates.sort !== undefined) {
-        if (updates.sort === "relevance") {
-          next.delete("sort");
-        } else {
-          next.set("sort", updates.sort);
+        if (updates.sort !== undefined) {
+          if (updates.sort === "relevance") {
+            delete next.sort;
+          } else {
+            next.sort = updates.sort;
+          }
         }
+        return next;
       }
-      return next;
     });
   };
 

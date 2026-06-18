@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Play,
   Plus,
@@ -192,7 +191,6 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     : content;
 
   const detailContent = hasFullContent(resolvedContent) ? resolvedContent : null;
-  const navigate = useNavigate();
   const { isSignedIn } = useUser();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
@@ -211,8 +209,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     return raw;
   }, [tmdbSeason]);
 
-  const knownSeasonsFromTmdb =
-    resolvedContent ? getSeasonCount(resolvedContent) : undefined;
+  const knownSeasonsFromTmdb = resolvedContent ? getSeasonCount(resolvedContent) : undefined;
   const [episodeLoadError, setEpisodeLoadError] = useState<string | null>(null);
   const [seasonCountOverride, setSeasonCountOverride] = useState<number | undefined>(undefined);
 

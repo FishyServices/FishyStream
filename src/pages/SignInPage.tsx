@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ClerkFailed, ClerkLoaded, ClerkLoading, SignIn, useAuth, useSignIn } from "@clerk/react";
 import { dark } from "@clerk/themes";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Capacitor } from "@capacitor/core";
 import { AlertCircle, Loader2, Mail, Lock, ShieldCheck } from "lucide-react";
 import { Button, Input, Label } from "@fishy/ui";
@@ -38,7 +38,7 @@ function NativeSignInCard() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isSignedIn) navigate("/", { replace: true });
+    if (isSignedIn) void navigate({ to: "/", replace: true });
   }, [isSignedIn, navigate]);
 
   const description = useMemo(
@@ -55,7 +55,7 @@ function NativeSignInCard() {
     await signIn.finalize({
       navigate: ({ decorateUrl }) => {
         const url = decorateUrl("/");
-        navigate(url.startsWith("http") ? "/" : url, { replace: true });
+        void navigate({ to: url.startsWith("http") ? "/" : (url as "/"), replace: true });
       }
     });
   };
@@ -304,7 +304,7 @@ function NativeSignInCard() {
 
       <p className="mt-5 text-center text-sm text-white/45">
         Need an account?{" "}
-        <Link to="/sign-up" className="font-medium text-primary hover:text-primary/80">
+        <Link to="/sign-up/$" className="font-medium text-primary hover:text-primary/80">
           Create one
         </Link>
       </p>
