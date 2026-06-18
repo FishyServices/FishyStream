@@ -66,40 +66,11 @@ export function MyListPage() {
   const [sortBy, setSortBy] = useState<"recently" | "oldest" | "title-az" | "title-za">("recently");
   const [viewLayout, setViewLayout] = useState<"grid" | "list">("grid");
   const [canDragCards, setCanDragCards] = useState(false);
-  const recommendationSeed = useMemo(() => {
-    if (!watchlistData?.length) return undefined;
-
-    const typeCounts = new Map<"movie" | "tv", number>();
-    const genreCounts = new Map<string, number>();
-    for (const item of watchlistData.slice(0, 24)) {
-      typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + 1);
-      for (const genre of item.genre ?? []) {
-        genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
-      }
-    }
-
-    return {
-      tmdbSeeds: watchlistData
-        .filter((item) => item.tmdbId)
-        .map((item) => ({
-          tmdbId: item.tmdbId!,
-          type: item.type,
-          genres: item.genre
-        })),
-      preferredType:
-        Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "movie",
-      genres: Array.from(genreCounts.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 8)
-        .map(([genre]) => genre)
-    };
-  }, [watchlistData]);
   const { recommendations, isLoading: recsLoading } = useRecommendations(
     12,
     typeFilter,
     refreshSeed,
-    !!watchlistData?.length,
-    recommendationSeed
+    !!watchlistData?.length
   );
 
   useEffect(() => {

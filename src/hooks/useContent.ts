@@ -1,4 +1,6 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { useMyWatchlist } from "./useWatchlist";
+import { useMyWatchHistory, useContinueWatching } from "./useWatchHistory";
 import type {
   ContentCard,
   ContentId,
@@ -464,7 +466,72 @@ export function usePaginatedContent(
   return { ...result, goNext: () => {}, goPrevious: () => {} };
 }
 
-// ─── Recommendations ──────────────────────────────────────────────────────────
+export function usePersonalizedRecommendationSeed(enabled = true) {
+  const watchlist = useMyWatchlist();
+  const watchHistory = useMyWatchHistory();
+  const continueWatching = useContinueWatching(enabled, 24);
+
+  return useMemo(() => {
+    const tmdbSeeds: TMDBRecommendationSeed[] = [];
+    const typeCounts = new Map<"movie" | "tv", number>();
+    const genreCounts = new Map<string, number>();
+
+    const processItem = (
+      item: { tmdbId?: string; type: "movie" | "tv"; genre?: string[] },
+      weight = 1
+    ) => {
+      if (!item.tmdbId) return;
+
+      const seedExists = tmdbSeeds.some((s) => s.tmdbId === item.tmdbId && s.type === item.type);
+      if (!seedExists) {
+        tmdbSeeds.push({
+          tmdbId: item.tmdbId,
+          type: item.type,
+          genres: item.genre
+        });
+      }
+
+      typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + weight);
+      if (item.genre) {
+        for (const g of item.genre) {
+          genreCounts.set(g, (genreCounts.get(g) ?? 0) + weight);
+        }
+      }
+    };
+
+    if (continueWatching) {
+      for (const item of continueWatching) {
+        processItem(item, 3);
+      }
+    }
+
+    if (watchlist) {
+      for (const item of watchlist) {
+        processItem(item, 2);
+      }
+    }
+
+    if (watchHistory) {
+      for (const item of watchHistory) {
+        processItem(item, 1);
+      }
+    }
+
+    const preferredType =
+      Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "movie";
+
+    const genres = Array.from(genreCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([genre]) => genre);
+
+    return {
+      tmdbSeeds,
+      preferredType,
+      genres
+    };
+  }, [watchlist, watchHistory, continueWatching]);
+}
 
 export function useRecommendations(
   limit = 12,
@@ -477,9 +544,11 @@ export function useRecommendations(
     genres: string[];
   }
 ) {
+  const personalizedSeed = usePersonalizedRecommendationSeed(enabled);
+  const activeSeed = seed !== undefined ? seed : personalizedSeed;
   const [recommendations, setRecommendations] = useState<ContentCard[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const seedSignature = seed?.tmdbSeeds
+  const seedSignature = activeSeed?.tmdbSeeds
     ?.map((item) => `${item.type}:${item.tmdbId}`)
     .sort()
     .join("|");
@@ -493,15 +562,15 @@ export function useRecommendations(
 
     const controller = new AbortController();
     const apiKey = getApiKey();
-    const excludedIds = new Set(seed?.tmdbSeeds?.map((s) => `${s.type}:${s.tmdbId}`));
+    const excludedIds = new Set(activeSeed?.tmdbSeeds?.map((s) => `${s.type}:${s.tmdbId}`));
     const genreIds = Array.from(
       new Set(
-        (seed?.genres ?? [])
+        (activeSeed?.genres ?? [])
           .map((g) => TMDB_DISCOVER_GENRES[g.trim().toLowerCase()])
           .filter((id): id is number => typeof id === "number")
       )
     ).slice(0, 3);
-    const seedItems = shuffleWithSeed(seed?.tmdbSeeds ?? [], refreshSeed)
+    const seedItems = shuffleWithSeed(activeSeed?.tmdbSeeds ?? [], refreshSeed)
       .filter((s) => typeFilter === "all" || s.type === typeFilter)
       .slice(0, 5);
 
@@ -509,7 +578,7 @@ export function useRecommendations(
       collectTmdbCards(responses, { excludedIds, typeFilter }).map(tmdbCardToContentCard);
 
     const fallbackTypes: TMDBMediaType[] =
-      typeFilter === "all" ? [seed?.preferredType ?? "movie", "tv", "movie"] : [typeFilter];
+      typeFilter === "all" ? [activeSeed?.preferredType ?? "movie", "tv", "movie"] : [typeFilter];
 
     async function load() {
       setIsLoading(true);
@@ -579,9 +648,9 @@ export function useRecommendations(
     limit,
     typeFilter,
     refreshSeed,
-    seed?.preferredType,
+    activeSeed?.preferredType,
     seedSignature,
-    seed?.genres.join("|")
+    activeSeed?.genres?.join("|")
   ]);
 
   return { recommendations, isLoading };

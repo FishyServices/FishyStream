@@ -56,14 +56,14 @@ async function listHistory(
 export const listWatchHistory = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemWire[]> => {
-    return await listHistory(ctx, clerkUserId, 30, true);
+    return await listHistory(ctx, clerkUserId, 100, true);
   }
 });
 
 export const listContinueWatching = query({
   args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { clerkUserId, limit = 6 }): Promise<WatchHistoryItemWire[]> => {
-    return await listHistory(ctx, clerkUserId, Math.max(1, Math.min(10, limit)), false);
+    return await listHistory(ctx, clerkUserId, Math.max(1, Math.min(30, limit)), false);
   }
 });
 

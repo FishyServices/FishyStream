@@ -16,26 +16,23 @@ export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
   const serverData = useOneShotConvexQuery<WatchHistoryItemWire[]>(
     !!user,
     (convex) => convex.query(api.watchHistory.listWatchHistory, { clerkUserId: user!.id }),
-    [user?.id]
+    [user?.id],
+    undefined,
+    user ? `watch_history_${user.id}` : undefined
   );
 
   return useMemo(() => serverData?.map(fromWatchHistoryItemWire), [serverData]);
 }
 
 export function useContinueWatching(enabled = true, limit = 6): WatchHistoryItemMeta[] | undefined {
-  const { user } = useUser();
-  const serverData = useOneShotConvexQuery<WatchHistoryItemWire[]>(
-    enabled && !!user,
-    (convex) =>
-      convex.query(api.watchHistory.listContinueWatching, { clerkUserId: user!.id, limit }),
-    [user?.id, limit]
-  );
+  const history = useMyWatchHistory();
   const localProgress = useWatchProgressContext();
 
   return useMemo(() => {
-    if (serverData === undefined) return undefined;
+    if (!enabled) return [];
+    if (history === undefined) return undefined;
 
-    const result = serverData.map(fromWatchHistoryItemWire);
+    const result = history.filter((item) => !item.completed).slice(0, limit);
     for (const [contentId, progress] of localProgress?.entries() ?? []) {
       if (progress.completed || progress.progress < 5) continue;
 
@@ -57,7 +54,7 @@ export function useContinueWatching(enabled = true, limit = 6): WatchHistoryItem
     }
 
     return result;
-  }, [serverData, localProgress]);
+  }, [history, localProgress, enabled, limit]);
 }
 
 export function useRemoveFromHistory() {
