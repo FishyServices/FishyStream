@@ -31,6 +31,7 @@ import {
   type TMDBBrowseListResponse,
   type TMDBFullDetail
 } from "@fishy/providers/tmdb";
+import ownersPicksData from "../lib/ownersPicks.json";
 
 export type { TMDBItem, TMDBFullDetail };
 
@@ -215,7 +216,92 @@ export function useNewReleases() {
   return newReleases;
 }
 
-// ─── Playback ─────────────────────────────────────────────────────────────────
+export function useCuratedPicks() {
+  const [picks, setPicks] = useState<{
+    movies: ContentCard[];
+    tv: ContentCard[];
+    anime: ContentCard[];
+    isLoading: boolean;
+  }>({
+    movies: [],
+    tv: [],
+    anime: [],
+    isLoading: true
+  });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const apiKey = getApiKey();
+
+    const movieItems = [...ownersPicksData.movies].sort((a, b) => a.rank - b.rank);
+    const tvItems = [...ownersPicksData.tv].sort((a, b) => a.rank - b.rank);
+    const animeItems = [...ownersPicksData.anime].sort((a, b) => a.rank - b.rank);
+
+    const movieIds = movieItems.map((item) => item.tmdbId);
+    const tvIds = tvItems.map((item) => item.tmdbId);
+    const animeIds = animeItems.map((item) => item.tmdbId);
+
+    async function load() {
+      try {
+        const fetchGroup = async (ids: string[], type: TMDBMediaType) => {
+          const results = await Promise.all(
+            ids.map(async (id) => {
+              try {
+                const detail = await fetchTmdbFullDetail(id, type, apiKey, controller.signal);
+                if (!detail) return null;
+                return {
+                  _id: makeContentId(detail.type, detail.tmdbId),
+                  title: detail.title,
+                  type: detail.type,
+                  genre: detail.genre,
+                  year: detail.year,
+                  voteAverage: detail.voteAverage,
+                  posterUrl: detail.posterUrl,
+                  tmdbId: detail.tmdbId,
+                  new: detail.isNew
+                } as ContentCard;
+              } catch {
+                return null;
+              }
+            })
+          );
+          return results.filter((item): item is ContentCard => !!item);
+        };
+
+        const [movies, tv, anime] = await Promise.all([
+          fetchGroup(movieIds, "movie"),
+          fetchGroup(tvIds, "tv"),
+          fetchGroup(animeIds, "tv")
+        ]);
+
+        if (!controller.signal.aborted) {
+          setPicks({
+            movies,
+            tv,
+            anime,
+            isLoading: false
+          });
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setPicks({
+            movies: [],
+            tv: [],
+            anime: [],
+            isLoading: false
+          });
+        }
+      }
+    }
+
+    void load();
+    return () => controller.abort();
+  }, []);
+
+  return picks;
+}
+
+/* Playback */
 
 export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?: TMDBMediaType) {
   const [content, setContent] = useState<ContentPlayback | null | undefined>(undefined);

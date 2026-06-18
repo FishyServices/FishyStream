@@ -12,7 +12,7 @@ import { SignUpPage } from "./pages/SignUpPage";
 import { WatchPage } from "./pages/WatchPage";
 import { MoviesPage } from "./pages/MoviesPage";
 import { TVShowsPage } from "./pages/TVShowsPage";
-import { NewReleasesPage } from "./pages/NewReleasesPage";
+import { OwnersPicksPage } from "./pages/OwnersPicksPage";
 import { MyListPage } from "./pages/MyListPage";
 import { WatchHistoryPage } from "./pages/WatchHistoryPage";
 import { SearchPage } from "./pages/SearchPage";
@@ -113,8 +113,8 @@ function AppShell() {
             <Route path="/movies" element={<AppRouteProviders page={<MoviesPage />} />} />
             <Route path="/tv-shows" element={<AppRouteProviders page={<TVShowsPage />} />} />
             <Route
-              path="/new-releases"
-              element={<AppRouteProviders page={<NewReleasesPage />} />}
+              path="/best"
+              element={<AppRouteProviders page={<OwnersPicksPage />} />}
             />
             <Route
               path="/my-list"

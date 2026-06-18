@@ -47,7 +47,7 @@ function Footer() {
             links: [
               { text: "Movies", href: "/movies" },
               { text: "TV Shows", href: "/tv-shows" },
-              { text: "New Releases", href: "/new-releases" }
+              { text: "Owner's Picks", href: "/best" }
             ]
           },
           {
@@ -244,9 +244,7 @@ function HomepageContent({
                   ? "/movies"
                   : cat.id === "tvshows"
                     ? "/tv-shows"
-                    : cat.id === "new"
-                      ? "/new-releases"
-                      : undefined
+                    : undefined
               }
             />
           ))}

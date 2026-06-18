@@ -6,7 +6,7 @@ import {
   Menu,
   X,
   ChevronDown,
-  Flame,
+  Crown,
   Settings,
   Tv,
   Film,
@@ -56,7 +56,7 @@ const navLinks = [
       { label: "Top Rated", href: "/tv-shows?sort=rating" }
     ]
   },
-  { label: "New & Hot", href: "/new-releases", icon: Flame }
+  { label: "Owner's Picks", href: "/best", icon: Crown }
 ];
 
 export function Header() {
