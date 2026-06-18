@@ -14,6 +14,7 @@ import {
 import { Button } from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ContentModal } from "@/components/ContentModal";
+import { useSeasonEpisodes } from "@/hooks/useContent";
 import {
   Select,
   SelectContent,
@@ -45,14 +46,12 @@ import {
   getNextEpisodeAddress,
   getSeasonYear,
   groupSourcesByProviderCategory,
-  hasAnimeEpisodeMappingMetadata,
   hasNextEpisode as hasProviderNextEpisode,
   isAnimeProviderContent,
   normalizePlaybackProgressSample,
   pickPreferredSource,
   shouldStorePlaybackProgressSample,
-  WATCH_PROGRESS_STATUS_POLL_MS,
-  shouldWaitForAnimeSeasonMetadata
+  WATCH_PROGRESS_STATUS_POLL_MS
 } from "@fishy/providers/providerPlayback";
 import type { ContentPlayback } from "../../shared/contentMetadata";
 import type { PlaybackProgressSample } from "@fishy/providers/providerPlayback";
@@ -63,6 +62,19 @@ interface VideoPlayerProps {
   initialEpisode?: number;
   initialSource?: string;
 }
+
+type ClientSeasonPlaybackMeta = {
+  seasonNumber: number;
+  name?: string;
+  airDate?: string;
+  episodeCount?: number;
+  anilistId?: string;
+  anilistEpisodeMappings?: Array<{
+    episodeNumber: number;
+    anilistId: string;
+    anilistEpisodeNumber: number;
+  }>;
+};
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
 const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:anime-season-sync-keys";
@@ -81,10 +93,6 @@ function readSessionAnimeSeasonSyncKeys() {
   } catch {
     return [];
   }
-}
-
-function hasSessionAnimeSeasonSyncKey(key: string) {
-  return readSessionAnimeSeasonSyncKeys().includes(key);
 }
 
 function rememberSessionAnimeSeasonSyncKey(key: string) {
@@ -145,7 +153,7 @@ export function VideoPlayer({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { settings } = useAppSettings();
 
-  const syncSeason = useAction(api.tmdb.syncSeason);
+  const syncAnimeSeasonPlaybackMeta = useAction(api.seasonSync.syncAnimeSeasonPlaybackMeta);
   const updateProgress = useUpdateProgress();
   const watchState = useGetProgress(content._id);
   const animeContent = isAnimeProviderContent(content);
@@ -165,20 +173,14 @@ export function VideoPlayer({
   const lastRealtimeSyncAtRef = useRef(0);
   const lastStoredProgressSampleRef = useRef<PlaybackProgressSample | undefined>(undefined);
   const sourceRequestIdRef = useRef(0);
-  const seasonSyncRequestRef = useRef<string | null>(null);
-  const seasonSyncPromiseRef = useRef<
-    Record<string, Promise<{ seasonNumber: number; episodeCount: number } | null>>
-  >({});
   const nextEpisodeClickLockedRef = useRef(false);
   const nextEpisodeCooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [resumePositionSeconds, setResumePositionSeconds] = useState(0);
-  const [freshAnimeSeasonKeys, setFreshAnimeSeasonKeys] = useState<string[]>([]);
   const [isNextEpisodeCooldown, setIsNextEpisodeCooldown] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const [seasonMetaReloadKey, setSeasonMetaReloadKey] = useState(0);
-  const [syncedSeasonEpisodeCounts, setSyncedSeasonEpisodeCounts] = useState<
-    Record<string, number>
-  >({});
+  const [animeSeasonReloadKey, setAnimeSeasonReloadKey] = useState(0);
+  const animeSeasonSyncingRef = useRef<Set<string>>(new Set());
+  const animeSeasonFailedRef = useRef<Set<string>>(new Set());
 
   const tvTargetRef = useRef({
     season: initialSeason ?? 1,
@@ -196,134 +198,85 @@ export function VideoPlayer({
   const hasPendingInitialTvTarget =
     content.type === "tv" && !!watchState && !historyInitRef.current;
 
-  const currentSeasonData = useOneShotConvexQuery(
-    content.type === "tv" && !hasPendingInitialTvTarget,
+  const { season: playbackSeason } = useSeasonEpisodes(
+    content.type === "tv" && !hasPendingInitialTvTarget ? content.tmdbId : undefined,
+    tvTarget.season,
+    content.type === "tv" && !hasPendingInitialTvTarget
+  );
+  const clientSeasonData: ClientSeasonPlaybackMeta | null =
+    content.type === "tv" && playbackSeason
+      ? ({
+          seasonNumber: tvTarget.season,
+          name: `Season ${tvTarget.season}`,
+          airDate: undefined,
+          episodeCount: playbackSeason.episodes.length,
+          anilistId: tvTarget.season === 1 ? content.anilistId : undefined,
+          anilistEpisodeMappings: undefined
+        } satisfies ClientSeasonPlaybackMeta)
+      : null;
+  const animeSeasonKey =
+    animeContent && content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
+  const animeSeasonData = useOneShotConvexQuery<ClientSeasonPlaybackMeta | null>(
+    !!animeSeasonKey && !hasPendingInitialTvTarget,
     (convex) =>
       convex.query(api.seasons.getSeasonPlaybackMeta, {
         contentId: content._id,
         seasonNumber: tvTarget.season,
-        episodeNumber: tvTarget.episode,
-        includeAnimeMappings: animeContent
+        episodeNumber: tvTarget.episode
       }),
-    [content._id, tvTarget.season, tvTarget.episode, animeContent, seasonMetaReloadKey],
+    [content._id, tvTarget.season, tvTarget.episode, animeSeasonReloadKey],
     undefined,
-    `seasonPlaybackMeta:${content._id}:${tvTarget.season}:${tvTarget.episode}:${animeContent ? "anime" : "plain"}:${seasonMetaReloadKey}`
+    animeSeasonKey
+      ? `animeSeasonPlayback:${animeSeasonKey}:${tvTarget.episode}:${animeSeasonReloadKey}`
+      : undefined
   );
-  const currentSeasonKey = content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
-  const syncedSeasonEpisodeCount = currentSeasonKey
-    ? syncedSeasonEpisodeCounts[currentSeasonKey]
-    : undefined;
-  const currentSeasonEpisodeCount = currentSeasonData?.episodeCount ?? syncedSeasonEpisodeCount;
-  const hasFreshAnimeSeasonMetadata =
-    !animeContent ||
-    tvTarget.season <= 1 ||
-    !currentSeasonKey ||
-    freshAnimeSeasonKeys.includes(currentSeasonKey) ||
-    hasSessionAnimeSeasonSyncKey(currentSeasonKey);
+  const currentSeasonData = animeSeasonData ?? clientSeasonData;
+  const currentSeasonEpisodeCount = currentSeasonData?.episodeCount;
   const waitingForAnimeSeasonMetadata =
-    shouldWaitForAnimeSeasonMetadata({
-      contentType: content.type,
-      isAnime: animeContent,
-      seasonNumber: tvTarget.season,
-      currentSeasonData
-    }) ||
-    (animeContent && !hasFreshAnimeSeasonMetadata);
-
-  const syncSeasonMetadata = useCallback(
-    async (seasonNumber: number) => {
-      if (content.type !== "tv" || !content.tmdbId) return null;
-
-      const tmdbId = content.tmdbId;
-      const key = `${content._id}:${seasonNumber}`;
-      const existingSync = seasonSyncPromiseRef.current[key];
-      if (existingSync) return await existingSync;
-
-      seasonSyncRequestRef.current = key;
-
-      const pendingSync = (async () => {
-        const result = await syncSeason({
-          tmdbId,
-          contentId: content._id,
-          seasonNumber
-        });
-
-        if (result?.episodeCount) {
-          setSyncedSeasonEpisodeCounts((counts) => ({
-            ...counts,
-            [key]: result.episodeCount
-          }));
-        }
-
-        if (animeContent) {
-          rememberSessionAnimeSeasonSyncKey(key);
-          setFreshAnimeSeasonKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
-        }
-        if (animeContent && seasonNumber > 1) {
-          setSeasonMetaReloadKey((value) => value + 1);
-        }
-
-        return result ?? null;
-      })();
-
-      seasonSyncPromiseRef.current[key] = pendingSync;
-
-      try {
-        return await pendingSync;
-      } finally {
-        delete seasonSyncPromiseRef.current[key];
-        if (seasonSyncRequestRef.current === key) {
-          seasonSyncRequestRef.current = null;
-        }
-      }
-    },
-    [animeContent, content._id, content.tmdbId, content.type, syncSeason]
-  );
+    !!animeSeasonKey &&
+    !animeSeasonFailedRef.current.has(animeSeasonKey) &&
+    (animeSeasonData === undefined ||
+      animeSeasonSyncingRef.current.has(animeSeasonKey) ||
+      (animeSeasonData === null && !readSessionAnimeSeasonSyncKeys().includes(animeSeasonKey)));
 
   useEffect(() => {
-    if (content.type !== "tv" || !content.tmdbId) return;
+    if (!animeSeasonKey || !content.tmdbId || hasPendingInitialTvTarget) return;
+    if (animeSeasonData !== null) return;
+    if (animeSeasonSyncingRef.current.has(animeSeasonKey)) return;
+    if (readSessionAnimeSeasonSyncKeys().includes(animeSeasonKey)) return;
 
-    const shouldSyncSeason =
-      (currentSeasonData === null && !syncedSeasonEpisodeCount) ||
-      (tvTarget.season > 1 &&
-        animeContent &&
-        !hasFreshAnimeSeasonMetadata &&
-        (!currentSeasonData?.anilistId || !hasAnimeEpisodeMappingMetadata(currentSeasonData)));
-    if (!shouldSyncSeason) return;
-
-    void syncSeasonMetadata(tvTarget.season).catch(() => {});
+    animeSeasonSyncingRef.current.add(animeSeasonKey);
+    void syncAnimeSeasonPlaybackMeta({
+      contentId: content._id,
+      tmdbId: content.tmdbId,
+      title: content.title,
+      seasonNumber: tvTarget.season
+    })
+      .then((result) => {
+        rememberSessionAnimeSeasonSyncKey(animeSeasonKey);
+        if (!result) {
+          animeSeasonFailedRef.current.add(animeSeasonKey);
+        }
+        setAnimeSeasonReloadKey((value) => value + 1);
+      })
+      .catch(() => {
+        animeSeasonFailedRef.current.add(animeSeasonKey);
+        rememberSessionAnimeSeasonSyncKey(animeSeasonKey);
+        setAnimeSeasonReloadKey((value) => value + 1);
+      })
+      .finally(() => {
+        animeSeasonSyncingRef.current.delete(animeSeasonKey);
+      });
   }, [
-    currentSeasonKey,
-    animeContent,
+    animeSeasonData,
+    animeSeasonKey,
     content._id,
     content.tmdbId,
-    content.type,
-    currentSeasonData,
-    hasFreshAnimeSeasonMetadata,
-    syncSeasonMetadata,
-    syncedSeasonEpisodeCount,
+    content.title,
+    hasPendingInitialTvTarget,
+    syncAnimeSeasonPlaybackMeta,
     tvTarget.season
   ]);
-
-  useEffect(() => {
-    setFreshAnimeSeasonKeys([]);
-    setSyncedSeasonEpisodeCounts({});
-  }, [content._id]);
-
-  useEffect(() => {
-    if (!animeContent || !currentSeasonKey) return;
-    setFreshAnimeSeasonKeys((keys) => keys.filter((key) => key !== currentSeasonKey));
-  }, [animeContent, currentSeasonKey]);
-
-  useEffect(() => {
-    if (!animeContent || !currentSeasonKey || seasonSyncRequestRef.current) return;
-    if (currentSeasonData?.seasonNumber !== tvTarget.season) return;
-    if (!currentSeasonData?.anilistId) return;
-    if (!hasAnimeEpisodeMappingMetadata(currentSeasonData)) return;
-
-    setFreshAnimeSeasonKeys((keys) =>
-      keys.includes(currentSeasonKey) ? keys : [...keys, currentSeasonKey]
-    );
-  }, [animeContent, currentSeasonData, currentSeasonKey, syncSeason, tvTarget.season]);
 
   useEffect(() => {
     sourceRequestIdRef.current += 1;
@@ -649,7 +602,16 @@ export function VideoPlayer({
         persistedSeason,
         persistedEpisode,
         selectedSourceConfig?.name,
-        animeContent ? isDub : undefined
+        animeContent ? isDub : undefined,
+        {
+          title: content.title,
+          type: content.type,
+          posterUrl: content.posterUrl ?? "",
+          tmdbId: content.tmdbId ?? content._id.split(":").at(-1) ?? "",
+          genre: content.genre,
+          year: content.year,
+          voteAverage: content.voteAverage
+        }
       );
 
       lastSyncedProgressRef.current = nextProgress;
@@ -793,23 +755,7 @@ export function VideoPlayer({
 
     const currentSeason = tvTargetRef.current.season;
     const currentEpisode = tvTargetRef.current.episode;
-    let effectiveSeasonEpisodeCount = currentSeasonEpisodeCount;
-
-    if (effectiveSeasonEpisodeCount === undefined) {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const result = await syncSeasonMetadata(currentSeason);
-        effectiveSeasonEpisodeCount = result?.episodeCount;
-      } catch (err) {
-        setError(
-          `Failed to sync current season: ${err instanceof Error ? err.message : String(err)}`
-        );
-        setLoading(false);
-        return;
-      }
-    }
+    const effectiveSeasonEpisodeCount = currentSeasonEpisodeCount;
 
     const next = getNextEpisodeAddress({
       tmdbId: content.tmdbId,
@@ -821,19 +767,6 @@ export function VideoPlayer({
     if (!next) return;
 
     const crossesSeason = next.season !== currentSeason;
-
-    if (crossesSeason) {
-      setLoading(true);
-      setError(null);
-
-      try {
-        await syncSeasonMetadata(next.season);
-      } catch (err) {
-        setError(`Failed to sync next season: ${err instanceof Error ? err.message : String(err)}`);
-        setLoading(false);
-        return;
-      }
-    }
 
     tvTargetRef.current = next;
     setTvTarget(next);

@@ -1,25 +1,20 @@
-import { useState } from "react";
 import { useUser } from "@clerk/react";
 import { useNavigate } from "react-router-dom";
-import { useAction, useConvexAuth } from "convex/react";
+import { useConvexAuth } from "convex/react";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { ContentRow } from "@/components/ContentRow";
 import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
-import { api } from "../convex/_generated/api";
-import { ArrowRight, Database, Film, Loader2, Tv2, Zap } from "lucide-react";
+import { Film, Loader2 } from "lucide-react";
 import {
-  Badge,
-  Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
   Toaster,
-  toast
 } from "@fishy/ui";
 
 function Footer() {
@@ -91,68 +86,6 @@ function Footer() {
         ))}
       </div>
     </footer>
-  );
-}
-
-function SyncPanel() {
-  const [syncing, setSyncing] = useState(false);
-  const [lastSynced, setLastSynced] = useState<string | null>(null);
-  const syncContent = useAction(api.tmdb.syncContent);
-
-  const doSync = async (type: "movies" | "tv", count: number) => {
-    setSyncing(true);
-    try {
-      const n = await syncContent({ type, count });
-      toast.success(`Synced ${n} ${type === "movies" ? "movies" : "TV shows"}`);
-      setLastSynced(new Date().toLocaleTimeString());
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Sync failed");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  return (
-    <Card className="home-panel border-white/10 bg-white/4.5">
-      <CardContent className="relative z-10 flex flex-col gap-5 p-5 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-white/74">
-            <Database className="h-4 w-4" />
-            <p className="kicker">Library control</p>
-          </div>
-          <h2 className="font-display text-2xl font-bold text-white">Keep the catalog fresh</h2>
-          <p className="max-w-2xl text-sm leading-6 text-white/56">
-            Load new movies and episodes from TMDB without leaving the homepage.
-            {lastSynced ? ` Last sync: ${lastSynced}.` : ""}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: "50 Movies", type: "movies" as const, count: 50, icon: Film },
-            { label: "50 TV Shows", type: "tv" as const, count: 50, icon: Tv2 },
-            { label: "200 Movies", type: "movies" as const, count: 200, icon: Zap },
-            { label: "200 TV Shows", type: "tv" as const, count: 200, icon: Zap }
-          ].map((btn) => (
-            <Button
-              key={btn.label}
-              size="sm"
-              variant="outline"
-              className="rounded-full border-white/12 bg-white/4 text-xs text-white hover:bg-white/8"
-              disabled={syncing}
-              onClick={() => doSync(btn.type, btn.count)}
-            >
-              {syncing ? (
-                <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-              ) : (
-                <btn.icon className="mr-1.5 h-3 w-3" />
-              )}
-              {btn.label}
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -257,8 +190,8 @@ function HomepageContent({
                 Your catalog is ready
               </h2>
               <p className="text-sm text-white/50 leading-relaxed">
-                Welcome to FishyStream! No content is loaded in the library yet. You can enable
-                content sync tools in your Settings page to start importing.
+                Welcome to FishyStream! TMDB did not return any titles for this session. Try
+                refreshing or checking your TMDB key configuration.
               </p>
             </div>
           </div>
@@ -282,12 +215,6 @@ function HomepageContent({
           />
         )}
         <div className="relative z-10 pb-10 pt-6">
-          {settings.showSyncPanel && (
-            <div className="page-shell-wide mb-6">
-              <SyncPanel />
-            </div>
-          )}
-
           {settings.showContinueWatchingRow && isSignedIn && continueWatching.length > 0 && (
             <ContentRow
               title="Continue Watching"

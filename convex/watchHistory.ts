@@ -3,28 +3,24 @@ import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import {
+  fromImageWire,
   toWatchHistoryItemWire,
   toWatchProgressEntryMeta,
   type WatchHistoryItemWire,
   type WatchProgressEntryMeta
 } from "../shared/contentMetadata";
 
-function toHistoryItemWire(
-  row: Doc<"watchProgress">,
-  content: Doc<"content"> | null
-): WatchHistoryItemWire | null {
-  if (!content) return null;
-
+function toHistoryItemWire(row: Doc<"watchProgress">): WatchHistoryItemWire {
   return toWatchHistoryItemWire({
-    _id: row.contentId,
-    title: content.title,
-    type: content.type,
-    genre: content.genre,
-    year: content.year,
-    voteAverage: content.voteAverage,
-    posterUrl: content.posterUrl,
-    tmdbId: content.tmdbId,
-    new: content.new,
+    _id: row.contentId as never,
+    title: row.title,
+    type: row.contentType,
+    genre: row.genre ?? [],
+    year: row.year ?? 0,
+    voteAverage: row.voteAverage,
+    posterUrl: fromImageWire(row.posterUrl),
+    tmdbId: row.tmdbId,
+    new: false,
     progress: row.progress,
     completed: row.completed,
     seasonNumber: row.seasonNumber,
@@ -34,7 +30,7 @@ function toHistoryItemWire(
   });
 }
 
-async function listHydratedHistory(
+async function listHistory(
   ctx: QueryCtx,
   clerkUserId: string,
   limit: number,
@@ -54,23 +50,20 @@ async function listHydratedHistory(
         .order("desc")
         .take(limit);
 
-  const contentRows = await Promise.all(progressRows.map((row) => ctx.db.get(row.contentId)));
-  return progressRows
-    .map((row, index) => toHistoryItemWire(row, contentRows[index] ?? null))
-    .filter((item): item is WatchHistoryItemWire => item !== null);
+  return progressRows.map(toHistoryItemWire);
 }
 
 export const listWatchHistory = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemWire[]> => {
-    return await listHydratedHistory(ctx, clerkUserId, 50, true);
+    return await listHistory(ctx, clerkUserId, 30, true);
   }
 });
 
 export const listContinueWatching = query({
   args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { clerkUserId, limit = 6 }): Promise<WatchHistoryItemWire[]> => {
-    return await listHydratedHistory(ctx, clerkUserId, Math.max(1, Math.min(10, limit)), false);
+    return await listHistory(ctx, clerkUserId, Math.max(1, Math.min(10, limit)), false);
   }
 });
 
@@ -81,14 +74,20 @@ export const listWatchProgressEntries = query({
       .query("watchProgress")
       .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId))
       .order("desc")
-      .take(50);
+      .take(75);
 
-    return rows.map(toWatchProgressEntryMeta);
+    return rows.map((row) =>
+      toWatchProgressEntryMeta({
+        ...row,
+        contentId: row.contentId as never,
+        _id: row._id
+      })
+    );
   }
 });
 
 export const removeWatchHistoryEntry = mutation({
-  args: { clerkUserId: v.string(), contentId: v.id("content") },
+  args: { clerkUserId: v.string(), contentId: v.string() },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
     const existingProgress = await ctx.db
       .query("watchProgress")

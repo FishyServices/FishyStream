@@ -3,135 +3,33 @@ import { v } from "convex/values";
 
 const mediaType = v.union(v.literal("movie"), v.literal("tv"));
 
-const sortKeysValidator = v.object({
-  popular: v.number(),
-  trending: v.number(),
-  new: v.number(),
-  rating: v.number(),
-  year: v.number()
-});
-
 export default defineSchema({
-  content: defineTable({
-    tmdbId: v.string(),
-    type: mediaType,
-    title: v.string(),
-    genre: v.array(v.string()),
-    genreKeys: v.array(v.string()),
-    year: v.number(),
-    posterUrl: v.string(),
-    voteAverage: v.optional(v.number()),
-    popularity: v.optional(v.number()),
-    new: v.boolean(),
-    trending: v.boolean(),
-    popular: v.boolean(),
-    featured: v.boolean(),
-    sortKeys: sortKeysValidator,
-    syncHash: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number()
-  })
-    .index("by_tmdb_id", ["tmdbId"])
-    .index("by_type_tmdb_id", ["type", "tmdbId"])
-    .index("by_type", ["type"])
-    .index("by_type_popular", ["type", "sortKeys.popular"])
-    .index("by_type_trending", ["type", "sortKeys.trending"])
-    .index("by_type_new", ["type", "sortKeys.new"])
-    .index("by_type_rating", ["type", "sortKeys.rating"])
-    .index("by_type_year", ["type", "sortKeys.year"])
-    .searchIndex("search_title", {
-      searchField: "title",
-      filterFields: ["type"]
-    }),
-
-  contentDetails: defineTable({
-    contentId: v.id("content"),
-    tmdbId: v.string(),
-    title: v.string(),
-    type: mediaType,
-    genre: v.array(v.string()),
-    genreKeys: v.array(v.string()),
-    year: v.number(),
-    voteAverage: v.optional(v.number()),
-    popularity: v.optional(v.number()),
-    posterUrl: v.string(),
-    backdropUrl: v.string(),
-    description: v.string(),
-    rating: v.string(),
-    logoUrl: v.optional(v.string()),
-    trailerKey: v.optional(v.string()),
-    imdbId: v.optional(v.string()),
-    anilistId: v.optional(v.string()),
-    originalLanguage: v.optional(v.string()),
-    duration: v.optional(v.string()),
-    seasons: v.optional(v.number()),
-    totalEpisodes: v.optional(v.number()),
-    tagline: v.optional(v.string()),
-    status: v.optional(v.string()),
-    trending: v.boolean(),
-    popular: v.boolean(),
-    featured: v.boolean(),
-    new: v.boolean(),
-    syncHash: v.string(),
-    updatedAt: v.number()
-  })
-    .index("by_content", ["contentId"])
-    .index("by_tmdb_id", ["tmdbId"])
-    .index("by_type_tmdb_id", ["type", "tmdbId"]),
-
-  seasonEpisodes: defineTable({
-    contentId: v.id("content"),
-    tmdbId: v.string(),
-    seasonNumber: v.number(),
-    overview: v.optional(v.string()),
-    anilistId: v.optional(v.string()),
-    anilistEpisodeMappingCount: v.optional(v.number()),
-    episodes: v.array(v.any()),
-    updatedAt: v.number(),
-    payloadHash: v.string()
-  })
-    .index("by_content_season", ["contentId", "seasonNumber"])
-    .index("by_tmdb_season", ["tmdbId", "seasonNumber"]),
-
-  seasonPlaybackMeta: defineTable({
-    contentId: v.id("content"),
-    seasonNumber: v.number(),
-    name: v.string(),
-    airDate: v.optional(v.string()),
-    episodeCount: v.number(),
-    storedEpisodeCount: v.number(),
-    anilistId: v.optional(v.string()),
-    anilistEpisodeMappingCount: v.optional(v.number()),
-    seasonEpisodePayloadHash: v.optional(v.string())
-  }).index("by_content_season", ["contentId", "seasonNumber"]),
-
-  seasonEpisodeMappings: defineTable({
-    contentId: v.id("content"),
-    seasonNumber: v.number(),
-    episodeNumber: v.number(),
-    anilistId: v.string(),
-    anilistEpisodeNumber: v.number(),
-    updatedAt: v.number()
-  })
-    .index("by_content_season_episode", ["contentId", "seasonNumber", "episodeNumber"])
-    .index("by_content_season", ["contentId", "seasonNumber"]),
-
   watchlist: defineTable({
     clerkUserId: v.string(),
-    contentId: v.id("content"),
+    contentId: v.string(),
+    tmdbId: v.string(),
+    contentType: mediaType,
+    title: v.string(),
+    posterUrl: v.string(),
+    genre: v.optional(v.array(v.string())),
+    year: v.optional(v.number()),
+    voteAverage: v.optional(v.number()),
     addedAt: v.number(),
-    folder: v.optional(v.string()),
-    contentType: v.optional(mediaType),
-    title: v.optional(v.string()),
-    posterUrl: v.optional(v.string()),
-    tmdbId: v.optional(v.string())
+    folder: v.optional(v.string())
   })
     .index("by_clerk_added_at", ["clerkUserId", "addedAt"])
     .index("by_clerk_content", ["clerkUserId", "contentId"]),
 
   watchProgress: defineTable({
     clerkUserId: v.string(),
-    contentId: v.id("content"),
+    contentId: v.string(),
+    tmdbId: v.string(),
+    contentType: mediaType,
+    title: v.string(),
+    posterUrl: v.string(),
+    genre: v.optional(v.array(v.string())),
+    year: v.optional(v.number()),
+    voteAverage: v.optional(v.number()),
     progress: v.number(),
     positionSeconds: v.optional(v.number()),
     durationSeconds: v.optional(v.number()),
@@ -146,5 +44,42 @@ export default defineSchema({
   })
     .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"])
     .index("by_clerk_content", ["clerkUserId", "contentId"])
-    .index("by_clerk_completed_watched_at", ["clerkUserId", "completed", "watchedAt"])
+    .index("by_clerk_completed_watched_at", ["clerkUserId", "completed", "watchedAt"]),
+
+  seasonEpisodes: defineTable({
+    contentId: v.string(),
+    tmdbId: v.string(),
+    seasonNumber: v.number(),
+    overview: v.optional(v.string()),
+    anilistId: v.optional(v.string()),
+    anilistEpisodeMappingCount: v.optional(v.number()),
+    episodes: v.array(v.any()),
+    updatedAt: v.number(),
+    payloadHash: v.string()
+  })
+    .index("by_content_season", ["contentId", "seasonNumber"])
+    .index("by_tmdb_season", ["tmdbId", "seasonNumber"]),
+
+  seasonPlaybackMeta: defineTable({
+    contentId: v.string(),
+    seasonNumber: v.number(),
+    name: v.string(),
+    airDate: v.optional(v.string()),
+    episodeCount: v.number(),
+    storedEpisodeCount: v.number(),
+    anilistId: v.optional(v.string()),
+    anilistEpisodeMappingCount: v.optional(v.number()),
+    seasonEpisodePayloadHash: v.optional(v.string())
+  }).index("by_content_season", ["contentId", "seasonNumber"]),
+
+  seasonEpisodeMappings: defineTable({
+    contentId: v.string(),
+    seasonNumber: v.number(),
+    episodeNumber: v.number(),
+    anilistId: v.string(),
+    anilistEpisodeNumber: v.number(),
+    updatedAt: v.number()
+  })
+    .index("by_content_season_episode", ["contentId", "seasonNumber", "episodeNumber"])
+    .index("by_content_season", ["contentId", "seasonNumber"])
 });

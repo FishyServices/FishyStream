@@ -17,7 +17,6 @@ export interface AppSettings {
   autoPlayHeroTrailer: boolean;
   heroTrailerMuted: boolean;
   showContinueWatchingRow: boolean;
-  showSyncPanel: boolean;
   defaultAnimeLanguage: AnimeLanguagePreference;
   autoAdvanceEpisodes: boolean;
 }
@@ -46,7 +45,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   autoPlayHeroTrailer: false,
   heroTrailerMuted: true,
   showContinueWatchingRow: true,
-  showSyncPanel: false,
   defaultAnimeLanguage: "dub",
   autoAdvanceEpisodes: false
 };

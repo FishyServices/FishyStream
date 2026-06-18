@@ -8,9 +8,8 @@
  * @module
  */
 
-import type * as content from "../content.js";
+import type * as seasonSync from "../seasonSync.js";
 import type * as seasons from "../seasons.js";
-import type * as tmdb from "../tmdb.js";
 import type * as watchHistory from "../watchHistory.js";
 import type * as watchProgress from "../watchProgress.js";
 import type * as watchlist from "../watchlist.js";
@@ -22,9 +21,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  content: typeof content;
+  seasonSync: typeof seasonSync;
   seasons: typeof seasons;
-  tmdb: typeof tmdb;
   watchHistory: typeof watchHistory;
   watchProgress: typeof watchProgress;
   watchlist: typeof watchlist;

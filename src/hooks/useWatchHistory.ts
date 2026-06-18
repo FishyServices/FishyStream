@@ -2,9 +2,9 @@ import { useMutation } from "convex/react";
 import { useUser } from "@clerk/react";
 import { useCallback, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
 import { useWatchProgressContext } from "./useWatchProgress";
 import {
+  type ContentId,
   fromWatchHistoryItemWire,
   type WatchHistoryItemMeta,
   type WatchHistoryItemWire
@@ -65,7 +65,7 @@ export function useRemoveFromHistory() {
   const mutation = useMutation(api.watchHistory.removeWatchHistoryEntry);
 
   return useCallback(
-    (contentId: Id<"content">) => {
+    (contentId: ContentId) => {
       if (!user) throw new Error("Not signed in");
       return mutation({ clerkUserId: user.id, contentId });
     },

@@ -1,17 +1,17 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import {
-  fromImageWire,
-  toImageWire,
-  toWatchlistGridWire,
-  type WatchlistGridWire
-} from "../shared/contentMetadata";
+import { fromImageWire, toImageWire, toWatchlistGridWire, type WatchlistGridWire } from "../shared/contentMetadata";
+
+const mediaType = v.union(v.literal("movie"), v.literal("tv"));
 
 const watchlistSnapshotValidator = v.object({
   title: v.string(),
-  type: v.union(v.literal("movie"), v.literal("tv")),
+  type: mediaType,
   posterUrl: v.string(),
-  tmdbId: v.optional(v.string())
+  tmdbId: v.string(),
+  genre: v.optional(v.array(v.string())),
+  year: v.optional(v.number()),
+  voteAverage: v.optional(v.number())
 });
 
 export const listWatchlist = query({
@@ -19,40 +19,24 @@ export const listWatchlist = query({
     clerkUserId: v.string(),
     limit: v.optional(v.number())
   },
-  handler: async (ctx, { clerkUserId, limit = 500 }): Promise<WatchlistGridWire[]> => {
-    const pageSize = Math.max(1, Math.min(500, Math.floor(limit)));
+  handler: async (ctx, { clerkUserId, limit = 150 }): Promise<WatchlistGridWire[]> => {
+    const pageSize = Math.max(1, Math.min(150, Math.floor(limit)));
     const items = await ctx.db
       .query("watchlist")
       .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
       .order("desc")
       .take(pageSize);
 
-    const hydrated = await Promise.all(
-      items.map(async (item) => {
-        if (item.title && item.contentType && item.posterUrl) {
-          return toWatchlistGridWire({
-            _id: item.contentId,
-            title: item.title,
-            type: item.contentType,
-            posterUrl: fromImageWire(item.posterUrl),
-            tmdbId: item.tmdbId,
-            watchlistFolder: item.folder
-          });
-        }
-        const content = await ctx.db.get(item.contentId);
-        if (!content) return null;
-        return toWatchlistGridWire({
-          _id: item.contentId,
-          title: content.title,
-          type: content.type,
-          posterUrl: content.posterUrl,
-          tmdbId: content.tmdbId,
-          watchlistFolder: item.folder
-        });
+    return items.map((item) =>
+      toWatchlistGridWire({
+        _id: item.contentId as never,
+        title: item.title,
+        type: item.contentType,
+        posterUrl: fromImageWire(item.posterUrl),
+        tmdbId: item.tmdbId,
+        watchlistFolder: item.folder
       })
     );
-
-    return hydrated.filter((x): x is WatchlistGridWire => x !== null);
   }
 });
 
@@ -60,9 +44,9 @@ export const listWatchlistContentIds = query({
   args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
   handler: async (
     ctx,
-    { clerkUserId, limit = 500 }
+    { clerkUserId, limit = 300 }
   ): Promise<Array<{ id: string; tmdbId?: string }>> => {
-    const maxIds = Math.max(1, Math.min(500, Math.floor(limit)));
+    const maxIds = Math.max(1, Math.min(300, Math.floor(limit)));
     const items = await ctx.db
       .query("watchlist")
       .withIndex("by_clerk_added_at", (q) => q.eq("clerkUserId", clerkUserId))
@@ -76,8 +60,8 @@ export const listWatchlistContentIds = query({
 export const addWatchlistEntry = mutation({
   args: {
     clerkUserId: v.string(),
-    contentId: v.id("content"),
-    snapshot: v.optional(watchlistSnapshotValidator)
+    contentId: v.string(),
+    snapshot: watchlistSnapshotValidator
   },
   handler: async (ctx, { clerkUserId, contentId, snapshot }): Promise<boolean> => {
     const existing = await ctx.db
@@ -88,18 +72,18 @@ export const addWatchlistEntry = mutation({
       .first();
     if (existing) return true;
 
-    const content = snapshot ?? (await ctx.db.get(contentId));
-    if (!content) return false;
-
     await ctx.db.insert("watchlist", {
       clerkUserId,
       contentId,
       addedAt: Date.now(),
       folder: undefined,
-      contentType: content.type,
-      title: content.title,
-      posterUrl: toImageWire(content.posterUrl),
-      tmdbId: content.tmdbId
+      contentType: snapshot.type,
+      title: snapshot.title,
+      posterUrl: toImageWire(snapshot.posterUrl),
+      tmdbId: snapshot.tmdbId,
+      genre: snapshot.genre,
+      year: snapshot.year,
+      voteAverage: snapshot.voteAverage
     });
 
     return true;
@@ -107,7 +91,7 @@ export const addWatchlistEntry = mutation({
 });
 
 export const removeWatchlistEntry = mutation({
-  args: { clerkUserId: v.string(), contentId: v.id("content") },
+  args: { clerkUserId: v.string(), contentId: v.string() },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
     const existing = await ctx.db
       .query("watchlist")
@@ -126,7 +110,7 @@ export const removeWatchlistEntry = mutation({
 export const setWatchlistFolder = mutation({
   args: {
     clerkUserId: v.string(),
-    contentId: v.id("content"),
+    contentId: v.string(),
     folder: v.optional(v.string())
   },
   handler: async (ctx, { clerkUserId, contentId, folder }): Promise<boolean> => {

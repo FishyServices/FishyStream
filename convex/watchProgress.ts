@@ -7,6 +7,13 @@ const MIN_PROGRESS_DELTA_TO_WRITE = 5;
 const MIN_POSITION_DELTA_TO_WRITE_SECONDS = 300;
 
 type ProgressDocument = {
+  tmdbId: string;
+  contentType: "movie" | "tv";
+  title: string;
+  posterUrl: string;
+  genre?: string[];
+  year?: number;
+  voteAverage?: number;
   progress: number;
   positionSeconds?: number;
   durationSeconds?: number;
@@ -21,7 +28,8 @@ type ProgressDocument = {
 
 type ProgressWrite = {
   progressId?: Id<"watchProgress">;
-  contentId: Id<"content">;
+  contentId: string;
+  snapshot: ProgressSnapshot;
   progress: number;
   completed: boolean;
   positionSeconds?: number;
@@ -31,6 +39,16 @@ type ProgressWrite = {
   source?: string;
   dub?: boolean;
   clientUpdatedAt?: number;
+};
+
+type ProgressSnapshot = {
+  title: string;
+  type: "movie" | "tv";
+  posterUrl: string;
+  tmdbId: string;
+  genre?: string[];
+  year?: number;
+  voteAverage?: number;
 };
 
 const HAS_DURATION = 1;
@@ -77,14 +95,25 @@ function shouldSkipProgressUpdate(
   );
 }
 
-function decodeProgressWrite(payload: unknown[]): ProgressWrite {
+const progressSnapshotValidator = v.object({
+  title: v.string(),
+  type: v.union(v.literal("movie"), v.literal("tv")),
+  posterUrl: v.string(),
+  tmdbId: v.string(),
+  genre: v.optional(v.array(v.string())),
+  year: v.optional(v.number()),
+  voteAverage: v.optional(v.number())
+});
+
+function decodeProgressWrite(payload: unknown[], snapshot: ProgressSnapshot): ProgressWrite {
   const flags = Number(payload[5] ?? 0);
   let index = 6;
   const nextOptionalNumber = () => normalizeOptionalNumber(Number(payload[index++]));
 
   return {
     progressId: (payload[0] || undefined) as Id<"watchProgress"> | undefined,
-    contentId: payload[1] as Id<"content">,
+    contentId: String(payload[1]),
+    snapshot,
     progress: Number(payload[2] ?? 0),
     completed: payload[3] === 1,
     positionSeconds: normalizeOptionalNumber(Number(payload[4] ?? 0)),
@@ -100,10 +129,11 @@ function decodeProgressWrite(payload: unknown[]): ProgressWrite {
 export const saveWatchProgress = mutation({
   args: {
     u: v.string(),
-    p: v.array(v.any())
+    p: v.array(v.any()),
+    snapshot: progressSnapshotValidator
   },
   handler: async (ctx, args): Promise<Id<"watchProgress"> | null> => {
-    return await saveProgressForUser(ctx, args.u, decodeProgressWrite(args.p));
+    return await saveProgressForUser(ctx, args.u, decodeProgressWrite(args.p, args.snapshot));
   }
 });
 
@@ -128,7 +158,14 @@ async function saveProgressForUser(
       progress: normalizedProgress,
       completed,
       positionSeconds: nextPositionSeconds,
-      watchedAt: clientUpdatedAt
+      watchedAt: clientUpdatedAt,
+      tmdbId: args.snapshot.tmdbId,
+      contentType: args.snapshot.type,
+      title: args.snapshot.title,
+      posterUrl: args.snapshot.posterUrl,
+      genre: args.snapshot.genre,
+      year: args.snapshot.year,
+      voteAverage: args.snapshot.voteAverage
     };
 
     if (nextDurationSeconds !== undefined) patch.durationSeconds = nextDurationSeconds;
@@ -174,7 +211,14 @@ async function saveProgressForUser(
       clientUpdatedAt: number;
     } = {
       watchedAt: clientUpdatedAt,
-      clientUpdatedAt
+      clientUpdatedAt,
+      tmdbId: args.snapshot.tmdbId,
+      contentType: args.snapshot.type,
+      title: args.snapshot.title,
+      posterUrl: args.snapshot.posterUrl,
+      genre: args.snapshot.genre,
+      year: args.snapshot.year,
+      voteAverage: args.snapshot.voteAverage
     };
     if (existing.progress !== nextState.progress) patch.progress = nextState.progress;
     if (existing.completed !== nextState.completed) patch.completed = nextState.completed;
@@ -199,6 +243,13 @@ async function saveProgressForUser(
   return await ctx.db.insert("watchProgress", {
     clerkUserId,
     contentId: args.contentId,
+    tmdbId: args.snapshot.tmdbId,
+    contentType: args.snapshot.type,
+    title: args.snapshot.title,
+    posterUrl: args.snapshot.posterUrl,
+    genre: args.snapshot.genre,
+    year: args.snapshot.year,
+    voteAverage: args.snapshot.voteAverage,
     progress: normalizedProgress,
     completed,
     positionSeconds: nextPositionSeconds,
