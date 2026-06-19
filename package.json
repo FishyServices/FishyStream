@@ -18,7 +18,7 @@
     "@capacitor/android": "8.4.0",
     "@capacitor/cli": "8.4.0",
     "@capacitor/core": "8.4.0",
-    "@clerk/react": "6.10.2",
+    "@clerk/react": "6.10.3",
     "@clerk/themes": "2.4.57",
     "@fishy/providers": "file:./packages/providers",
     "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git",
@@ -34,10 +34,10 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
-    "concurrently": "^9.2.1",
-    "prettier": "^3.8.2",
+    "concurrently": "^10.0.3",
+    "prettier": "^3.8.4",
     "tailwindcss": "4.3.1",
-    "typescript": "~6.0.2",
+    "typescript": "~6.0.3",
     "vite": "8.0.16"
   }
 }

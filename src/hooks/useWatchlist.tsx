@@ -7,7 +7,7 @@ import {
   useMemo,
   type ReactNode
 } from "react";
-import { useConvexAuth, useMutation } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useUser } from "@clerk/react";
 import { useLocation } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
@@ -298,14 +298,14 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
     setCachedServerData(readWatchlistGridCache(user?.id));
   }, [user?.id]);
 
-  const serverData = useOneShotConvexQuery<WatchlistGridWire[]>(
-    !!user && cachedServerData === undefined,
-    (client) =>
-      client.query(api.watchlist.listWatchlist, {
-        clerkUserId: user!.id,
-        limit: MY_LIST_LIMIT
-      }),
-    [user?.id, cachedServerData === undefined]
+  const serverData = useQuery(
+    api.watchlist.listWatchlist,
+    user
+      ? {
+          clerkUserId: user.id,
+          limit: MY_LIST_LIMIT
+        }
+      : "skip"
   );
 
   useEffect(() => {

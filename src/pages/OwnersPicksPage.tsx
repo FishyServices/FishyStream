@@ -48,18 +48,30 @@ export function OwnersPicksPage() {
       <Header />
 
       <main className="page-stack px-4 sm:px-6 lg:px-12 pt-24">
-        <div className="space-y-16">
+        <div className="mb-10 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/6 text-primary">
+            <Award className="h-5 w-5" />
+          </div>
+          <h1 className="text-3xl font-bold text-white font-display">Owner Picks</h1>
+        </div>
+
+        <div className="space-y-14 sm:space-y-16">
           {sections.map((sect) => (
-            <section key={sect.title} className="space-y-6">
-              <div className="flex items-center gap-2 border-b border-white/6 pb-2">
-                <sect.icon className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-bold text-white font-display">{sect.title}</h2>
+            <section key={sect.title} className="space-y-5">
+              <div className="flex items-center justify-between gap-4 border-b border-white/6 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <sect.icon className="h-5 w-5 text-primary" />
+                  <h2 className="text-xl font-bold text-white font-display">{sect.title}</h2>
+                </div>
+                <span className="text-xs font-semibold text-white/38">
+                  Top {Math.min(20, sect.items.length)}
+                </span>
               </div>
 
               {sect.items.length === 0 ? (
                 <p className="text-white/40 text-sm">No curated items synced.</p>
               ) : (
-                <div className="grid grid-cols-2 gap-x-1 gap-y-6 sm:grid-cols-3 sm:gap-1 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-9 md:grid-cols-4 lg:grid-cols-5 lg:gap-x-5 xl:grid-cols-6 2xl:grid-cols-7 2xl:gap-x-6">
                   {sect.items.slice(0, 20).map((content, idx) => {
                     const rank = idx + 1;
                     const badgeColor =
@@ -74,15 +86,16 @@ export function OwnersPicksPage() {
                     return (
                       <div
                         key={content._id}
-                        className="relative group transition-all duration-300 hover:scale-[1.02]"
+                        className="relative group/card transition-transform duration-300 hover:-translate-y-1"
                       >
                         <div
-                          className={`absolute top-3 left-3 z-20 px-3 py-1 text-sm font-black rounded-lg border backdrop-blur-md ${badgeColor}`}
+                          className={`absolute left-2 top-2 z-20 rounded-md border px-2.5 py-1 text-xs font-black shadow-lg backdrop-blur-md sm:left-3 sm:top-3 sm:text-sm ${badgeColor}`}
                         >
                           #{rank}
                         </div>
                         <MovieCard
                           content={content}
+                          layout="grid"
                           onPlay={(id) =>
                             handlePlay(id, undefined, undefined, undefined, undefined, sect.type)
                           }

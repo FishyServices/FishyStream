@@ -300,8 +300,11 @@ export function Header() {
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full text-white/70 hover:bg-white/8 hover:text-white lg:hidden"
-              onClick={() => setMobileOpen(true)}
+              className="h-11 w-11 rounded-full text-white/70 hover:bg-white/8 hover:text-white lg:hidden"
+              onClick={(e) => {
+                e.currentTarget.blur();
+                setMobileOpen(true);
+              }}
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
@@ -342,15 +345,18 @@ export function Header() {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
           side="right"
-          className="w-88 border-l border-white/8 bg-[hsl(220,20%,4%)/98] p-0 text-white"
+          className="w-[min(22rem,calc(100vw-0.75rem))] border-l border-white/8 bg-[hsl(220,20%,4%)/98] p-0 text-white sm:w-88"
         >
           <SheetHeader className="border-b border-white/8 px-5 py-4">
             <SheetTitle className="font-display text-xl text-white">Browse</SheetTitle>
           </SheetHeader>
-          <div className="px-4 py-4">
+          <div className="max-h-[calc(100dvh-4.5rem)] overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
             <nav className="flex flex-col gap-2">
               {navLinks.map((link) => (
-                <div key={link.label} className="rounded-2xl border border-white/6 bg-white/2">
+                <div
+                  key={link.label}
+                  className="overflow-hidden rounded-2xl border border-white/6 bg-white/2"
+                >
                   <Link
                     to={link.href}
                     onClick={() => setMobileOpen(false)}
@@ -364,13 +370,13 @@ export function Header() {
                     <span>{link.label}</span>
                   </Link>
                   {link.dropdown && (
-                    <div className="grid grid-cols-2 gap-2 border-t border-white/6 px-4 py-2.5">
+                    <div className="grid grid-cols-1 gap-2 border-t border-white/6 px-3 py-2.5 min-[380px]:grid-cols-2 sm:px-4">
                       {link.dropdown.map((item) => (
                         <Link
                           key={item.label}
                           to={item.href}
                           onClick={() => setMobileOpen(false)}
-                          className="rounded-xl bg-white/4 px-3 py-2 text-xs text-white/65 transition-colors hover:bg-white/8 hover:text-white"
+                          className="rounded-xl bg-white/4 px-3 py-2.5 text-xs font-medium text-white/68 transition-colors hover:bg-white/8 hover:text-white"
                         >
                           {item.label}
                         </Link>
