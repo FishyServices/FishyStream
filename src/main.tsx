@@ -112,10 +112,7 @@ function AppShell() {
             <Route path="/watch/:id" element={<AppRouteProviders page={<WatchPage />} />} />
             <Route path="/movies" element={<AppRouteProviders page={<MoviesPage />} />} />
             <Route path="/tv-shows" element={<AppRouteProviders page={<TVShowsPage />} />} />
-            <Route
-              path="/best"
-              element={<AppRouteProviders page={<OwnersPicksPage />} />}
-            />
+            <Route path="/best" element={<AppRouteProviders page={<OwnersPicksPage />} />} />
             <Route
               path="/my-list"
               element={<AppRouteProviders page={<MyListPage />} withProgress={false} />}
@@ -153,14 +150,8 @@ createRoot(document.getElementById("root")!).render(
     signUpUrl="/sign-up"
     afterSignOutUrl="/"
     appearance={{
-      baseTheme: dark,
       variables: {
         colorPrimary: "oklch(0.62 0.1 182)",
-        colorBackground: "rgba(18, 24, 32, 0.96)",
-        colorInputBackground: "rgba(255,255,255,0.04)",
-        colorInputText: "#f3f7fb",
-        colorText: "#f3f7fb",
-        colorTextSecondary: "rgba(243,247,251,0.72)",
         borderRadius: "0.75rem",
         fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
       }

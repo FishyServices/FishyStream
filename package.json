@@ -15,30 +15,29 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,css}\""
   },
   "dependencies": {
-    "@capacitor/android": "8.3.1",
-    "@capacitor/cli": "8.3.1",
-    "@capacitor/core": "8.3.1",
-    "@clerk/react": "6.6.1",
+    "@capacitor/android": "8.4.0",
+    "@capacitor/cli": "8.4.0",
+    "@capacitor/core": "8.4.0",
+    "@clerk/react": "6.10.2",
     "@clerk/themes": "2.4.57",
     "@fishy/providers": "file:./packages/providers",
     "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git",
     "class-variance-authority": "0.7.1",
-    "convex": "1.37.0",
-    "lucide-react": "1.14.0",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "react-router-dom": "7.15.0"
+    "convex": "1.41.0",
+    "lucide-react": "1.21.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-router-dom": "7.18.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "4.2.4",
-    "@types/node": "^25.6.0",
-    "@types/react": "19.2.14",
+    "@tailwindcss/vite": "4.3.1",
+    "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.1",
+    "@vitejs/plugin-react": "6.0.2",
     "concurrently": "^9.2.1",
     "prettier": "^3.8.2",
-    "tailwindcss": "4.2.4",
+    "tailwindcss": "4.3.1",
     "typescript": "~6.0.2",
-    "vite": "8.0.11"
+    "vite": "8.0.16"
   }
 }

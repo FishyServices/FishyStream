@@ -219,14 +219,9 @@ export function SignUpPage() {
             routing="path"
             signInUrl="/sign-in"
             appearance={{
-              baseTheme: dark,
               variables: {
                 colorPrimary: "oklch(0.65 0.15 180)",
                 colorBackground: "rgba(18, 24, 32, 0.96)",
-                colorInputBackground: "rgba(255,255,255,0.04)",
-                colorInputText: "#f3f7fb",
-                colorText: "#f3f7fb",
-                colorTextSecondary: "rgba(243,247,251,0.72)",
                 borderRadius: "0.875rem",
                 fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
               }
