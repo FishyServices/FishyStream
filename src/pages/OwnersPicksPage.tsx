@@ -72,37 +72,20 @@ export function OwnersPicksPage() {
                 <p className="text-white/40 text-sm">No curated items synced.</p>
               ) : (
                 <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-9 md:grid-cols-4 lg:grid-cols-5 lg:gap-x-5 xl:grid-cols-6 2xl:grid-cols-7 2xl:gap-x-6">
-                  {sect.items.slice(0, 20).map((content, idx) => {
-                    const rank = idx + 1;
-                    const badgeColor =
-                      rank === 1
-                        ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
-                        : rank === 2
-                          ? "bg-slate-300/20 text-slate-200 border-slate-300/30"
-                          : rank === 3
-                            ? "bg-amber-700/20 text-amber-600 border-amber-700/30"
-                            : "bg-white/5 text-white/70 border-white/10";
-
-                    return (
-                      <div
-                        key={content._id}
-                        className="relative group/card transition-transform duration-300 hover:-translate-y-1"
-                      >
-                        <div
-                          className={`absolute left-2 top-2 z-20 rounded-md border px-2.5 py-1 text-xs font-black shadow-lg backdrop-blur-md sm:left-3 sm:top-3 sm:text-sm ${badgeColor}`}
-                        >
-                          #{rank}
-                        </div>
-                        <MovieCard
-                          content={content}
-                          layout="grid"
-                          onPlay={(id) =>
-                            handlePlay(id, undefined, undefined, undefined, undefined, sect.type)
-                          }
-                        />
-                      </div>
-                    );
-                  })}
+                  {sect.items.slice(0, 20).map((content) => (
+                    <div
+                      key={content._id}
+                      className="relative group/card transition-transform duration-300 hover:-translate-y-1"
+                    >
+                      <MovieCard
+                        content={content}
+                        layout="grid"
+                        onPlay={(id) =>
+                          handlePlay(id, undefined, undefined, undefined, undefined, sect.type)
+                        }
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
             </section>

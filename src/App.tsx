@@ -8,14 +8,7 @@ import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { Film, Loader2 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Toaster,
-} from "@fishy/ui";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Toaster } from "@fishy/ui";
 
 function Footer() {
   return (
@@ -240,11 +233,7 @@ function HomepageContent({
               content={cat.content}
               onPlay={handlePlay}
               viewAllHref={
-                cat.id === "movies"
-                  ? "/movies"
-                  : cat.id === "tvshows"
-                    ? "/tv-shows"
-                    : undefined
+                cat.id === "movies" ? "/movies" : cat.id === "tvshows" ? "/tv-shows" : undefined
               }
             />
           ))}

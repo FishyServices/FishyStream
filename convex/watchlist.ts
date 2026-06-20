@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { fromImageWire, toImageWire, toWatchlistGridWire, type WatchlistGridWire } from "../shared/contentMetadata";
+import {
+  fromImageWire,
+  toImageWire,
+  toWatchlistGridWire,
+  type WatchlistGridWire
+} from "../shared/contentMetadata";
 
 const mediaType = v.union(v.literal("movie"), v.literal("tv"));
 

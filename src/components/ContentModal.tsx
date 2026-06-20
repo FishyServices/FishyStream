@@ -211,8 +211,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
     return raw;
   }, [tmdbSeason]);
 
-  const knownSeasonsFromTmdb =
-    resolvedContent ? getSeasonCount(resolvedContent) : undefined;
+  const knownSeasonsFromTmdb = resolvedContent ? getSeasonCount(resolvedContent) : undefined;
   const [episodeLoadError, setEpisodeLoadError] = useState<string | null>(null);
   const [seasonCountOverride, setSeasonCountOverride] = useState<number | undefined>(undefined);
 
