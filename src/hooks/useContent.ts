@@ -233,9 +233,9 @@ export function useCuratedPicks() {
     const controller = new AbortController();
     const apiKey = getApiKey();
 
-    const movieItems = [...ownersPicksData.movies].sort((a, b) => a.rank - b.rank);
-    const tvItems = [...ownersPicksData.tv].sort((a, b) => a.rank - b.rank);
-    const animeItems = [...ownersPicksData.anime].sort((a, b) => a.rank - b.rank);
+    const movieItems = [...ownersPicksData.movies];
+    const tvItems = [...ownersPicksData.tv];
+    const animeItems = [...ownersPicksData.anime];
 
     const movieIds = movieItems.map((item) => item.tmdbId);
     const tvIds = tvItems.map((item) => item.tmdbId);
