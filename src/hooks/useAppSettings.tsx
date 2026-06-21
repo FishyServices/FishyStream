@@ -43,21 +43,13 @@ export function AppSettingsProvider({ children }: PropsWithChildren) {
   }, [settings]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 768px)");
-
-    const syncTheme = () => {
-      applyFishyTheme({
-        mode: settings.theme,
-        density: mediaQuery.matches ? "touch" : "comfortable"
-      });
-      document.documentElement.style.colorScheme = settings.theme;
-    };
-
-    syncTheme();
-    mediaQuery.addEventListener("change", syncTheme);
-
-    return () => mediaQuery.removeEventListener("change", syncTheme);
-  }, [settings.theme]);
+    applyFishyTheme({
+      mode: settings.theme,
+      radius: settings.radius,
+      accent: settings.accent
+    });
+    document.documentElement.style.colorScheme = settings.theme;
+  }, [settings.theme, settings.radius, settings.accent]);
 
   const value = useMemo<AppSettingsContextValue>(
     () => ({

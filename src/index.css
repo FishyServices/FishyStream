@@ -1,21 +1,64 @@
-@import "../node_modules/@fishy/ui/src/index.css";
 @import "tailwindcss";
+@import "../node_modules/@fishy/ui/src/index.css";
 @source "../node_modules/@fishy/ui/src/**/*.{ts,tsx}";
 
 @theme {
   --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;
   --color-warning: oklch(0.78 0.12 85);
+
+  --radius-xl: var(--radius-xl-dynamic);
+  --radius-lg: var(--radius-lg-dynamic);
+  --radius-md: var(--radius-md-dynamic);
+  --radius-sm: var(--radius-sm-dynamic);
 }
 
 @layer base {
   :root {
-    --radius: 0.625rem;
+    --radius-xl-dynamic: 1rem;
+    --radius-lg-dynamic: 0.75rem;
+    --radius-md-dynamic: 0.5rem;
+    --radius-sm-dynamic: 0.25rem;
+
+    --radius: var(--radius-lg);
     --surface-1: oklch(0.16 0.01 250);
     --surface-2: oklch(0.2 0.012 250);
     --surface-3: oklch(0.25 0.014 250);
-    --surface-selected: oklch(0.68 0.11 185);
+    --surface-selected: var(--color-primary);
     --subtle-line: oklch(1 0 0 / 0.08);
+  }
+
+  :root[data-fishy-density="compact"] {
+    --radius-lg-dynamic: 0.625rem;
+    --radius-md-dynamic: 0.425rem;
+    --radius-sm-dynamic: 0.25rem;
+  }
+
+  :root[data-fishy-density="touch"] {
+    --radius-lg-dynamic: 0.9rem;
+    --radius-md-dynamic: 0.7rem;
+    --radius-sm-dynamic: 0.425rem;
+  }
+
+  :root[data-fishy-radius="sharp"] {
+    --radius-xl-dynamic: 0rem;
+    --radius-lg-dynamic: 0rem;
+    --radius-md-dynamic: 0rem;
+    --radius-sm-dynamic: 0rem;
+  }
+
+  :root[data-fishy-radius="rounded"] {
+    --radius-xl-dynamic: 1rem;
+    --radius-lg-dynamic: 0.75rem;
+    --radius-md-dynamic: 0.5rem;
+    --radius-sm-dynamic: 0.25rem;
+  }
+
+  :root[data-fishy-radius="playful"] {
+    --radius-xl-dynamic: 1.75rem;
+    --radius-lg-dynamic: 1.25rem;
+    --radius-md-dynamic: 0.85rem;
+    --radius-sm-dynamic: 0.5rem;
   }
 
   * {

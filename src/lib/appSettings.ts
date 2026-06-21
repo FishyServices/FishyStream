@@ -1,5 +1,6 @@
 import type { ContentSort } from "@/hooks/useContent";
 import type { ProviderKey } from "@fishy/providers/providerCatalog";
+import type { FishyThemeRadius, FishyThemeAccent } from "@fishy/ui";
 
 export type ThemePreference = "dark" | "light";
 export type AnimeLanguagePreference = "sub" | "dub";
@@ -11,6 +12,8 @@ export interface SortOption {
 
 export interface AppSettings {
   theme: ThemePreference;
+  radius: FishyThemeRadius;
+  accent: FishyThemeAccent;
   defaultMovieSort: ContentSort;
   defaultTVSort: ContentSort;
   defaultProvider: ProviderKey | "auto";
@@ -39,6 +42,8 @@ export const TV_SORT_OPTIONS: SortOption[] = [
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   theme: "dark",
+  radius: "rounded",
+  accent: "indigo",
   defaultMovieSort: "popular",
   defaultTVSort: "popular",
   defaultProvider: "auto",

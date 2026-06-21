@@ -235,7 +235,46 @@ export function SettingsPage() {
             />
 
             <SettingRow
-              label="Autoplay featured trailer"
+              label="Accent Color"
+              control={
+                <Select
+                  value={settings.accent}
+                  onValueChange={(value) => updateSetting("accent", value as any)}
+                >
+                  <SelectTrigger className="w-full bg-background text-foreground">
+                    <SelectValue placeholder="Select accent color" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="indigo">Indigo</SelectItem>
+                    <SelectItem value="cyan">Cyan</SelectItem>
+                    <SelectItem value="rose">Rose</SelectItem>
+                    <SelectItem value="emerald">Emerald</SelectItem>
+                  </SelectContent>
+                </Select>
+              }
+            />
+
+            <SettingRow
+              label="Border Radius"
+              control={
+                <Select
+                  value={settings.radius}
+                  onValueChange={(value) => updateSetting("radius", value as any)}
+                >
+                  <SelectTrigger className="w-full bg-background text-foreground">
+                    <SelectValue placeholder="Select border radius" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sharp">Sharp</SelectItem>
+                    <SelectItem value="rounded">Rounded</SelectItem>
+                    <SelectItem value="playful">Playful</SelectItem>
+                  </SelectContent>
+                </Select>
+              }
+            />
+
+            <SettingRow
+              label="Autoplay Trailer"
               control={
                 <ToggleSettingControl
                   id="hero-trailer"
@@ -247,7 +286,7 @@ export function SettingsPage() {
             />
 
             <SettingRow
-              label="Mute autoplay trailer"
+              label="Mute Trailer"
               control={
                 <ToggleSettingControl
                   id="hero-muted"
@@ -324,7 +363,6 @@ export function SettingsPage() {
           <SettingsSection icon={<MonitorPlay className="h-4 w-4 text-primary" />} title="Playback">
             <SettingRow
               label="Preferred provider"
-              description="Search and pin the provider FishyStream should try first when several embeds are available."
               control={
                 <ProviderPicker
                   value={settings.defaultProvider}
@@ -337,7 +375,6 @@ export function SettingsPage() {
 
             <SettingRow
               label="Preferred anime audio"
-              description="Use this when an anime source supports both subtitle and dub playback."
               control={
                 <Select
                   value={settings.defaultAnimeLanguage}

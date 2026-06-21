@@ -120,7 +120,7 @@ export function Header() {
               </div>
             </Link>
 
-            <nav className="hidden items-center gap-1 border border-white/8 bg-white/[0.035] p-1 lg:flex">
+            <nav className="hidden items-center gap-1 rounded-lg border border-white/8 bg-white/[0.035] p-1 lg:flex">
               {navLinks.map((link) => (
                 <div key={link.label} className="relative">
                   {link.dropdown ? (
@@ -224,7 +224,7 @@ export function Header() {
                   render={
                     <Button
                       variant="ghost"
-                      className="flex h-auto items-center gap-2 rounded-md border border-white/8 bg-white/3 py-1 pl-1 pr-2 hover:bg-white/8"
+                      className="flex h-auto items-center gap-2 rounded-md py-1 pl-1 pr-2 hover:bg-white/5"
                     >
                       <img
                         src={

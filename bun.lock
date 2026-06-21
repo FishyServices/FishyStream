@@ -112,7 +112,7 @@
 
     "@fishy/providers": ["@fishy/providers@file:packages/providers", { "devDependencies": { "prettier": "^3.8.4", "typescript": "~6.0.3" } }],
 
-    "@fishy/ui": ["@fishy/ui@github:official-notfishvr/fishy-ui#c93a773", { "dependencies": { "@base-ui/react": "^1.6.0", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "lucide-react": "^1.21.0", "next-themes": "^0.4.6", "sonner": "^2.0.7", "tailwind-merge": "^3.6.0" }, "peerDependencies": { "react": "^19.2.7", "react-dom": "^19.2.7", "tailwindcss": "^4.2.2" } }, "FishyServices-fishy-ui-c93a773", "sha512-olNHgknlsVT4/KW7tgN+WSagzLCECx8HbSdcjdbNXbh0/Du4uu97Mq9Pb8WLo9GduhZDsmcp/muSDzjq6LbX9g=="],
+    "@fishy/ui": ["@fishy/ui@github:official-notfishvr/fishy-ui#bf5d7ec", { "dependencies": { "@base-ui/react": "^1.6.0", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "lucide-react": "^1.21.0", "next-themes": "^0.4.6", "sonner": "^2.0.7", "tailwind-merge": "^3.6.0" }, "peerDependencies": { "react": "^19.2.7", "react-dom": "^19.2.7", "tailwindcss": "^4.2.2" } }, "FishyServices-fishy-ui-bf5d7ec", "sha512-iQTudHwn9T3iuZtc0sBtLgfmDrGC7MhONTn8v41C83nCS4tYJQOyGYEdKK7yJ5zpcSeQUlDTIG0AgnTI5k5Z8w=="],
 
     "@floating-ui/core": ["@floating-ui/core@1.7.5", "", { "dependencies": { "@floating-ui/utils": "^0.2.11" } }, "sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ=="],
 
