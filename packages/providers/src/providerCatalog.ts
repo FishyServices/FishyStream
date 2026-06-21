@@ -40,6 +40,7 @@ export interface ProviderProgressConfig {
   controlApi?: boolean;
   statusRequest?: boolean;
   resumeParam?: "progress" | "startAt";
+  unsafeWildcardOrigin?: boolean;
   referrerPolicy?:
     | "no-referrer"
     | "unsafe-url"
@@ -81,9 +82,31 @@ type ProviderDefinition = Omit<
 
 const ALL_ORIGINS = ["*"];
 
+function providerOriginFromWebsite(website?: string) {
+  if (!website?.startsWith("http://") && !website?.startsWith("https://")) return undefined;
+  try {
+    return new URL(website).origin;
+  } catch {
+    return undefined;
+  }
+}
+
 function defineProvider(definition: ProviderDefinition): ProviderCatalogEntry {
   const { moviePath, tvPath, animePath, website, ...rest } = definition;
   const baseUrl = website?.replace(/\/+$/, "");
+  const origin = providerOriginFromWebsite(website);
+  const progress = rest.progress
+    ? {
+        ...rest.progress,
+        origins:
+          rest.progress.origins.length === 1 && rest.progress.origins[0] === "*" && origin
+            ? [origin]
+            : rest.progress.origins,
+        unsafeWildcardOrigin:
+          rest.progress.unsafeWildcardOrigin ??
+          (rest.progress.origins.length === 1 && rest.progress.origins[0] === "*" && !origin)
+      }
+    : undefined;
 
   const resolveUrl = (path: string) => {
     if (!baseUrl) return path;
@@ -93,6 +116,7 @@ function defineProvider(definition: ProviderDefinition): ProviderCatalogEntry {
 
   return {
     ...rest,
+    progress,
     website,
     getMovieUrl: (id) => resolveUrl(moviePath(id)),
     getTVUrl: (id, season, episode) => resolveUrl(tvPath(id, season, episode)),
@@ -474,7 +498,11 @@ export function getGroupedProviders(providers: ProviderCatalogEntry[] = STREAM_P
 export function getProviderByOrigin(origin: string): ProviderCatalogEntry | undefined {
   return STREAM_PROVIDERS.find((provider) => {
     const origins = provider.progress?.origins;
-    return !!origins && (origins.includes("*") || origins.includes(origin));
+    return (
+      !!origins &&
+      (origins.includes(origin) ||
+        (origins.includes("*") && provider.progress?.unsafeWildcardOrigin !== true))
+    );
   });
 }
 

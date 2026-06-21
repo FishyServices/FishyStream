@@ -12,6 +12,7 @@
     "cap:android": "npx cap open android",
     "preview": "vite preview",
     "lint": "bun run --cwd packages/providers lint && tsc --noEmit",
+    "test": "vitest run",
     "format": "prettier --write \"**/*.{ts,tsx,json,css}\""
   },
   "dependencies": {
@@ -38,6 +39,7 @@
     "prettier": "^3.8.4",
     "tailwindcss": "4.3.1",
     "typescript": "~6.0.3",
-    "vite": "8.0.16"
+    "vite": "8.0.16",
+    "vitest": "^4.1.9"
   }
 }

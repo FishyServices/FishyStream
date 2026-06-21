@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import {
@@ -30,31 +30,22 @@ import { useAppSettings } from "@/hooks/useAppSettings";
 import { useOneShotConvexQuery } from "@/hooks/useOneShotConvexQuery";
 import type { PlayerEventPayload } from "@fishy/providers/playerProviders";
 import {
-  createProviderEmbedUrl,
   parsePlayerMessage,
   calculateProgress,
-  isKnownPlayerOrigin,
+  isTrustedPlayerMessageOrigin,
   postMessageToPlayer
 } from "@fishy/providers/playerProviders";
 import {
-  buildMovieSources,
-  buildTvSources,
-  getProviderByKey
-} from "@fishy/providers/providerCatalog";
-import type { StreamSource } from "@fishy/providers/providerCatalog";
-import {
   getNextEpisodeAddress,
-  getSeasonYear,
-  groupSourcesByProviderCategory,
   hasNextEpisode as hasProviderNextEpisode,
   isAnimeProviderContent,
   normalizePlaybackProgressSample,
-  pickPreferredSource,
   shouldStorePlaybackProgressSample,
   WATCH_PROGRESS_STATUS_POLL_MS
 } from "@fishy/providers/providerPlayback";
 import type { ContentPlayback } from "../../shared/contentMetadata";
 import type { PlaybackProgressSample } from "@fishy/providers/providerPlayback";
+import { usePlaybackSession, type PlaybackSeasonMeta } from "@/playback/usePlaybackSession";
 
 interface VideoPlayerProps {
   content: ContentPlayback;
@@ -62,19 +53,6 @@ interface VideoPlayerProps {
   initialEpisode?: number;
   initialSource?: string;
 }
-
-type ClientSeasonPlaybackMeta = {
-  seasonNumber: number;
-  name?: string;
-  airDate?: string;
-  episodeCount?: number;
-  anilistId?: string;
-  anilistEpisodeMappings?: Array<{
-    episodeNumber: number;
-    anilistId: string;
-    anilistEpisodeNumber: number;
-  }>;
-};
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
 const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:anime-season-sync-keys";
@@ -118,30 +96,6 @@ function isMatchingEpisodeProgress(
   return safeEp(watchState.seasonNumber) === season && safeEp(watchState.episodeNumber) === episode;
 }
 
-function getResumePositionSeconds(
-  content: ContentPlayback,
-  watchState: ReturnType<typeof useGetProgress>,
-  lastSyncedPosition: number,
-  season: number,
-  episode: number
-) {
-  if (!isMatchingEpisodeProgress(content, watchState, season, episode)) return 0;
-  const storedPosition = Math.max(0, watchState?.positionSeconds ?? 0);
-  return Math.max(storedPosition, Math.max(0, lastSyncedPosition));
-}
-
-function pickResumePositionSeconds(
-  content: ContentPlayback,
-  watchState: ReturnType<typeof useGetProgress>,
-  lastSyncedPosition: number,
-  season: number,
-  episode: number
-) {
-  return Math.floor(
-    getResumePositionSeconds(content, watchState, lastSyncedPosition, season, episode)
-  );
-}
-
 export function VideoPlayer({
   content,
   initialSeason,
@@ -158,13 +112,7 @@ export function VideoPlayer({
   const watchState = useGetProgress(content._id);
   const animeContent = isAnimeProviderContent(content);
 
-  const [sources, setSources] = useState<StreamSource[]>([]);
-  const [selectedSource, setSelectedSource] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentProgress, setCurrentProgress] = useState(0);
-  const isDub = searchParams.get("dub") === "true";
-  const prefersDub = settings.defaultAnimeLanguage === "dub";
 
   const historyInitRef = useRef(false);
   const realtimeDetectedRef = useRef(false);
@@ -172,10 +120,8 @@ export function VideoPlayer({
   const lastSyncedPositionRef = useRef(0);
   const lastRealtimeSyncAtRef = useRef(0);
   const lastStoredProgressSampleRef = useRef<PlaybackProgressSample | undefined>(undefined);
-  const sourceRequestIdRef = useRef(0);
   const nextEpisodeClickLockedRef = useRef(false);
   const nextEpisodeCooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [resumePositionSeconds, setResumePositionSeconds] = useState(0);
   const [isNextEpisodeCooldown, setIsNextEpisodeCooldown] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [animeSeasonReloadKey, setAnimeSeasonReloadKey] = useState(0);
@@ -203,7 +149,7 @@ export function VideoPlayer({
     tvTarget.season,
     content.type === "tv" && !hasPendingInitialTvTarget
   );
-  const clientSeasonData: ClientSeasonPlaybackMeta | null =
+  const clientSeasonData: PlaybackSeasonMeta | null =
     content.type === "tv" && playbackSeason
       ? ({
           seasonNumber: tvTarget.season,
@@ -212,11 +158,11 @@ export function VideoPlayer({
           episodeCount: playbackSeason.episodes.length,
           anilistId: tvTarget.season === 1 ? content.anilistId : undefined,
           anilistEpisodeMappings: undefined
-        } satisfies ClientSeasonPlaybackMeta)
+        } satisfies PlaybackSeasonMeta)
       : null;
   const animeSeasonKey =
     animeContent && content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
-  const animeSeasonData = useOneShotConvexQuery<ClientSeasonPlaybackMeta | null>(
+  const animeSeasonData = useOneShotConvexQuery<PlaybackSeasonMeta | null>(
     !!animeSeasonKey && !hasPendingInitialTvTarget,
     (convex) =>
       convex.query(api.seasons.getSeasonPlaybackMeta, {
@@ -238,6 +184,44 @@ export function VideoPlayer({
     (animeSeasonData === undefined ||
       animeSeasonSyncingRef.current.has(animeSeasonKey) ||
       (animeSeasonData === null && !readSessionAnimeSeasonSyncKeys().includes(animeSeasonKey)));
+
+  const session = usePlaybackSession({
+    content,
+    initialSeason,
+    initialEpisode,
+    initialSource,
+    settings,
+    watchState,
+    currentSeasonData,
+    waitingForAnimeSeasonMetadata,
+    searchParams,
+    setSearchParams,
+    navigate,
+    lastSyncedPositionRef
+  });
+  const {
+    sources,
+    selectedSource: selectedSourceConfig,
+    selectedProvider,
+    groupedSources,
+    loading,
+    error,
+    isDub,
+    showDubToggle,
+    embedUrl,
+    iframeSrcDoc,
+    canTryNextSource,
+    goToEpisode
+  } = session;
+  const selectedSource = selectedSourceConfig?.url ?? "";
+  const supportsProgressEvents = !!selectedProvider?.progress;
+  const canRequestStatus = !!selectedProvider?.progress?.statusRequest;
+  const iframeReferrerPolicy =
+    selectedProvider?.progress?.referrerPolicy ?? "no-referrer-when-downgrade";
+
+  useEffect(() => {
+    loadedTvRef.current = session.loadedTarget;
+  }, [session.loadedTarget]);
 
   useEffect(() => {
     if (!animeSeasonKey || !content.tmdbId || hasPendingInitialTvTarget) return;
@@ -279,18 +263,12 @@ export function VideoPlayer({
   ]);
 
   useEffect(() => {
-    sourceRequestIdRef.current += 1;
-    setSources([]);
-    setSelectedSource("");
-    setLoading(true);
-    setError(null);
     historyInitRef.current = false;
     realtimeDetectedRef.current = false;
     lastSyncedProgressRef.current = 0;
     lastSyncedPositionRef.current = 0;
     lastRealtimeSyncAtRef.current = 0;
     lastStoredProgressSampleRef.current = undefined;
-    setResumePositionSeconds(0);
     const s = initialSeason ?? 1;
     const e = initialEpisode ?? 1;
     lastAppliedRouteTvTargetRef.current = { season: s, episode: e };
@@ -313,7 +291,6 @@ export function VideoPlayer({
 
     if (tvTargetRef.current.season !== s || tvTargetRef.current.episode !== e) {
       setCurrentProgress(0);
-      setResumePositionSeconds(0);
       realtimeDetectedRef.current = false;
       lastSyncedProgressRef.current = 0;
       lastSyncedPositionRef.current = 0;
@@ -323,22 +300,6 @@ export function VideoPlayer({
       setTvTarget({ season: s, episode: e });
     }
   }, [initialSeason, initialEpisode]);
-
-  useEffect(() => {
-    if (content.type !== "tv") return;
-    if (
-      loadedTvRef.current.season === tvTarget.season &&
-      loadedTvRef.current.episode === tvTarget.episode
-    ) {
-      return;
-    }
-
-    sourceRequestIdRef.current += 1;
-    setSources([]);
-    setSelectedSource("");
-    setLoading(true);
-    setError(null);
-  }, [content.type, tvTarget.episode, tvTarget.season]);
 
   useEffect(() => {
     if (historyInitRef.current) return;
@@ -364,136 +325,11 @@ export function VideoPlayer({
         if (tvTargetRef.current.season !== s || tvTargetRef.current.episode !== e) {
           tvTargetRef.current = { season: s, episode: e };
           setTvTarget({ season: s, episode: e });
+          goToEpisode({ season: s, episode: e });
         }
       }
     }
-  }, [content._id, content.type, watchState, initialSeason, initialEpisode]);
-
-  useEffect(() => {
-    if (sources.length > 0 || error) return;
-    if (waitingForAnimeSeasonMetadata) return;
-
-    const load = async () => {
-      if (!content.imdbId && !content.tmdbId) {
-        setError("No video ID available for this content");
-        setLoading(false);
-        return;
-      }
-
-      const requestId = ++sourceRequestIdRef.current;
-
-      try {
-        setLoading(true);
-        const { season, episode } = tvTargetRef.current;
-        const fetched =
-          content.type === "tv"
-            ? await buildTvSources({
-                imdbId: content.imdbId ?? undefined,
-                tmdbId: content.tmdbId ?? undefined,
-                anilistId:
-                  currentSeasonData?.anilistId ??
-                  (season === 1 ? content.anilistId : undefined) ??
-                  undefined,
-                anilistEpisodeMappings: currentSeasonData?.anilistEpisodeMappings,
-                isAnime: animeContent,
-                title: content.title,
-                seasonTitle: currentSeasonData?.name,
-                year: getSeasonYear(currentSeasonData?.airDate) ?? content.year,
-                season,
-                episode,
-                dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
-              })
-            : buildMovieSources({
-                imdbId: content.imdbId ?? undefined,
-                tmdbId: content.tmdbId ?? undefined
-              });
-
-        if (requestId !== sourceRequestIdRef.current) {
-          return;
-        }
-        if (!fetched?.length) {
-          setError("No streaming sources found for this content");
-          setLoading(false);
-          return;
-        }
-
-        loadedTvRef.current = { season, episode };
-        setSources(fetched);
-        const def = pickPreferredSource(fetched, {
-          initialSource,
-          defaultProvider: settings.defaultProvider
-        })!;
-        setResumePositionSeconds(
-          pickResumePositionSeconds(
-            content,
-            watchState,
-            lastSyncedPositionRef.current,
-            season,
-            episode
-          )
-        );
-        setSelectedSource(def.url);
-      } catch (err) {
-        if (requestId !== sourceRequestIdRef.current) {
-          return;
-        }
-        setError(
-          `Failed to load streaming sources: ${err instanceof Error ? err.message : String(err)}`
-        );
-      } finally {
-        if (requestId !== sourceRequestIdRef.current) return;
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, [
-    animeContent,
-    content,
-    error,
-    initialSource,
-    isDub,
-    prefersDub,
-    settings.defaultProvider,
-    sources.length,
-    watchState,
-    searchParams,
-    currentSeasonData?.name,
-    currentSeasonData?.anilistId,
-    currentSeasonData?.anilistEpisodeMappings,
-    currentSeasonData?.airDate,
-    tvTarget.episode,
-    tvTarget.season,
-    waitingForAnimeSeasonMetadata
-  ]);
-
-  const selectedSourceConfig = sources.find((s) => s.url === selectedSource);
-  const selectedProvider = selectedSourceConfig
-    ? getProviderByKey(selectedSourceConfig.key)
-    : undefined;
-  const groupedSources = groupSourcesByProviderCategory(sources);
-  const supportsProgressEvents = !!selectedProvider?.progress;
-  const canRequestStatus = !!selectedProvider?.progress?.statusRequest;
-  const showDubToggle = animeContent && !!selectedProvider?.dubSupport;
-  const iframeReferrerPolicy =
-    selectedProvider?.progress?.referrerPolicy ?? "no-referrer-when-downgrade";
-
-  const embedUrl = (() => {
-    if (!selectedSourceConfig) return "";
-    return createProviderEmbedUrl({
-      sourceUrl: selectedSourceConfig.url,
-      provider: selectedProvider,
-      contentType: content.type,
-      resumePositionSeconds,
-      watchCompleted: watchState?.completed ?? false,
-      baseUrl: window.location.origin
-    });
-  })();
-
-  const iframeSrcDoc =
-    iframeReferrerPolicy === "no-referrer" && embedUrl
-      ? `<!doctype html><html><head><meta name="referrer" content="no-referrer"></head><body><script>location.replace(${JSON.stringify(embedUrl)})<\/script></body></html>`
-      : undefined;
+  }, [content._id, content.type, watchState, initialSeason, initialEpisode, goToEpisode]);
 
   useEffect(() => {
     if (!watchState) return;
@@ -550,7 +386,7 @@ export function VideoPlayer({
     let syncInFlight = false;
 
     const handleMsg = (event: MessageEvent) => {
-      const originMatchesProvider = isKnownPlayerOrigin(event.origin);
+      const originMatchesProvider = isTrustedPlayerMessageOrigin(event.origin, expectedOrigin);
       if (!originMatchesProvider && event.origin !== expectedOrigin) return;
       if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
         return;
@@ -563,7 +399,7 @@ export function VideoPlayer({
         return;
       }
 
-      const payload = parsePlayerMessage(event.data, event.origin);
+      const payload = parsePlayerMessage(event.data, event.origin, expectedOrigin);
       if (!payload) return;
 
       const { data } = payload as PlayerEventPayload;
@@ -635,99 +471,12 @@ export function VideoPlayer({
 
   const handleSourceChange = async (nextUrl: string | null) => {
     if (!nextUrl) return;
-    const nextSource = sources.find((s) => s.url === nextUrl);
-    const prevName = nextSource?.name;
-    const needsReload =
-      content.type === "tv" &&
-      (tvTargetRef.current.season !== loadedTvRef.current.season ||
-        tvTargetRef.current.episode !== loadedTvRef.current.episode);
-
     realtimeDetectedRef.current = false;
-
-    if (nextSource) {
-      const params = new URLSearchParams(searchParams);
-      params.set("type", content.type);
-      params.set("source", nextSource.name);
-      navigate({ search: params.toString() }, { replace: true });
-    }
-
-    if (!needsReload) {
-      setResumePositionSeconds(
-        pickResumePositionSeconds(
-          content,
-          watchState,
-          lastSyncedPositionRef.current,
-          tvTargetRef.current.season,
-          tvTargetRef.current.episode
-        )
-      );
-      setSelectedSource(nextUrl);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      if (waitingForAnimeSeasonMetadata) return;
-      const requestId = ++sourceRequestIdRef.current;
-      const refreshed = await buildTvSources({
-        imdbId: content.imdbId ?? undefined,
-        tmdbId: content.tmdbId ?? undefined,
-        anilistId:
-          currentSeasonData?.anilistId ??
-          (tvTargetRef.current.season === 1 ? content.anilistId : undefined) ??
-          undefined,
-        anilistEpisodeMappings: currentSeasonData?.anilistEpisodeMappings,
-        isAnime: animeContent,
-        title: content.title,
-        seasonTitle: currentSeasonData?.name,
-        year: getSeasonYear(currentSeasonData?.airDate) ?? content.year,
-        season: tvTargetRef.current.season,
-        episode: tvTargetRef.current.episode,
-        dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
-      });
-
-      if (requestId !== sourceRequestIdRef.current) {
-        return;
-      }
-      if (!refreshed?.length) {
-        setError("No sources for this episode");
-        return;
-      }
-
-      loadedTvRef.current = { ...tvTargetRef.current };
-      setSources(refreshed);
-      const next = refreshed.find((s) => s.name === prevName) ?? refreshed[0]!;
-      setResumePositionSeconds(
-        pickResumePositionSeconds(
-          content,
-          watchState,
-          lastSyncedPositionRef.current,
-          tvTargetRef.current.season,
-          tvTargetRef.current.episode
-        )
-      );
-      setSelectedSource(next.url);
-    } catch (err) {
-      setError(`Failed to switch sources: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setLoading(false);
-    }
+    await session.setSourceByUrl(nextUrl);
   };
 
   const handleDubToggle = (newIsDub: boolean) => {
-    if (newIsDub === isDub) return;
-    const params = new URLSearchParams(searchParams);
-    if (newIsDub) {
-      params.set("dub", "true");
-    } else {
-      params.delete("dub");
-    }
-    setSearchParams(params, { replace: true });
-    sourceRequestIdRef.current += 1;
-    setSources([]);
-    setSelectedSource("");
-    setLoading(true);
-    setError(null);
+    session.setDub(newIsDub);
   };
 
   const startNextEpisodeClickCooldown = () => {
@@ -766,36 +515,16 @@ export function VideoPlayer({
     });
     if (!next) return;
 
-    const crossesSeason = next.season !== currentSeason;
-
     tvTargetRef.current = next;
     setTvTarget(next);
     setCurrentProgress(0);
-    setResumePositionSeconds(0);
     lastSyncedProgressRef.current = 0;
     lastSyncedPositionRef.current = 0;
     lastRealtimeSyncAtRef.current = 0;
     lastStoredProgressSampleRef.current = undefined;
     realtimeDetectedRef.current = false;
 
-    const params = new URLSearchParams();
-    params.set("type", content.type);
-    params.set("season", String(next.season));
-    params.set("episode", String(next.episode));
-    const currentSource = searchParams.get("source");
-    if (currentSource) {
-      params.set("source", currentSource);
-    }
-    if (isDub) {
-      params.set("dub", "true");
-    }
-    navigate({ search: params.toString() }, { replace: true });
-
-    sourceRequestIdRef.current += 1;
-    setSources([]);
-    setSelectedSource("");
-    setLoading(true);
-    setError(null);
+    goToEpisode(next);
   };
 
   const hasNextEpisode = (() => {
@@ -890,16 +619,16 @@ export function VideoPlayer({
               <ArrowLeft className="w-4 h-4 mr-2" />
               Go Back
             </Button>
-            <Button
-              onClick={() => {
-                setError(null);
-                setSources([]);
-              }}
-              variant="secondary"
-            >
+            <Button onClick={() => session.retry()} variant="secondary">
               <RefreshCw className="w-4 h-4 mr-2" />
-              Retry
+              Retry current source
             </Button>
+            {canTryNextSource && (
+              <Button onClick={() => session.tryNextSource("no sources screen")} variant="secondary">
+                <MonitorPlay className="w-4 h-4 mr-2" />
+                Try next source
+              </Button>
+            )}
           </div>
         </div>
       </div>

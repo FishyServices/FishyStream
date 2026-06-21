@@ -10,6 +10,11 @@ export interface ProviderProxyRequest {
   body?: BodyInit | null;
 }
 
+export interface ProviderProxyAdapter {
+  prefix: string;
+  handle(request: ProviderProxyRequest & { subpath: string }): Promise<Response>;
+}
+
 export const PROVIDER_PROXY_PREFIXES = ["vidplays-proxy"] as const;
 export const PROVIDER_PROXY_PATH_ALIASES: Record<string, (segments: string[]) => string[]> = {
   vidplays: (segments) => ["vidplays-proxy", ...segments.slice(1)]
@@ -48,19 +53,25 @@ export async function proxyProviderRequest({
 }: ProviderProxyRequest): Promise<Response> {
   const match = matchProviderProxyPath(url.pathname);
   if (!match) return new Response("Unknown provider proxy", { status: 404 });
+  const adapter = PROVIDER_PROXY_ADAPTERS.find((candidate) => candidate.prefix === match.prefix);
 
-  if (match.prefix === "vidplays-proxy") {
-    return proxyVidPlaysRequest({
-      url,
-      subpath: match.subpath,
-      method,
-      headers,
-      body
-    });
-  }
+  if (!adapter) return new Response("Unknown provider proxy", { status: 404 });
 
-  return new Response("Unknown provider proxy", { status: 404 });
+  return adapter.handle({
+    url,
+    subpath: match.subpath,
+    method,
+    headers,
+    body
+  });
 }
+
+const vidPlaysProxyAdapter: ProviderProxyAdapter = {
+  prefix: "vidplays-proxy",
+  handle: proxyVidPlaysRequest
+};
+
+const PROVIDER_PROXY_ADAPTERS: ProviderProxyAdapter[] = [vidPlaysProxyAdapter];
 
 async function proxyVidPlaysRequest({
   url,

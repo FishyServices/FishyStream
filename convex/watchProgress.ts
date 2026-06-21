@@ -150,32 +150,62 @@ async function saveProgressForUser(
   const nextDurationSeconds = normalizeOptionalNumber(args.durationSeconds);
 
   if (args.progressId) {
-    const patch: Partial<ProgressDocument> & {
-      progress: number;
-      completed: boolean;
-      watchedAt: number;
-    } = {
-      progress: normalizedProgress,
-      completed,
-      positionSeconds: nextPositionSeconds,
-      watchedAt: clientUpdatedAt,
-      tmdbId: args.snapshot.tmdbId,
-      contentType: args.snapshot.type,
-      title: args.snapshot.title,
-      posterUrl: args.snapshot.posterUrl,
-      genre: args.snapshot.genre,
-      year: args.snapshot.year,
-      voteAverage: args.snapshot.voteAverage
-    };
+    const existingById = await ctx.db.get(args.progressId);
+    if (existingById && existingById.clerkUserId === clerkUserId) {
+      const existingClientUpdatedAt = existingById.clientUpdatedAt ?? existingById.watchedAt;
+      if (clientUpdatedAt < existingClientUpdatedAt) {
+        return existingById._id;
+      }
 
-    if (nextDurationSeconds !== undefined) patch.durationSeconds = nextDurationSeconds;
-    if (args.seasonNumber !== undefined) patch.seasonNumber = args.seasonNumber;
-    if (args.episodeNumber !== undefined) patch.episodeNumber = args.episodeNumber;
-    if (args.source !== undefined) patch.source = args.source;
-    if (args.dub !== undefined) patch.dub = args.dub;
+      const nextState = {
+        progress: normalizedProgress,
+        completed,
+        positionSeconds: nextPositionSeconds ?? existingById.positionSeconds,
+        durationSeconds: nextDurationSeconds ?? existingById.durationSeconds,
+        seasonNumber: args.seasonNumber ?? existingById.seasonNumber,
+        episodeNumber: args.episodeNumber ?? existingById.episodeNumber,
+        source: args.source ?? existingById.source,
+        dub: args.dub ?? existingById.dub
+      };
 
-    await ctx.db.patch(args.progressId, patch);
-    return args.progressId;
+      if (shouldSkipProgressUpdate(existingById, nextState)) {
+        return existingById._id;
+      }
+
+      const patch: Partial<ProgressDocument> & {
+        watchedAt: number;
+        clientUpdatedAt: number;
+      } = {
+        watchedAt: clientUpdatedAt,
+        clientUpdatedAt,
+        tmdbId: args.snapshot.tmdbId,
+        contentType: args.snapshot.type,
+        title: args.snapshot.title,
+        posterUrl: args.snapshot.posterUrl,
+        genre: args.snapshot.genre,
+        year: args.snapshot.year,
+        voteAverage: args.snapshot.voteAverage
+      };
+      if (existingById.progress !== nextState.progress) patch.progress = nextState.progress;
+      if (existingById.completed !== nextState.completed) patch.completed = nextState.completed;
+      if (existingById.positionSeconds !== nextState.positionSeconds) {
+        patch.positionSeconds = nextState.positionSeconds;
+      }
+      if (existingById.durationSeconds !== nextState.durationSeconds) {
+        patch.durationSeconds = nextState.durationSeconds;
+      }
+      if (existingById.seasonNumber !== nextState.seasonNumber) {
+        patch.seasonNumber = nextState.seasonNumber;
+      }
+      if (existingById.episodeNumber !== nextState.episodeNumber) {
+        patch.episodeNumber = nextState.episodeNumber;
+      }
+      if (existingById.source !== nextState.source) patch.source = nextState.source;
+      if (existingById.dub !== nextState.dub) patch.dub = nextState.dub;
+
+      await ctx.db.patch(existingById._id, patch);
+      return existingById._id;
+    }
   }
 
   const existing = await ctx.db

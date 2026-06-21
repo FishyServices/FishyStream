@@ -24,6 +24,7 @@
     "build": "tsc",
     "dev": "tsc -w",
     "lint": "tsc --noEmit",
+    "test": "vitest run",
     "format": "prettier --write \"src/**/*.ts\""
   },
   "devDependencies": {

@@ -233,9 +233,20 @@ export function isKnownPlayerOrigin(origin: string): boolean {
   return !!getProviderByOrigin(origin)?.progress;
 }
 
-export function parsePlayerMessage(raw: unknown, origin?: string): PlayerEventPayload | null {
+export function isTrustedPlayerMessageOrigin(origin: string, expectedOrigin?: string): boolean {
+  if (origin && expectedOrigin && origin === expectedOrigin) return true;
+  return isKnownPlayerOrigin(origin);
+}
+
+export function parsePlayerMessage(
+  raw: unknown,
+  origin?: string,
+  expectedOrigin?: string
+): PlayerEventPayload | null {
   const normalizedOrigin = origin || "";
-  if (normalizedOrigin && !isKnownPlayerOrigin(normalizedOrigin)) return null;
+  if (normalizedOrigin && !isTrustedPlayerMessageOrigin(normalizedOrigin, expectedOrigin)) {
+    return null;
+  }
 
   const payload = parseMaybeJson(raw);
   if (payload === raw && typeof raw === "string") return null;

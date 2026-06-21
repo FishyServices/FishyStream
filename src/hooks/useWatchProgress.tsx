@@ -191,7 +191,7 @@ function syncedBaselineFrom(entry: StoredProgress): StoredProgress {
   };
 }
 
-function toProgressPayload(entry: StoredProgress) {
+export function toProgressPayload(entry: StoredProgress) {
   let flags = 0;
   const extras: Array<number | string> = [];
   const durationSeconds = Math.round(entry.durationSeconds);
@@ -383,7 +383,6 @@ export function useUpdateProgress() {
         if (current) {
           storeRef.current.set(dirtyEntry.contentId, {
             ...current,
-            progressId: dirtyEntry.progressId ? undefined : current.progressId,
             dirty: true
           });
         }
