@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ClerkFailed, ClerkLoaded, ClerkLoading, SignIn, useAuth, useSignIn } from "@clerk/react";
-import { dark } from "@clerk/themes";
 import { Link, useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { AlertCircle, Loader2, Mail, Lock, ShieldCheck } from "lucide-react";
@@ -40,16 +39,6 @@ function NativeSignInCard() {
   useEffect(() => {
     if (isSignedIn) navigate("/", { replace: true });
   }, [isSignedIn, navigate]);
-
-  const description = useMemo(
-    () =>
-      requiresVerification
-        ? "Clerk requires an email verification code for this device before finishing sign in."
-        : mode === "email-code"
-          ? "Use a one-time email code. This works for accounts created on desktop, including Google-based accounts."
-          : "Sign in directly inside the Android app. Social/browser redirect login is disabled here.",
-    [mode, requiresVerification]
-  );
 
   const finalizeSignIn = async () => {
     await signIn.finalize({
@@ -186,13 +175,9 @@ function NativeSignInCard() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-[1.75rem] border border-white/10 bg-white/4 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-7">
+    <div className="w-full max-w-md rounded-lg border border-white/10 bg-white/4 p-6 shadow-sm sm:p-7">
       <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/85">
-          Android Sign In
-        </p>
-        <h1 className="mt-2 font-display text-3xl font-black text-white">FishyStream</h1>
-        <p className="mt-2 text-sm leading-relaxed text-white/60">{description}</p>
+        <h1 className="text-3xl font-semibold text-white">Sign in</h1>
       </div>
 
       {errorMessage && (
@@ -202,12 +187,12 @@ function NativeSignInCard() {
       )}
 
       {!requiresVerification && (
-        <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-black/20 p-1">
+        <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg border border-white/8 bg-black/20 p-1">
           <Button
             type="button"
             variant={mode === "password" ? "default" : "ghost"}
             size="sm"
-            className={`rounded-xl ${mode === "password" ? "bg-white text-black hover:bg-white/90" : "text-white/65 hover:text-white"}`}
+            className={`rounded-md ${mode === "password" ? "bg-white text-black hover:bg-white/90" : "text-white/65 hover:text-white"}`}
             onClick={() => {
               setMode("password");
               setErrorMessage(null);
@@ -219,7 +204,7 @@ function NativeSignInCard() {
             type="button"
             variant={mode === "email-code" ? "default" : "ghost"}
             size="sm"
-            className={`rounded-xl ${mode === "email-code" ? "bg-white text-black hover:bg-white/90" : "text-white/65 hover:text-white"}`}
+            className={`rounded-md ${mode === "email-code" ? "bg-white text-black hover:bg-white/90" : "text-white/65 hover:text-white"}`}
             onClick={() => {
               setMode("email-code");
               setErrorMessage(null);
@@ -271,7 +256,7 @@ function NativeSignInCard() {
 
           <Button type="submit" className="h-12 w-full text-sm font-semibold" disabled={submitting}>
             {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {mode === "password" ? "Sign In" : "Send Sign-In Code"}
+            {mode === "password" ? "Sign in" : "Send code"}
           </Button>
         </form>
       ) : (
@@ -282,7 +267,7 @@ function NativeSignInCard() {
           <Label className="block">
             <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
               <ShieldCheck className="h-4 w-4" />
-              Email Verification Code
+              Code
             </span>
             <Input
               inputMode="numeric"
@@ -290,14 +275,14 @@ function NativeSignInCard() {
               value={code}
               onChange={(event) => setCode(event.target.value)}
               className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
-              placeholder="Enter the code from your email"
+              placeholder="Code"
               required
             />
           </Label>
 
           <Button type="submit" className="h-12 w-full text-sm font-semibold" disabled={verifying}>
             {verifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Verify And Continue
+            Continue
           </Button>
         </form>
       )}

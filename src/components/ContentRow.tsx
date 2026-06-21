@@ -26,9 +26,17 @@ interface ContentRowProps {
     type?: ContentType
   ) => void;
   viewAllHref?: string;
+  viewAllLabel?: string;
+  density?: "compact" | "comfortable";
 }
 
-export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowProps) {
+export function ContentRow({
+  title,
+  content,
+  onPlay,
+  viewAllHref,
+  viewAllLabel = "All"
+}: ContentRowProps) {
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -60,9 +68,9 @@ export function ContentRow({ title, content, onPlay, viewAllHref }: ContentRowPr
             variant="outline"
             size="sm"
             onClick={() => navigate(viewAllHref)}
-            className="relative z-40 ml-4 whitespace-nowrap rounded-full border border-white/10 bg-white/3 text-muted-foreground hover:bg-card/80 hover:text-foreground"
+            className="relative z-40 ml-4 whitespace-nowrap rounded-md border border-white/10 bg-white/3 text-muted-foreground hover:bg-card/80 hover:text-foreground"
           >
-            View all
+            {viewAllLabel}
           </Button>
         )}
       </div>

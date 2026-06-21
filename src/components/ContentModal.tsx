@@ -75,6 +75,8 @@ interface ContentModalProps {
   content: ModalContent | null;
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: "episodes" | "cast" | "videos" | "related";
+  compactCopy?: boolean;
   onPlay: (
     tmdbId: string,
     season?: number,
@@ -148,9 +150,16 @@ function EpisodePill({
   );
 }
 
-export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalProps) {
+export function ContentModal({
+  content,
+  isOpen,
+  onClose,
+  onPlay,
+  initialTab,
+  compactCopy = true
+}: ContentModalProps) {
   const [activeTab, setActiveTab] = useState<"episodes" | "cast" | "videos" | "related">(
-    "episodes"
+    initialTab ?? "episodes"
   );
 
   const tmdbDetailEnabled = isOpen && !!content && !!content.tmdbId && !hasFullContent(content);
@@ -297,9 +306,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
 
   useEffect(() => {
     if (isOpen && resolvedContent) {
-      setActiveTab(resolvedContent.type === "tv" ? "episodes" : "cast");
+      setActiveTab(initialTab ?? (resolvedContent.type === "tv" ? "episodes" : "cast"));
     }
-  }, [isOpen, resolvedContent?.type]);
+  }, [initialTab, isOpen, resolvedContent?.type]);
 
   const handleRelatedClick = (item: TMDBItem) => {
     setRelatedModalItem(item);
@@ -416,8 +425,10 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-3 top-3 z-10 h-8 w-8 rounded-full border border-border/80 bg-background/78 text-foreground hover:bg-background"
+            className="absolute right-3 top-3 z-10 h-8 w-8 rounded-md border border-border/80 bg-background/78 text-foreground hover:bg-background"
             onClick={onClose}
+            aria-label="Close details"
+            title="Close details"
           >
             <X className="w-4 h-4" />
           </Button>
@@ -427,18 +438,19 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             </h2>
             <div className="flex items-center gap-3">
               <Button
-                className="bg-white text-black hover:bg-white/90 font-semibold"
+                className="rounded-md bg-white font-semibold text-black hover:bg-white/90"
                 onClick={() => handlePlay()}
               >
                 <Play className="w-4 h-4 mr-2 fill-black" />
-                Play
+                {contentData.progress && contentData.progress > 0 ? "Resume" : "Play"}
                 {isTV ? ` S${selectedSeason} E${selectedEpisode}` : ""}
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="flex h-10 w-10 rounded-full border border-border/80 bg-background/60 text-foreground hover:bg-background"
+                className="flex h-10 w-10 rounded-md border border-border/80 bg-background/60 text-foreground hover:bg-background"
                 onClick={handleWatchlist}
+                aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
                 title={isInWatchlist ? "Remove from My List" : "Add to My List"}
               >
                 {isInWatchlist ? (
@@ -456,7 +468,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
           <div className="p-5 space-y-6">
             {isHydratingContent && (
               <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                Loading full details…
+                Loading details
               </div>
             )}
             {/* Meta row */}
@@ -490,7 +502,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             {/* Description */}
             {detailContent?.description && (
               <p className="text-sm leading-relaxed text-muted-foreground">
-                {detailContent.description}
+                {compactCopy ? detailContent.description.slice(0, 360) : detailContent.description}
               </p>
             )}
 
@@ -614,9 +626,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                 )}
 
                 {tmdbSeasonLoading && episodes.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-muted-foreground">
-                    Loading episodes…
-                  </p>
+                  <p className="py-8 text-center text-xs text-muted-foreground">Loading episodes</p>
                 ) : episodeLoadError ? (
                   <p className="text-xs text-red-300/80 text-center py-8">{episodeLoadError}</p>
                 ) : episodes.length > 0 ? (
@@ -634,9 +644,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                     ))}
                   </div>
                 ) : (
-                  <p className="py-8 text-center text-xs text-muted-foreground">
-                    No episode data available.
-                  </p>
+                  <p className="py-8 text-center text-xs text-muted-foreground">No episodes</p>
                 )}
               </div>
             )}
@@ -682,9 +690,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
                     )}
                   </>
                 ) : (
-                  <p className="py-8 text-center text-xs text-muted-foreground">
-                    No cast information available.
-                  </p>
+                  <p className="py-8 text-center text-xs text-muted-foreground">No cast</p>
                 )}
               </div>
             )}
@@ -693,9 +699,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             {activeTab === "videos" && (
               <div>
                 {videos.length === 0 ? (
-                  <div className="flex items-center justify-center py-10">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <p className="py-8 text-center text-xs text-muted-foreground">No trailers</p>
                 ) : (
                   <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
                     {videos.slice(0, 5).map((video) => (
@@ -737,9 +741,9 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             {activeTab === "related" && (
               <div>
                 {related.length === 0 ? (
-                  <div className="flex items-center justify-center py-10">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <p className="py-8 text-center text-xs text-muted-foreground">
+                    No related titles
+                  </p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {related.map((item) => (
@@ -784,7 +788,7 @@ export function ContentModal({ content, isOpen, onClose, onPlay }: ContentModalP
             <DialogTitle className="sr-only">Loading</DialogTitle>
             <div className="text-center">
               <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Loading {relatedModalItem.title}…</p>
+              <p className="text-sm text-muted-foreground">Loading details</p>
             </div>
           </DialogContent>
         </Dialog>

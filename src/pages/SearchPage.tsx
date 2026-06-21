@@ -1,18 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Filter, Loader2, Search, X, Tv, Film } from "lucide-react";
+import { Filter, Search, X, Tv, Film } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useSearchAll, type TMDBItem } from "@/hooks/useContent";
 import { SearchCard } from "@/components/SearchCard";
-import {
-  Button,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@fishy/ui";
+import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
+import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger } from "@fishy/ui";
 
 type SearchTypeFilter = "all" | "movie" | "tv";
 type SearchSort = "relevance" | "title" | "newest" | "rating";
@@ -58,6 +51,8 @@ export function SearchPage() {
       : "all";
   const sort: SearchSort =
     sortParam && VALID_SORTS.has(sortParam as SearchSort) ? (sortParam as SearchSort) : "relevance";
+  const typeLabel = TYPE_FILTERS.find((filter) => filter.value === typeFilter)?.label ?? "Type";
+  const sortLabel = SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort";
   const [input, setInput] = useState(query);
   const { results, loading, error } = useSearchAll(query);
 
@@ -113,15 +108,14 @@ export function SearchPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="page-stack px-4 sm:px-6 lg:px-10">
-        {/* Search box */}
+      <main className="page-shell-wide page-stack">
         <div className="max-w-2xl mb-10">
-          <h1 className="font-display text-3xl font-black text-white mb-5">Search</h1>
+          <PageHeader title="Search" />
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30 pointer-events-none" />
             <Input
               type="text"
-              placeholder="Search movies, TV shows, genres..."
+              placeholder="Search titles"
               value={input}
               autoFocus
               onChange={(e) => handleInput(e.target.value)}
@@ -135,6 +129,7 @@ export function SearchPage() {
                 onClick={() => handleInput("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 text-white/30 hover:text-white/70 hover:bg-transparent"
                 aria-label="Clear search"
+                title="Clear search"
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -142,31 +137,14 @@ export function SearchPage() {
           </div>
         </div>
 
-        {/* Results */}
-        {!query && (
-          <div className="text-center py-24">
-            <Search className="w-12 h-12 text-white/10 mx-auto mb-4" />
-            <p className="text-white/40">Search across thousands of movies and TV shows</p>
-          </div>
-        )}
+        {!query && <EmptyState icon={<Search className="h-12 w-12" />} title="Start typing" />}
 
-        {loading && (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        )}
+        {loading && <GridSkeleton />}
 
-        {error && (
-          <div className="text-center py-16">
-            <p className="text-red-400">{error}</p>
-          </div>
-        )}
+        {error && <EmptyState title={error} />}
 
         {!loading && query && results.length === 0 && !error && (
-          <div className="text-center py-16">
-            <p className="text-white/50 mb-2">No results for "{query}"</p>
-            <p className="text-white/30 text-sm">Try a different search term</p>
-          </div>
+          <EmptyState title={`No results for "${query}"`} />
         )}
 
         {!loading && results.length > 0 && (
@@ -174,11 +152,9 @@ export function SearchPage() {
             <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap items-center gap-2 text-sm text-white/40 sm:gap-4">
                 <span>{filteredResults.length} results</span>
-                <span>·</span>
                 <span className="flex items-center gap-1">
                   <Film className="w-3.5 h-3.5" /> {movieCount} movies
                 </span>
-                <span>·</span>
                 <span className="flex items-center gap-1">
                   <Tv className="w-3.5 h-3.5" /> {showCount} shows
                 </span>
@@ -195,7 +171,7 @@ export function SearchPage() {
                 >
                   <SelectTrigger className="w-full rounded-lg border border-border bg-card/70 text-sm text-foreground/80 sm:w-40">
                     <Film className="w-3.5 h-3.5 shrink-0" />
-                    <SelectValue placeholder="Type" />
+                    <span>{typeLabel}</span>
                   </SelectTrigger>
                   <SelectContent>
                     {TYPE_FILTERS.map((filter) => (
@@ -216,7 +192,7 @@ export function SearchPage() {
                 >
                   <SelectTrigger className="w-full rounded-lg border border-border bg-card/70 text-sm text-foreground/80 sm:w-42">
                     <Filter className="w-3.5 h-3.5 shrink-0" />
-                    <SelectValue placeholder="Sort" />
+                    <span>{sortLabel}</span>
                   </SelectTrigger>
                   <SelectContent>
                     {SORT_OPTIONS.map((option) => (
@@ -230,12 +206,7 @@ export function SearchPage() {
             </div>
 
             {filteredResults.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-white/50 mb-2">
-                  No {typeFilter === "movie" ? "movies" : "TV shows"} for "{query}"
-                </p>
-                <p className="text-white/30 text-sm">Try another type filter</p>
-              </div>
+              <EmptyState title={`No ${typeFilter === "movie" ? "movies" : "shows"}`} />
             ) : (
               <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 stagger-children">
                 {filteredResults.map((item) => (

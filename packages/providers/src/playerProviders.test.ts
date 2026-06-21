@@ -26,9 +26,9 @@ describe("playerProviders", () => {
 
   it("rejects untrusted origins unless they match the active iframe origin", () => {
     expect(isTrustedPlayerMessageOrigin("https://evil.example")).toBe(false);
-    expect(
-      isTrustedPlayerMessageOrigin("https://local.example", "https://local.example")
-    ).toBe(true);
+    expect(isTrustedPlayerMessageOrigin("https://local.example", "https://local.example")).toBe(
+      true
+    );
   });
 
   it("applies provider resume parameters", () => {

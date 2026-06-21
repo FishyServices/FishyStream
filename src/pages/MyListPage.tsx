@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Loader2,
   Sparkles,
   RefreshCw,
   Film,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
+import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
 import { useMyWatchlist, useUpdateWatchlistFolder } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
 import { useRecommendations } from "@/hooks/useContent";
@@ -315,10 +315,7 @@ export function MyListPage() {
       <div className="min-h-screen bg-background">
         <Header />
         <div className="pt-24 flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-white mb-2">My List</h1>
-            <p className="text-white/60">Please sign in to view your watchlist.</p>
-          </div>
+          <EmptyState title="Sign in to view My List" />
         </div>
       </div>
     );
@@ -328,8 +325,8 @@ export function MyListPage() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="pt-24 flex items-center justify-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <div className="page-shell-wide page-stack">
+          <GridSkeleton />
         </div>
       </div>
     );
@@ -339,18 +336,21 @@ export function MyListPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="page-stack px-4 sm:px-6 lg:px-12">
-        <h1 className="text-3xl font-bold text-white mb-8">My List</h1>
+      <main className="page-shell-wide page-stack">
+        <PageHeader title="My List" />
 
         {watchlist.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-white/60">
-              Your watchlist is empty. Add movies and shows to watch later.
-            </p>
-          </div>
+          <EmptyState
+            title="No saved titles"
+            action={
+              <Button className="rounded-md" onClick={() => navigate("/movies")}>
+                Browse movies
+              </Button>
+            }
+          />
         ) : (
           <div className="space-y-10">
-            <section className="rounded-3xl border border-white/8 bg-white/4 p-4 sm:p-5">
+            <section className="rounded-lg border border-white/8 bg-white/4 p-4 sm:p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
@@ -362,7 +362,7 @@ export function MyListPage() {
                       variant={folderFilter === "all" ? "default" : "secondary"}
                       size="sm"
                       onClick={() => setFolderFilter("all")}
-                      className="rounded-full"
+                      className="rounded-md"
                     >
                       All ({watchlist.length})
                     </Button>
@@ -370,14 +370,14 @@ export function MyListPage() {
                       variant={folderFilter === "unsorted" ? "default" : "secondary"}
                       size="sm"
                       onClick={() => setFolderFilter("unsorted")}
-                      className="rounded-full"
+                      className="rounded-md"
                     >
                       Unsorted ({watchlist.filter((item) => !item.watchlistFolder?.trim()).length})
                     </Button>
                     {folderNames.map((folder) => (
                       <div
                         key={folder}
-                        className={`flex items-center overflow-hidden rounded-full text-sm transition-colors ${
+                        className={`flex items-center overflow-hidden rounded-md text-sm transition-colors ${
                           folderFilter === folder
                             ? "bg-primary text-white"
                             : "bg-white/8 text-white/70 hover:bg-white/14"
@@ -419,7 +419,7 @@ export function MyListPage() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Button
                     variant="secondary"
-                    className="rounded-full"
+                    className="rounded-md"
                     onClick={() => void handleAutoSortFolders()}
                   >
                     Auto Sort
@@ -435,18 +435,19 @@ export function MyListPage() {
                           handleCreateFolder();
                         }
                       }}
-                      placeholder="Create a folder like Anime or Friday Night"
-                      className="min-w-0 rounded-full border-white/12 bg-white/6 pl-10 text-white placeholder:text-white/35 sm:w-80"
+                      placeholder="New folder"
+                      className="min-w-0 rounded-md border-white/12 bg-white/6 pl-10 text-white placeholder:text-white/35 sm:w-64"
                     />
                   </div>
-                  <Button className="rounded-full" onClick={handleCreateFolder}>
-                    Add Folder
+                  <Button className="rounded-md" onClick={handleCreateFolder}>
+                    <FolderPlus className="mr-2 h-4 w-4" />
+                    Add
                   </Button>
                 </div>
               </div>
             </section>
 
-            <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-3xl border border-white/6 bg-white/2">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-white/6 bg-white/2 p-4">
               <div className="text-sm text-white/50 font-medium">
                 Showing {filteredWatchlist.length}{" "}
                 {filteredWatchlist.length === 1 ? "title" : "titles"}
@@ -458,7 +459,7 @@ export function MyListPage() {
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="rounded-full bg-white/6 border border-white/8 hover:bg-white/12 text-xs font-semibold px-4 py-2 flex items-center gap-2"
+                        className="flex items-center gap-2 rounded-md border border-white/8 bg-white/6 px-4 py-2 text-xs font-semibold hover:bg-white/12"
                       >
                         Sort:{" "}
                         {sortBy === "recently"
@@ -472,7 +473,7 @@ export function MyListPage() {
                       </Button>
                     }
                   />
-                  <DropdownMenuContent className="mt-2 w-48 rounded-2xl border border-white/10 bg-popover p-1.5 shadow-xl">
+                  <DropdownMenuContent className="mt-2 w-48 rounded-lg border border-white/10 bg-popover p-1 shadow-md">
                     {[
                       { id: "recently", label: "Recently added" },
                       { id: "oldest", label: "Oldest added" },
@@ -481,7 +482,7 @@ export function MyListPage() {
                     ].map((option) => (
                       <DropdownMenuItem
                         key={option.id}
-                        className={`rounded-xl px-3 py-2 text-xs font-medium focus:bg-white focus:text-black ${
+                        className={`rounded-md px-3 py-2 text-xs font-medium focus:bg-white focus:text-black ${
                           sortBy === option.id ? "bg-white/10 text-white" : "text-white/70"
                         }`}
                         onClick={() => setSortBy(option.id as any)}
@@ -492,11 +493,11 @@ export function MyListPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <div className="flex items-center rounded-full border border-white/8 bg-white/4 p-1">
+                <div className="flex items-center rounded-md border border-white/8 bg-white/4 p-1">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`h-8 w-8 rounded-full ${
+                    className={`h-8 w-8 rounded-md ${
                       viewLayout === "grid"
                         ? "bg-white text-black hover:bg-white hover:text-black"
                         : "text-white/60 hover:text-white"
@@ -510,7 +511,7 @@ export function MyListPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`h-8 w-8 rounded-full ${
+                    className={`h-8 w-8 rounded-md ${
                       viewLayout === "list"
                         ? "bg-white text-black hover:bg-white hover:text-black"
                         : "text-white/60 hover:text-white"
@@ -526,14 +527,14 @@ export function MyListPage() {
             </div>
 
             {filteredWatchlist.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-white/10 bg-white/3 px-6 py-12 text-center">
-                <p className="text-white/58">No saved titles match this folder filter yet.</p>
-              </div>
+              <EmptyState title="No saved titles" />
             ) : (
               groupedWatchlist.map(([groupName, items]) => (
                 <section
                   key={groupName}
-                  className="space-y-4 rounded-[1.75rem] border border-white/6 bg-white/2 p-4"
+                  className={`space-y-4 rounded-lg border border-white/6 bg-white/2 p-4 ${
+                    draggedContentId ? "border-white/18 bg-white/4" : ""
+                  }`}
                   onDragOver={(e) => {
                     e.preventDefault();
                   }}
@@ -553,14 +554,13 @@ export function MyListPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="text-xs text-white/35">Drop titles here</div>
                       {groupName !== "Unsorted" && (
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           onClick={() => setPendingDeleteFolder(groupName)}
-                          className="rounded-full border border-white/10 bg-white/4 text-white/55 transition-colors hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300"
+                          className="rounded-md border border-white/10 bg-white/4 text-white/55 transition-colors hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300"
                           aria-label={`Delete ${groupName} folder`}
                           title={`Delete ${groupName} folder`}
                         >
@@ -585,7 +585,7 @@ export function MyListPage() {
                             ? `relative cursor-grab active:cursor-grabbing transition-transform ${
                                 draggedContentId === item._id ? "scale-[0.98] opacity-70" : ""
                               } ${folderMenuForContentId === item._id ? "z-40" : ""}`
-                            : `relative cursor-grab active:cursor-grabbing flex items-center gap-4 p-3 rounded-2xl border border-white/6 bg-white/4 hover:bg-white/8 hover:border-white/12 transition-all ${
+                            : `relative cursor-grab active:cursor-grabbing flex items-center gap-4 p-3 rounded-lg border border-white/6 bg-white/4 hover:bg-white/8 hover:border-white/12 transition-all ${
                                 draggedContentId === item._id ? "scale-[0.99] opacity-70" : ""
                               } ${folderMenuForContentId === item._id ? "z-40" : ""}`
                         }
@@ -603,7 +603,7 @@ export function MyListPage() {
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-9 w-9 rounded-full border border-white/12 bg-black/80 text-white/82 shadow-md hover:bg-black hover:text-white"
+                                className="h-9 w-9 rounded-md border border-white/12 bg-black/80 text-white/82 shadow-sm hover:bg-black hover:text-white"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -621,7 +621,7 @@ export function MyListPage() {
                               </Button>
                               {folderMenuForContentId === item._id && (
                                 <div
-                                  className="absolute left-0 top-11 z-50 w-56 rounded-2xl border border-white/10 bg-popover p-2 shadow-2xl"
+                                  className="absolute left-0 top-11 z-50 w-56 rounded-lg border border-white/10 bg-popover p-1 shadow-md"
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -629,7 +629,7 @@ export function MyListPage() {
                                 >
                                   <Button
                                     variant="ghost"
-                                    className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
+                                    className="w-full justify-start rounded-md px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
                                     onClick={async () => {
                                       await handleAssignFolder(item._id, "unsorted");
                                       setFolderMenuForContentId(null);
@@ -641,7 +641,7 @@ export function MyListPage() {
                                     <Button
                                       key={folder}
                                       variant="ghost"
-                                      className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
+                                      className="w-full justify-start rounded-md px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
                                       onClick={async () => {
                                         await handleAssignFolder(item._id, folder);
                                         setFolderMenuForContentId(null);
@@ -662,7 +662,7 @@ export function MyListPage() {
                           </>
                         ) : (
                           <div className="flex items-center gap-4 w-full min-w-0">
-                            <div className="relative h-20 w-14 sm:h-24 sm:w-16 rounded-xl overflow-hidden shrink-0 border border-white/6">
+                            <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-lg border border-white/6 sm:h-24 sm:w-16">
                               <img
                                 src={item.posterUrl}
                                 alt={item.title}
@@ -672,7 +672,8 @@ export function MyListPage() {
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="h-8 w-8 rounded-full bg-white text-black hover:bg-white/90 shadow-md scale-95 hover:scale-100 transition-all duration-200"
+                                  className="h-8 w-8 rounded-md bg-white text-black shadow-sm hover:bg-white/90"
+                                  aria-label={`Play ${item.title}`}
                                   onClick={() => handlePlay(item.tmdbId!)}
                                 >
                                   <Play className="h-3.5 w-3.5 fill-black text-black shrink-0" />
@@ -697,7 +698,7 @@ export function MyListPage() {
                                   type="button"
                                   variant="ghost"
                                   size="icon"
-                                  className="h-9 w-9 rounded-full border border-white/12 bg-white/5 text-white/82 hover:bg-white/10 hover:text-white"
+                                  className="h-9 w-9 rounded-md border border-white/12 bg-white/5 text-white/82 hover:bg-white/10 hover:text-white"
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -711,7 +712,7 @@ export function MyListPage() {
                                 </Button>
                                 {folderMenuForContentId === item._id && (
                                   <div
-                                    className="absolute right-0 top-11 z-50 w-56 rounded-2xl border border-white/10 bg-popover p-2 shadow-2xl"
+                                    className="absolute right-0 top-11 z-50 w-56 rounded-lg border border-white/10 bg-popover p-1 shadow-md"
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -719,7 +720,7 @@ export function MyListPage() {
                                   >
                                     <Button
                                       variant="ghost"
-                                      className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
+                                      className="w-full justify-start rounded-md px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
                                       onClick={async () => {
                                         await handleAssignFolder(item._id, "unsorted");
                                         setFolderMenuForContentId(null);
@@ -731,7 +732,7 @@ export function MyListPage() {
                                       <Button
                                         key={folder}
                                         variant="ghost"
-                                        className="w-full justify-start rounded-xl px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
+                                        className="w-full justify-start rounded-md px-3 py-2 text-white/72 hover:bg-white/6 hover:text-white"
                                         onClick={async () => {
                                           await handleAssignFolder(item._id, folder);
                                           setFolderMenuForContentId(null);
@@ -761,7 +762,7 @@ export function MyListPage() {
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
               <div className="flex flex-wrap items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-semibold text-white">Recommended For You</h2>
+                <h2 className="text-xl font-semibold text-white">Recommended</h2>
               </div>
 
               <Tabs
@@ -792,16 +793,16 @@ export function MyListPage() {
                 </TabsList>
               </Tabs>
 
-              {/* Refresh button */}
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={handleRefresh}
                 disabled={recsLoading}
-                className="flex items-center gap-2 self-start text-white/60 hover:text-white sm:ml-auto"
+                className="self-start rounded-md text-white/60 hover:text-white sm:ml-auto"
+                aria-label="Refresh recommendations"
+                title="Refresh recommendations"
               >
                 <RefreshCw className={`w-4 h-4 ${recsLoading ? "animate-spin" : ""}`} />
-                Refresh
               </Button>
             </div>
 
@@ -812,11 +813,7 @@ export function MyListPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-white/40 text-sm">
-                {typeFilter === "all"
-                  ? "No recommendations available."
-                  : `No ${typeFilter === "movie" ? "movies" : "TV shows"} to recommend.`}
-              </p>
+              <p className="text-sm text-white/40">No recommendations</p>
             )}
           </div>
         )}

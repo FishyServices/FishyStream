@@ -25,7 +25,12 @@ describe("providerPlayback", () => {
       duration: 120,
       progress: 50
     });
-    const next = { ...previous, currentTime: 61, progress: 50.5, sampledAt: previous.sampledAt + 1 };
+    const next = {
+      ...previous,
+      currentTime: 61,
+      progress: 50.5,
+      sampledAt: previous.sampledAt + 1
+    };
 
     expect(shouldStorePlaybackProgressSample(previous, next)).toBe(false);
   });

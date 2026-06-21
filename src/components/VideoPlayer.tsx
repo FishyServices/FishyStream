@@ -597,7 +597,7 @@ export function VideoPlayer({
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-white/70 text-sm">Finding streaming sources…</p>
+          <p className="text-sm text-white/70">Finding sources</p>
         </div>
       </div>
     );
@@ -607,26 +607,27 @@ export function VideoPlayer({
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center max-w-md px-6">
-          <div className="w-16 h-16 bg-destructive/20 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg bg-destructive/20">
             <AlertCircle className="w-8 h-8 text-destructive" />
           </div>
-          <h2 className="text-xl font-semibold text-white mb-2">No Sources Available</h2>
-          <p className="text-white/50 mb-6 text-sm">
-            {error ?? "Could not find any streaming sources for this content."}
-          </p>
+          <h2 className="mb-2 text-xl font-semibold text-white">No source</h2>
+          {error ? <p className="mb-6 text-sm text-white/50">{error}</p> : null}
           <div className="flex gap-3 justify-center">
             <Button onClick={() => navigate(-1)} variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Go Back
+              Back
             </Button>
             <Button onClick={() => session.retry()} variant="secondary">
               <RefreshCw className="w-4 h-4 mr-2" />
-              Retry current source
+              Retry
             </Button>
             {canTryNextSource && (
-              <Button onClick={() => session.tryNextSource("no sources screen")} variant="secondary">
+              <Button
+                onClick={() => session.tryNextSource("no sources screen")}
+                variant="secondary"
+              >
                 <MonitorPlay className="w-4 h-4 mr-2" />
-                Try next source
+                Next source
               </Button>
             )}
           </div>
@@ -646,6 +647,8 @@ export function VideoPlayer({
               size="icon"
               className="text-white hover:bg-white/10 shrink-0"
               onClick={() => navigate(-1)}
+              aria-label="Back"
+              title="Back"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
@@ -723,6 +726,7 @@ export function VideoPlayer({
               size="icon"
               className="text-white hover:bg-white/10 shrink-0"
               onClick={() => setShowInfoModal(true)}
+              aria-label="Content info"
               title="Content info"
             >
               <Info className="w-5 h-5" />

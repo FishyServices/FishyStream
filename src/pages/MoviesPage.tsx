@@ -1,11 +1,12 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Film, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Film, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
+import { EmptyState, FilterBar, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { usePaginatedContent, type ContentSort } from "@/hooks/useContent";
 import { MOVIE_SORT_OPTIONS } from "@/lib/appSettings";
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@fishy/ui";
+import { Button, Select, SelectContent, SelectItem, SelectTrigger } from "@fishy/ui";
 
 const GENRES = [
   "All",
@@ -40,6 +41,7 @@ export function MoviesPage() {
     sortParam && VALID_SORTS.has(sortParam as ContentSort)
       ? (sortParam as ContentSort)
       : settings.defaultMovieSort;
+  const sortLabel = MOVIE_SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort";
   const paginated = usePaginatedContent(
     "movie",
     genre !== "All" ? genre : undefined,
@@ -77,19 +79,11 @@ export function MoviesPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="page-stack px-4 sm:px-6 lg:px-10">
-        {/* Header */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-black text-foreground">Movies</h1>
-            {paginated.totalCount !== undefined && (
-              <p className="mt-1 text-sm text-muted-foreground">{paginated.totalCount} titles</p>
-            )}
-          </div>
-
-          {/* Filters */}
-          <div className="flex items-center gap-3 self-start">
-            {/* Sort */}
+      <main className="page-shell-wide page-stack">
+        <PageHeader
+          title="Movies"
+          count={paginated.totalCount}
+          actions={
             <Select
               value={sort}
               onValueChange={(value) => {
@@ -99,7 +93,7 @@ export function MoviesPage() {
             >
               <SelectTrigger className="flex items-center gap-2 rounded-lg border border-border bg-card/70 text-sm text-foreground/80">
                 <Filter className="w-3.5 h-3.5 shrink-0" />
-                <SelectValue placeholder="Sort" />
+                <span>{sortLabel}</span>
               </SelectTrigger>
               <SelectContent>
                 {MOVIE_SORT_OPTIONS.map((s) => (
@@ -109,34 +103,29 @@ export function MoviesPage() {
                 ))}
               </SelectContent>
             </Select>
+          }
+        />
+
+        <FilterBar>
+          <div className="-mx-1 flex gap-2 overflow-x-auto scrollbar-hide px-1">
+            {GENRES.map((g) => (
+              <Button
+                key={g}
+                variant={genre === g ? "default" : "outline"}
+                size="sm"
+                className="shrink-0 rounded-md"
+                onClick={() => updateBrowseParams({ genre: g, page: 1 })}
+              >
+                {g}
+              </Button>
+            ))}
           </div>
-        </div>
+        </FilterBar>
 
-        {/* Genre pills */}
-        <div className="-mx-1 mb-6 flex gap-2 overflow-x-auto scrollbar-hide px-1 pb-4">
-          {GENRES.map((g) => (
-            <Button
-              key={g}
-              variant={genre === g ? "default" : "outline"}
-              size="sm"
-              className="shrink-0 rounded-full"
-              onClick={() => updateBrowseParams({ genre: g, page: 1 })}
-            >
-              {g}
-            </Button>
-          ))}
-        </div>
-
-        {/* Grid */}
         {paginated.isLoading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <GridSkeleton />
         ) : movies.length === 0 ? (
-          <div className="text-center py-16">
-            <Film className="mx-auto mb-3 h-10 w-10 text-muted-foreground/35" />
-            <p className="text-muted-foreground">No movies found</p>
-          </div>
+          <EmptyState icon={<Film className="h-10 w-10" />} title="No movies" />
         ) : (
           <>
             <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
@@ -151,10 +140,11 @@ export function MoviesPage() {
                 variant="outline"
                 onClick={() => updateBrowseParams({ page: page - 1 })}
                 disabled={!paginated.canGoBack}
-                className="flex w-full items-center justify-center gap-2 sm:w-auto"
+                className="flex w-full items-center justify-center gap-2 rounded-md sm:w-auto"
+                aria-label="Previous page"
               >
                 <ChevronLeft className="w-4 h-4" />
-                Previous
+                <span className="hidden sm:inline">Previous</span>
               </Button>
               <span className="text-sm text-muted-foreground">
                 Page {paginated.currentPage}
@@ -164,9 +154,10 @@ export function MoviesPage() {
                 variant="outline"
                 onClick={() => updateBrowseParams({ page: page + 1 })}
                 disabled={!paginated.hasNextPage}
-                className="flex w-full items-center justify-center gap-2 sm:w-auto"
+                className="flex w-full items-center justify-center gap-2 rounded-md sm:w-auto"
+                aria-label="Next page"
               >
-                Next
+                <span className="hidden sm:inline">Next</span>
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>

@@ -21,7 +21,7 @@ export function WatchPage() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-white/80">Loading...</p>
+          <p className="text-sm text-white/70">Finding sources</p>
         </div>
       </div>
     );
@@ -31,8 +31,7 @@ export function WatchPage() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">Content Not Found</h1>
-          <p className="text-white/60">The content you're looking for doesn't exist.</p>
+          <h1 className="text-2xl font-bold text-white mb-2">Not found</h1>
         </div>
       </div>
     );

@@ -10,9 +10,16 @@ interface SearchCardProps {
   item: TMDBItem;
   size?: "sm" | "md" | "lg";
   layout?: "rail" | "grid";
+  density?: "compact" | "comfortable";
+  showMobileActions?: boolean;
 }
 
-export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardProps) {
+export function SearchCard({
+  item,
+  size = "md",
+  layout = "rail",
+  showMobileActions = true
+}: SearchCardProps) {
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -81,18 +88,22 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
               : "shadow-md"
           }`}
         >
-          <img
-            src={
-              imgError
-                ? `https://placehold.co/300x450/1a1a2e/555?text=${encodeURIComponent(item.title.slice(0, 12))}`
-                : item.posterUrl
-            }
-            alt={item.title}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            decoding="async"
-            onError={() => setImgError(true)}
-          />
+          {imgError ? (
+            <div className="flex h-full w-full items-center justify-center bg-muted px-3 text-center">
+              <span className="line-clamp-3 text-xs font-medium text-muted-foreground">
+                {item.title}
+              </span>
+            </div>
+          ) : (
+            <img
+              src={item.posterUrl}
+              alt={item.title}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+              onError={() => setImgError(true)}
+            />
+          )}
 
           {/* Hover overlay */}
           <div
@@ -104,7 +115,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
               <div className="flex items-center gap-2">
                 <Button
                   size="icon"
-                  className="w-9 h-9 rounded-full bg-white text-black hover:bg-white/90 shadow-lg shrink-0"
+                  className="h-9 w-9 shrink-0 rounded-md bg-white text-black shadow-sm hover:bg-white/90"
                   onClick={handlePlay}
                   aria-label={`Play ${item.title}`}
                 >
@@ -113,7 +124,7 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-8 h-8 rounded-full border border-white/40 glass shrink-0 ml-auto hover:border-white/70"
+                  className="ml-auto h-8 w-8 shrink-0 rounded-md border border-white/30 bg-black/55 hover:border-white/60"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleCardClick();
@@ -174,28 +185,32 @@ export function SearchCard({ item, size = "md", layout = "rail" }: SearchCardPro
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              className="flex h-9 flex-1 items-center justify-center gap-2 rounded-full bg-white text-black hover:bg-white/90"
-              onClick={handlePlay}
-              aria-label={`Play ${item.title}`}
-            >
-              <Play className="h-4 w-4 fill-black text-black" />
-              <span className="text-xs font-semibold">Play</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full border border-white/16 bg-white/6"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCardClick();
-              }}
-              aria-label="More info"
-            >
-              <ChevronDown className="h-4 w-4 text-white" />
-            </Button>
-          </div>
+          {showMobileActions && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="icon"
+                className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-black hover:bg-white/90"
+                onClick={handlePlay}
+                aria-label={`Play ${item.title}`}
+                title={`Play ${item.title}`}
+              >
+                <Play className="h-4 w-4 fill-black text-black" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-md border border-white/16 bg-white/6"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCardClick();
+                }}
+                aria-label="More info"
+                title="More info"
+              >
+                <ChevronDown className="h-4 w-4 text-white" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

@@ -52,14 +52,14 @@ function SettingRow({
   control
 }: {
   label: string;
-  description: string;
+  description?: string;
   control: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-4 border-t border-border/70 py-5 first:border-t-0 first:pt-0 sm:flex-row sm:items-center sm:justify-between">
       <div className="max-w-xl space-y-1">
         <p className="text-sm font-semibold text-foreground">{label}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       <div className="sm:min-w-52 sm:max-w-[18rem]">{control}</div>
     </div>
@@ -209,10 +209,6 @@ export function SettingsPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
               <h1 className="text-3xl font-semibold tracking-tight text-foreground">Settings</h1>
-              <p className="text-sm text-muted-foreground sm:text-base">
-                Set the default look, sorting, and playback behavior once. The app uses these
-                choices across home, browse, and watch pages.
-              </p>
             </div>
             <Button
               variant="outline"
@@ -221,7 +217,7 @@ export function SettingsPage() {
               disabled={JSON.stringify(settings) === JSON.stringify(DEFAULT_APP_SETTINGS)}
             >
               <RotateCcw className="mr-2 h-4 w-4" />
-              Reset defaults
+              Reset
             </Button>
           </div>
         </div>
@@ -230,7 +226,6 @@ export function SettingsPage() {
           <SettingsSection icon={<Palette className="h-4 w-4 text-primary" />} title="Appearance">
             <SettingRow
               label="Theme"
-              description="Switch FishyStream between a low-light theater view and a bright daytime layout."
               control={
                 <ThemeSwitcher
                   value={settings.theme}
@@ -241,7 +236,6 @@ export function SettingsPage() {
 
             <SettingRow
               label="Autoplay featured trailer"
-              description="Start the hero trailer automatically on the home page when the title has one."
               control={
                 <ToggleSettingControl
                   id="hero-trailer"
@@ -254,7 +248,6 @@ export function SettingsPage() {
 
             <SettingRow
               label="Mute autoplay trailer"
-              description="Keep the featured trailer silent until you explicitly unmute it."
               control={
                 <ToggleSettingControl
                   id="hero-muted"
@@ -266,10 +259,9 @@ export function SettingsPage() {
             />
           </SettingsSection>
 
-          <SettingsSection icon={<PlayCircle className="h-4 w-4 text-primary" />} title="Home Page">
+          <SettingsSection icon={<PlayCircle className="h-4 w-4 text-primary" />} title="Home">
             <SettingRow
               label="Continue watching row"
-              description="Keep your in-progress titles pinned near the top of home when signed in."
               control={
                 <ToggleSettingControl
                   id="continue-row"
@@ -281,10 +273,9 @@ export function SettingsPage() {
             />
           </SettingsSection>
 
-          <SettingsSection icon={<Tv2 className="h-4 w-4 text-primary" />} title="Browse Defaults">
+          <SettingsSection icon={<Tv2 className="h-4 w-4 text-primary" />} title="Browse">
             <SettingRow
               label="Default movie sort"
-              description="Used on the Movies page whenever the URL does not already specify a sort."
               control={
                 <Select
                   value={settings.defaultMovieSort}
@@ -308,7 +299,6 @@ export function SettingsPage() {
 
             <SettingRow
               label="Default TV sort"
-              description="Used on the TV Shows page whenever the URL does not already specify a sort."
               control={
                 <Select
                   value={settings.defaultTVSort}
@@ -368,7 +358,6 @@ export function SettingsPage() {
 
             <SettingRow
               label="Auto advance episodes"
-              description="Move to the next episode automatically near the end of playback when available."
               control={
                 <ToggleSettingControl
                   id="auto-advance"

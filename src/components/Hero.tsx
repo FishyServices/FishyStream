@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import { Play, Info, Plus, Check, Volume2, VolumeX, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Play,
+  Info,
+  Plus,
+  Check,
+  Volume2,
+  VolumeX,
+  ChevronLeft,
+  ChevronRight,
+  Video
+} from "lucide-react";
 import { Button } from "@fishy/ui";
 import { ContentModal } from "./ContentModal";
 import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/hooks/useWatchlist";
@@ -207,16 +217,16 @@ export function Hero({
             )}
             {activeContent.trending && (
               <span className="text-xs font-semibold text-orange-400 flex items-center gap-1">
-                🔥 Trending
+                Trending
               </span>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {activeContent.genre.slice(0, 4).map((g) => (
+          <div className="hidden flex-wrap gap-2 sm:flex">
+            {activeContent.genre.slice(0, 2).map((g) => (
               <span
                 key={g}
-                className="text-xs px-2.5 py-1 bg-white/10 backdrop-blur rounded-full text-white/80 font-medium"
+                className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium text-white/80"
               >
                 {g}
               </span>
@@ -228,33 +238,34 @@ export function Hero({
               {activeContent.tagline}
             </p>
           )}
-          <p className="text-sm sm:text-base text-white/80 leading-relaxed line-clamp-4 sm:line-clamp-3 max-w-lg">
+          <p className="hidden max-w-lg text-sm leading-relaxed text-white/80 min-[380px]:line-clamp-2 min-[380px]:block sm:text-base">
             {activeContent.description}
           </p>
 
           <div className="flex items-center gap-3 flex-wrap pt-2">
             <Button
               size="lg"
-              className="w-full sm:w-auto bg-white text-black hover:bg-white/90 font-display font-bold px-7 text-base shadow-lg"
+              className="w-full rounded-md bg-white px-7 text-base font-semibold text-black shadow-sm hover:bg-white/90 sm:w-auto"
               onClick={handlePlay}
             >
               <Play className="w-5 h-5 mr-2 fill-black" />
-              Play Now
+              Play
             </Button>
             <Button
               size="lg"
               variant="secondary"
-              className="w-full sm:w-auto glass text-white hover:bg-white/15 font-semibold px-7 text-base border-white/20"
+              className="w-full rounded-md border-white/20 bg-black/60 px-7 text-base font-semibold text-white hover:bg-black/80 sm:w-auto"
               onClick={() => setShowModal(true)}
             >
               <Info className="w-5 h-5 mr-2" />
-              More Info
+              Details
             </Button>
             <Button
               size="icon"
               variant="ghost"
-              className="w-11 h-11 rounded-full glass text-white hover:bg-white/15 border border-white/20"
+              className="h-11 w-11 rounded-md border border-white/20 bg-black/55 text-white hover:bg-black/75"
               onClick={handleWatchlist}
+              aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
               title={isInWatchlist ? "Remove from My List" : "Add to My List"}
             >
               {isInWatchlist ? (
@@ -267,11 +278,13 @@ export function Hero({
             {activeContent.trailerKey && (
               <Button
                 variant="ghost"
-                size="sm"
-                className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white sm:ml-2"
+                size="icon"
+                className="h-11 w-11 rounded-md border border-white/20 bg-black/55 text-white/70 hover:bg-black/75 hover:text-white"
                 onClick={() => setShowTrailer(!showTrailer)}
+                aria-label={showTrailer ? "Hide trailer" : "Show trailer"}
+                title={showTrailer ? "Hide trailer" : "Show trailer"}
               >
-                {showTrailer ? "Hide Trailer" : "Watch Trailer"}
+                <Video className="h-4 w-4" />
               </Button>
             )}
 
@@ -279,8 +292,10 @@ export function Hero({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-10 h-10 rounded-full glass text-white/60 hover:text-white"
+                className="h-11 w-11 rounded-md border border-white/20 bg-black/55 text-white/70 hover:bg-black/75 hover:text-white"
                 onClick={() => setMuted(!muted)}
+                aria-label={muted ? "Unmute trailer" : "Mute trailer"}
+                title={muted ? "Unmute trailer" : "Mute trailer"}
               >
                 {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </Button>
@@ -296,7 +311,7 @@ export function Hero({
             variant="ghost"
             size="icon"
             onClick={handlePrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 border border-white/10 text-white/80 hover:text-white opacity-0 group-hover/hero:opacity-100 transition-all duration-300 z-20 cursor-pointer animate-in fade-in"
+            className="absolute left-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-white/10 bg-black/45 text-white/80 opacity-100 transition-colors hover:bg-black/70 hover:text-white md:opacity-0 md:group-hover/hero:opacity-100 md:focus-visible:opacity-100"
             aria-label="Previous slide"
           >
             <ChevronLeft className="w-6 h-6" />
@@ -306,7 +321,7 @@ export function Hero({
             variant="ghost"
             size="icon"
             onClick={handleNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 border border-white/10 text-white/80 hover:text-white opacity-0 group-hover/hero:opacity-100 transition-all duration-300 z-20 cursor-pointer animate-in fade-in"
+            className="absolute right-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-white/10 bg-black/45 text-white/80 opacity-100 transition-colors hover:bg-black/70 hover:text-white md:opacity-0 md:group-hover/hero:opacity-100 md:focus-visible:opacity-100"
             aria-label="Next slide"
           >
             <ChevronRight className="w-6 h-6" />

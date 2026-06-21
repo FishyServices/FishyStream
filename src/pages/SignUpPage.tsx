@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { ClerkFailed, ClerkLoaded, ClerkLoading, SignUp, useAuth, useSignUp } from "@clerk/react";
-import { dark } from "@clerk/themes";
 import { Link, useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { AlertCircle, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
@@ -101,16 +100,9 @@ function NativeSignUpCard() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-[1.75rem] border border-white/10 bg-white/4 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-7">
+    <div className="w-full max-w-md rounded-lg border border-white/10 bg-white/4 p-6 shadow-sm sm:p-7">
       <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/85">
-          Android Sign Up
-        </p>
-        <h1 className="mt-2 font-display text-3xl font-black text-white">Create Your Account</h1>
-        <p className="mt-2 text-sm leading-relaxed text-white/60">
-          This native Android flow stays inside the app and verifies your email with a one-time
-          code.
-        </p>
+        <h1 className="text-3xl font-semibold text-white">Create account</h1>
       </div>
 
       {errorMessage && (
@@ -155,7 +147,7 @@ function NativeSignUpCard() {
 
           <Button type="submit" className="h-12 w-full text-sm font-semibold" disabled={submitting}>
             {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Create Account
+            Create account
           </Button>
         </form>
       ) : (
@@ -163,7 +155,7 @@ function NativeSignUpCard() {
           <Label className="block">
             <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
               <ShieldCheck className="h-4 w-4" />
-              Email Verification Code
+              Code
             </span>
             <Input
               inputMode="numeric"
@@ -171,14 +163,14 @@ function NativeSignUpCard() {
               value={code}
               onChange={(event) => setCode(event.target.value)}
               className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
-              placeholder="Enter the code from your email"
+              placeholder="Code"
               required
             />
           </Label>
 
           <Button type="submit" className="h-12 w-full text-sm font-semibold" disabled={verifying}>
             {verifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Verify And Finish
+            Continue
           </Button>
         </form>
       )}

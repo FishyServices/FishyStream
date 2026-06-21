@@ -10,8 +10,12 @@
 
 @layer base {
   :root {
-    --radius: 0.875rem;
-    --home-glow: oklch(0.7 0.12 190 / 0.18);
+    --radius: 0.625rem;
+    --surface-1: oklch(0.16 0.01 250);
+    --surface-2: oklch(0.2 0.012 250);
+    --surface-3: oklch(0.25 0.014 250);
+    --surface-selected: oklch(0.68 0.11 185);
+    --subtle-line: oklch(1 0 0 / 0.08);
   }
 
   * {
@@ -36,23 +40,7 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-image:
-      radial-gradient(
-        circle at 12% 10%,
-        color-mix(in oklab, var(--color-primary) 26%, transparent),
-        transparent 26%
-      ),
-      radial-gradient(
-        circle at 88% 4%,
-        color-mix(in oklab, var(--color-secondary) 62%, transparent),
-        transparent 22%
-      ),
-      radial-gradient(
-        circle at 50% 110%,
-        color-mix(in oklab, var(--color-primary) 10%, transparent),
-        transparent 35%
-      );
-    background-attachment: fixed;
+    background-image: none;
   }
 
   ::selection {
@@ -82,29 +70,47 @@
 
 @layer components {
   .surface {
-    @apply rounded-[calc(var(--radius)+0.125rem)] border border-border/70 bg-card/92 text-card-foreground shadow-[0_24px_80px_rgba(0,0,0,0.24)];
+    @apply rounded-lg border border-border/70 bg-card/92 text-card-foreground shadow-sm;
   }
 
   .surface-muted {
-    @apply rounded-[calc(var(--radius)+0.125rem)] border border-border/60 bg-muted/56;
+    @apply rounded-lg border border-border/60 bg-muted/56;
   }
 
   .surface-danger {
-    @apply rounded-[calc(var(--radius)+0.125rem)] border border-destructive/30 bg-destructive/8;
+    @apply rounded-lg border border-destructive/30 bg-destructive/8;
   }
 
   .home-panel {
-    @apply relative overflow-hidden rounded-[1.6rem] border border-white/10 bg-white/4.5 shadow-[0_30px_80px_rgba(0,0,0,0.28)];
+    @apply relative overflow-hidden rounded-lg border border-white/10 bg-white/4.5 shadow-sm;
   }
 
   .home-panel::before {
     content: "";
     position: absolute;
     inset: 0;
-    background:
-      linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 28%),
-      radial-gradient(circle at top right, var(--home-glow), transparent 30%);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 28%);
     pointer-events: none;
+  }
+
+  .poster-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--color-muted) 58%, transparent);
+  }
+
+  .poster-skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--color-foreground) 7%, transparent),
+      transparent
+    );
+    animation: skeleton-sweep 1.4s ease-in-out infinite;
   }
 }
 
@@ -150,6 +156,19 @@
     @apply transition duration-150 active:scale-[0.985];
   }
 
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .touch-target {
+    min-height: 2.5rem;
+    min-width: 2.5rem;
+  }
+
+  .metadata-row {
+    @apply flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground;
+  }
+
   .rating-G {
     @apply text-emerald-300;
   }
@@ -168,6 +187,12 @@
 
   .rating-TV-MA {
     @apply text-rose-300;
+  }
+}
+
+@keyframes skeleton-sweep {
+  100% {
+    transform: translateX(100%);
   }
 }
 
