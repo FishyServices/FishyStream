@@ -4,14 +4,12 @@ import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import {
   fromImageWire,
-  toWatchHistoryItemWire,
-  toWatchProgressEntryMeta,
-  type WatchHistoryItemWire,
+  type WatchHistoryItemMeta,
   type WatchProgressEntryMeta
 } from "../shared/contentMetadata";
 
-function toHistoryItemWire(row: Doc<"watchProgress">): WatchHistoryItemWire {
-  return toWatchHistoryItemWire({
+function toHistoryItem(row: Doc<"watchProgress">): WatchHistoryItemMeta {
+  return {
     _id: row.contentId as never,
     title: row.title,
     type: row.contentType,
@@ -23,11 +21,11 @@ function toHistoryItemWire(row: Doc<"watchProgress">): WatchHistoryItemWire {
     new: false,
     progress: row.progress,
     completed: row.completed,
-    seasonNumber: row.seasonNumber,
-    episodeNumber: row.episodeNumber,
-    source: row.source,
-    dub: row.dub
-  });
+    seasonNumber: row.seasonNumber ?? undefined,
+    episodeNumber: row.episodeNumber ?? undefined,
+    source: row.source ?? undefined,
+    dub: row.dub ?? undefined
+  };
 }
 
 async function listHistory(
@@ -50,19 +48,19 @@ async function listHistory(
         .order("desc")
         .take(limit);
 
-  return progressRows.map(toHistoryItemWire);
+  return progressRows.map(toHistoryItem);
 }
 
 export const listWatchHistory = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemWire[]> => {
+  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
     return await listHistory(ctx, clerkUserId, 100, true);
   }
 });
 
 export const listContinueWatching = query({
   args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx, { clerkUserId, limit = 6 }): Promise<WatchHistoryItemWire[]> => {
+  handler: async (ctx, { clerkUserId, limit = 6 }): Promise<WatchHistoryItemMeta[]> => {
     return await listHistory(ctx, clerkUserId, Math.max(1, Math.min(30, limit)), false);
   }
 });
@@ -76,13 +74,19 @@ export const listWatchProgressEntries = query({
       .order("desc")
       .take(75);
 
-    return rows.map((row) =>
-      toWatchProgressEntryMeta({
-        ...row,
-        contentId: row.contentId as never,
-        _id: row._id
-      })
-    );
+    return rows.map((row) => ({
+      contentId: row.contentId as never,
+      progress: row.progress,
+      positionSeconds: row.positionSeconds ?? 0,
+      durationSeconds: row.durationSeconds ?? 0,
+      completed: row.completed,
+      watchedAt: row.watchedAt,
+      seasonNumber: row.seasonNumber ?? undefined,
+      episodeNumber: row.episodeNumber ?? undefined,
+      source: row.source ?? undefined,
+      dub: row.dub ?? undefined,
+      progressId: row._id
+    }));
   }
 });
 

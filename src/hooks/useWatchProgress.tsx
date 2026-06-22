@@ -68,13 +68,6 @@ const FIRST_SYNC_POSITION_SECONDS = 30;
 const MIN_PROGRESS_DELTA_TO_SYNC = 5;
 const MIN_POSITION_DELTA_TO_SYNC_SECONDS = 300;
 const WATCH_PROGRESS_REMOTE_DEBOUNCE_MS = 5_000;
-const HAS_DURATION = 1;
-const HAS_SEASON = 1 << 1;
-const HAS_EPISODE = 1 << 2;
-const HAS_SOURCE = 1 << 3;
-const DUB_TRUE = 1 << 4;
-const DUB_FALSE = 1 << 5;
-
 function normalizeProgress(progress: number): number {
   if (!Number.isFinite(progress)) return 0;
   return Math.max(0, Math.min(100, progress));
@@ -110,26 +103,10 @@ function toProgressState(entry: StoredProgress | ServerProgress): ProgressState 
   };
 }
 
-function toServerProgress(entry: WatchProgressEntryMeta): ServerProgress {
-  return {
-    contentId: entry[0],
-    progress: entry[1],
-    positionSeconds: entry[2],
-    durationSeconds: entry[3],
-    completed: entry[4],
-    watchedAt: entry[5],
-    seasonNumber: entry[6] ?? undefined,
-    episodeNumber: entry[7] ?? undefined,
-    source: entry[8] ?? undefined,
-    dub: entry[9] ?? undefined,
-    progressId: entry[10] ?? undefined
-  };
-}
-
 function storedFromServer(entry: ServerProgress): StoredProgress {
   return {
     ...toProgressState(entry),
-    contentId: entry.contentId,
+    contentId: entry.contentId as never,
     progressId: entry.progressId,
     clientUpdatedAt: entry.watchedAt,
     syncedClientUpdatedAt: entry.watchedAt,
@@ -191,42 +168,6 @@ function syncedBaselineFrom(entry: StoredProgress): StoredProgress {
   };
 }
 
-export function toProgressPayload(entry: StoredProgress) {
-  let flags = 0;
-  const extras: Array<number | string> = [];
-  const durationSeconds = Math.round(entry.durationSeconds);
-
-  if (durationSeconds > 0) {
-    flags |= HAS_DURATION;
-    extras.push(durationSeconds);
-  }
-  if (entry.seasonNumber !== undefined) {
-    flags |= HAS_SEASON;
-    extras.push(entry.seasonNumber);
-  }
-  if (entry.episodeNumber !== undefined) {
-    flags |= HAS_EPISODE;
-    extras.push(entry.episodeNumber);
-  }
-  if (entry.source !== undefined) {
-    flags |= HAS_SOURCE;
-    extras.push(entry.source);
-  }
-  if (entry.dub === true) flags |= DUB_TRUE;
-  if (entry.dub === false) flags |= DUB_FALSE;
-
-  return [
-    entry.progressId ?? null,
-    entry.contentId,
-    Math.round(entry.progress * 10) / 10,
-    entry.completed ? 1 : 0,
-    Math.round(entry.positionSeconds),
-    flags,
-    entry.clientUpdatedAt,
-    ...extras
-  ];
-}
-
 type ProgressMap = Map<string, ProgressState>;
 type ProgressCtx = {
   map: ProgressMap;
@@ -257,8 +198,7 @@ export function WatchProgressProvider({ children }: { children: ReactNode }) {
       .then((serverItems) => {
         const localById = new Map(readStore().map((entry) => [entry.contentId, entry]));
 
-        for (const compactServerItem of serverItems) {
-          const serverItem = toServerProgress(compactServerItem);
+        for (const serverItem of serverItems) {
           const local = localById.get(serverItem.contentId);
           if (local && local.clientUpdatedAt >= serverItem.watchedAt) continue;
           localById.set(serverItem.contentId, storedFromServer(serverItem));
@@ -342,7 +282,17 @@ export function useUpdateProgress() {
       try {
         const savedProgressId = await dbSync({
           u: user.id,
-          p: toProgressPayload(dirtyEntry),
+          contentId: dirtyEntry.contentId,
+          progress: Math.round(dirtyEntry.progress * 10) / 10,
+          completed: dirtyEntry.completed,
+          positionSeconds: Math.round(dirtyEntry.positionSeconds),
+          durationSeconds: Math.round(dirtyEntry.durationSeconds),
+          seasonNumber: dirtyEntry.seasonNumber,
+          episodeNumber: dirtyEntry.episodeNumber,
+          source: dirtyEntry.source,
+          dub: dirtyEntry.dub,
+          clientUpdatedAt: dirtyEntry.clientUpdatedAt,
+          progressId: dirtyEntry.progressId,
           snapshot: dirtyEntry.snapshot ?? {
             title: "Unknown title",
             type: "movie",

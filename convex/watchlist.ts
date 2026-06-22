@@ -1,11 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import {
-  fromImageWire,
-  toImageWire,
-  toWatchlistGridWire,
-  type WatchlistGridWire
-} from "../shared/contentMetadata";
+import { fromImageWire, toImageWire, type WatchlistGridItem } from "../shared/contentMetadata";
 
 const mediaType = v.union(v.literal("movie"), v.literal("tv"));
 
@@ -24,7 +19,7 @@ export const listWatchlist = query({
     clerkUserId: v.string(),
     limit: v.optional(v.number())
   },
-  handler: async (ctx, { clerkUserId, limit = 150 }): Promise<WatchlistGridWire[]> => {
+  handler: async (ctx, { clerkUserId, limit = 150 }): Promise<WatchlistGridItem[]> => {
     const pageSize = Math.max(1, Math.min(150, Math.floor(limit)));
     const items = await ctx.db
       .query("watchlist")
@@ -32,16 +27,15 @@ export const listWatchlist = query({
       .order("desc")
       .take(pageSize);
 
-    return items.map((item) =>
-      toWatchlistGridWire({
-        _id: item.contentId as never,
-        title: item.title,
-        type: item.contentType,
-        posterUrl: fromImageWire(item.posterUrl),
-        tmdbId: item.tmdbId,
-        watchlistFolder: item.folder
-      })
-    );
+    return items.map((item) => ({
+      _id: item.contentId as never,
+      title: item.title,
+      type: item.contentType,
+      posterUrl: fromImageWire(item.posterUrl),
+      tmdbId: item.tmdbId,
+      watchlistFolder: item.folder,
+      genre: item.genre
+    }));
   }
 });
 

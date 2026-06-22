@@ -12,11 +12,9 @@ import { useUser } from "@clerk/react";
 import { useLocation } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import {
-  fromWatchlistGridWire,
   type ContentId,
   type ContentType,
-  type WatchlistGridItem,
-  type WatchlistGridWire
+  type WatchlistGridItem
 } from "../../shared/contentMetadata";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
@@ -63,12 +61,12 @@ function lsTmdbSet(map: Map<string, string>) {
   } catch {}
 }
 
-function readWatchlistGridCache(userId: string | undefined): WatchlistGridWire[] | undefined {
+function readWatchlistGridCache(userId: string | undefined): WatchlistGridItem[] | undefined {
   if (!userId) return undefined;
   try {
     const raw = sessionStorage.getItem(watchlistGridCacheKey(userId));
     if (!raw) return undefined;
-    const parsed = JSON.parse(raw) as { savedAt?: number; data?: WatchlistGridWire[] };
+    const parsed = JSON.parse(raw) as { savedAt?: number; data?: WatchlistGridItem[] };
     if (!parsed.savedAt || Date.now() - parsed.savedAt > WATCHLIST_GRID_CACHE_TTL_MS) {
       sessionStorage.removeItem(watchlistGridCacheKey(userId));
       return undefined;
@@ -79,7 +77,7 @@ function readWatchlistGridCache(userId: string | undefined): WatchlistGridWire[]
   }
 }
 
-function writeWatchlistGridCache(userId: string | undefined, data: WatchlistGridWire[]) {
+function writeWatchlistGridCache(userId: string | undefined, data: WatchlistGridItem[]) {
   if (!userId) return;
   try {
     sessionStorage.setItem(
@@ -290,7 +288,7 @@ export function useWatchlistHydrated(): boolean {
 export function useMyWatchlist(): WatchlistGridItem[] | undefined {
   const { user } = useUser();
   const { hydrateFromServerIds } = useWatchlistCtx();
-  const [cachedServerData, setCachedServerData] = useState<WatchlistGridWire[] | undefined>(() =>
+  const [cachedServerData, setCachedServerData] = useState<WatchlistGridItem[] | undefined>(() =>
     readWatchlistGridCache(user?.id)
   );
 
@@ -319,11 +317,11 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
   useEffect(() => {
     if (!effectiveData) return;
     hydrateFromServerIds(
-      effectiveData.map((item) => ({ id: item[0], tmdbId: item[4] ?? undefined }))
+      effectiveData.map((item) => ({ id: item._id, tmdbId: item.tmdbId }))
     );
   }, [effectiveData, hydrateFromServerIds]);
 
-  return useMemo(() => effectiveData?.map(fromWatchlistGridWire), [effectiveData]);
+  return effectiveData;
 }
 
 export function useUpdateWatchlistFolder() {

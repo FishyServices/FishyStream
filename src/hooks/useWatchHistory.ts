@@ -3,17 +3,12 @@ import { useUser } from "@clerk/react";
 import { useCallback, useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import { useWatchProgressContext } from "./useWatchProgress";
-import {
-  type ContentId,
-  fromWatchHistoryItemWire,
-  type WatchHistoryItemMeta,
-  type WatchHistoryItemWire
-} from "../../shared/contentMetadata";
+import { type ContentId, type WatchHistoryItemMeta } from "../../shared/contentMetadata";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
 export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
   const { user } = useUser();
-  const serverData = useOneShotConvexQuery<WatchHistoryItemWire[]>(
+  const serverData = useOneShotConvexQuery<WatchHistoryItemMeta[]>(
     !!user,
     (convex) => convex.query(api.watchHistory.listWatchHistory, { clerkUserId: user!.id }),
     [user?.id],
@@ -21,7 +16,7 @@ export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
     user ? `watch_history_${user.id}` : undefined
   );
 
-  return useMemo(() => serverData?.map(fromWatchHistoryItemWire), [serverData]);
+  return serverData;
 }
 
 export function useContinueWatching(enabled = true, limit = 6): WatchHistoryItemMeta[] | undefined {

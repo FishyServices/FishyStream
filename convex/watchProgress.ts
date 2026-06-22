@@ -51,13 +51,6 @@ type ProgressSnapshot = {
   voteAverage?: number;
 };
 
-const HAS_DURATION = 1;
-const HAS_SEASON = 1 << 1;
-const HAS_EPISODE = 1 << 2;
-const HAS_SOURCE = 1 << 3;
-const DUB_TRUE = 1 << 4;
-const DUB_FALSE = 1 << 5;
-
 function normalizeProgress(progress: number) {
   if (!Number.isFinite(progress)) return 0;
   return Math.max(0, Math.min(100, progress));
@@ -105,35 +98,38 @@ const progressSnapshotValidator = v.object({
   voteAverage: v.optional(v.number())
 });
 
-function decodeProgressWrite(payload: unknown[], snapshot: ProgressSnapshot): ProgressWrite {
-  const flags = Number(payload[5] ?? 0);
-  let index = 6;
-  const nextOptionalNumber = () => normalizeOptionalNumber(Number(payload[index++]));
-
-  return {
-    progressId: (payload[0] || undefined) as Id<"watchProgress"> | undefined,
-    contentId: String(payload[1]),
-    snapshot,
-    progress: Number(payload[2] ?? 0),
-    completed: payload[3] === 1,
-    positionSeconds: normalizeOptionalNumber(Number(payload[4] ?? 0)),
-    clientUpdatedAt: normalizeOptionalNumber(Number(payload[index++] ?? Date.now())),
-    durationSeconds: flags & HAS_DURATION ? nextOptionalNumber() : undefined,
-    seasonNumber: flags & HAS_SEASON ? nextOptionalNumber() : undefined,
-    episodeNumber: flags & HAS_EPISODE ? nextOptionalNumber() : undefined,
-    source: flags & HAS_SOURCE ? String(payload[index++]) : undefined,
-    dub: flags & DUB_TRUE ? true : flags & DUB_FALSE ? false : undefined
-  };
-}
-
 export const saveWatchProgress = mutation({
   args: {
     u: v.string(),
-    p: v.array(v.any()),
+    contentId: v.string(),
+    progress: v.number(),
+    completed: v.boolean(),
+    positionSeconds: v.optional(v.number()),
+    durationSeconds: v.optional(v.number()),
+    seasonNumber: v.optional(v.number()),
+    episodeNumber: v.optional(v.number()),
+    source: v.optional(v.string()),
+    dub: v.optional(v.boolean()),
+    clientUpdatedAt: v.optional(v.number()),
+    progressId: v.optional(v.string()),
     snapshot: progressSnapshotValidator
   },
   handler: async (ctx, args): Promise<Id<"watchProgress"> | null> => {
-    return await saveProgressForUser(ctx, args.u, decodeProgressWrite(args.p, args.snapshot));
+    const write: ProgressWrite = {
+      progressId: (args.progressId || undefined) as Id<"watchProgress"> | undefined,
+      contentId: args.contentId,
+      snapshot: args.snapshot,
+      progress: args.progress,
+      completed: args.completed,
+      positionSeconds: args.positionSeconds,
+      durationSeconds: args.durationSeconds,
+      seasonNumber: args.seasonNumber,
+      episodeNumber: args.episodeNumber,
+      source: args.source,
+      dub: args.dub,
+      clientUpdatedAt: args.clientUpdatedAt
+    };
+    return await saveProgressForUser(ctx, args.u, write);
   }
 });
 
@@ -292,3 +288,4 @@ async function saveProgressForUser(
     clientUpdatedAt
   });
 }
+
