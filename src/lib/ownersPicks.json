@@ -15,7 +15,8 @@
     { "tmdbId": "71446", "title": "Money Heist" },
     { "tmdbId": "63174", "title": "Lucifer" },
     { "tmdbId": "2919", "title": "Burn Notice" },
-    { "tmdbId": "1408", "title": "House" }
+    { "tmdbId": "1408", "title": "House" },
+    { "tmdbId": "1411", "title": "Person of Interest" }
   ],
   "anime": [
     { "tmdbId": "72517", "title": "Classroom of the Elite" },

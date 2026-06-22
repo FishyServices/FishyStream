@@ -95,12 +95,9 @@ export interface AniListEpisodeMapping {
   anilistId: string;
   anilistEpisodeNumber: number;
 }
+
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/";
 const TMDB_IMAGE_WIRE_PREFIX = "~";
-
-function toContentTypeWire(type: ContentType): ContentTypeWire {
-  return type === "tv" ? 1 : 0;
-}
 
 export function makeContentId(type: ContentType, tmdbId: string | number): ContentId {
   return `tmdb:${type}:${String(tmdbId)}` as ContentId;
