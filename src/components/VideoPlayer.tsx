@@ -40,6 +40,7 @@ import {
   hasNextEpisode as hasProviderNextEpisode,
   isAnimeProviderContent,
   normalizePlaybackProgressSample,
+  shouldWaitForAnimeSeasonMetadata,
   shouldStorePlaybackProgressSample,
   WATCH_PROGRESS_STATUS_POLL_MS
 } from "@fishy/providers/providerPlayback";
@@ -176,14 +177,24 @@ export function VideoPlayer({
       ? `animeSeasonPlayback:${animeSeasonKey}:${tvTarget.episode}:${animeSeasonReloadKey}`
       : undefined
   );
-  const currentSeasonData = animeSeasonData ?? clientSeasonData;
+  const matchingAnimeSeasonData =
+    animeSeasonData === null || animeSeasonData?.seasonNumber === tvTarget.season
+      ? animeSeasonData
+      : undefined;
+  const currentSeasonData = matchingAnimeSeasonData ?? clientSeasonData;
   const currentSeasonEpisodeCount = currentSeasonData?.episodeCount;
   const waitingForAnimeSeasonMetadata =
     !!animeSeasonKey &&
     !animeSeasonFailedRef.current.has(animeSeasonKey) &&
-    (animeSeasonData === undefined ||
+    (shouldWaitForAnimeSeasonMetadata({
+      contentType: content.type,
+      isAnime: animeContent,
+      seasonNumber: tvTarget.season,
+      currentSeasonData: matchingAnimeSeasonData
+    }) ||
       animeSeasonSyncingRef.current.has(animeSeasonKey) ||
-      (animeSeasonData === null && !readSessionAnimeSeasonSyncKeys().includes(animeSeasonKey)));
+      (matchingAnimeSeasonData === null &&
+        !readSessionAnimeSeasonSyncKeys().includes(animeSeasonKey)));
 
   const session = usePlaybackSession({
     content,

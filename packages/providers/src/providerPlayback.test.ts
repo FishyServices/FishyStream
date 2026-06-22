@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getNextEpisodeAddress,
   normalizePlaybackProgressSample,
+  shouldWaitForAnimeSeasonMetadata,
   shouldStorePlaybackProgressSample
 } from "./providerPlayback";
 
@@ -44,5 +45,16 @@ describe("providerPlayback", () => {
         currentSeasonEpisodeCount: 10
       })
     ).toEqual({ season: 2, episode: 1 });
+  });
+
+  it("waits when anime season metadata belongs to a different season", () => {
+    expect(
+      shouldWaitForAnimeSeasonMetadata({
+        contentType: "tv",
+        isAnime: true,
+        seasonNumber: 2,
+        currentSeasonData: { seasonNumber: 1 }
+      })
+    ).toBe(true);
   });
 });

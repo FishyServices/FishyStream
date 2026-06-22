@@ -183,7 +183,15 @@ export function usePlaybackSession({
 
   const loadSources = useCallback(
     async (reason: string) => {
-      if (waitingForAnimeSeasonMetadata) return;
+      const { season, episode } = targetRef.current;
+      const hasMismatchedSeasonData =
+        animeContent &&
+        content.type === "tv" &&
+        currentSeasonData !== undefined &&
+        currentSeasonData !== null &&
+        currentSeasonData.seasonNumber !== season;
+      if (waitingForAnimeSeasonMetadata || hasMismatchedSeasonData) return;
+
       if (!content.imdbId && !content.tmdbId) {
         setError("No video ID available for this content");
         setLoading(false);
@@ -196,21 +204,23 @@ export function usePlaybackSession({
       setError(null);
 
       try {
-        const { season, episode } = targetRef.current;
+        const targetSeasonData =
+          currentSeasonData?.seasonNumber === season ? currentSeasonData : undefined;
+
         const fetched =
           content.type === "tv"
             ? await buildTvSources({
                 imdbId: content.imdbId ?? undefined,
                 tmdbId: content.tmdbId ?? undefined,
                 anilistId:
-                  currentSeasonData?.anilistId ??
+                  targetSeasonData?.anilistId ??
                   (season === 1 ? content.anilistId : undefined) ??
                   undefined,
-                anilistEpisodeMappings: currentSeasonData?.anilistEpisodeMappings,
+                anilistEpisodeMappings: targetSeasonData?.anilistEpisodeMappings,
                 isAnime: animeContent,
                 title: content.title,
-                seasonTitle: currentSeasonData?.name,
-                year: getSeasonYear(currentSeasonData?.airDate) ?? content.year,
+                seasonTitle: targetSeasonData?.name,
+                year: getSeasonYear(targetSeasonData?.airDate) ?? content.year,
                 season,
                 episode,
                 dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
@@ -291,6 +301,7 @@ export function usePlaybackSession({
       currentSeasonData?.anilistEpisodeMappings,
       currentSeasonData?.anilistId,
       currentSeasonData?.name,
+      currentSeasonData?.seasonNumber,
       health,
       initialSource,
       isDub,
