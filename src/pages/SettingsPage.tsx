@@ -226,6 +226,7 @@ export function SettingsPage() {
           <SettingsSection icon={<Palette className="h-4 w-4 text-primary" />} title="Appearance">
             <SettingRow
               label="Theme"
+              description="Choose the overall color scheme for the application"
               control={
                 <ThemeSwitcher
                   value={settings.theme}
@@ -236,6 +237,7 @@ export function SettingsPage() {
 
             <SettingRow
               label="Accent Color"
+              description="Primary color used for highlights and interactive elements"
               control={
                 <Select
                   value={settings.accent}
@@ -256,6 +258,7 @@ export function SettingsPage() {
 
             <SettingRow
               label="Border Radius"
+              description="Controls the roundness of corners throughout the interface"
               control={
                 <Select
                   value={settings.radius}
@@ -265,9 +268,9 @@ export function SettingsPage() {
                     <SelectValue placeholder="Select border radius" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sharp">Sharp</SelectItem>
-                    <SelectItem value="rounded">Rounded</SelectItem>
-                    <SelectItem value="playful">Playful</SelectItem>
+                    <SelectItem value="sharp">Sharp (minimal rounding)</SelectItem>
+                    <SelectItem value="rounded">Rounded (standard)</SelectItem>
+                    <SelectItem value="playful">Playful (more rounded)</SelectItem>
                   </SelectContent>
                 </Select>
               }
@@ -275,6 +278,7 @@ export function SettingsPage() {
 
             <SettingRow
               label="Autoplay Trailer"
+              description="Automatically play movie trailers when hovering on hero content"
               control={
                 <ToggleSettingControl
                   id="hero-trailer"
@@ -287,6 +291,7 @@ export function SettingsPage() {
 
             <SettingRow
               label="Mute Trailer"
+              description="Start trailers muted by default (recommended for better UX)"
               control={
                 <ToggleSettingControl
                   id="hero-muted"
@@ -301,6 +306,7 @@ export function SettingsPage() {
           <SettingsSection icon={<PlayCircle className="h-4 w-4 text-primary" />} title="Home">
             <SettingRow
               label="Continue watching row"
+              description="Show your continue watching section on the homepage"
               control={
                 <ToggleSettingControl
                   id="continue-row"
@@ -315,6 +321,7 @@ export function SettingsPage() {
           <SettingsSection icon={<Tv2 className="h-4 w-4 text-primary" />} title="Browse">
             <SettingRow
               label="Default movie sort"
+              description="Default sorting for the Movies page"
               control={
                 <Select
                   value={settings.defaultMovieSort}
@@ -338,6 +345,7 @@ export function SettingsPage() {
 
             <SettingRow
               label="Default TV sort"
+              description="Default sorting for the TV Shows page"
               control={
                 <Select
                   value={settings.defaultTVSort}
@@ -363,6 +371,7 @@ export function SettingsPage() {
           <SettingsSection icon={<MonitorPlay className="h-4 w-4 text-primary" />} title="Playback">
             <SettingRow
               label="Preferred provider"
+              description="Default video source provider when auto-selecting"
               control={
                 <ProviderPicker
                   value={settings.defaultProvider}
@@ -375,6 +384,7 @@ export function SettingsPage() {
 
             <SettingRow
               label="Preferred anime audio"
+              description="Default audio preference for anime content"
               control={
                 <Select
                   value={settings.defaultAnimeLanguage}
@@ -395,6 +405,7 @@ export function SettingsPage() {
 
             <SettingRow
               label="Auto advance episodes"
+              description="Automatically skip to next episode after reaching 98%"
               control={
                 <ToggleSettingControl
                   id="auto-advance"

@@ -178,7 +178,7 @@ export function Header() {
                   <Input
                     ref={searchRef}
                     type="text"
-                    placeholder="Search titles"
+                    placeholder="Search titles, movies, TV shows..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
@@ -318,7 +318,7 @@ export function Header() {
               <Input
                 ref={searchRef}
                 type="text"
-                placeholder="Search titles"
+                placeholder="Search titles, movies, TV shows..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-lg border-white/14 bg-white/8 py-3 pl-11 pr-11 text-sm text-white placeholder:text-white/40 focus-visible:border-primary/60 focus-visible:bg-white/12"
@@ -356,10 +356,10 @@ export function Header() {
                   <Link
                     to={link.href}
                     onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-3 text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-3 text-sm font-medium transition-all duration-200 ${
                       location.pathname === link.href
-                        ? "text-white"
-                        : "text-white/72 hover:text-white"
+                        ? "text-white bg-white/10"
+                        : "text-white/72 hover:bg-white/8 hover:text-white"
                     }`}
                   >
                     {link.icon && <link.icon className="h-4 w-4" />}
@@ -372,7 +372,7 @@ export function Header() {
                           key={item.label}
                           to={item.href}
                           onClick={() => setMobileOpen(false)}
-                          className="rounded-md px-3 py-2 text-xs font-medium text-white/68 transition-colors hover:bg-white/8 hover:text-white"
+                          className="rounded-md px-3 py-2 text-xs font-medium text-white/68 transition-all duration-200 hover:bg-white/8 hover:text-white"
                         >
                           {item.label}
                         </Link>
@@ -396,7 +396,7 @@ export function Header() {
                     <Link
                       to="/my-list"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-colors hover:bg-white/6 hover:text-white"
+                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-all duration-200 hover:bg-white/8 hover:text-white"
                     >
                       <BookMarked className="h-4 w-4" />
                       My List
@@ -404,22 +404,23 @@ export function Header() {
                     <Link
                       to="/history"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-colors hover:bg-white/6 hover:text-white"
+                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-all duration-200 hover:bg-white/8 hover:text-white"
                     >
                       <Clock className="h-4 w-4" />
                       Watch History
                     </Link>
                     <Button
                       variant="ghost"
-                      className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-400 justify-start"
+                      className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-400 justify-start transition-all duration-200"
                       onClick={() => signOut()}
                     >
+                      <UserIcon className="h-4 w-4" />
                       Sign Out
                     </Button>
                   </div>
                 ) : (
                   <Button
-                    className="w-full bg-primary text-white hover:bg-primary/90"
+                    className="w-full bg-primary text-white hover:bg-primary/90 transition-all duration-200"
                     onClick={() => navigate("/sign-in")}
                   >
                     Sign In

@@ -650,7 +650,7 @@ export function VideoPlayer({
   return (
     <div className="h-screen w-screen bg-black flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex-none border-b border-white/10 bg-black/90 backdrop-blur-sm z-10">
+      <div className="flex-none border-b border-white/10 bg-black/90 backdrop-blur-sm z-10 transition-all duration-300">
         <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
           <div className="flex items-center gap-3 min-w-0">
             <Button
@@ -765,7 +765,7 @@ export function VideoPlayer({
           <Button
             onClick={() => handleNextEpisode({ fromClick: true })}
             disabled={isNextEpisodeCooldown}
-            className="absolute bottom-23 left-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-60 backdrop-blur-sm sm:left-auto"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 gap-2 bg-primary/90 border border-primary text-primary-foreground hover:bg-primary disabled:cursor-not-allowed disabled:opacity-60 backdrop-blur-sm px-6 py-3"
           >
             <SkipForward className="w-4 h-4" />
             Next Episode

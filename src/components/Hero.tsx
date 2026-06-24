@@ -73,7 +73,7 @@ export function Hero({
       if (autoPlayTrailer && activeContent?.trailerKey) {
         setShowTrailer(true);
       }
-    }, 800);
+    }, 1200);
     return () => clearTimeout(timer);
   }, [currentIndex, autoPlayTrailer, activeContent?.trailerKey]);
 
@@ -136,6 +136,13 @@ export function Hero({
       activeContent.type
     );
 
+  const handleTrailerPlay = () => {
+    if (activeContent.trailerKey) {
+      setShowTrailer(true);
+      setMuted(trailerMuted);
+    }
+  };
+
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev - 1 + contents.length) % contents.length);
     resetAutoPlay();
@@ -158,12 +165,19 @@ export function Hero({
           className={`absolute inset-0 transition-all duration-1000 ease-out scale-100 ${loaded ? "opacity-100" : "opacity-0"}`}
         >
           {showTrailer && activeContent.trailerKey ? (
-            <iframe
-              className="absolute inset-0 w-full h-full scale-125"
-              src={`https://www.youtube.com/embed/${activeContent.trailerKey}?autoplay=1&mute=${muted ? 1 : 0}&controls=0&loop=1&playlist=${activeContent.trailerKey}&modestbranding=1&showinfo=0`}
-              allow="autoplay"
-              title="Trailer"
-            />
+            <div className="absolute inset-0 w-full h-full scale-125">
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src={`https://www.youtube.com/embed/${activeContent.trailerKey}?autoplay=1&mute=${muted ? 1 : 0}&controls=1&loop=1&playlist=${activeContent.trailerKey}&modestbranding=1&showinfo=0`}
+                allow="autoplay"
+                title="Trailer"
+              />
+              <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                <div className="rounded-md border border-white/20 bg-black/70 px-3 py-1.5 text-xs text-white/80 backdrop-blur-sm">
+                  Trailer
+                </div>
+              </div>
+            </div>
           ) : (
             <img
               src={activeContent.backdropUrl}
@@ -268,11 +282,7 @@ export function Hero({
               aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
               title={isInWatchlist ? "Remove from My List" : "Add to My List"}
             >
-              {isInWatchlist ? (
-                <Check className="w-5 h-5 text-green-400" />
-              ) : (
-                <Plus className="w-5 h-5" />
-              )}
+              {isInWatchlist ? <Check className="w-5 text-green-400" /> : <Plus className="w-5" />}
             </Button>
 
             {activeContent.trailerKey && (
@@ -280,9 +290,9 @@ export function Hero({
                 variant="ghost"
                 size="icon"
                 className="h-11 w-11 rounded-md border border-white/20 bg-black/55 text-white/70 hover:bg-black/75 hover:text-white"
-                onClick={() => setShowTrailer(!showTrailer)}
-                aria-label={showTrailer ? "Hide trailer" : "Show trailer"}
-                title={showTrailer ? "Hide trailer" : "Show trailer"}
+                onClick={handleTrailerPlay}
+                aria-label="Play trailer"
+                title="Play trailer"
               >
                 <Video className="h-4 w-4" />
               </Button>
