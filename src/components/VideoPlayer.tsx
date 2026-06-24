@@ -765,7 +765,7 @@ export function VideoPlayer({
           <Button
             onClick={() => handleNextEpisode({ fromClick: true })}
             disabled={isNextEpisodeCooldown}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 gap-2 bg-primary/90 border border-primary text-primary-foreground hover:bg-primary disabled:cursor-not-allowed disabled:opacity-60 backdrop-blur-sm px-6 py-3"
+            className="absolute bottom-23 left-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-60 backdrop-blur-sm sm:left-auto"
           >
             <SkipForward className="w-4 h-4" />
             Next Episode
