@@ -1,5 +1,5 @@
 import { useUser } from "@clerk/react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useConvexAuth } from "convex/react";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
@@ -8,8 +8,10 @@ import { RailSkeleton } from "@/components/UXPrimitives";
 import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
-import { Film, Loader2 } from "lucide-react";
-import { Toaster } from "@fishy/ui";
+import { Film, Loader2, Search } from "lucide-react";
+import { Button, Input, Toaster } from "@fishy/ui";
+import { useState, type FormEvent } from "react";
+import { DiscoverContentMode } from "@/pages/DiscoverPage";
 
 export function App() {
   const { isLoaded, isSignedIn } = useUser();
@@ -72,12 +74,23 @@ function HomepageContent({
   isSignedIn: boolean | undefined;
   settings: ReturnType<typeof useAppSettings>["settings"];
 }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const homepage = useHomepageContent();
   const categories = homepage?.categories ?? [];
   const featuredContent = homepage?.featured;
   const continueWatching =
     useContinueWatching(!!isSignedIn && settings.showContinueWatchingRow, 6) ?? [];
   const { recommendations } = useRecommendations(8, "all", 0, !!isSignedIn);
+  const [quickSearch, setQuickSearch] = useState("");
+  const isDiscoverMode = location.pathname === "/discover";
+
+  const submitQuickSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = quickSearch.trim();
+    if (query) navigate(`/search?q=${encodeURIComponent(query)}`);
+  };
+
   if (homepage === undefined) {
     return (
       <div className="min-h-screen bg-background text-foreground">
@@ -131,37 +144,79 @@ function HomepageContent({
             trailerMuted={settings.heroTrailerMuted}
           />
         )}
-        <div className="relative z-10 pb-18 pt-6">
-          {settings.showContinueWatchingRow && isSignedIn && continueWatching.length > 0 && (
-            <ContentRow
-              title="Continue Watching"
-              content={continueWatching}
-              onPlay={handlePlay}
-              viewAllHref="/history"
-            />
-          )}
+        <section className="page-shell-wide relative z-10 pb-2">
+          <div className="flex justify-center">
+            <div
+              className="inline-flex rounded-full border border-white/10 bg-white/4 p-1"
+              role="tablist"
+              aria-label="Home or Discover"
+            >
+              <Button
+                variant="ghost"
+                role="tab"
+                aria-selected={!isDiscoverMode}
+                className={`rounded-full px-5 ${
+                  !isDiscoverMode
+                    ? "bg-white text-black hover:bg-white/90"
+                    : "text-white/58 hover:bg-white/8 hover:text-white"
+                }`}
+                onClick={() => navigate("/")}
+              >
+                Home
+              </Button>
+              <Button
+                variant="ghost"
+                role="tab"
+                aria-selected={isDiscoverMode}
+                className={`rounded-full px-5 ${
+                  isDiscoverMode
+                    ? "bg-white text-black hover:bg-white/90"
+                    : "text-white/58 hover:bg-white/8 hover:text-white"
+                }`}
+                onClick={() => navigate("/discover")}
+              >
+                Discover
+              </Button>
+            </div>
+          </div>
+        </section>
+        {isDiscoverMode ? (
+          <div className="relative z-10 pb-18 pt-6">
+            <DiscoverContentMode onPlay={handlePlay} />
+          </div>
+        ) : (
+          <div className="relative z-10 pb-18 pt-6">
+            {settings.showContinueWatchingRow && isSignedIn && continueWatching.length > 0 && (
+              <ContentRow
+                title="Continue Watching"
+                content={continueWatching}
+                onPlay={handlePlay}
+                viewAllHref="/history"
+              />
+            )}
 
-          {recommendations.length > 0 && (
-            <ContentRow
-              title="Picked For Your Queue"
-              content={recommendations}
-              onPlay={handlePlay}
-              viewAllHref="/my-list"
-            />
-          )}
+            {recommendations.length > 0 && (
+              <ContentRow
+                title="Picked For Your Queue"
+                content={recommendations}
+                onPlay={handlePlay}
+                viewAllHref="/my-list"
+              />
+            )}
 
-          {categories.map((cat) => (
-            <ContentRow
-              key={cat.id}
-              title={cat.title}
-              content={cat.content}
-              onPlay={handlePlay}
-              viewAllHref={
-                cat.id === "movies" ? "/movies" : cat.id === "tvshows" ? "/tv-shows" : undefined
-              }
-            />
-          ))}
-        </div>
+            {categories.map((cat) => (
+              <ContentRow
+                key={cat.id}
+                title={cat.title}
+                content={cat.content}
+                onPlay={handlePlay}
+                viewAllHref={
+                  cat.id === "movies" ? "/movies" : cat.id === "tvshows" ? "/tv-shows" : undefined
+                }
+              />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

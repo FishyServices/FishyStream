@@ -155,6 +155,38 @@
     );
     animation: skeleton-sweep 1.4s ease-in-out infinite;
   }
+
+  .carousel-fade {
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent,
+      black 1.5rem,
+      black calc(100% - 1.5rem),
+      transparent
+    );
+    mask-image: linear-gradient(
+      90deg,
+      transparent,
+      black 1.5rem,
+      black calc(100% - 1.5rem),
+      transparent
+    );
+  }
+
+  .carousel-fade::-webkit-scrollbar {
+    display: none;
+  }
+
+  .home-discovery-strip {
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in oklab, var(--color-primary) 14%, transparent),
+        transparent 38%
+      ),
+      color-mix(in oklab, var(--color-background) 92%, black);
+  }
 }
 
 @layer utilities {

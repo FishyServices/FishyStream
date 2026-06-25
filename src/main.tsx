@@ -123,6 +123,7 @@ function AppShell() {
             />
             <Route path="/history" element={<AppRouteProviders page={<WatchHistoryPage />} />} />
             <Route path="/search" element={<AppRouteProviders page={<SearchPage />} />} />
+            <Route path="/discover" element={<AppRouteProviders page={<App />} />} />
             <Route path="/settings" element={<AppRouteProviders page={<SettingsPage />} />} />
             <Route path="/" element={<AppRouteProviders page={<App />} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
