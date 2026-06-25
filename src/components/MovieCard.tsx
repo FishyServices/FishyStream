@@ -1,5 +1,6 @@
 import { Play, Plus, Check, ChevronDown, Star } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
@@ -56,9 +57,50 @@ export function MovieCard({
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
   const { isSignedIn } = useUser();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const isInWatchlist = useIsInWatchlist(content._id);
   const toggleWatchlist = useToggleWatchlist();
+
+  useEffect(() => {
+    const modalParam = searchParams.get("modal");
+    const TypeParam = searchParams.get("type");
+
+    if (
+      modalParam &&
+      content.tmdbId &&
+      modalParam === content.tmdbId &&
+      TypeParam === content.type
+    ) {
+      setShowModal(true);
+    }
+  }, [searchParams, content.tmdbId, content.type]);
+
+  const handleModalChange = (open: boolean) => {
+    setShowModal(open);
+
+    if (open && content.tmdbId) {
+      setSearchParams(
+        (prev) => {
+          const newParams = new URLSearchParams(prev);
+          newParams.set("modal", content.tmdbId!);
+          newParams.set("type", content.type);
+          return newParams;
+        },
+        { replace: true }
+      );
+    } else {
+      setSearchParams(
+        (prev) => {
+          const newParams = new URLSearchParams(prev);
+          newParams.delete("modal");
+          newParams.delete("type");
+          return newParams;
+        },
+        { replace: true }
+      );
+    }
+  };
 
   const handleWatchlist = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -122,14 +164,14 @@ export function MovieCard({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setShowModal(true);
+          handleModalChange(true);
         }}
         tabIndex={0}
         role="button"
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            setShowModal(true);
+            handleModalChange(true);
           }
         }}
         aria-label={content.year ? `${content.title} (${content.year})` : content.title}
@@ -221,7 +263,7 @@ export function MovieCard({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setShowModal(true);
+                    handleModalChange(true);
                   }}
                   aria-label="More info"
                 >
@@ -323,7 +365,7 @@ export function MovieCard({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setShowModal(true);
+                  handleModalChange(true);
                 }}
                 aria-label="More info"
                 title="More info"
@@ -338,7 +380,7 @@ export function MovieCard({
       <ContentModal
         content={content}
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={() => handleModalChange(false)}
         onPlay={onPlay ?? (() => {})}
       />
     </>
