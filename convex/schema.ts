@@ -1,14 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const mediaType = v.union(v.literal("movie"), v.literal("tv"));
-
 export default defineSchema({
   mediaState: defineTable({
     clerkUserId: v.string(),
     contentId: v.string(),
-    tmdbId: v.string(),
-    contentType: mediaType,
     title: v.string(),
     posterUrl: v.string(),
     progress: v.optional(v.number()),
@@ -20,7 +16,6 @@ export default defineSchema({
     dub: v.optional(v.boolean()),
     completed: v.optional(v.boolean()),
     watchedAt: v.optional(v.number()),
-    inWatchlist: v.optional(v.boolean()),
     watchlistAddedAt: v.optional(v.number()),
     folder: v.optional(v.string())
   })

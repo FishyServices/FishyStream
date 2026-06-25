@@ -68,9 +68,7 @@ export const saveWatchProgress = mutation({
         dub: args.dub,
         watchedAt: watchedAt,
         title: args.title,
-        posterUrl: args.posterUrl,
-        tmdbId: args.tmdbId,
-        contentType: args.contentType
+        posterUrl: args.posterUrl
       });
       return existing._id;
     }
@@ -78,8 +76,6 @@ export const saveWatchProgress = mutation({
     return await ctx.db.insert("mediaState", {
       clerkUserId: args.clerkUserId,
       contentId: args.contentId,
-      tmdbId: args.tmdbId,
-      contentType: args.contentType,
       title: args.title,
       posterUrl: args.posterUrl,
       progress,
@@ -90,8 +86,7 @@ export const saveWatchProgress = mutation({
       episodeNumber: args.episodeNumber,
       source: args.source,
       dub: args.dub,
-      watchedAt: watchedAt,
-      inWatchlist: false
+      watchedAt: watchedAt
     });
   }
 });

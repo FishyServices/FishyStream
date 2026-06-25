@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { fromImageWire, toImageWire, type WatchlistGridItem } from "../shared/contentMetadata";
+import {
+  fromImageWire,
+  toImageWire,
+  type WatchlistGridItem,
+  parseContentId
+} from "../shared/contentMetadata";
 
 export const listWatchlist = query({
   args: {
@@ -16,15 +21,18 @@ export const listWatchlist = query({
       .take(pageSize);
 
     return items
-      .filter((item) => item.inWatchlist)
-      .map((item) => ({
-        _id: item.contentId as never,
-        title: item.title,
-        type: item.contentType,
-        posterUrl: fromImageWire(item.posterUrl),
-        tmdbId: item.tmdbId,
-        watchlistFolder: item.folder
-      }));
+      .filter((item) => item.watchlistAddedAt)
+      .map((item) => {
+        const parsed = parseContentId(item.contentId);
+        return {
+          _id: item.contentId as never,
+          title: item.title,
+          type: parsed?.type || "movie",
+          posterUrl: fromImageWire(item.posterUrl),
+          tmdbId: parsed?.tmdbId || "",
+          watchlistFolder: item.folder
+        };
+      });
   }
 });
 
@@ -42,8 +50,11 @@ export const listWatchlistContentIds = query({
       .take(maxIds);
 
     return items
-      .filter((item) => item.inWatchlist)
-      .map((item) => ({ id: item.contentId, tmdbId: item.tmdbId }));
+      .filter((item) => item.watchlistAddedAt)
+      .map((item) => {
+        const parsed = parseContentId(item.contentId);
+        return { id: item.contentId, tmdbId: parsed?.tmdbId || "" };
+      });
   }
 });
 
@@ -66,24 +77,19 @@ export const toggleWatchlistEntry = mutation({
       .first();
 
     if (existing) {
-      if (existing.inWatchlist === args.inWatchlist) return true;
+      const currentlyInWatchlist = !!existing.watchlistAddedAt;
+      if (currentlyInWatchlist === args.inWatchlist) return true;
       await ctx.db.patch(existing._id, {
-        inWatchlist: args.inWatchlist,
         watchlistAddedAt: args.inWatchlist ? Date.now() : undefined,
         title: args.title,
-        posterUrl: toImageWire(args.posterUrl),
-        tmdbId: args.tmdbId,
-        contentType: args.contentType
+        posterUrl: toImageWire(args.posterUrl)
       });
     } else if (args.inWatchlist) {
       await ctx.db.insert("mediaState", {
         clerkUserId: args.clerkUserId,
         contentId: args.contentId,
-        tmdbId: args.tmdbId,
-        contentType: args.contentType,
         title: args.title,
         posterUrl: toImageWire(args.posterUrl),
-        inWatchlist: true,
         watchlistAddedAt: Date.now()
       });
     }

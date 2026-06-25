@@ -4,17 +4,19 @@ import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import {
   fromImageWire,
+  parseContentId,
   type WatchHistoryItemMeta,
   type WatchProgressEntryMeta
 } from "../shared/contentMetadata";
 
 function toHistoryItem(row: Doc<"mediaState">): WatchHistoryItemMeta {
+  const parsed = parseContentId(row.contentId);
   return {
     _id: row.contentId as never,
     title: row.title,
-    type: row.contentType,
+    type: parsed?.type || "movie",
     posterUrl: fromImageWire(row.posterUrl),
-    tmdbId: row.tmdbId,
+    tmdbId: parsed?.tmdbId || "",
     new: false,
     progress: row.progress ?? 0,
     completed: row.completed ?? false,
@@ -34,13 +36,15 @@ async function listHistory(
   const progressRows = includeCompleted
     ? await ctx.db
         .query("mediaState")
-        .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId))
+        .withIndex("by_clerk_watched_at", (q) =>
+          q.eq("clerkUserId", clerkUserId).gt("watchedAt", 0)
+        )
         .order("desc")
         .take(limit)
     : await ctx.db
         .query("mediaState")
         .withIndex("by_clerk_completed_watched_at", (q) =>
-          q.eq("clerkUserId", clerkUserId).eq("completed", false)
+          q.eq("clerkUserId", clerkUserId).eq("completed", false).gt("watchedAt", 0)
         )
         .order("desc")
         .take(limit);
@@ -67,7 +71,7 @@ export const listWatchProgressEntries = query({
   handler: async (ctx, { clerkUserId }): Promise<WatchProgressEntryMeta[]> => {
     const rows = await ctx.db
       .query("mediaState")
-      .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId))
+      .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId).gt("watchedAt", 0))
       .order("desc")
       .take(75);
 
@@ -97,7 +101,7 @@ export const removeWatchHistoryEntry = mutation({
       .first();
     if (!existing) return false;
 
-    if (existing.inWatchlist) {
+    if (existing.watchlistAddedAt) {
       await ctx.db.patch(existing._id, {
         progress: undefined,
         completed: undefined,
@@ -112,7 +116,7 @@ export const removeWatchHistoryEntry = mutation({
     } else {
       await ctx.db.delete(existing._id);
     }
-    
+
     return true;
   }
 });
