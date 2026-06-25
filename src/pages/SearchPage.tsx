@@ -1,11 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { usePostHog } from "@posthog/react";
 import { Filter, Search, X, Tv, Film } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useSearchAll, type TMDBItem } from "@/hooks/useContent";
 import { SearchCard } from "@/components/SearchCard";
 import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger } from "@fishy/ui";
+import { isPostHogEnabled } from "@/lib/posthog";
 
 type SearchTypeFilter = "all" | "movie" | "tv";
 type SearchSort = "relevance" | "title" | "newest" | "rating";
@@ -42,6 +44,8 @@ function sortSearchResults(items: TMDBItem[], sort: SearchSort) {
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const posthog = usePostHog();
+  const lastTrackedSearchRef = useRef<string | null>(null);
   const query = searchParams.get("q") ?? "";
   const typeParam = searchParams.get("type");
   const sortParam = searchParams.get("sort");
@@ -67,6 +71,44 @@ export function SearchPage() {
   useEffect(() => {
     setInput(query);
   }, [query]);
+
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+    if (!isPostHogEnabled || !normalizedQuery || loading) return;
+
+    const trackingKey = JSON.stringify({
+      query: normalizedQuery,
+      typeFilter,
+      sort,
+      resultCount: results.length,
+      error
+    });
+    if (lastTrackedSearchRef.current === trackingKey) return;
+    lastTrackedSearchRef.current = trackingKey;
+
+    posthog.capture("search_performed", {
+      query: normalizedQuery,
+      type_filter: typeFilter,
+      sort,
+      result_count: results.length,
+      filtered_result_count: filteredResults.length,
+      movie_count: movieCount,
+      show_count: showCount,
+      has_error: Boolean(error),
+      error_message: error ?? undefined
+    });
+  }, [
+    error,
+    filteredResults.length,
+    loading,
+    movieCount,
+    posthog,
+    query,
+    results.length,
+    showCount,
+    sort,
+    typeFilter
+  ]);
 
   const handleInput = (val: string) => {
     setInput(val);

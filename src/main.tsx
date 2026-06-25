@@ -1,11 +1,12 @@
 import { createRoot } from "react-dom/client";
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
-import { ClerkProvider, useAuth } from "@clerk/react";
+import { ClerkProvider, useAuth, useUser } from "@clerk/react";
 import { dark } from "@clerk/themes";
 import { applyFishyTheme } from "@fishy/ui";
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { PostHogProvider, usePostHog } from "@posthog/react";
 import { App } from "./App";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
@@ -20,6 +21,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { GlobalWatchlistProvider } from "./hooks/useWatchlist";
 import { WatchProgressProvider } from "./hooks/useWatchProgress";
 import { AppSettingsProvider } from "./hooks/useAppSettings";
+import { isPostHogEnabled, posthog } from "./lib/posthog";
 import "./index.css";
 
 const isNativeShell = Capacitor.isNativePlatform();
@@ -106,6 +108,8 @@ function AppShell() {
     <ConvexProviderWithAuth client={convex} useAuth={useStableConvexClerkAuth}>
       <AppSettingsProvider>
         <BrowserRouter>
+          <PostHogRouteTracker />
+          <PostHogUserIdentifier />
           <Routes>
             <Route path="/sign-in/*" element={<SignInPage />} />
             <Route path="/sign-up/*" element={<SignUpPage />} />
@@ -127,6 +131,43 @@ function AppShell() {
       </AppSettingsProvider>
     </ConvexProviderWithAuth>
   );
+}
+
+function PostHogRouteTracker() {
+  const location = useLocation();
+  const posthogClient = usePostHog();
+
+  useEffect(() => {
+    if (!isPostHogEnabled) return;
+
+    posthogClient.capture("$pageview", {
+      $current_url: window.location.href
+    });
+  }, [location.pathname, location.search, location.hash, posthogClient]);
+
+  return null;
+}
+
+function PostHogUserIdentifier() {
+  const { isLoaded, isSignedIn, user } = useUser();
+  const posthogClient = usePostHog();
+
+  useEffect(() => {
+    if (!isPostHogEnabled || !isLoaded) return;
+
+    if (!isSignedIn || !user) {
+      posthogClient.reset();
+      return;
+    }
+
+    posthogClient.identify(user.id, {
+      email: user.primaryEmailAddress?.emailAddress,
+      username: user.username,
+      name: user.fullName
+    });
+  }, [isLoaded, isSignedIn, posthogClient, user]);
+
+  return null;
 }
 
 function AppRouteProviders({
@@ -157,6 +198,8 @@ createRoot(document.getElementById("root")!).render(
       }
     }}
   >
-    <AppShell />
+    <PostHogProvider client={posthog}>
+      <AppShell />
+    </PostHogProvider>
   </ClerkProvider>
 );

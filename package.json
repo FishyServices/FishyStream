@@ -23,9 +23,11 @@
     "@clerk/themes": "2.4.57",
     "@fishy/providers": "file:./packages/providers",
     "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git",
+    "@posthog/react": "^1.10.3",
     "class-variance-authority": "0.7.1",
     "convex": "1.41.0",
     "lucide-react": "1.21.0",
+    "posthog-js": "^1.393.4",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-router-dom": "7.18.0"
