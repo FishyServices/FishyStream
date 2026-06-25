@@ -26,6 +26,8 @@ export const saveWatchProgress = mutation({
     const watchedAt = Date.now();
     const progress = Math.max(0, Math.min(100, args.progress));
     const completed = args.completed || progress >= 95;
+    const positionSeconds =
+      completed && args.durationSeconds ? args.durationSeconds : args.positionSeconds;
 
     const existing = await ctx.db
       .query("mediaState")
@@ -41,10 +43,16 @@ export const saveWatchProgress = mutation({
       }
 
       const positionDelta = Math.abs((existing.positionSeconds ?? 0) - (args.positionSeconds ?? 0));
-      const progressDelta = Math.abs((existing.progress ?? 0) - progress);
+      const existingProgress =
+        existing.durationSeconds && existing.positionSeconds
+          ? (existing.positionSeconds / existing.durationSeconds) * 100
+          : 0;
+      const existingCompleted = existingProgress >= 95;
+
+      const progressDelta = Math.abs(existingProgress - progress);
 
       const shouldSkip =
-        existing.completed === completed &&
+        existingCompleted === completed &&
         positionDelta < MIN_POSITION_DELTA_TO_WRITE_SECONDS &&
         progressDelta < MIN_PROGRESS_DELTA_TO_WRITE &&
         existing.durationSeconds === args.durationSeconds &&
@@ -58,9 +66,7 @@ export const saveWatchProgress = mutation({
       }
 
       await ctx.db.patch(existing._id, {
-        progress,
-        completed,
-        positionSeconds: args.positionSeconds,
+        positionSeconds,
         durationSeconds: args.durationSeconds,
         seasonNumber: args.seasonNumber,
         episodeNumber: args.episodeNumber,
@@ -78,9 +84,7 @@ export const saveWatchProgress = mutation({
       contentId: args.contentId,
       title: args.title,
       posterUrl: args.posterUrl,
-      progress,
-      completed,
-      positionSeconds: args.positionSeconds,
+      positionSeconds,
       durationSeconds: args.durationSeconds,
       seasonNumber: args.seasonNumber,
       episodeNumber: args.episodeNumber,

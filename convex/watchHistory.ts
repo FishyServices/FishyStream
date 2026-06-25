@@ -11,6 +11,11 @@ import {
 
 function toHistoryItem(row: Doc<"mediaState">): WatchHistoryItemMeta {
   const parsed = parseContentId(row.contentId);
+  const progress =
+    row.durationSeconds && row.positionSeconds
+      ? (row.positionSeconds / row.durationSeconds) * 100
+      : 0;
+
   return {
     _id: row.contentId as never,
     title: row.title,
@@ -18,8 +23,8 @@ function toHistoryItem(row: Doc<"mediaState">): WatchHistoryItemMeta {
     posterUrl: fromImageWire(row.posterUrl),
     tmdbId: parsed?.tmdbId || "",
     new: false,
-    progress: row.progress ?? 0,
-    completed: row.completed ?? false,
+    progress,
+    completed: progress >= 95,
     seasonNumber: row.seasonNumber,
     episodeNumber: row.episodeNumber,
     source: row.source,
@@ -41,13 +46,23 @@ async function listHistory(
         )
         .order("desc")
         .take(limit)
-    : await ctx.db
-        .query("mediaState")
-        .withIndex("by_clerk_completed_watched_at", (q) =>
-          q.eq("clerkUserId", clerkUserId).eq("completed", false).gt("watchedAt", 0)
-        )
-        .order("desc")
-        .take(limit);
+    : (
+        await ctx.db
+          .query("mediaState")
+          .withIndex("by_clerk_watched_at", (q) =>
+            q.eq("clerkUserId", clerkUserId).gt("watchedAt", 0)
+          )
+          .order("desc")
+          .take(limit * 3)
+      )
+        .filter((row) => {
+          const progress =
+            row.durationSeconds && row.positionSeconds
+              ? (row.positionSeconds / row.durationSeconds) * 100
+              : 0;
+          return progress < 95;
+        })
+        .slice(0, limit);
 
   return progressRows.map(toHistoryItem);
 }
@@ -75,18 +90,25 @@ export const listWatchProgressEntries = query({
       .order("desc")
       .take(75);
 
-    return rows.map((row) => ({
-      contentId: row.contentId as never,
-      progress: row.progress ?? 0,
-      positionSeconds: row.positionSeconds ?? 0,
-      durationSeconds: row.durationSeconds ?? 0,
-      completed: row.completed ?? false,
-      watchedAt: row.watchedAt ?? 0,
-      seasonNumber: row.seasonNumber,
-      episodeNumber: row.episodeNumber,
-      source: row.source,
-      dub: row.dub
-    }));
+    return rows.map((row) => {
+      const progress =
+        row.durationSeconds && row.positionSeconds
+          ? (row.positionSeconds / row.durationSeconds) * 100
+          : 0;
+
+      return {
+        contentId: row.contentId as never,
+        progress,
+        positionSeconds: row.positionSeconds ?? 0,
+        durationSeconds: row.durationSeconds ?? 0,
+        completed: progress >= 95,
+        watchedAt: row.watchedAt ?? 0,
+        seasonNumber: row.seasonNumber,
+        episodeNumber: row.episodeNumber,
+        source: row.source,
+        dub: row.dub
+      };
+    });
   }
 });
 
@@ -103,8 +125,6 @@ export const removeWatchHistoryEntry = mutation({
 
     if (existing.watchlistAddedAt) {
       await ctx.db.patch(existing._id, {
-        progress: undefined,
-        completed: undefined,
         positionSeconds: undefined,
         durationSeconds: undefined,
         seasonNumber: undefined,

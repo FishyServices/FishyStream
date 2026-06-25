@@ -7,22 +7,19 @@ export default defineSchema({
     contentId: v.string(),
     title: v.string(),
     posterUrl: v.string(),
-    progress: v.optional(v.number()),
     positionSeconds: v.optional(v.number()),
     durationSeconds: v.optional(v.number()),
     seasonNumber: v.optional(v.number()),
     episodeNumber: v.optional(v.number()),
     source: v.optional(v.string()),
     dub: v.optional(v.boolean()),
-    completed: v.optional(v.boolean()),
     watchedAt: v.optional(v.number()),
     watchlistAddedAt: v.optional(v.number()),
     folder: v.optional(v.string())
   })
     .index("by_clerk_content", ["clerkUserId", "contentId"])
     .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"])
-    .index("by_clerk_watchlist_added", ["clerkUserId", "watchlistAddedAt"])
-    .index("by_clerk_completed_watched_at", ["clerkUserId", "completed", "watchedAt"]),
+    .index("by_clerk_watchlist_added", ["clerkUserId", "watchlistAddedAt"]),
 
   seasonEpisodes: defineTable({
     contentId: v.string(),
