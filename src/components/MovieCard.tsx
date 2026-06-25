@@ -1,5 +1,5 @@
 import { Play, Plus, Check, ChevronDown, Star } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
@@ -61,8 +61,11 @@ export function MovieCard({
 
   const isInWatchlist = useIsInWatchlist(content._id);
   const toggleWatchlist = useToggleWatchlist();
+  const didOpenFromUrl = useRef(false);
 
   useEffect(() => {
+    if (didOpenFromUrl.current) return;
+
     const modalParam = searchParams.get("modal");
     const TypeParam = searchParams.get("type");
 
@@ -72,9 +75,10 @@ export function MovieCard({
       modalParam === content.tmdbId &&
       TypeParam === content.type
     ) {
+      didOpenFromUrl.current = true;
       setShowModal(true);
     }
-  }, [searchParams, content.tmdbId, content.type]);
+  }, []);
 
   const handleModalChange = (open: boolean) => {
     setShowModal(open);
