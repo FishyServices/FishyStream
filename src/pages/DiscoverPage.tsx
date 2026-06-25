@@ -4,20 +4,19 @@ import { ArrowUp, ChevronLeft, ChevronRight, Film, Info, Play, Sparkles, Tv } fr
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { GridSkeleton } from "@/components/UXPrimitives";
-import { useCuratedPicks, useHomepageContent, usePaginatedContent } from "@/hooks/useContent";
+import { useHomepageContent, usePaginatedContent } from "@/hooks/useContent";
 import { Button } from "@fishy/ui";
 import type { ContentCard, ContentFeatured, ContentType } from "../../shared/contentMetadata";
 
-type DiscoverTab = "movies" | "tv" | "picks";
+type DiscoverTab = "movies" | "tv";
 
 const tabs: Array<{ value: DiscoverTab; label: string; icon: typeof Film }> = [
   { value: "movies", label: "Movies", icon: Film },
-  { value: "tv", label: "TV Shows", icon: Tv },
-  { value: "picks", label: "Editor Picks", icon: Sparkles }
+  { value: "tv", label: "TV Shows", icon: Tv }
 ];
 
 function parseTab(value: string | null): DiscoverTab {
-  if (value === "movies" || value === "tv" || value === "picks") return value;
+  if (value === "movies" || value === "tv") return value;
   return "movies";
 }
 
@@ -333,7 +332,6 @@ export function DiscoverContentMode({
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = parseTab(searchParams.get("tab"));
-  const picks = useCuratedPicks();
 
   const setTab = (nextTab: DiscoverTab) => {
     setSearchParams((current) => {
@@ -368,19 +366,7 @@ export function DiscoverContentMode({
       </div>
 
       <div className="relative z-20 space-y-8 px-0 pb-20 pt-2">
-        {tab === "picks" ? (
-          picks.isLoading ? (
-            <div className="page-shell-wide">
-              <GridSkeleton count={12} />
-            </div>
-          ) : (
-            <div className="space-y-8">
-              <DiscoverRail title="Editor Picks: Movies" items={picks.movies} onPlay={onPlay} />
-              <DiscoverRail title="Editor Picks: TV Shows" items={picks.tv} onPlay={onPlay} />
-              <DiscoverRail title="Editor Picks: Anime" items={picks.anime} onPlay={onPlay} />
-            </div>
-          )
-        ) : tab === "tv" ? (
+        {tab === "tv" ? (
           <MediaDiscoverContent type="tv" onPlay={onPlay} />
         ) : (
           <MediaDiscoverContent type="movie" onPlay={onPlay} />
