@@ -8,23 +8,20 @@ import {
   type WatchProgressEntryMeta
 } from "../shared/contentMetadata";
 
-function toHistoryItem(row: Doc<"watchProgress">): WatchHistoryItemMeta {
+function toHistoryItem(row: Doc<"mediaState">): WatchHistoryItemMeta {
   return {
     _id: row.contentId as never,
     title: row.title,
     type: row.contentType,
-    genre: row.genre ?? [],
-    year: row.year ?? 0,
-    voteAverage: row.voteAverage,
     posterUrl: fromImageWire(row.posterUrl),
     tmdbId: row.tmdbId,
     new: false,
-    progress: row.progress,
-    completed: row.completed,
-    seasonNumber: row.seasonNumber ?? undefined,
-    episodeNumber: row.episodeNumber ?? undefined,
-    source: row.source ?? undefined,
-    dub: row.dub ?? undefined
+    progress: row.progress ?? 0,
+    completed: row.completed ?? false,
+    seasonNumber: row.seasonNumber,
+    episodeNumber: row.episodeNumber,
+    source: row.source,
+    dub: row.dub
   };
 }
 
@@ -36,12 +33,12 @@ async function listHistory(
 ) {
   const progressRows = includeCompleted
     ? await ctx.db
-        .query("watchProgress")
+        .query("mediaState")
         .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId))
         .order("desc")
         .take(limit)
     : await ctx.db
-        .query("watchProgress")
+        .query("mediaState")
         .withIndex("by_clerk_completed_watched_at", (q) =>
           q.eq("clerkUserId", clerkUserId).eq("completed", false)
         )
@@ -69,23 +66,22 @@ export const listWatchProgressEntries = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchProgressEntryMeta[]> => {
     const rows = await ctx.db
-      .query("watchProgress")
+      .query("mediaState")
       .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId))
       .order("desc")
       .take(75);
 
     return rows.map((row) => ({
       contentId: row.contentId as never,
-      progress: row.progress,
+      progress: row.progress ?? 0,
       positionSeconds: row.positionSeconds ?? 0,
       durationSeconds: row.durationSeconds ?? 0,
-      completed: row.completed,
-      watchedAt: row.watchedAt,
-      seasonNumber: row.seasonNumber ?? undefined,
-      episodeNumber: row.episodeNumber ?? undefined,
-      source: row.source ?? undefined,
-      dub: row.dub ?? undefined,
-      progressId: row._id
+      completed: row.completed ?? false,
+      watchedAt: row.watchedAt ?? 0,
+      seasonNumber: row.seasonNumber,
+      episodeNumber: row.episodeNumber,
+      source: row.source,
+      dub: row.dub
     }));
   }
 });
@@ -93,15 +89,30 @@ export const listWatchProgressEntries = query({
 export const removeWatchHistoryEntry = mutation({
   args: { clerkUserId: v.string(), contentId: v.string() },
   handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
-    const existingProgress = await ctx.db
-      .query("watchProgress")
+    const existing = await ctx.db
+      .query("mediaState")
       .withIndex("by_clerk_content", (q) =>
         q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
       )
       .first();
-    if (!existingProgress) return false;
+    if (!existing) return false;
 
-    await ctx.db.delete(existingProgress._id);
+    if (existing.inWatchlist) {
+      await ctx.db.patch(existing._id, {
+        progress: undefined,
+        completed: undefined,
+        positionSeconds: undefined,
+        durationSeconds: undefined,
+        seasonNumber: undefined,
+        episodeNumber: undefined,
+        source: undefined,
+        dub: undefined,
+        watchedAt: undefined
+      });
+    } else {
+      await ctx.db.delete(existing._id);
+    }
+    
     return true;
   }
 });

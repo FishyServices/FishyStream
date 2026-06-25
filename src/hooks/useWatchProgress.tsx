@@ -26,7 +26,6 @@ export interface ProgressState {
 
 interface StoredProgress extends ProgressState {
   contentId: string;
-  progressId?: string;
   clientUpdatedAt: number;
   dirty: boolean;
   syncedClientUpdatedAt?: number;
@@ -35,7 +34,6 @@ interface StoredProgress extends ProgressState {
 
 type ServerProgress = {
   contentId: string;
-  progressId?: string;
   progress: number;
   positionSeconds: number;
   durationSeconds: number;
@@ -107,7 +105,6 @@ function storedFromServer(entry: ServerProgress): StoredProgress {
   return {
     ...toProgressState(entry),
     contentId: entry.contentId as never,
-    progressId: entry.progressId,
     clientUpdatedAt: entry.watchedAt,
     syncedClientUpdatedAt: entry.watchedAt,
     dirty: false
@@ -280,9 +277,13 @@ export function useUpdateProgress() {
       let saved = false;
 
       try {
-        const savedProgressId = await dbSync({
-          u: user.id,
+        await dbSync({
+          clerkUserId: user.id,
           contentId: dirtyEntry.contentId,
+          tmdbId: dirtyEntry.snapshot?.tmdbId || dirtyEntry.contentId.split(":").at(-1) || "",
+          contentType: dirtyEntry.snapshot?.type || "movie",
+          title: dirtyEntry.snapshot?.title || "Unknown title",
+          posterUrl: dirtyEntry.snapshot?.posterUrl || "",
           progress: Math.round(dirtyEntry.progress * 10) / 10,
           completed: dirtyEntry.completed,
           positionSeconds: Math.round(dirtyEntry.positionSeconds),
@@ -290,15 +291,7 @@ export function useUpdateProgress() {
           seasonNumber: dirtyEntry.seasonNumber,
           episodeNumber: dirtyEntry.episodeNumber,
           source: dirtyEntry.source,
-          dub: dirtyEntry.dub,
-          clientUpdatedAt: dirtyEntry.clientUpdatedAt,
-          progressId: dirtyEntry.progressId,
-          snapshot: dirtyEntry.snapshot ?? {
-            title: "Unknown title",
-            type: "movie",
-            posterUrl: "",
-            tmdbId: dirtyEntry.contentId.split(":").at(-1) ?? ""
-          }
+          dub: dirtyEntry.dub
         });
         saved = true;
 
@@ -306,7 +299,6 @@ export function useUpdateProgress() {
         if (current && current.clientUpdatedAt <= dirtyEntry.clientUpdatedAt) {
           storeRef.current.set(dirtyEntry.contentId, {
             ...current,
-            progressId: savedProgressId ?? current.progressId,
             dirty: false,
             syncedClientUpdatedAt: dirtyEntry.clientUpdatedAt
           });
@@ -322,7 +314,6 @@ export function useUpdateProgress() {
           );
           storeRef.current.set(dirtyEntry.contentId, {
             ...current,
-            progressId: savedProgressId ?? current.progressId,
             dirty: remainsDirty,
             syncedClientUpdatedAt: dirtyEntry.clientUpdatedAt
           });
@@ -418,7 +409,6 @@ export function useUpdateProgress() {
       const next: StoredProgress = {
         ...state,
         contentId,
-        progressId: previous?.progressId,
         clientUpdatedAt: Date.now(),
         dirty: false,
         syncedClientUpdatedAt: previous?.syncedClientUpdatedAt,

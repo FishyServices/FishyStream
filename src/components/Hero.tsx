@@ -237,7 +237,7 @@ export function Hero({
           </div>
 
           <div className="hidden flex-wrap gap-2 sm:flex">
-            {activeContent.genre.slice(0, 2).map((g) => (
+            {(activeContent.genre ?? []).slice(0, 2).map((g) => (
               <span
                 key={g}
                 className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium text-white/80"

@@ -6,8 +6,8 @@ export interface ContentCard {
   _id: ContentId;
   title: string;
   type: ContentType;
-  genre: string[];
-  year: number;
+  genre?: string[];
+  year?: number;
   voteAverage?: number;
   posterUrl: string;
   tmdbId?: string;
@@ -57,6 +57,8 @@ export interface WatchlistGridItem {
   tmdbId?: string;
   watchlistFolder?: string;
   genre?: string[];
+  year?: number;
+  voteAverage?: number;
 }
 
 export interface WatchHistoryItemMeta extends ContentCard {

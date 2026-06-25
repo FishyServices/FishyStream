@@ -125,8 +125,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(() => !user);
   const hasLocalIds = ids.size > 0;
 
-  const addMutation = useMutation(api.watchlist.addWatchlistEntry);
-  const removeMutation = useMutation(api.watchlist.removeWatchlistEntry);
+  const toggleMutation = useMutation(api.watchlist.toggleWatchlistEntry);
   const serverIds = useOneShotConvexQuery<Array<{ id: string; tmdbId?: string }>>(
     !!user && !isConvexAuthLoading && !isMyListRoute,
     (client) => client.query(api.watchlist.listWatchlistContentIds, { clerkUserId: user!.id }),
@@ -213,11 +212,15 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
       if (!user) return;
 
       try {
-        if (adding) {
-          await addMutation({ clerkUserId: user.id, contentId: id, snapshot });
-        } else {
-          await removeMutation({ clerkUserId: user.id, contentId: id });
-        }
+        await toggleMutation({
+          clerkUserId: user.id,
+          contentId: id,
+          tmdbId: tmdbId || "",
+          contentType: snapshot?.type || "movie",
+          title: snapshot?.title || "Unknown",
+          posterUrl: snapshot?.posterUrl || "",
+          inWatchlist: adding
+        });
       } catch {
         setIds((prev) => {
           const next = new Set(prev);
@@ -244,7 +247,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [ids, idToTmdbMap, user, addMutation, removeMutation]
+    [ids, idToTmdbMap, user, toggleMutation]
   );
 
   return (
