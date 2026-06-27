@@ -381,6 +381,7 @@ export function ContentModal({
 
   const handlePlay = (ep?: number) => {
     if (contentData.tmdbId) {
+      onClose();
       onPlay(
         contentData.tmdbId,
         isTV ? selectedSeason : undefined,
@@ -389,7 +390,6 @@ export function ContentModal({
         undefined,
         contentData.type
       );
-      onClose();
     }
   };
 

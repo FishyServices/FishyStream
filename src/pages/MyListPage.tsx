@@ -674,7 +674,16 @@ export function MyListPage() {
                                   variant="ghost"
                                   className="h-8 w-8 rounded-md bg-white text-black shadow-sm hover:bg-white/90"
                                   aria-label={`Play ${item.title}`}
-                                  onClick={() => handlePlay(item.tmdbId!)}
+                                  onClick={() =>
+                                    handlePlay(
+                                      item.tmdbId!,
+                                      item.type === "tv" ? 1 : undefined,
+                                      item.type === "tv" ? 1 : undefined,
+                                      undefined,
+                                      undefined,
+                                      item.type
+                                    )
+                                  }
                                 >
                                   <Play className="h-3.5 w-3.5 fill-black text-black shrink-0" />
                                 </Button>

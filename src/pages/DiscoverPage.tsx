@@ -344,7 +344,7 @@ export function DiscoverContentMode({
   return (
     <>
       <div className="relative z-20 px-4 pb-6 pt-2 md:px-10">
-        <div className="mx-auto flex max-w-screen-xl justify-center">
+        <div className="mx-auto flex max-w-7xl justify-center">
           <div className="flex gap-3 rounded-full border border-white/10 bg-background/86 p-1.5 shadow-2xl shadow-black/40 backdrop-blur-md">
             {tabs.map((item) => (
               <Button
