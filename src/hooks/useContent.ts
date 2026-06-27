@@ -94,7 +94,7 @@ function getApiKey(): string {
   return (import.meta.env.VITE_TMDB_KEY as string | undefined) ?? TMDB_API_KEY;
 }
 
-// ─── Homepage ─────────────────────────────────────────────────────────────────
+/* ─── Homepage ───────────────────────────────────────────────────────────────── */
 
 export function useHomepageContent() {
   const [homepage, setHomepage] = useState<
@@ -184,7 +184,7 @@ export function useHomepageContent() {
   return homepage;
 }
 
-// ─── New releases ─────────────────────────────────────────────────────────────
+/* ─── New releases ───────────────────────────────────────────────────────────── */
 
 export function useNewReleases() {
   const [newReleases, setNewReleases] = useState<ContentCard[] | undefined>(undefined);
@@ -353,7 +353,7 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
   return content;
 }
 
-// ─── Related / Credits / Videos ──────────────────────────────────────────────
+/* ─── Related / Credits / Videos ────────────────────────────────────────────── */
 
 export function useRelatedContent(
   tmdbId: number | undefined,
@@ -458,7 +458,7 @@ export function useContentVideos(
   return { videos, isLoading };
 }
 
-// ─── Search ───────────────────────────────────────────────────────────────────
+/* ─── Search ─────────────────────────────────────────────────────────────────── */
 
 export function useSearchAll(query: string) {
   const [results, setResults] = useState<TMDBItem[]>([]);
@@ -496,7 +496,7 @@ export function useSearchAll(query: string) {
   return { results, loading, error };
 }
 
-// ─── Browse ───────────────────────────────────────────────────────────────────
+/* ─── Browse ─────────────────────────────────────────────────────────────────── */
 
 export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
 
@@ -559,14 +559,20 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
 
   return useMemo(() => {
     const tmdbSeeds: TMDBRecommendationSeed[] = [];
+    const seedWeights = new Map<string, number>();
     const typeCounts = new Map<"movie" | "tv", number>();
     const genreCounts = new Map<string, number>();
 
     const processItem = (
       item: { tmdbId?: string; type: "movie" | "tv"; genre?: string[] },
-      weight = 1
+      weight = 1,
+      decay = 1
     ) => {
       if (!item.tmdbId) return;
+      const finalWeight = weight * decay;
+
+      const key = `${item.type}:${item.tmdbId}`;
+      seedWeights.set(key, (seedWeights.get(key) ?? 0) + finalWeight);
 
       const seedExists = tmdbSeeds.some((s) => s.tmdbId === item.tmdbId && s.type === item.type);
       if (!seedExists) {
@@ -577,31 +583,37 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
         });
       }
 
-      typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + weight);
+      typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + finalWeight);
       if (item.genre) {
         for (const g of item.genre) {
-          genreCounts.set(g, (genreCounts.get(g) ?? 0) + weight);
+          genreCounts.set(g, (genreCounts.get(g) ?? 0) + finalWeight);
         }
       }
     };
 
     if (continueWatching) {
-      for (const item of continueWatching) {
-        processItem(item, 3);
-      }
+      continueWatching.forEach((item, index) => {
+        processItem(item, 1, Math.max(0.5, 1 - index * 0.05));
+      });
     }
 
     if (watchlist) {
-      for (const item of watchlist) {
-        processItem(item, 2);
-      }
+      watchlist.forEach((item, index) => {
+        processItem(item, 7, Math.max(0.3, 1 - index * 0.02));
+      });
     }
 
     if (watchHistory) {
-      for (const item of watchHistory) {
-        processItem(item, 1);
-      }
+      watchHistory.forEach((item, index) => {
+        processItem(item, 1, Math.max(0.1, 1 - index * 0.01));
+      });
     }
+
+    tmdbSeeds.sort((a, b) => {
+      const wa = seedWeights.get(`${a.type}:${a.tmdbId}`) ?? 0;
+      const wb = seedWeights.get(`${b.type}:${b.tmdbId}`) ?? 0;
+      return wb - wa;
+    });
 
     const preferredType =
       Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "movie";
@@ -617,6 +629,38 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
       genres
     };
   }, [watchlist, watchHistory, continueWatching]);
+}
+
+const REC_CACHE_KEY = "fishy_recs_cache_v1";
+
+interface RecCacheEntry {
+  timestamp: number;
+  cards: ContentCard[];
+}
+
+interface RecCache {
+  [seedKey: string]: RecCacheEntry;
+}
+
+function loadRecCache(): RecCache {
+  try {
+    const raw = localStorage.getItem(REC_CACHE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {};
+}
+
+function saveRecCache(cache: RecCache) {
+  try {
+    const keys = Object.keys(cache).sort((a, b) => cache[b]!.timestamp - cache[a]!.timestamp);
+    if (keys.length > 50) {
+      const toDelete = keys.slice(50);
+      for (const k of toDelete) {
+        delete cache[k];
+      }
+    }
+    localStorage.setItem(REC_CACHE_KEY, JSON.stringify(cache));
+  } catch {}
 }
 
 export function useRecommendations(
@@ -649,74 +693,70 @@ export function useRecommendations(
     const controller = new AbortController();
     const apiKey = getApiKey();
     const excludedIds = new Set(activeSeed?.tmdbSeeds?.map((s) => `${s.type}:${s.tmdbId}`));
-    const genreIds = Array.from(
-      new Set(
-        (activeSeed?.genres ?? [])
-          .map((g) => TMDB_DISCOVER_GENRES[g.trim().toLowerCase()])
-          .filter((id): id is number => typeof id === "number")
-      )
-    ).slice(0, 3);
-    const seedItems = shuffleWithSeed(activeSeed?.tmdbSeeds ?? [], refreshSeed)
-      .filter((s) => typeFilter === "all" || s.type === typeFilter)
-      .slice(0, 5);
+
+    const allSeeds =
+      activeSeed?.tmdbSeeds?.filter((s) => typeFilter === "all" || s.type === typeFilter) ?? [];
+
+    const topSeeds = allSeeds.slice(0, 30);
+    const shuffledTopSeeds = shuffleWithSeed(topSeeds, refreshSeed);
+    const seedItemsToFetch = shuffledTopSeeds.slice(0, 10);
 
     const collect = (responses: Array<{ data: TMDBBrowseListResponse; type?: TMDBMediaType }>) =>
       collectTmdbCards(responses, { excludedIds, typeFilter }).map(tmdbCardToContentCard);
 
-    const fallbackTypes: TMDBMediaType[] =
-      typeFilter === "all" ? [activeSeed?.preferredType ?? "movie", "tv", "movie"] : [typeFilter];
-
     async function load() {
       setIsLoading(true);
       try {
-        const recResponses = seedItems.length
-          ? await Promise.all(
-              seedItems.flatMap((s) => [
-                fetchTmdbListOrEmpty(
-                  `/${s.type}/${s.tmdbId}/recommendations`,
-                  apiKey,
-                  controller.signal,
-                  { page: 1 }
-                ).then((data) => ({ data, type: s.type })),
-                fetchTmdbListOrEmpty(`/${s.type}/${s.tmdbId}/similar`, apiKey, controller.signal, {
-                  page: 1
-                }).then((data) => ({ data, type: s.type }))
-              ])
-            )
-          : [];
+        const cache = loadRecCache();
+        const now = Date.now();
+        const cachedCards: ContentCard[] = [];
+        const missingSeeds: TMDBRecommendationSeed[] = [];
 
-        let cards = collect(recResponses);
-
-        if (cards.length < limit && genreIds.length) {
-          const genreResponses = await Promise.all(
-            fallbackTypes.map((t) =>
-              fetchTmdbListOrEmpty(`/discover/${t}`, apiKey, controller.signal, {
-                page: (refreshSeed % 5) + 1,
-                sort_by: "popularity.desc",
-                with_genres: genreIds.join("|")
-              }).then((data) => ({ data, type: t }))
-            )
-          );
-          cards = [...cards, ...collect(genreResponses)];
+        for (const s of topSeeds) {
+          const key = `${s.type}:${s.tmdbId}`;
+          const entry = cache[key];
+          if (entry) {
+            cachedCards.push(...entry.cards);
+          } else {
+            if (seedItemsToFetch.some((f) => f.tmdbId === s.tmdbId && f.type === s.type)) {
+              missingSeeds.push(s);
+            }
+          }
         }
 
-        if (cards.length < limit) {
-          const trendingResponses = await Promise.all(
-            (typeFilter === "all" ? ([undefined] as const) : ([typeFilter] as const)).map((t) =>
+        let newCards: ContentCard[] = [];
+
+        if (missingSeeds.length > 0) {
+          const recResponses = await Promise.all(
+            missingSeeds.flatMap((s) => [
               fetchTmdbListOrEmpty(
-                t ? `/trending/${t}/week` : "/trending/all/week",
+                `/${s.type}/${s.tmdbId}/recommendations`,
                 apiKey,
                 controller.signal,
-                { page: (refreshSeed % 5) + 1 }
-              ).then((data) => ({ data, type: t }))
-            )
+                { page: 1 }
+              ).then((data) => ({ data, type: s.type })),
+              fetchTmdbListOrEmpty(`/${s.type}/${s.tmdbId}/similar`, apiKey, controller.signal, {
+                page: 1
+              }).then((data) => ({ data, type: s.type }))
+            ])
           );
-          cards = [...cards, ...collect(trendingResponses)];
+
+          for (let i = 0; i < missingSeeds.length; i++) {
+            const s = missingSeeds[i]!;
+            const seedResponses = [recResponses[i * 2]!, recResponses[i * 2 + 1]!];
+            const cardsForSeed = collect(seedResponses);
+            cache[`${s.type}:${s.tmdbId}`] = { timestamp: now, cards: cardsForSeed };
+            newCards.push(...cardsForSeed);
+          }
+
+          saveRecCache(cache);
         }
+
+        const allCards = [...cachedCards, ...newCards];
 
         if (!controller.signal.aborted) {
           const deduped = Array.from(
-            new Map(cards.map((c) => [`${c.type}:${c.tmdbId}`, c])).values()
+            new Map(allCards.map((c) => [`${c.type}:${c.tmdbId}`, c])).values()
           );
           setRecommendations(shuffleWithSeed(deduped, refreshSeed).slice(0, limit));
         }
