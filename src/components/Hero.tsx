@@ -15,18 +15,12 @@ import { ContentModal } from "./ContentModal";
 import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
 import { toast } from "@fishy/ui";
+import type { PlayHandler } from "@/lib/watchNavigation";
 import type { ContentFeatured } from "../../shared/contentMetadata";
 
 interface HeroProps {
   contents: ContentFeatured[];
-  onPlay?: (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: "movie" | "tv"
-  ) => void;
+  onPlay?: PlayHandler;
   autoPlayTrailer?: boolean;
   trailerMuted?: boolean;
 }

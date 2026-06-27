@@ -6,6 +6,7 @@ import { EmptyState, FilterBar, GridSkeleton, PageHeader } from "@/components/UX
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { usePaginatedContent, type ContentSort } from "@/hooks/useContent";
 import { MOVIE_SORT_OPTIONS } from "@/lib/appSettings";
+import { parsePageParam, parseSortParam, updateBrowseParams } from "@/lib/browseNavigation";
 import { createPlayHandler } from "@/lib/watchNavigation";
 import { Button, Select, SelectContent, SelectItem, SelectTrigger } from "@fishy/ui";
 
@@ -26,22 +27,13 @@ const GENRES = [
 ];
 const VALID_SORTS = new Set<ContentSort>(MOVIE_SORT_OPTIONS.map((sort) => sort.value));
 
-function parsePageParam(value: string | null) {
-  const page = Number(value);
-  return Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
-}
-
 export function MoviesPage() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
   const [searchParams, setSearchParams] = useSearchParams();
   const genre = searchParams.get("genre") ?? "All";
   const page = parsePageParam(searchParams.get("page"));
-  const sortParam = searchParams.get("sort");
-  const sort: ContentSort =
-    sortParam && VALID_SORTS.has(sortParam as ContentSort)
-      ? (sortParam as ContentSort)
-      : settings.defaultMovieSort;
+  const sort = parseSortParam(searchParams.get("sort"), VALID_SORTS, settings.defaultMovieSort);
   const sortLabel = MOVIE_SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort";
   const paginated = usePaginatedContent(
     "movie",
@@ -53,29 +45,6 @@ export function MoviesPage() {
   const movies = paginated.items;
 
   const handlePlay = createPlayHandler(navigate, "movie");
-
-  const updateBrowseParams = (updates: { sort?: string; genre?: string; page?: number }) => {
-    setSearchParams((p) => {
-      if (updates.sort !== undefined) {
-        p.set("sort", updates.sort);
-      }
-      if (updates.genre !== undefined) {
-        if (updates.genre === "All") {
-          p.delete("genre");
-        } else {
-          p.set("genre", updates.genre);
-        }
-      }
-      if (updates.page !== undefined) {
-        if (updates.page <= 1) {
-          p.delete("page");
-        } else {
-          p.set("page", String(updates.page));
-        }
-      }
-      return p;
-    });
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,7 +58,7 @@ export function MoviesPage() {
               value={sort}
               onValueChange={(value) => {
                 if (!value) return;
-                updateBrowseParams({ sort: value, page: 1 });
+                updateBrowseParams(setSearchParams, { sort: value, page: 1 });
               }}
             >
               <SelectTrigger className="flex items-center gap-2 rounded-lg border border-border bg-card/70 text-sm text-foreground/80">
@@ -115,7 +84,7 @@ export function MoviesPage() {
                 variant={genre === g ? "default" : "outline"}
                 size="sm"
                 className="shrink-0 rounded-md"
-                onClick={() => updateBrowseParams({ genre: g, page: 1 })}
+                onClick={() => updateBrowseParams(setSearchParams, { genre: g, page: 1 })}
               >
                 {g}
               </Button>
@@ -139,7 +108,7 @@ export function MoviesPage() {
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
               <Button
                 variant="outline"
-                onClick={() => updateBrowseParams({ page: page - 1 })}
+                onClick={() => updateBrowseParams(setSearchParams, { page: page - 1 })}
                 disabled={!paginated.canGoBack}
                 className="flex w-full items-center justify-center gap-2 rounded-md sm:w-auto"
                 aria-label="Previous page"
@@ -153,7 +122,7 @@ export function MoviesPage() {
               </span>
               <Button
                 variant="outline"
-                onClick={() => updateBrowseParams({ page: page + 1 })}
+                onClick={() => updateBrowseParams(setSearchParams, { page: page + 1 })}
                 disabled={!paginated.hasNextPage}
                 className="flex w-full items-center justify-center gap-2 rounded-md sm:w-auto"
                 aria-label="Next page"

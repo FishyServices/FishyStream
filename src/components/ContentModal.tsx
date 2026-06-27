@@ -37,6 +37,7 @@ import {
 } from "@/hooks/useContent";
 import type { TMDBItem } from "@/hooks/useContent";
 import { getCanonicalSeasonCount } from "@fishy/providers/tvSeasonMappings";
+import type { PlayHandler } from "@/lib/watchNavigation";
 import type { ContentDetail, ContentId, ContentType } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
@@ -77,14 +78,7 @@ interface ContentModalProps {
   onClose: () => void;
   initialTab?: "episodes" | "cast" | "videos" | "related";
   compactCopy?: boolean;
-  onPlay: (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: ContentType
-  ) => void;
+  onPlay: PlayHandler;
 }
 
 function hasFullContent(

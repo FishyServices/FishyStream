@@ -5,6 +5,7 @@ import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
 import { useUser } from "@clerk/react";
+import type { PlayHandler } from "@/lib/watchNavigation";
 import type { ContentCard, ContentId, ContentType } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
@@ -30,14 +31,7 @@ type CardLikeContent = {
 
 interface MovieCardProps {
   content: CardLikeContent;
-  onPlay?: (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: ContentType
-  ) => void;
+  onPlay?: PlayHandler;
   size?: "sm" | "md" | "lg";
   layout?: "rail" | "grid";
   suppressHoverEffects?: boolean;

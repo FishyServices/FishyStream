@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { MovieCard } from "./MovieCard";
-import type { ContentCard, ContentType } from "../../shared/contentMetadata";
+import type { PlayHandler } from "@/lib/watchNavigation";
+import type { ContentCard } from "../../shared/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -17,14 +18,7 @@ interface WatchHistoryFields {
 interface ContentRowProps {
   title: string;
   content: Array<ContentCard & WatchHistoryFields>;
-  onPlay?: (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: ContentType
-  ) => void;
+  onPlay?: PlayHandler;
   viewAllHref?: string;
   viewAllLabel?: string;
   density?: "compact" | "comfortable";
