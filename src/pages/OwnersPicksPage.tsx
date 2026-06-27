@@ -4,28 +4,13 @@ import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
 import { useCuratedPicks } from "@/hooks/useContent";
+import { createPlayHandler } from "@/lib/watchNavigation";
 
 export function OwnersPicksPage() {
   const navigate = useNavigate();
   const { movies, tv, anime, isLoading } = useCuratedPicks();
 
-  const handlePlay = (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: "movie" | "tv"
-  ) => {
-    const params = new URLSearchParams();
-    if (type) params.set("type", type);
-    if (season !== undefined) params.set("season", String(season));
-    if (episode !== undefined) params.set("episode", String(episode));
-    if (source) params.set("source", source);
-    if (dub) params.set("dub", "true");
-    const qs = params.toString();
-    navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
-  };
+  const handlePlay = createPlayHandler(navigate);
 
   if (isLoading) {
     return (

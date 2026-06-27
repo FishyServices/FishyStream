@@ -319,9 +319,7 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
 
   useEffect(() => {
     if (!effectiveData) return;
-    hydrateFromServerIds(
-      effectiveData.map((item) => ({ id: item._id, tmdbId: item.tmdbId }))
-    );
+    hydrateFromServerIds(effectiveData.map((item) => ({ id: item._id, tmdbId: item.tmdbId })));
   }, [effectiveData, hydrateFromServerIds]);
 
   return effectiveData;

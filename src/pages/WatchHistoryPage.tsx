@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
 import { useMyWatchHistory, useRemoveFromHistory } from "@/hooks/useWatchHistory";
+import { createPlayHandler } from "@/lib/watchNavigation";
 import { useUser } from "@clerk/react";
 import { Button, toast } from "@fishy/ui";
 
@@ -19,23 +20,7 @@ export function WatchHistoryPage() {
     setHistory(historyData);
   }, [historyData]);
 
-  const handlePlay = (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: "movie" | "tv"
-  ) => {
-    const params = new URLSearchParams();
-    if (type) params.set("type", type);
-    if (season !== undefined) params.set("season", String(season));
-    if (episode !== undefined) params.set("episode", String(episode));
-    if (source) params.set("source", source);
-    if (dub) params.set("dub", "true");
-    const qs = params.toString();
-    navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
-  };
+  const handlePlay = createPlayHandler(navigate);
 
   const handleRemove = async (contentId: string) => {
     try {

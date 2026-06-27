@@ -8,6 +8,7 @@ import { RailSkeleton } from "@/components/UXPrimitives";
 import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
+import { createPlayHandler, type PlayHandler } from "@/lib/watchNavigation";
 import { Film, Loader2, Search } from "lucide-react";
 import { Button, Input, Toaster } from "@fishy/ui";
 import { useState, type FormEvent } from "react";
@@ -19,23 +20,7 @@ export function App() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
 
-  const handlePlay = (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: "movie" | "tv"
-  ) => {
-    const params = new URLSearchParams();
-    if (type) params.set("type", type);
-    if (season !== undefined) params.set("season", String(season));
-    if (episode !== undefined) params.set("episode", String(episode));
-    if (source) params.set("source", source);
-    if (dub) params.set("dub", "true");
-    const qs = params.toString();
-    navigate(`/watch/${tmdbId}${qs ? `?${qs}` : ""}`);
-  };
+  const handlePlay = createPlayHandler(navigate);
 
   if (!isLoaded || isConvexAuthLoading) {
     return (
@@ -63,14 +48,7 @@ function HomepageContent({
   isSignedIn,
   settings
 }: {
-  handlePlay: (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: "movie" | "tv"
-  ) => void;
+  handlePlay: PlayHandler;
   isSignedIn: boolean | undefined;
   settings: ReturnType<typeof useAppSettings>["settings"];
 }) {

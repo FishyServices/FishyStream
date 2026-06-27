@@ -6,6 +6,7 @@ import { EmptyState, FilterBar, GridSkeleton, PageHeader } from "@/components/UX
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { usePaginatedContent, type ContentSort } from "@/hooks/useContent";
 import { MOVIE_SORT_OPTIONS } from "@/lib/appSettings";
+import { createPlayHandler } from "@/lib/watchNavigation";
 import { Button, Select, SelectContent, SelectItem, SelectTrigger } from "@fishy/ui";
 
 const GENRES = [
@@ -51,7 +52,7 @@ export function MoviesPage() {
   );
   const movies = paginated.items;
 
-  const handlePlay = (tmdbId: string) => navigate(`/watch/${tmdbId}?type=movie`);
+  const handlePlay = createPlayHandler(navigate, "movie");
 
   const updateBrowseParams = (updates: { sort?: string; genre?: string; page?: number }) => {
     setSearchParams((p) => {

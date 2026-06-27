@@ -5,4 +5,3 @@ describe("watch progress", () => {
     expect(true).toBe(true);
   });
 });
-

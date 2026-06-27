@@ -44,6 +44,7 @@ import {
   shouldStorePlaybackProgressSample,
   WATCH_PROGRESS_STATUS_POLL_MS
 } from "@fishy/providers/providerPlayback";
+import { buildWatchPath } from "@/lib/watchNavigation";
 import type { ContentPlayback } from "../../shared/contentMetadata";
 import type { PlaybackProgressSample } from "@fishy/providers/providerPlayback";
 import { usePlaybackSession, type PlaybackSeasonMeta } from "@/playback/usePlaybackSession";
@@ -785,14 +786,16 @@ export function VideoPlayer({
         onClose={() => setShowInfoModal(false)}
         onPlay={(_tmdbId, season, episode, source, dub, type) => {
           setShowInfoModal(false);
-          const params = new URLSearchParams();
-          params.set("type", type ?? content.type);
-          if (season !== undefined) params.set("season", String(season));
-          if (episode !== undefined) params.set("episode", String(episode));
           const nextSource = source ?? searchParams.get("source");
-          if (nextSource) params.set("source", nextSource);
-          if (dub ?? isDub) params.set("dub", "true");
-          navigate({ search: params.toString() }, { replace: true });
+          const path = buildWatchPath({
+            tmdbId: content.tmdbId ?? _tmdbId,
+            type: type ?? content.type,
+            season,
+            episode,
+            source: nextSource ?? undefined,
+            dub: dub ?? isDub
+          });
+          navigate({ search: path.split("?")[1] ?? "" }, { replace: true });
         }}
       />
     </div>

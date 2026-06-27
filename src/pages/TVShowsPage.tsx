@@ -6,6 +6,7 @@ import { EmptyState, FilterBar, GridSkeleton, PageHeader } from "@/components/UX
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { usePaginatedContent, type ContentSort } from "@/hooks/useContent";
 import { TV_SORT_OPTIONS } from "@/lib/appSettings";
+import { createPlayHandler } from "@/lib/watchNavigation";
 import { Button, Select, SelectContent, SelectItem, SelectTrigger } from "@fishy/ui";
 
 const GENRES = [
@@ -41,21 +42,7 @@ export function TVShowsPage() {
   const sortLabel = TV_SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort";
   const paginated = usePaginatedContent("tv", genre !== "All" ? genre : undefined, sort, 12, page);
   const shows = paginated.items;
-  const handlePlay = (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean
-  ) => {
-    const p = new URLSearchParams();
-    p.set("type", "tv");
-    if (season !== undefined) p.set("season", String(season));
-    if (episode !== undefined) p.set("episode", String(episode));
-    if (source) p.set("source", source);
-    if (dub) p.set("dub", "true");
-    navigate(`/watch/${tmdbId}${p.toString() ? "?" + p : ""}`);
-  };
+  const handlePlay = createPlayHandler(navigate, "tv");
 
   const updateBrowseParams = (updates: { sort?: string; genre?: string; page?: number }) => {
     setSearchParams((p) => {

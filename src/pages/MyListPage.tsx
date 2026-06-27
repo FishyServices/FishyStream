@@ -21,6 +21,7 @@ import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives"
 import { useMyWatchlist, useUpdateWatchlistFolder } from "@/hooks/useWatchlist";
 import { useUser } from "@clerk/react";
 import { useRecommendations } from "@/hooks/useContent";
+import { createPlayHandler } from "@/lib/watchNavigation";
 import {
   Button,
   Dialog,
@@ -185,22 +186,7 @@ export function MyListPage() {
     }
   }, [customFolderKey]);
 
-  const handlePlay = (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: "movie" | "tv"
-  ) => {
-    const params = new URLSearchParams();
-    params.set("type", type ?? "movie");
-    if (season !== undefined) params.set("season", String(season));
-    if (episode !== undefined) params.set("episode", String(episode));
-    if (source) params.set("source", source);
-    if (dub) params.set("dub", "true");
-    navigate(`/watch/${tmdbId}?${params}`);
-  };
+  const handlePlay = createPlayHandler(navigate, "movie");
 
   const handleRefresh = () => {
     setRefreshSeed((prev) => prev + 1);

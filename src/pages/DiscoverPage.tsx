@@ -5,8 +5,9 @@ import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { GridSkeleton } from "@/components/UXPrimitives";
 import { useHomepageContent, usePaginatedContent } from "@/hooks/useContent";
+import { createPlayHandler, type PlayHandler } from "@/lib/watchNavigation";
 import { Button } from "@fishy/ui";
-import type { ContentCard, ContentFeatured, ContentType } from "../../shared/contentMetadata";
+import type { ContentCard, ContentFeatured } from "../../shared/contentMetadata";
 
 type DiscoverTab = "movies" | "tv";
 
@@ -20,38 +21,13 @@ function parseTab(value: string | null): DiscoverTab {
   return "movies";
 }
 
-function buildWatchUrl(
-  tmdbId: string,
-  season?: number,
-  episode?: number,
-  source?: string,
-  dub?: boolean,
-  type?: ContentType
-) {
-  const params = new URLSearchParams();
-  if (type) params.set("type", type);
-  if (season !== undefined) params.set("season", String(season));
-  if (episode !== undefined) params.set("episode", String(episode));
-  if (source) params.set("source", source);
-  if (dub) params.set("dub", "true");
-  const qs = params.toString();
-  return `/watch/${tmdbId}${qs ? `?${qs}` : ""}`;
-}
-
 function FeaturedDiscoverCarousel({
   items,
   onPlay,
   onDetails
 }: {
   items: ContentFeatured[];
-  onPlay: (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: ContentType
-  ) => void;
+  onPlay: PlayHandler;
   onDetails: (item: ContentFeatured) => void;
 }) {
   const [index, setIndex] = useState(0);
@@ -200,14 +176,7 @@ function DiscoverRail({
 }: {
   title: string;
   items: ContentCard[];
-  onPlay: (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: ContentType
-  ) => void;
+  onPlay: PlayHandler;
 }) {
   if (items.length === 0) return null;
 
@@ -225,20 +194,7 @@ function DiscoverRail({
   );
 }
 
-function MediaDiscoverContent({
-  type,
-  onPlay
-}: {
-  type: "movie" | "tv";
-  onPlay: (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: ContentType
-  ) => void;
-}) {
+function MediaDiscoverContent({ type, onPlay }: { type: "movie" | "tv"; onPlay: PlayHandler }) {
   const trending = usePaginatedContent(type, undefined, "trending", 20, 1);
   const popular = usePaginatedContent(type, undefined, "popular", 20, 1);
   const latest = usePaginatedContent(type, undefined, "new", 20, 1);
@@ -318,18 +274,7 @@ function ScrollToTopButton() {
   );
 }
 
-export function DiscoverContentMode({
-  onPlay
-}: {
-  onPlay: (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: ContentType
-  ) => void;
-}) {
+export function DiscoverContentMode({ onPlay }: { onPlay: PlayHandler }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = parseTab(searchParams.get("tab"));
 
@@ -384,14 +329,7 @@ export function DiscoverPage() {
   const homepage = useHomepageContent();
   const featured = useMemo(() => homepage?.featured ?? [], [homepage?.featured]);
 
-  const handlePlay = (
-    tmdbId: string,
-    season?: number,
-    episode?: number,
-    source?: string,
-    dub?: boolean,
-    type?: ContentType
-  ) => navigate(buildWatchUrl(tmdbId, season, episode, source, dub, type));
+  const handlePlay = createPlayHandler(navigate);
 
   const handleDetails = (item: ContentFeatured) => {
     const params = new URLSearchParams(searchParams);
