@@ -534,7 +534,7 @@ function dedupeSources(sources: StreamSource[]) {
 export function buildMovieSources(args: { imdbId?: string; tmdbId?: string }): StreamSource[] {
   const { imdbId, tmdbId } = args;
   const sources = STREAM_PROVIDERS.flatMap((provider) => {
-    if (provider.animeOnly) return [];
+    //if (provider.animeOnly) return [];
 
     const id = getProviderId(provider, imdbId, tmdbId);
     if (!id) return [];
@@ -585,7 +585,7 @@ export async function buildTvSources(args: {
 
   const sources: StreamSource[] = [];
   for (const provider of STREAM_PROVIDERS) {
-    if (provider.animeOnly && !isAnime) continue;
+    //if (provider.animeOnly && !isAnime) continue;
 
     const fallbackId = getProviderId(provider, imdbId, tmdbId);
     let animeId = fallbackId;
