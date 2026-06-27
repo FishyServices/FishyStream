@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 import { Trash2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
@@ -12,6 +13,13 @@ import { Button, toast } from "@fishy/ui";
 export function WatchHistoryPage() {
   const navigate = useNavigate();
   const { isSignedIn } = useUser();
+
+  useSeoMeta({
+    title: "Watch History",
+    description: "Your personal watch history on FishyStream. Pick up right where you left off.",
+    path: "/history",
+    noIndex: true
+  });
   const historyData = useMyWatchHistory();
   const [history, setHistory] = useState<typeof historyData>(undefined);
   const removeFromHistory = useRemoveFromHistory();

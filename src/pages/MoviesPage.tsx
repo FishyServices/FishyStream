@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Film, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { EmptyState, FilterBar, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
@@ -31,6 +32,13 @@ export function MoviesPage() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  useSeoMeta({
+    title: "Movies",
+    description:
+      "Browse and stream movies online on FishyStream. Find action, comedy, drama, horror, sci-fi, and more.",
+    path: "/movies"
+  });
   const genre = searchParams.get("genre") ?? "All";
   const page = parsePageParam(searchParams.get("page"));
   const sort = parseSortParam(searchParams.get("sort"), VALID_SORTS, settings.defaultMovieSort);

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 import {
   Sparkles,
   RefreshCw,
@@ -45,6 +46,13 @@ import type { ContentId } from "../../shared/contentMetadata";
 export function MyListPage() {
   const navigate = useNavigate();
   const { isSignedIn, user } = useUser();
+
+  useSeoMeta({
+    title: "My List",
+    description: "Your personal watchlist on FishyStream. Save movies and TV shows to watch later.",
+    path: "/my-list",
+    noIndex: true
+  });
   const customFolderKey = `watchlist_custom_folders_${user?.id ?? "guest"}`;
   const watchlistData = useMyWatchlist();
   const [watchlist, setWatchlist] = useState<typeof watchlistData>(undefined);

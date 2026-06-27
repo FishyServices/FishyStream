@@ -3,23 +3,64 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Your personal streaming hub. Watch what you love, everywhere."
-    />
+
+    <!-- Google Search Console Verification -->
+    <meta name="google-site-verification" content="jKglyA30QnuhF8JZNHzHBRf4KxhBgBLG49U39BY5px8" />
+
+    <!-- Primary SEO -->
+    <title>FishyStream — Your Personal Streaming Hub</title>
+    <meta name="description" content="Watch movies and TV shows online with FishyStream. Your personal streaming hub — stream what you love, everywhere, on any device." />
+    <meta name="keywords" content="streaming, watch movies online, watch TV shows, stream free, FishyStream, online video" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://master.fishystream-app.pages.dev/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://master.fishystream-app.pages.dev/" />
+    <meta property="og:site_name" content="FishyStream" />
+    <meta property="og:title" content="FishyStream — Your Personal Streaming Hub" />
+    <meta property="og:description" content="Watch movies and TV shows online with FishyStream. Stream what you love, everywhere, on any device." />
+    <meta property="og:image" content="https://master.fishystream-app.pages.dev/icons/pwa-512x512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="FishyStream — Your Personal Streaming Hub" />
+    <meta name="twitter:description" content="Watch movies and TV shows online with FishyStream. Stream what you love, everywhere, on any device." />
+    <meta name="twitter:image" content="https://master.fishystream-app.pages.dev/icons/pwa-512x512.png" />
+
+    <!-- PWA / Mobile -->
     <meta name="theme-color" content="#0a0a12" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FishyStream" />
-    <meta property="og:title" content="FishyStream" />
-    <meta
-      property="og:description"
-      content="Your personal streaming hub. Watch what you love, everywhere."
-    />
-    <meta property="og:type" content="website" />
+
+    <!-- Icons -->
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <title>FishyStream</title>
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "FishyStream",
+      "url": "https://master.fishystream-app.pages.dev/",
+      "description": "Your personal streaming hub. Watch movies and TV shows online, everywhere.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://master.fishystream-app.pages.dev/search?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
   </head>
   <body style="background-color: #0a0a12; color: #ffffff; margin: 0;">
     <noscript>
@@ -36,7 +77,7 @@
           justify-content: center;
         "
       >
-        requires JavaScript to run. Please enable it in your browser settings.
+        FishyStream requires JavaScript to run. Please enable it in your browser settings.
       </div>
     </noscript>
     <div id="root"></div>

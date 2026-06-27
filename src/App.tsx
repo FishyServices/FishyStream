@@ -9,16 +9,23 @@ import { useHomepageContent, useRecommendations } from "@/hooks/useContent";
 import { useContinueWatching } from "@/hooks/useWatchHistory";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { createPlayHandler, type PlayHandler } from "@/lib/watchNavigation";
-import { Film, Loader2, Search } from "lucide-react";
-import { Button, Input, Toaster } from "@fishy/ui";
-import { useState, type FormEvent } from "react";
+import { Film, Loader2 } from "lucide-react";
+import { Button, Toaster } from "@fishy/ui";
 import { DiscoverContentMode } from "@/pages/DiscoverPage";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 
 export function App() {
   const { isLoaded, isSignedIn } = useUser();
   const { isLoading: isConvexAuthLoading } = useConvexAuth();
   const navigate = useNavigate();
   const { settings } = useAppSettings();
+
+  useSeoMeta({
+    title: "Watch Movies & TV Shows Online",
+    description:
+      "FishyStream is your personal streaming hub. Watch the latest movies and TV shows online, on any device, everywhere.",
+    path: "/"
+  });
 
   const handlePlay = createPlayHandler(navigate);
 
@@ -60,14 +67,7 @@ function HomepageContent({
   const continueWatching =
     useContinueWatching(!!isSignedIn && settings.showContinueWatchingRow, 6) ?? [];
   const { recommendations } = useRecommendations(8, "all", 0, !!isSignedIn);
-  const [quickSearch, setQuickSearch] = useState("");
   const isDiscoverMode = location.pathname === "/discover";
-
-  const submitQuickSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const query = quickSearch.trim();
-    if (query) navigate(`/search?q=${encodeURIComponent(query)}`);
-  };
 
   if (homepage === undefined) {
     return (

@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Film, Tv, Star } from "lucide-react";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
@@ -9,6 +10,13 @@ import { createPlayHandler } from "@/lib/watchNavigation";
 export function OwnersPicksPage() {
   const navigate = useNavigate();
   const { movies, tv, anime, isLoading } = useCuratedPicks();
+
+  useSeoMeta({
+    title: "Best Picks",
+    description:
+      "Hand-picked movies and TV shows curated by the FishyStream team. Find the best content to watch right now.",
+    path: "/best"
+  });
 
   const handlePlay = createPlayHandler(navigate);
 

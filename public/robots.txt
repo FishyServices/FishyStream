@@ -1,3 +1,11 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /my-list
+Disallow: /history
+Disallow: /settings
+Disallow: /watch/
+Allow: /
+
+Sitemap: https://master.fishystream-app.pages.dev/sitemap.xml

@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Tv2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { EmptyState, FilterBar, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
@@ -28,6 +29,13 @@ export function TVShowsPage() {
   const navigate = useNavigate();
   const { settings } = useAppSettings();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  useSeoMeta({
+    title: "TV Shows",
+    description:
+      "Browse and stream TV shows online on FishyStream. Find dramas, comedies, sci-fi, animation, and more.",
+    path: "/tv-shows"
+  });
   const genre = searchParams.get("genre") ?? "All";
   const page = parsePageParam(searchParams.get("page"));
   const sort = parseSortParam(searchParams.get("sort"), VALID_SORTS, settings.defaultTVSort);

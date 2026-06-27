@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 import { usePostHog } from "@posthog/react";
 import { Filter, Search, X, Tv, Film } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -45,6 +46,13 @@ function sortSearchResults(items: TMDBItem[], sort: SearchSort) {
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const posthog = usePostHog();
+
+  useSeoMeta({
+    title: "Search",
+    description:
+      "Search for movies and TV shows on FishyStream. Find your next favourite thing to watch.",
+    path: "/search"
+  });
   const lastTrackedSearchRef = useRef<string | null>(null);
   const query = searchParams.get("q") ?? "";
   const typeParam = searchParams.get("type");
