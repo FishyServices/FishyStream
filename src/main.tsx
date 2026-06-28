@@ -108,26 +108,27 @@ function AppShell() {
     <ConvexProviderWithAuth client={convex} useAuth={useStableConvexClerkAuth}>
       <AppSettingsProvider>
         <BrowserRouter>
-          <PostHogRouteTracker />
-          <PostHogUserIdentifier />
-          <Routes>
-            <Route path="/sign-in/*" element={<SignInPage />} />
-            <Route path="/sign-up/*" element={<SignUpPage />} />
-            <Route path="/watch/:id" element={<AppRouteProviders page={<WatchPage />} />} />
-            <Route path="/movies" element={<AppRouteProviders page={<MoviesPage />} />} />
-            <Route path="/tv-shows" element={<AppRouteProviders page={<TVShowsPage />} />} />
-            <Route path="/best" element={<AppRouteProviders page={<OwnersPicksPage />} />} />
-            <Route
-              path="/my-list"
-              element={<AppRouteProviders page={<MyListPage />} withProgress={false} />}
-            />
-            <Route path="/history" element={<AppRouteProviders page={<WatchHistoryPage />} />} />
-            <Route path="/search" element={<AppRouteProviders page={<SearchPage />} />} />
-            <Route path="/discover" element={<AppRouteProviders page={<App />} />} />
-            <Route path="/settings" element={<AppRouteProviders page={<SettingsPage />} />} />
-            <Route path="/" element={<AppRouteProviders page={<App />} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <GlobalWatchlistProvider>
+            <WatchProgressProvider>
+              <PostHogRouteTracker />
+              <PostHogUserIdentifier />
+              <Routes>
+                <Route path="/sign-in/*" element={<SignInPage />} />
+                <Route path="/sign-up/*" element={<SignUpPage />} />
+                <Route path="/watch/:id" element={<WatchPage />} />
+                <Route path="/movies" element={<MoviesPage />} />
+                <Route path="/tv-shows" element={<TVShowsPage />} />
+                <Route path="/best" element={<OwnersPicksPage />} />
+                <Route path="/my-list" element={<MyListPage />} />
+                <Route path="/history" element={<WatchHistoryPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/discover" element={<App />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/" element={<App />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </WatchProgressProvider>
+          </GlobalWatchlistProvider>
         </BrowserRouter>
       </AppSettingsProvider>
     </ConvexProviderWithAuth>
@@ -169,20 +170,6 @@ function PostHogUserIdentifier() {
   }, [isLoaded, isSignedIn, posthogClient, user]);
 
   return null;
-}
-
-function AppRouteProviders({
-  page,
-  withProgress = true
-}: {
-  page: ReactNode;
-  withProgress?: boolean;
-}) {
-  return (
-    <GlobalWatchlistProvider>
-      {withProgress ? <WatchProgressProvider>{page}</WatchProgressProvider> : page}
-    </GlobalWatchlistProvider>
-  );
 }
 
 createRoot(document.getElementById("root")!).render(

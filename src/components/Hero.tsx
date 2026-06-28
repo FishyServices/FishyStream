@@ -98,10 +98,6 @@ export function Hero({
   if (!activeContent) return null;
 
   const handleWatchlist = async () => {
-    if (!isSignedIn) {
-      toast.error("Sign in to save to your list");
-      return;
-    }
     try {
       const snapshot: WatchlistSnapshot = {
         title: activeContent.title,

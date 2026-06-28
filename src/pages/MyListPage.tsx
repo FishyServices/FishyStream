@@ -42,6 +42,7 @@ import {
   DropdownMenuItem
 } from "@fishy/ui";
 import type { ContentId } from "../../shared/contentMetadata";
+import { getCustomFolders, setCustomFolders as setLSCustomFolders } from "@/lib/localStorageStore";
 
 export function MyListPage() {
   const navigate = useNavigate();
@@ -62,12 +63,7 @@ export function MyListPage() {
   const [folderFilter, setFolderFilter] = useState("all");
   const [newFolderName, setNewFolderName] = useState("");
   const [customFolders, setCustomFolders] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem(`watchlist_custom_folders_guest`);
-      return raw ? (JSON.parse(raw) as string[]) : [];
-    } catch {
-      return [];
-    }
+    return getCustomFolders(user?.id ?? "guest");
   });
   const [draggedContentId, setDraggedContentId] = useState<ContentId | null>(null);
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<string | null>(null);
@@ -180,19 +176,12 @@ export function MyListPage() {
 
   const persistCustomFolders = (folders: string[]) => {
     setCustomFolders(folders);
-    try {
-      localStorage.setItem(customFolderKey, JSON.stringify(folders));
-    } catch {}
+    setLSCustomFolders(user?.id ?? "guest", folders);
   };
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(customFolderKey);
-      setCustomFolders(raw ? (JSON.parse(raw) as string[]) : []);
-    } catch {
-      setCustomFolders([]);
-    }
-  }, [customFolderKey]);
+    setCustomFolders(getCustomFolders(user?.id ?? "guest"));
+  }, [user?.id]);
 
   const handlePlay = createPlayHandler(navigate, "movie");
 
@@ -303,17 +292,6 @@ export function MyListPage() {
     await handleAssignFolder(draggedContentId, folderValue);
     setDraggedContentId(null);
   };
-
-  if (!isSignedIn) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="pt-24 flex items-center justify-center">
-          <EmptyState title="Sign in to view My List" />
-        </div>
-      </div>
-    );
-  }
 
   if (watchlist === undefined) {
     return (

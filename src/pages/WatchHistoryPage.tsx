@@ -42,17 +42,6 @@ export function WatchHistoryPage() {
     }
   };
 
-  if (!isSignedIn) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="pt-24 flex items-center justify-center">
-          <EmptyState title="Sign in to view history" />
-        </div>
-      </div>
-    );
-  }
-
   if (history === undefined) {
     return (
       <div className="min-h-screen bg-background">

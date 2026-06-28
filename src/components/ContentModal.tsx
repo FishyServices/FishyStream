@@ -352,10 +352,6 @@ export function ContentModal({
   const ratingLabel: string | undefined = detailContent?.rating;
 
   const handleWatchlist = async () => {
-    if (!isSignedIn) {
-      toast.error("Sign in first");
-      return;
-    }
     try {
       const snapshot: WatchlistSnapshot = {
         title: contentData.title,

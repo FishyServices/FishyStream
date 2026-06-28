@@ -18,47 +18,21 @@ import {
 } from "../../shared/contentMetadata";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
 
-const LS_KEY = "watchlist_ids";
-const LS_TMDB_KEY = "watchlist_tmdb_map";
+import {
+  getWatchlistIds,
+  setWatchlistIds,
+  getWatchlistTmdbMap,
+  setWatchlistTmdbMap,
+  getWatchlistSnapshots,
+  setWatchlistSnapshots,
+  type LocalContentSnapshot as WatchlistSnapshot
+} from "../lib/localStorageStore";
+
 const MY_LIST_LIMIT = 150;
 const WATCHLIST_GRID_CACHE_TTL_MS = 30_000;
 
 function watchlistGridCacheKey(userId: string) {
   return `watchlist_grid_v2_${userId}`;
-}
-
-function lsGet(): string[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function lsSet(ids: string[]) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(ids));
-  } catch {}
-}
-
-function lsTmdbGet(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(LS_TMDB_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function lsTmdbSet(map: Map<string, string>) {
-  try {
-    const obj: Record<string, string> = {};
-    map.forEach((v, k) => {
-      obj[k] = v;
-    });
-    localStorage.setItem(LS_TMDB_KEY, JSON.stringify(obj));
-  } catch {}
 }
 
 function readWatchlistGridCache(userId: string | undefined): WatchlistGridItem[] | undefined {
@@ -95,15 +69,7 @@ type WatchlistCtx = {
   hydrated: boolean;
 };
 
-export type WatchlistSnapshot = {
-  title: string;
-  type: ContentType;
-  posterUrl: string;
-  tmdbId: string;
-  genre?: string[];
-  year?: number;
-  voteAverage?: number;
-};
+export type { WatchlistSnapshot };
 
 const Ctx = createContext<WatchlistCtx | undefined>(undefined);
 
@@ -113,13 +79,13 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const { isLoading: isConvexAuthLoading } = useConvexAuth();
   const isMyListRoute = location.pathname === "/my-list";
 
-  const [ids, setIds] = useState<Set<string>>(() => new Set(lsGet()));
+  const [ids, setIds] = useState<Set<string>>(() => new Set(getWatchlistIds()));
   const [idToTmdbMap, setIdToTmdbMap] = useState<Map<string, string>>(() => {
-    const stored = lsTmdbGet();
+    const stored = getWatchlistTmdbMap();
     return new Map(Object.entries(stored));
   });
   const [tmdbIds, setTmdbIds] = useState<Set<string>>(() => {
-    const stored = lsTmdbGet();
+    const stored = getWatchlistTmdbMap();
     return new Set(Object.values(stored));
   });
   const [hydrated, setHydrated] = useState(() => !user);
@@ -138,8 +104,17 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
       const newIds = serverEntries.map((x) => x.id);
 
       setIds((prev) => {
+        let hasNew = false;
+        for (const id of newIds) {
+          if (!prev.has(id)) {
+            hasNew = true;
+            break;
+          }
+        }
+        if (!hasNew && prev.size === newIds.length) return prev;
+
         const merged = new Set([...prev, ...newIds]);
-        lsSet([...merged]);
+        setWatchlistIds([...merged]);
         return merged;
       });
       setIdToTmdbMap((prev) => {
@@ -149,11 +124,11 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
             next.set(item.id, item.tmdbId);
           }
         }
-        lsTmdbSet(next);
+        setWatchlistTmdbMap(next);
         return next;
       });
       setTmdbIds(() => {
-        const freshMap = lsTmdbGet();
+        const freshMap = getWatchlistTmdbMap();
         return new Set(Object.values(freshMap));
       });
     },
@@ -187,9 +162,18 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
       setIds((prev) => {
         const next = new Set(prev);
         adding ? next.add(id) : next.delete(id);
-        lsSet([...next]);
+        setWatchlistIds([...next]);
         return next;
       });
+
+      const currentSnapshots = getWatchlistSnapshots();
+      if (adding && snapshot) {
+        currentSnapshots[id] = snapshot;
+        setWatchlistSnapshots(currentSnapshots);
+      } else if (!adding) {
+        delete currentSnapshots[id];
+        setWatchlistSnapshots(currentSnapshots);
+      }
 
       if (tmdbId) {
         setTmdbIds((prev) => {
@@ -204,7 +188,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
           } else {
             next.delete(id);
           }
-          lsTmdbSet(next);
+          setWatchlistTmdbMap(next);
           return next;
         });
       }
@@ -225,7 +209,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
         setIds((prev) => {
           const next = new Set(prev);
           adding ? next.delete(id) : next.add(id);
-          lsSet([...next]);
+          setWatchlistIds([...next]);
           return next;
         });
         if (tmdbId) {
@@ -241,7 +225,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
             } else {
               next.set(id, tmdbId);
             }
-            lsTmdbSet(next);
+            setWatchlistTmdbMap(next);
             return next;
           });
         }
@@ -315,12 +299,43 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
     setCachedServerData(serverData);
   }, [serverData, user?.id]);
 
-  const effectiveData = serverData ?? cachedServerData;
+  const { set } = useWatchlistCtx();
+  const offlineData = useMemo(() => {
+    if (user || serverData !== undefined) return undefined;
+
+    const snapshots = getWatchlistSnapshots();
+    const items: WatchlistGridItem[] = Array.from(set)
+      .map((id) => {
+        const snap = snapshots[id];
+        if (snap) {
+          return {
+            _id: id as ContentId,
+            title: snap.title,
+            type: snap.type,
+            posterUrl: snap.posterUrl,
+            tmdbId: snap.tmdbId,
+            genre: snap.genre,
+            year: snap.year,
+            voteAverage: snap.voteAverage,
+            savedAt: Date.now()
+          };
+        }
+        return null;
+      })
+      .filter(Boolean) as WatchlistGridItem[];
+
+    return items.reverse();
+  }, [user, serverData, set]);
+
+  const effectiveData = serverData ?? cachedServerData ?? offlineData;
 
   useEffect(() => {
-    if (!effectiveData) return;
-    hydrateFromServerIds(effectiveData.map((item) => ({ id: item._id, tmdbId: item.tmdbId })));
-  }, [effectiveData, hydrateFromServerIds]);
+    if (serverData) {
+      hydrateFromServerIds(serverData.map((item) => ({ id: item._id, tmdbId: item.tmdbId })));
+    } else if (cachedServerData) {
+      hydrateFromServerIds(cachedServerData.map((item) => ({ id: item._id, tmdbId: item.tmdbId })));
+    }
+  }, [serverData, cachedServerData, hydrateFromServerIds]);
 
   return effectiveData;
 }

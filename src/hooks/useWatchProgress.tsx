@@ -13,54 +13,17 @@ import { api } from "../../convex/_generated/api";
 import type { ContentId, ContentType, WatchProgressEntryMeta } from "../../shared/contentMetadata";
 import { WATCH_PROGRESS_SYNC_INTERVAL_MS } from "@fishy/providers/providerPlayback";
 
-export interface ProgressState {
-  progress: number;
-  positionSeconds: number;
-  durationSeconds: number;
-  completed: boolean;
-  seasonNumber?: number;
-  episodeNumber?: number;
-  source?: string;
-  dub?: boolean;
-}
+import {
+  type ProgressState,
+  type StoredProgress,
+  type ProgressStore,
+  type LocalContentSnapshot as WatchProgressSnapshot,
+  getWatchProgressStore,
+  setWatchProgressStore
+} from "../lib/localStorageStore";
 
-interface StoredProgress extends ProgressState {
-  contentId: string;
-  clientUpdatedAt: number;
-  dirty: boolean;
-  syncedClientUpdatedAt?: number;
-  snapshot?: WatchProgressSnapshot;
-}
+export type { ProgressState, WatchProgressSnapshot };
 
-type ServerProgress = {
-  contentId: string;
-  progress: number;
-  positionSeconds: number;
-  durationSeconds: number;
-  completed: boolean;
-  seasonNumber?: number;
-  episodeNumber?: number;
-  source?: string;
-  dub?: boolean;
-  watchedAt: number;
-};
-
-type ProgressStore = {
-  version: 3;
-  entries: StoredProgress[];
-};
-
-export type WatchProgressSnapshot = {
-  title: string;
-  type: ContentType;
-  posterUrl: string;
-  tmdbId: string;
-  genre?: string[];
-  year?: number;
-  voteAverage?: number;
-};
-
-const LS_KEY = "watch_progress_v3";
 const MAX_ENTRIES = 150;
 const FIRST_SYNC_POSITION_SECONDS = 30;
 const MIN_PROGRESS_DELTA_TO_SYNC = 5;
@@ -97,9 +60,25 @@ function toProgressState(entry: StoredProgress | ServerProgress): ProgressState 
     seasonNumber: entry.seasonNumber ?? undefined,
     episodeNumber: entry.episodeNumber ?? undefined,
     source: entry.source ?? undefined,
-    dub: entry.dub ?? undefined
+    dub: entry.dub ?? undefined,
+    snapshot: (entry as StoredProgress).snapshot,
+    clientUpdatedAt:
+      (entry as StoredProgress).clientUpdatedAt ?? (entry as ServerProgress).watchedAt
   };
 }
+
+type ServerProgress = {
+  contentId: string;
+  progress: number;
+  positionSeconds: number;
+  durationSeconds: number;
+  completed: boolean;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  source?: string;
+  dub?: boolean;
+  watchedAt: number;
+};
 
 function storedFromServer(entry: ServerProgress): StoredProgress {
   return {
@@ -112,24 +91,12 @@ function storedFromServer(entry: ServerProgress): StoredProgress {
 }
 
 function readStore(): StoredProgress[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as ProgressStore;
-      if (parsed?.version === 3 && Array.isArray(parsed.entries)) {
-        return compactEntries(parsed.entries);
-      }
-    }
-  } catch {}
-
-  return [];
+  const store = getWatchProgressStore();
+  return store ? compactEntries(store.entries) : [];
 }
 
 function writeStore(entries: StoredProgress[]) {
-  try {
-    const store: ProgressStore = { version: 3, entries: compactEntries(entries) };
-    localStorage.setItem(LS_KEY, JSON.stringify(store));
-  } catch {}
+  setWatchProgressStore({ version: 3, entries: compactEntries(entries) });
 }
 
 function metadataChanged(a: ProgressState, b: ProgressState) {
@@ -404,7 +371,9 @@ export function useUpdateProgress() {
         seasonNumber,
         episodeNumber,
         source,
-        dub
+        dub,
+        snapshot: snapshot ?? previous?.snapshot,
+        clientUpdatedAt: Date.now()
       };
       const next: StoredProgress = {
         ...state,

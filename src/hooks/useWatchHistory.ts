@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { useWatchProgressContext } from "./useWatchProgress";
 import { type ContentId, type WatchHistoryItemMeta } from "../../shared/contentMetadata";
 import { useOneShotConvexQuery } from "./useOneShotConvexQuery";
+import { removeWatchProgressEntry } from "../lib/localStorageStore";
 
 export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
   const { user } = useUser();
@@ -16,7 +17,39 @@ export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
     user ? `watch_history_${user.id}` : undefined
   );
 
-  return serverData;
+  const localProgress = useWatchProgressContext();
+
+  const offlineData = useMemo(() => {
+    if (user || serverData !== undefined) return undefined;
+    if (!localProgress) return undefined;
+
+    const items: (WatchHistoryItemMeta & { clientUpdatedAt: number })[] = [];
+    for (const [contentId, state] of localProgress.entries()) {
+      if (!state.snapshot) continue;
+      items.push({
+        _id: contentId as ContentId,
+        title: state.snapshot.title,
+        type: state.snapshot.type,
+        posterUrl: state.snapshot.posterUrl,
+        tmdbId: state.snapshot.tmdbId,
+        genre: state.snapshot.genre,
+        year: state.snapshot.year,
+        voteAverage: state.snapshot.voteAverage,
+        new: false,
+        progress: state.progress,
+        completed: state.completed,
+        seasonNumber: state.seasonNumber,
+        episodeNumber: state.episodeNumber,
+        source: state.source,
+        dub: state.dub,
+        clientUpdatedAt: state.clientUpdatedAt
+      });
+    }
+
+    return items.sort((a, b) => b.clientUpdatedAt - a.clientUpdatedAt);
+  }, [user, serverData, localProgress]);
+
+  return serverData ?? offlineData;
 }
 
 export function useContinueWatching(enabled = true, limit = 6): WatchHistoryItemMeta[] | undefined {
@@ -58,7 +91,10 @@ export function useRemoveFromHistory() {
 
   return useCallback(
     (contentId: ContentId) => {
-      if (!user) throw new Error("Not signed in");
+      if (!user) {
+        removeWatchProgressEntry(contentId);
+        return Promise.resolve();
+      }
       return mutation({ clerkUserId: user.id, contentId });
     },
     [user, mutation]

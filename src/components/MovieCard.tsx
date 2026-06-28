@@ -103,10 +103,7 @@ export function MovieCard({
   const handleWatchlist = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (!isSignedIn) {
-      toast.error("Sign in to save to your list");
-      return;
-    }
+    e.preventDefault();
     try {
       const snapshot: WatchlistSnapshot = {
         title: content.title,

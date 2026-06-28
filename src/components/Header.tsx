@@ -287,13 +287,32 @@ export function Header() {
                 </PopoverContent>
               </Popover>
             ) : (
-              <Button
-                size="sm"
-                className="hidden rounded-md bg-primary px-4 text-white hover:bg-primary/90 sm:inline-flex"
-                onClick={() => navigate("/sign-in")}
-              >
-                Sign In
-              </Button>
+              <div className="hidden items-center gap-1 sm:flex">
+                <Link
+                  to="/my-list"
+                  className="flex items-center justify-center h-9 w-9 text-white/70 hover:bg-white/8 hover:text-white rounded-md transition-colors"
+                  aria-label="My List"
+                  title="My List"
+                >
+                  <BookMarked className="h-4 w-4" />
+                </Link>
+                <Link
+                  to="/history"
+                  className="flex items-center justify-center h-9 w-9 text-white/70 hover:bg-white/8 hover:text-white rounded-md transition-colors"
+                  aria-label="Watch History"
+                  title="Watch History"
+                >
+                  <Clock className="h-4 w-4" />
+                </Link>
+                <div className="w-px h-5 bg-white/10 mx-2" />
+                <Button
+                  size="sm"
+                  className="rounded-md bg-primary px-4 text-white hover:bg-primary/90"
+                  onClick={() => navigate("/sign-in")}
+                >
+                  Sign In
+                </Button>
+              </div>
             )}
 
             <Button
@@ -419,12 +438,31 @@ export function Header() {
                     </Button>
                   </div>
                 ) : (
-                  <Button
-                    className="w-full bg-primary text-white hover:bg-primary/90 transition-all duration-200"
-                    onClick={() => navigate("/sign-in")}
-                  >
-                    Sign In
-                  </Button>
+                  <div className="space-y-2">
+                    <Link
+                      to="/my-list"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-all duration-200 hover:bg-white/8 hover:text-white"
+                    >
+                      <BookMarked className="h-4 w-4" />
+                      My List
+                    </Link>
+                    <Link
+                      to="/history"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-all duration-200 hover:bg-white/8 hover:text-white"
+                    >
+                      <Clock className="h-4 w-4" />
+                      Watch History
+                    </Link>
+                    <div className="h-px bg-white/6 my-2 mx-2" />
+                    <Button
+                      className="w-full bg-primary text-white hover:bg-primary/90 transition-all duration-200 mt-2"
+                      onClick={() => navigate("/sign-in")}
+                    >
+                      Sign In
+                    </Button>
+                  </div>
                 )}
               </div>
             </nav>
