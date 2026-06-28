@@ -3,7 +3,10 @@ const OFFLINE_URL = "/";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll([OFFLINE_URL])).then(() => self.skipWaiting())
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll([OFFLINE_URL]))
+      .then(() => self.skipWaiting())
   );
 });
 
