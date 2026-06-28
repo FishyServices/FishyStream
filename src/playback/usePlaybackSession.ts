@@ -9,12 +9,6 @@ import {
   type StreamSource
 } from "@fishy/providers/providerCatalog";
 import {
-  markProviderFailure,
-  markProviderSuccess,
-  rankSources,
-  type ProviderHealthState
-} from "@fishy/providers/providerHealth";
-import {
   getSeasonYear,
   groupSourcesByProviderCategory,
   isAnimeProviderContent,
@@ -108,14 +102,6 @@ function pickResumePositionSeconds(
   return Math.floor(Math.max(storedPosition, Math.max(0, lastSyncedPosition)));
 }
 
-function upsertHealth(
-  states: ProviderHealthState[],
-  next: ProviderHealthState
-): ProviderHealthState[] {
-  const rest = states.filter((state) => state.providerKey !== next.providerKey);
-  return [...rest, next];
-}
-
 export function usePlaybackSession({
   content,
   initialSeason,
@@ -135,7 +121,6 @@ export function usePlaybackSession({
   const [selectedSourceUrl, setSelectedSourceUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [health, setHealth] = useState<ProviderHealthState[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
   const sourceRequestIdRef = useRef(0);
   const loadedTargetRef = useRef<PlaybackTarget>({ season: 1, episode: 1 });
@@ -238,20 +223,15 @@ export function usePlaybackSession({
           return;
         }
 
-        const ranked = rankSources(fetched, {
-          initialSource,
-          defaultProvider: settings.defaultProvider,
-          health
-        });
         const selected =
-          pickPreferredSource(ranked, {
+          pickPreferredSource(fetched, {
             initialSource,
             defaultProvider: settings.defaultProvider
-          }) ?? ranked[0];
+          }) ?? fetched[0];
 
         loadedTargetRef.current = { season, episode };
         setLoadedTarget({ season, episode });
-        setSources(ranked);
+        setSources(fetched);
         setResumePositionSeconds(
           pickResumePositionSeconds(
             content,
@@ -262,17 +242,6 @@ export function usePlaybackSession({
           )
         );
         setSelectedSourceUrl(selected?.url ?? "");
-        if (selected) {
-          setHealth((current) =>
-            upsertHealth(
-              current,
-              markProviderSuccess(
-                selected.key,
-                current.find((state) => state.providerKey === selected.key)
-              )
-            )
-          );
-        }
         logProviderInfo({
           contentType: content.type,
           source: selected,
@@ -302,7 +271,6 @@ export function usePlaybackSession({
       currentSeasonData?.anilistId,
       currentSeasonData?.name,
       currentSeasonData?.seasonNumber,
-      health,
       initialSource,
       isDub,
       lastSyncedPositionRef,
@@ -368,15 +336,6 @@ export function usePlaybackSession({
         )
       );
       setSelectedSourceUrl(nextUrl);
-      setHealth((current) =>
-        upsertHealth(
-          current,
-          markProviderSuccess(
-            nextSource.key,
-            current.find((state) => state.providerKey === nextSource.key)
-          )
-        )
-      );
       logProviderInfo({
         contentType: content.type,
         source: nextSource,
@@ -434,16 +393,6 @@ export function usePlaybackSession({
   const tryNextSource = useCallback(
     (reason = "manual fallback") => {
       if (!selectedSource) return;
-      setHealth((current) =>
-        upsertHealth(
-          current,
-          markProviderFailure(
-            selectedSource.key,
-            reason,
-            current.find((state) => state.providerKey === selectedSource.key)
-          )
-        )
-      );
       const next = sources.find((source) => source.url !== selectedSource.url);
       if (next) {
         setSelectedSourceUrl(next.url);
