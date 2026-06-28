@@ -297,7 +297,7 @@ export type ProviderContentType = "movie" | "tv";
 
 export interface ProviderEmbedUrlOptions {
   sourceUrl: string;
-  provider?: Pick<ProviderCatalogEntry, "key" | "progress">;
+  provider?: Pick<ProviderCatalogEntry, "key" | "progress" | "params">;
   contentType: ProviderContentType;
   resumePositionSeconds?: number;
   watchCompleted?: boolean;
@@ -320,28 +320,36 @@ export function shouldForceProviderStartPosition(providerKey: ProviderKey | stri
 
 export function applyProviderEmbedParams(
   url: URL,
-  providerKey: ProviderKey | string | undefined,
+  provider: Pick<ProviderCatalogEntry, "key" | "progress" | "params"> | undefined,
   contentType: ProviderContentType
 ) {
-  if (contentType !== "tv") return;
+  if (contentType !== "tv" || !provider?.params) return;
 
-  if (providerKey === "vidfast") {
-    url.searchParams.set("nextButton", "false");
-    url.searchParams.set("autoNext", "false");
-    url.searchParams.set("hideServerControls", "true");
-  }
-  if (providerKey === "vidnest") {
-    url.searchParams.set("prevepisode", "hide");
-    url.searchParams.set("nextepisode", "hide");
-  }
-  if (providerKey === "vidcore") {
-    url.searchParams.set("nextButton", "false");
-  }
-  if (providerKey === "mafiaembed") {
-    url.searchParams.set("episodelist", "false");
-    url.searchParams.set("nextbutton", "false");
-    url.searchParams.set("autonext", "false");
-  }
+  const paramsSchema = provider.params;
+
+  const setIfSupported = (key: string, value: string) => {
+    if (key in paramsSchema) {
+      url.searchParams.set(key, value);
+    }
+  };
+
+  setIfSupported("nextButton", "false");
+  setIfSupported("nextbutton", "false");
+  setIfSupported("nextEpisode", "false");
+  setIfSupported("nextepisode", "hide");
+
+  setIfSupported("autoNext", "false");
+  setIfSupported("autonext", "false");
+  setIfSupported("autoplayNextEpisode", "false");
+
+  setIfSupported("prevepisode", "hide");
+
+  setIfSupported("episodelist", "false");
+  setIfSupported("episodeSelector", "false");
+  setIfSupported("episodeselector", "false");
+
+  setIfSupported("hideServerControls", "true");
+  setIfSupported("hideServer", "true");
 }
 
 export function createProviderEmbedUrl({
@@ -360,7 +368,7 @@ export function createProviderEmbedUrl({
       !watchCompleted &&
       shouldApplyProviderResume(providerKey, contentType);
 
-    applyProviderEmbedParams(url, providerKey, contentType);
+    applyProviderEmbedParams(url, provider, contentType);
 
     if (provider?.progress?.resumeParam && shouldForceProviderStartPosition(providerKey)) {
       url.searchParams.set(
