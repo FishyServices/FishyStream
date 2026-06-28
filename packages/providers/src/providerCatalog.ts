@@ -34,6 +34,7 @@ export type ProviderKey =
 export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
 export type AnimeIdType = "same" | "anilist";
+export type ProviderParamType = "boolean" | "string" | "number" | "hex" | "time";
 
 export interface ProviderProgressConfig {
   origins: string[];
@@ -50,7 +51,7 @@ export interface ProviderProgressConfig {
     | "strict-origin-when-cross-origin";
 }
 
-export interface ProviderCatalogEntry {
+export interface ProviderCatalogEntry<TParams extends Record<string, ProviderParamType> = any> {
   key: ProviderKey;
   name: string;
   category: ProviderCategory;
@@ -60,9 +61,21 @@ export interface ProviderCatalogEntry {
   animeIdType?: AnimeIdType;
   dubSupport?: boolean;
   progress?: ProviderProgressConfig;
-  getMovieUrl: (id: string) => string;
-  getTVUrl: (id: string, season: number, episode: number) => string;
-  getAnimeTVUrl?: (id: string, season: number, episode: number, dub?: boolean) => string;
+  params?: TParams;
+  getMovieUrl: (id: string, params?: Partial<{ [K in keyof TParams]: any }>) => string;
+  getTVUrl: (
+    id: string,
+    season: number,
+    episode: number,
+    params?: Partial<{ [K in keyof TParams]: any }>
+  ) => string;
+  getAnimeTVUrl?: (
+    id: string,
+    season: number,
+    episode: number,
+    dub?: boolean,
+    params?: Partial<{ [K in keyof TParams]: any }>
+  ) => string;
 }
 
 export interface StreamSource {
@@ -71,8 +84,8 @@ export interface StreamSource {
   url: string;
 }
 
-type ProviderDefinition = Omit<
-  ProviderCatalogEntry,
+type ProviderDefinition<TParams extends Record<string, ProviderParamType>> = Omit<
+  ProviderCatalogEntry<TParams>,
   "getMovieUrl" | "getTVUrl" | "getAnimeTVUrl"
 > & {
   moviePath: (id: string) => string;
@@ -91,8 +104,10 @@ function providerOriginFromWebsite(website?: string) {
   }
 }
 
-function defineProvider(definition: ProviderDefinition): ProviderCatalogEntry {
-  const { moviePath, tvPath, animePath, website, ...rest } = definition;
+function defineProvider<TParams extends Record<string, ProviderParamType>>(
+  definition: ProviderDefinition<TParams>
+): ProviderCatalogEntry<TParams> {
+  const { moviePath, tvPath, animePath, website, params, ...rest } = definition;
   const baseUrl = website?.replace(/\/+$/, "");
   const origin = providerOriginFromWebsite(website);
   const progress = rest.progress
@@ -108,20 +123,41 @@ function defineProvider(definition: ProviderDefinition): ProviderCatalogEntry {
       }
     : undefined;
 
-  const resolveUrl = (path: string) => {
-    if (!baseUrl) return path;
-    if (path.startsWith("/api/")) return path;
-    return path.startsWith("http://") || path.startsWith("https://") ? path : `${baseUrl}${path}`;
+  const resolveUrl = (path: string, urlParams?: Record<string, any>) => {
+    let url = path;
+    if (
+      baseUrl &&
+      !path.startsWith("/api/") &&
+      !path.startsWith("http://") &&
+      !path.startsWith("https://")
+    ) {
+      url = `${baseUrl}${path}`;
+    }
+
+    if (urlParams && Object.keys(urlParams).length > 0) {
+      try {
+        const urlObj = new URL(url, url.startsWith("http") ? undefined : "http://localhost");
+        for (const [key, value] of Object.entries(urlParams)) {
+          if (value !== undefined && value !== null && value !== "") {
+            urlObj.searchParams.set(key, String(value));
+          }
+        }
+        url = url.startsWith("http") ? urlObj.toString() : `${urlObj.pathname}${urlObj.search}`;
+      } catch {}
+    }
+
+    return url;
   };
 
   return {
     ...rest,
+    params,
     progress,
     website,
-    getMovieUrl: (id) => resolveUrl(moviePath(id)),
-    getTVUrl: (id, season, episode) => resolveUrl(tvPath(id, season, episode)),
+    getMovieUrl: (id, p) => resolveUrl(moviePath(id), p),
+    getTVUrl: (id, season, episode, p) => resolveUrl(tvPath(id, season, episode), p),
     getAnimeTVUrl: animePath
-      ? (id, season, episode, dub) => resolveUrl(animePath(id, season, episode, dub))
+      ? (id, season, episode, dub, p) => resolveUrl(animePath(id, season, episode, dub), p)
       : undefined
   };
 }
@@ -135,6 +171,22 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://peachify.top",
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
+    params: {
+      server: "string",
+      dub: "string",
+      sub: "string",
+      startAt: "time",
+      autoNext: "number",
+      showNextBtn: "boolean",
+      autoPlay: "boolean",
+      pip: "string",
+      cast: "string",
+      fullscreen: "string",
+      volume: "string",
+      servers: "string",
+      captions: "string",
+      quality: "string"
+    },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
@@ -145,6 +197,20 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "both",
     website: "https://vidcore.net",
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    params: {
+      title: "boolean",
+      poster: "boolean",
+      autoPlay: "boolean",
+      startAt: "time",
+      theme: "hex",
+      nextButton: "boolean",
+      autoNext: "boolean",
+      server: "string",
+      hideServer: "boolean",
+      fullscreenButton: "boolean",
+      chromecast: "boolean",
+      sub: "string"
+    },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
@@ -155,6 +221,13 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://www.vidking.net",
     progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
+    params: {
+      color: "hex",
+      autoPlay: "boolean",
+      nextEpisode: "boolean",
+      episodeSelector: "boolean",
+      progress: "time"
+    },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
@@ -207,6 +280,14 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animeIdType: "anilist",
     dubSupport: true,
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
+    params: {
+      autoplay: "boolean",
+      autoSkip: "boolean",
+      autoNext: "boolean",
+      "lang-type": "boolean",
+      startAt: "time",
+      opensubs: "string"
+    },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
@@ -221,6 +302,20 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
       origins: ALL_ORIGINS,
       resumeParam: "startAt",
       referrerPolicy: "no-referrer"
+    },
+    params: {
+      title: "boolean",
+      poster: "boolean",
+      autoPlay: "boolean",
+      startAt: "time",
+      theme: "hex",
+      server: "string",
+      hideServer: "boolean",
+      fullscreenButton: "boolean",
+      chromecast: "boolean",
+      sub: "string",
+      nextButton: "boolean",
+      autoNext: "boolean"
     },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
@@ -268,6 +363,22 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://cinesrc.st",
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    params: {
+      seek: "number",
+      autoplay: "boolean",
+      muted: "boolean",
+      color: "hex",
+      controls: "boolean",
+      back: "string",
+      autonext: "boolean",
+      autoskip: "boolean",
+      prioritize: "boolean",
+      lastserver: "string",
+      t: "time",
+      continueprompt: "boolean",
+      quality: "string",
+      febbox: "string"
+    },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}?s=${season}&e=${episode}`
   }),
@@ -280,6 +391,23 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animeIdType: "anilist",
     dubSupport: true,
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt" },
+    params: {
+      primarycolor: "hex",
+      secondarycolor: "hex",
+      iconcolor: "hex",
+      autoplay: "boolean",
+      poster: "boolean",
+      chromecast: "boolean",
+      servericon: "boolean",
+      setting: "boolean",
+      pip: "boolean",
+      font: "string",
+      fontcolor: "hex",
+      fontsize: "number",
+      opacity: "number",
+      logourl: "string",
+      server: "string"
+    },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) =>
@@ -314,6 +442,75 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animeIdType: "anilist",
     dubSupport: true,
     progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
+    params: {
+      autoplay: "boolean",
+      autonext: "boolean",
+      progress: "time",
+      audio: "boolean",
+      title: "boolean",
+      download: "boolean",
+      setting: "boolean",
+      episodelist: "boolean",
+      chromecast: "boolean",
+      pip: "boolean",
+      watchparty: "boolean",
+      nextbutton: "boolean",
+      hidecontrols: "boolean",
+      primarycolor: "hex",
+      secondarycolor: "hex",
+      iconcolor: "hex",
+      glasscolor: "hex",
+      glassopacity: "number",
+      glassblur: "number",
+      icons: "string",
+      iconsize: "number",
+      font: "string",
+      fontcolor: "hex",
+      fontsize: "number",
+      subtitle: "string",
+      subdelay: "number",
+      subtextsize: "number",
+      subtextcolor: "hex",
+      subcapitalize: "boolean",
+      subbold: "boolean",
+      subfont: "string",
+      subbgenabled: "boolean",
+      subbgcolor: "hex",
+      subbgopacity: "number",
+      subbgblur: "number",
+      opacity: "number",
+      logo: "string",
+      logowidth: "string",
+      logoheight: "string",
+      hideautoplay: "boolean",
+      hideautonext: "boolean",
+      hidenextbutton: "boolean",
+      hidetitle: "boolean",
+      hidechromecast: "boolean",
+      hidepip: "boolean",
+      hideepisodelist: "boolean",
+      hideprogress: "boolean",
+      hidelanguage: "boolean",
+      hideprimarycolor: "boolean",
+      hidesecondarycolor: "boolean",
+      hideiconcolor: "boolean",
+      appearance: "string",
+      hidequality: "boolean",
+      hideserver: "boolean",
+      hidesubtitlemenu: "boolean",
+      hidesubtitlestyle: "boolean",
+      hideplaybackspeed: "boolean",
+      hideupscaler: "boolean",
+      hidevideosize: "boolean",
+      hideservericon: "boolean",
+      hideskip: "boolean",
+      hideposter: "boolean",
+      suboutline: "number",
+      subshadow: "number",
+      language: "number",
+      lang: "string",
+      server: "number"
+    },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
@@ -338,6 +535,14 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://player.videasy.net",
     animeIdType: "anilist",
     progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
+    params: {
+      color: "hex",
+      progress: "time",
+      nextEpisode: "boolean",
+      episodeSelector: "boolean",
+      autoplayNextEpisode: "boolean",
+      overlay: "boolean"
+    },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode) => `/anime/${id}/${episode}`
@@ -351,6 +556,28 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animeIdType: "anilist",
     dubSupport: true,
     progress: { origins: ALL_ORIGINS, resumeParam: "progress", referrerPolicy: "no-referrer" },
+    params: {
+      startAt: "time",
+      progress: "time",
+      server: "string",
+      servericon: "string",
+      topcaption: "string",
+      topsettings: "string",
+      centerseekbackward: "string",
+      centerplay: "string",
+      centerseekforward: "string",
+      timeslider: "string",
+      mute: "string",
+      volume: "string",
+      timegroup: "string",
+      bottomcaption: "string",
+      bottomsettings: "string",
+      pip: "string",
+      cast: "string",
+      fullscreen: "string",
+      prevepisode: "string",
+      nextepisode: "string"
+    },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) => `/anime/${id}/${episode}${dub ? "/dub" : "/sub"}` // AnimePahe
@@ -392,6 +619,15 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animeIdType: "anilist",
     dubSupport: true,
     progress: { origins: ALL_ORIGINS, referrerPolicy: "strict-origin-when-cross-origin" },
+    params: {
+      autoplay: "boolean",
+      autonext: "boolean",
+      theme: "hex",
+      download: "boolean",
+      nextbutton: "boolean",
+      episodeselector: "boolean",
+      lang: "string"
+    },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) =>
@@ -427,6 +663,20 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://vidup.to",
     progress: { origins: ALL_ORIGINS, referrerPolicy: "no-referrer" },
+    params: {
+      title: "boolean",
+      poster: "boolean",
+      autoPlay: "boolean",
+      startAt: "time",
+      theme: "hex",
+      server: "string",
+      hideServer: "boolean",
+      fullscreenButton: "boolean",
+      chromecast: "boolean",
+      sub: "string",
+      nextButton: "boolean",
+      autoNext: "boolean"
+    },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
@@ -447,6 +697,13 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://vixsrc.to",
     progress: { origins: ALL_ORIGINS, resumeParam: "startAt", referrerPolicy: "no-referrer" },
+    params: {
+      primaryColor: "hex",
+      secondaryColor: "hex",
+      autoplay: "boolean",
+      startAt: "time",
+      lang: "string"
+    },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   })
