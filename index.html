@@ -35,6 +35,7 @@
     />
     <meta property="og:image:width" content="512" />
     <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="FishyStream — Your Personal Streaming Hub" />
     <meta property="og:locale" content="en_US" />
 
     <!-- Twitter Card -->
@@ -57,8 +58,11 @@
     <meta name="apple-mobile-web-app-title" content="FishyStream" />
 
     <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/pwa-512x512.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/pwa-192x192.png" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="shortcut icon" href="/icons/pwa-192x192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
 
     <!-- JSON-LD Structured Data -->
@@ -67,8 +71,21 @@
         "@context": "https://schema.org",
         "@type": "WebSite",
         "name": "FishyStream",
+        "alternateName": ["Fishy Stream", "FishyStream App"],
         "url": "https://master.fishystream-app.pages.dev/",
         "description": "Your personal streaming hub. Watch movies and TV shows online, everywhere.",
+        "inLanguage": "en-US",
+        "publisher": {
+          "@type": "Organization",
+          "name": "FishyStream",
+          "url": "https://master.fishystream-app.pages.dev/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://master.fishystream-app.pages.dev/icons/pwa-512x512.png",
+            "width": 512,
+            "height": 512
+          }
+        },
         "potentialAction": {
           "@type": "SearchAction",
           "target": {
@@ -91,11 +108,17 @@
           background: #0a0a12;
           min-height: 100vh;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
+          gap: 1rem;
         "
       >
-        FishyStream requires JavaScript to run. Please enable it in your browser settings.
+        <img src="/icons/pwa-192x192.png" alt="FishyStream logo" width="96" height="96" />
+        <h1 style="color: #ffffff; font-size: 2rem; margin: 0">FishyStream</h1>
+        <p style="max-width: 480px; margin: 0">
+          FishyStream requires JavaScript to run. Please enable it in your browser settings.
+        </p>
       </div>
     </noscript>
     <div id="root"></div>
