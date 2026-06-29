@@ -228,8 +228,7 @@ export function VideoPlayer({
   const selectedSource = selectedSourceConfig?.url ?? "";
   const supportsProgressEvents = !!selectedProvider?.progress;
   const canRequestStatus = !!selectedProvider?.progress?.statusRequest;
-  const iframeReferrerPolicy =
-    selectedProvider?.progress?.referrerPolicy ?? "no-referrer-when-downgrade";
+  const iframeReferrerPolicy = selectedProvider?.referrerPolicy ?? "no-referrer-when-downgrade";
 
   useEffect(() => {
     loadedTvRef.current = session.loadedTarget;

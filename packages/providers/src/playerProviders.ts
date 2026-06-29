@@ -72,7 +72,6 @@ function toFiniteNumber(value: unknown): number | undefined {
 
 function parseMaybeJson(raw: unknown): unknown {
   if (typeof raw !== "string") return raw;
-
   try {
     return JSON.parse(raw);
   } catch {
@@ -91,7 +90,6 @@ function isPlayerEventPayload(value: unknown): value is PlayerEventPayload {
 
 function isRawMediaData(value: unknown): value is RawMediaData {
   if (!isRecord(value) || !isRecord(value.progress)) return false;
-
   return (
     value.id !== undefined &&
     (value.type === "movie" || value.type === "tv" || value.type === "anime") &&
@@ -103,14 +101,12 @@ function isRawMediaData(value: unknown): value is RawMediaData {
 function unwrapMediaData(value: unknown): RawMediaData | null {
   if (isRawMediaData(value)) return value;
   if (!isRecord(value)) return null;
-
   const firstValue = Object.values(value)[0];
   return isRawMediaData(firstValue) ? firstValue : null;
 }
 
 function isRawProgressPayload(value: unknown): value is RawProgressPayload {
   if (!isRecord(value)) return false;
-
   return (
     value.id !== undefined &&
     (value.type === "movie" || value.type === "tv" || value.type === "anime") &&
@@ -122,7 +118,6 @@ function isRawProgressPayload(value: unknown): value is RawProgressPayload {
 
 function isMegaPlayTimePayload(value: unknown): value is MegaPlayTimePayload {
   if (!isRecord(value)) return false;
-
   return (
     (value.event === "time" || value.event === "complete" || value.event === "error") &&
     (toFiniteNumber(value.time) !== undefined ||
@@ -133,7 +128,6 @@ function isMegaPlayTimePayload(value: unknown): value is MegaPlayTimePayload {
 
 function isMegaPlayWatchingLogPayload(value: unknown): value is MegaPlayWatchingLogPayload {
   if (!isRecord(value) || value.type !== "watching-log") return false;
-
   return (
     toFiniteNumber(value.currentTime) !== undefined || toFiniteNumber(value.duration) !== undefined
   );
@@ -230,7 +224,8 @@ function megaPlayWatchingLogToPlayerEvent(value: MegaPlayWatchingLogPayload): Pl
 }
 
 export function isKnownPlayerOrigin(origin: string): boolean {
-  return !!getProviderByOrigin(origin)?.progress;
+  const provider = getProviderByOrigin(origin);
+  return !!provider && !provider.unsafeWildcardOrigin;
 }
 
 export function isTrustedPlayerMessageOrigin(origin: string, expectedOrigin?: string): boolean {
@@ -264,17 +259,9 @@ export function parsePlayerMessage(
   const mediaData = unwrapMediaData(payload);
   if (mediaData) return mediaDataToPlayerEvent(mediaData);
 
-  if (isRawProgressPayload(payload)) {
-    return rawProgressToPlayerEvent(payload);
-  }
-
-  if (isMegaPlayTimePayload(payload)) {
-    return megaPlayTimeToPlayerEvent(payload);
-  }
-
-  if (isMegaPlayWatchingLogPayload(payload)) {
-    return megaPlayWatchingLogToPlayerEvent(payload);
-  }
+  if (isRawProgressPayload(payload)) return rawProgressToPlayerEvent(payload);
+  if (isMegaPlayTimePayload(payload)) return megaPlayTimeToPlayerEvent(payload);
+  if (isMegaPlayWatchingLogPayload(payload)) return megaPlayWatchingLogToPlayerEvent(payload);
 
   return null;
 }
@@ -295,9 +282,14 @@ export interface PlayerControls {
 
 export type ProviderContentType = "movie" | "tv";
 
+export type ProviderEmbedUrlProvider = Pick<
+  ProviderCatalogEntry,
+  "key" | "origins" | "progress" | "params"
+>;
+
 export interface ProviderEmbedUrlOptions {
   sourceUrl: string;
-  provider?: Pick<ProviderCatalogEntry, "key" | "progress" | "params">;
+  provider?: ProviderEmbedUrlProvider;
   contentType: ProviderContentType;
   resumePositionSeconds?: number;
   watchCompleted?: boolean;
@@ -320,7 +312,7 @@ export function shouldForceProviderStartPosition(providerKey: ProviderKey | stri
 
 export function applyProviderEmbedParams(
   url: URL,
-  provider: Pick<ProviderCatalogEntry, "key" | "progress" | "params"> | undefined,
+  provider: ProviderEmbedUrlProvider | undefined,
   contentType: ProviderContentType
 ) {
   if (contentType !== "tv" || !provider?.params) return;

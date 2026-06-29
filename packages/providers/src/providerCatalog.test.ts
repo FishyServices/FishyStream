@@ -4,16 +4,14 @@ import { buildTvSources, getProviderByKey, getProviderByOrigin } from "./provide
 describe("providerCatalog", () => {
   it("uses explicit provider origins when a website has an absolute URL", () => {
     const provider = getProviderByKey("peachify");
-
-    expect(provider?.progress?.origins).toEqual(["https://peachify.top"]);
-    expect(provider?.progress?.unsafeWildcardOrigin).toBe(false);
+    expect(provider?.origins).toEqual(["https://peachify.top"]);
+    expect(provider?.unsafeWildcardOrigin).toBe(false);
   });
 
   it("keeps relative proxy providers marked as unsafe wildcard origins", () => {
     const provider = getProviderByKey("vidplays");
-
-    expect(provider?.progress?.origins).toEqual(["*"]);
-    expect(provider?.progress?.unsafeWildcardOrigin).toBe(true);
+    expect(provider?.origins).toEqual(["*"]);
+    expect(provider?.unsafeWildcardOrigin).toBe(true);
   });
 
   it("finds a provider by explicit origin", () => {
@@ -37,7 +35,6 @@ describe("providerCatalog", () => {
       ],
       dub: true
     });
-
     expect(sources.find((source) => source.key === "megaplay")?.url).toBe(
       "https://megaplay.buzz/stream/ani/178090/5/dub"
     );

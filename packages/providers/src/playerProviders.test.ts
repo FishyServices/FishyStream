@@ -19,7 +19,6 @@ describe("playerProviders", () => {
       },
       "https://peachify.top"
     );
-
     expect(payload?.data.progress).toBeUndefined();
     expect(payload?.data.currentTime).toBe(50);
   });
@@ -36,12 +35,12 @@ describe("playerProviders", () => {
       sourceUrl: "https://peachify.top/embed/movie/1",
       provider: {
         key: "peachify",
-        progress: { origins: ["https://peachify.top"], resumeParam: "startAt" }
+        origins: ["https://peachify.top"],
+        progress: { resumeParam: "startAt" }
       },
       contentType: "movie",
       resumePositionSeconds: 42
     });
-
     expect(new URL(url).searchParams.get("startAt")).toBe("42");
   });
 });

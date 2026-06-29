@@ -291,8 +291,7 @@ export function usePlaybackSession({
   const selectedProvider = selectedSource ? getProviderByKey(selectedSource.key) : undefined;
   const groupedSources = useMemo(() => groupSourcesByProviderCategory(sources), [sources]);
   const showDubToggle = animeContent && !!selectedProvider?.dubSupport;
-  const iframeReferrerPolicy =
-    selectedProvider?.progress?.referrerPolicy ?? "no-referrer-when-downgrade";
+  const iframeReferrerPolicy = selectedProvider?.referrerPolicy ?? "no-referrer-when-downgrade";
 
   const embedUrl = useMemo(() => {
     if (!selectedSource) return "";
