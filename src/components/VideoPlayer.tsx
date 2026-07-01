@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
+import Hls from "hls.js";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import {
@@ -106,7 +107,7 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const { settings } = useAppSettings();
 
   const syncAnimeSeasonPlaybackMeta = useAction(api.seasonSync.syncAnimeSeasonPlaybackMeta);
@@ -357,81 +358,102 @@ export function VideoPlayer({
   }, [content, tvTarget.episode, tvTarget.season, watchState]);
 
   useEffect(() => {
-    if (!embedUrl || !supportsProgressEvents || !canRequestStatus) return;
+    if (!embedUrl) return;
 
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    const requestStatus = () => postMessageToPlayer(iframeRef.current, "getStatus");
-    const onLoad = () => {
-      window.setTimeout(requestStatus, 1500);
+    const fetchRawStream = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:4000/api/scrape?url=${encodeURIComponent(embedUrl)}`
+        );
+        const data = await res.json();
+        if (data.streamUrl && videoRef.current) {
+          console.log("Successfully extracted raw stream URL via Scraper:", data.streamUrl);
+          if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(data.streamUrl);
+            hls.attachMedia(videoRef.current);
+          } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
+            videoRef.current.src = data.streamUrl;
+          }
+        }
+      } catch (e) {
+        console.error("Scraper Error:", e);
+      }
     };
 
-    iframe.addEventListener("load", onLoad);
-    requestStatus();
+    fetchRawStream();
+  }, [embedUrl]);
 
-    const interval = window.setInterval(requestStatus, WATCH_PROGRESS_STATUS_POLL_MS);
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") requestStatus();
-    };
-
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      iframe.removeEventListener("load", onLoad);
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.clearInterval(interval);
-    };
-  }, [canRequestStatus, embedUrl, supportsProgressEvents]);
+  const useCustomPlayer = searchParams.get("ui") === "custom";
+  const [subtitles, setSubtitles] = useState<any[]>([]);
+  const [skipTimes, setSkipTimes] = useState<{
+    intro?: { start: number; end: number };
+    outro?: { start: number; end: number };
+  }>({});
+  const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
 
   useEffect(() => {
-    if (!embedUrl || !supportsProgressEvents) return;
+    if (!embedUrl || !useCustomPlayer) return;
 
-    let expectedOrigin: string;
-    try {
-      expectedOrigin = new URL(embedUrl).origin;
-    } catch {
-      return;
-    }
+    let isMounted = true;
+    const fetchRawStream = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:4000/api/scrape?url=${encodeURIComponent(embedUrl)}`
+        );
+        const data = await res.json();
+        if (!isMounted) return;
+
+        if (data.streamUrl && videoRef.current) {
+          console.log("Successfully extracted raw stream URL via Scraper:", data.streamUrl);
+
+          if (data.tracks) setSubtitles(data.tracks);
+          if (data.intro || data.outro) setSkipTimes({ intro: data.intro, outro: data.outro });
+
+          if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(data.streamUrl);
+            hls.attachMedia(videoRef.current);
+          } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
+            videoRef.current.src = data.streamUrl;
+          }
+        }
+      } catch (e) {
+        console.error("Scraper Error:", e);
+      }
+    };
+
+    fetchRawStream();
+    return () => {
+      isMounted = false;
+    };
+  }, [embedUrl, useCustomPlayer]);
+
+  useEffect(() => {
+    if (!videoRef.current || !useCustomPlayer) return;
 
     let syncInFlight = false;
 
-    const handleMsg = (event: MessageEvent) => {
-      const originMatchesProvider = isTrustedPlayerMessageOrigin(event.origin, expectedOrigin);
-      if (!originMatchesProvider && event.origin !== expectedOrigin) return;
-      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
-        return;
+    const handleTimeUpdate = () => {
+      const video = videoRef.current;
+      if (!video || !video.duration) return;
 
-      if (
-        content.type === "tv" &&
-        (tvTargetRef.current.season !== loadedTvRef.current.season ||
-          tvTargetRef.current.episode !== loadedTvRef.current.episode)
-      ) {
-        return;
-      }
+      const currentTime = video.currentTime;
+      const duration = video.duration;
+      const progress = calculateProgress(currentTime, duration);
 
-      const payload = parsePlayerMessage(event.data, event.origin, expectedOrigin);
-      if (!payload) return;
-
-      const { data } = payload as PlayerEventPayload;
-      if (data.mediaType !== content.type) return;
-
-      const sample = normalizePlaybackProgressSample({
-        event: data.event,
-        currentTime: data.currentTime || 0,
-        duration: data.duration || 0,
-        progress:
-          data.progress !== undefined
-            ? clamp(data.progress)
-            : calculateProgress(data.currentTime || 0, data.duration || 0)
-      });
-      const nextPos = sample.currentTime;
-      const nextDur = sample.duration;
-      const nextProgress = sample.progress;
-
-      setCurrentProgress(nextProgress);
+      setCurrentProgress(progress);
+      setPlayerCurrentTime(currentTime);
 
       if (syncInFlight) return;
+
+      const sample = normalizePlaybackProgressSample({
+        event: "timeupdate",
+        currentTime,
+        duration,
+        progress
+      });
+
       if (!shouldStorePlaybackProgressSample(lastStoredProgressSampleRef.current, sample)) return;
 
       const persistedSeason = content.type === "tv" ? tvTargetRef.current.season : undefined;
@@ -442,10 +464,10 @@ export function VideoPlayer({
 
       updateProgress(
         content._id,
-        nextProgress,
-        data.event === "ended" || nextProgress >= 95,
-        nextPos,
-        nextDur,
+        progress,
+        progress >= 95 || video.ended,
+        currentTime,
+        duration,
         persistedSeason,
         persistedEpisode,
         selectedSourceConfig?.name,
@@ -461,23 +483,34 @@ export function VideoPlayer({
         }
       );
 
-      lastSyncedProgressRef.current = nextProgress;
-      lastSyncedPositionRef.current = nextPos;
+      lastSyncedProgressRef.current = progress;
+      lastSyncedPositionRef.current = currentTime;
       lastRealtimeSyncAtRef.current = sample.sampledAt;
       lastStoredProgressSampleRef.current = sample;
       syncInFlight = false;
     };
 
-    window.addEventListener("message", handleMsg);
-    return () => window.removeEventListener("message", handleMsg);
+    const handleEnded = () => handleTimeUpdate();
+
+    videoRef.current.addEventListener("timeupdate", handleTimeUpdate);
+    videoRef.current.addEventListener("ended", handleEnded);
+
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.removeEventListener("timeupdate", handleTimeUpdate);
+        videoRef.current.removeEventListener("ended", handleEnded);
+      }
+    };
   }, [
     content._id,
     content.tmdbId,
     content.type,
     embedUrl,
     selectedSourceConfig,
-    supportsProgressEvents,
-    updateProgress
+    updateProgress,
+    animeContent,
+    isDub,
+    useCustomPlayer
   ]);
 
   const handleSourceChange = async (nextUrl: string | null) => {
@@ -602,6 +635,15 @@ export function VideoPlayer({
       }
     };
   }, []);
+
+  const isIntro =
+    skipTimes.intro &&
+    playerCurrentTime >= skipTimes.intro.start &&
+    playerCurrentTime <= skipTimes.intro.end;
+  const isOutro =
+    skipTimes.outro &&
+    playerCurrentTime >= skipTimes.outro.start &&
+    playerCurrentTime <= skipTimes.outro.end;
 
   if (loading) {
     return (
@@ -746,24 +788,63 @@ export function VideoPlayer({
         </div>
       </div>
 
-      {/* Player */}
-      <div className="flex-1 relative bg-black">
-        <iframe
-          ref={iframeRef}
-          key={embedUrl}
-          src={iframeSrcDoc ? undefined : embedUrl}
-          srcDoc={iframeSrcDoc}
-          className="absolute inset-0 w-full h-full border-0"
-          allowFullScreen
-          //allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *"
-          allow="fullscreen *; picture-in-picture *; encrypted-media *"
-          title={`Playing ${content.title}`}
-          referrerPolicy={iframeReferrerPolicy}
-        />
+      {/* Main Player Area */}
+      <div className="flex-1 relative bg-black group/player overflow-hidden flex items-center justify-center">
+        {useCustomPlayer ? (
+          <>
+            <video
+              ref={videoRef}
+              className="w-full h-full object-contain"
+              autoPlay
+              playsInline
+              controls
+            >
+              {subtitles.map((track, i) => (
+                <track
+                  key={i}
+                  kind={track.kind}
+                  src={track.file}
+                  srcLang={track.label?.substring(0, 2).toLowerCase() || "en"}
+                  label={track.label}
+                  default={track.default}
+                />
+              ))}
+            </video>
 
+            {/* Skip Intro / Outro Button */}
+            {(isIntro || isOutro) && (
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (videoRef.current) {
+                    videoRef.current.currentTime = isIntro
+                      ? skipTimes.intro!.end
+                      : skipTimes.outro!.end;
+                  }
+                }}
+                className="absolute bottom-24 right-4 z-50 bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                Skip {isIntro ? "Intro" : "Outro"}
+              </Button>
+            )}
+          </>
+        ) : (
+          <iframe
+            src={embedUrl}
+            srcDoc={iframeSrcDoc}
+            className="w-full h-full border-0"
+            allowFullScreen
+            referrerPolicy={iframeReferrerPolicy as any}
+          />
+        )}
+
+        {/* Next Episode Button */}
         {showNextEpisodeButton && (
           <Button
-            onClick={() => handleNextEpisode({ fromClick: true })}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleNextEpisode({ fromClick: true });
+            }}
             disabled={isNextEpisodeCooldown}
             className="absolute bottom-23 left-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-60 backdrop-blur-sm sm:left-auto"
           >
