@@ -2,7 +2,11 @@ import { defineConfig, loadEnv, type Connect, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import { readFileSync, existsSync } from "fs";
 import { matchProviderProxyPath, proxyProviderRequest } from "@fishy/providers/providerProxy";
+
+const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
+const devDeps = Object.keys(pkg.devDependencies ?? {});
 
 function fishyProvidersPlugin(): Plugin {
   const providersRoot = path.resolve(__dirname, "./packages/providers/src");
@@ -15,8 +19,7 @@ function fishyProvidersPlugin(): Plugin {
       const subpath = match[2] ?? "index";
       const flat = path.resolve(providersRoot, `${subpath}.ts`);
       const folderIndex = path.resolve(providersRoot, subpath, "index.ts");
-      const fs = require("fs") as typeof import("fs");
-      if (!fs.existsSync(flat) && fs.existsSync(folderIndex)) return folderIndex;
+      if (!existsSync(flat) && existsSync(folderIndex)) return folderIndex;
       return flat;
     }
   };
@@ -80,6 +83,7 @@ export default defineConfig(({ mode }) => {
     build: {
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
+        external: devDeps,
         output: {
           manualChunks(id) {
             if (id.includes("node_modules")) {
