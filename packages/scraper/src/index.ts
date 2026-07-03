@@ -1,32 +1,28 @@
-import express from "express";
-import cors from "cors";
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import fetch from "node-fetch";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+type Bindings = {
+  MYBROWSER: any;
+  launchBrowser: () => Promise<any>;
+};
 
-puppeteer.use(StealthPlugin());
+const app = new Hono<{ Bindings: Bindings }>();
 
-const app = express();
-app.use(cors());
+app.use("/*", cors());
 
-app.get("/api/scrape", async (req, res) => {
-  const targetUrl = req.query.url as string;
+app.get("/api/scrape", async (c) => {
+  const targetUrl = c.req.query("url");
   if (!targetUrl) {
-    return res.status(400).json({ error: "Missing url parameter" });
+    return c.json({ error: "Missing url parameter" }, 400);
   }
 
   console.log(`\n[Scraper] Starting scrape for: ${targetUrl}`);
   let browser;
 
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"]
-    });
-
+    browser = await c.env.launchBrowser();
     const page = await browser.newPage();
+
     let streamUrl: string | null = null;
     let streamHeaders: Record<string, string> = {};
 
@@ -35,6 +31,10 @@ app.get("/api/scrape", async (req, res) => {
       Referer: targetOrigin,
       Origin: new URL(targetUrl).origin
     });
+
+    let currentTracks: any;
+    let currentIntro: any;
+    let currentOutro: any;
 
     await page.evaluateOnNewDocument(() => {
       // @ts-ignore
@@ -75,7 +75,7 @@ app.get("/api/scrape", async (req, res) => {
       };
     });
 
-    page.on("console", (msg) => {
+    page.on("console", (msg: any) => {
       const text = msg.text();
       if (text.startsWith("[INJECT-BODY]")) {
         try {
@@ -92,9 +92,9 @@ app.get("/api/scrape", async (req, res) => {
               streamHeaders["Referer"] = "https://megaplay.buzz/";
               streamHeaders["Origin"] = "https://megaplay.buzz";
 
-              if (json.tracks) (global as any).currentTracks = json.tracks;
-              if (json.intro) (global as any).currentIntro = json.intro;
-              if (json.outro) (global as any).currentOutro = json.outro;
+              if (json.tracks) currentTracks = json.tracks;
+              if (json.intro) currentIntro = json.intro;
+              if (json.outro) currentOutro = json.outro;
             }
           } else {
             const m3u8Match = jsonStr.match(/https?:\/\/[^\s"'`]+\.m3u8[^\s"'`]*/i);
@@ -109,7 +109,7 @@ app.get("/api/scrape", async (req, res) => {
       }
     });
 
-    page.on("response", async (response) => {
+    page.on("response", async (response: any) => {
       if (streamUrl) return;
 
       const url = response.url();
@@ -147,9 +147,9 @@ app.get("/api/scrape", async (req, res) => {
                 if (reqHeaders.referer) streamHeaders["Referer"] = reqHeaders.referer;
                 if (reqHeaders.origin) streamHeaders["Origin"] = reqHeaders.origin;
 
-                if (json.tracks) (global as any).currentTracks = json.tracks;
-                if (json.intro) (global as any).currentIntro = json.intro;
-                if (json.outro) (global as any).currentOutro = json.outro;
+                if (json.tracks) currentTracks = json.tracks;
+                if (json.intro) currentIntro = json.intro;
+                if (json.outro) currentOutro = json.outro;
                 return;
               }
             }
@@ -193,13 +193,6 @@ app.get("/api/scrape", async (req, res) => {
 
     await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 15000 });
 
-    try {
-      const viewport = page.viewport();
-      if (viewport) {
-        // await page.mouse.click(viewport.width / 2, viewport.height / 2);
-      }
-    } catch (e) {}
-
     let retries = 30;
     while (!streamUrl && retries > 0) {
       await new Promise((r) => setTimeout(r, 500));
@@ -207,25 +200,24 @@ app.get("/api/scrape", async (req, res) => {
     }
 
     if (streamUrl) {
-      const proxyUrl = `http://localhost:4000/api/m3u8-proxy?url=${encodeURIComponent(streamUrl)}&headers=${encodeURIComponent(JSON.stringify(streamHeaders))}`;
+      const host = c.req.header("host") || "localhost:4000";
+      const protocol = host.includes("localhost") ? "http" : "https";
+
+      const proxyUrl = `${protocol}://${host}/api/m3u8-proxy?url=${encodeURIComponent(streamUrl)}&headers=${encodeURIComponent(JSON.stringify(streamHeaders))}`;
       console.log(`[Scraper] Success. Returning proxy url: ${proxyUrl}`);
 
-      res.json({
+      return c.json({
         streamUrl: proxyUrl,
-        tracks: (global as any).currentTracks,
-        intro: (global as any).currentIntro,
-        outro: (global as any).currentOutro
+        tracks: currentTracks,
+        intro: currentIntro,
+        outro: currentOutro
       });
-
-      delete (global as any).currentTracks;
-      delete (global as any).currentIntro;
-      delete (global as any).currentOutro;
     } else {
-      res.status(404).json({ error: "Could not find .m3u8 stream" });
+      return c.json({ error: "Could not find .m3u8 stream" }, 404);
     }
   } catch (error: any) {
     console.error("[Scraper] Error:", error);
-    res.status(500).json({ error: "Scraping failed", details: error.message });
+    return c.json({ error: "Scraping failed", details: error.message }, 500);
   } finally {
     if (browser) await browser.close();
   }
@@ -236,18 +228,18 @@ function parseURL(req_url: string, baseUrl?: string) {
   return req_url;
 }
 
-app.get("/api/m3u8-proxy", async (req, res) => {
-  const url = req.query.url as string;
-  const headersParam = req.query.headers as string;
+app.get("/api/m3u8-proxy", async (c) => {
+  const url = c.req.query("url");
+  const headersParam = c.req.query("headers");
 
-  if (!url) return res.status(400).send("URL parameter is required");
+  if (!url) return c.text("URL parameter is required", 400);
   console.log(`[Proxy] Fetching M3U8: ${url}`);
 
   let headers = {};
   try {
     headers = headersParam ? JSON.parse(headersParam) : {};
   } catch (e) {
-    return res.status(400).send("Invalid headers format");
+    return c.text("Invalid headers format", 400);
   }
 
   try {
@@ -261,7 +253,10 @@ app.get("/api/m3u8-proxy", async (req, res) => {
     if (!response.ok) throw new Error(`Failed to fetch M3U8: ${response.status}`);
 
     const m3u8Content = await response.text();
-    const baseProxyUrl = `http://${req.get("host")}`;
+    const host = c.req.header("host") || "localhost:4000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const baseProxyUrl = `${protocol}://${host}`;
+
     const lines = m3u8Content.split("\n");
     const newLines: string[] = [];
 
@@ -304,31 +299,30 @@ app.get("/api/m3u8-proxy", async (req, res) => {
       }
     }
 
-    res.set({
+    return c.text(newLines.join("\n"), 200, {
       "Content-Type": "application/vnd.apple.mpegurl",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "*",
       "Cache-Control": "no-cache, no-store, must-revalidate"
     });
-    res.send(newLines.join("\n"));
   } catch (error: any) {
     console.error("Error proxying M3U8:", error);
-    res.status(500).send(error.message);
+    return c.text(error.message, 500);
   }
 });
 
-app.get("/api/ts-proxy", async (req, res) => {
-  const url = req.query.url as string;
-  const headersParam = req.query.headers as string;
+app.get("/api/ts-proxy", async (c) => {
+  const url = c.req.query("url");
+  const headersParam = c.req.query("headers");
 
-  if (!url) return res.status(400).send("URL parameter is required");
+  if (!url) return c.text("URL parameter is required", 400);
   console.log(`[Proxy] Fetching TS Chunk: ${url.split("/").pop()}`);
 
   let headers = {};
   try {
     headers = headersParam ? JSON.parse(headersParam) : {};
   } catch (e) {
-    return res.status(400).send("Invalid headers format");
+    return c.text("Invalid headers format", 400);
   }
 
   try {
@@ -342,21 +336,17 @@ app.get("/api/ts-proxy", async (req, res) => {
 
     if (!response.ok) throw new Error(`Failed to fetch TS file: ${response.status}`);
 
-    res.set({
+    const buffer = await response.arrayBuffer();
+
+    return c.body(buffer, 200, {
       "Content-Type": "video/mp2t",
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "public, max-age=3600"
     });
-
-    const buffer = await response.arrayBuffer();
-    res.send(Buffer.from(buffer));
   } catch (error: any) {
     console.error("Error proxying TS file:", error);
-    res.status(500).send(error.message);
+    return c.text(error.message, 500);
   }
 });
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Scraper & Simple-Proxy running on http://localhost:${PORT}`);
-});
+export default app;

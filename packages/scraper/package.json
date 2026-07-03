@@ -1,24 +1,31 @@
 {
-  "name": "scraper",
-  "module": "src/index.ts",
+  "name": "@fishy/scraper",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "type": "module",
   "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "bun run --hot src/dev.ts",
+    "lint": "tsc --noEmit"
+  },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240701.0",
     "@types/bun": "latest",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/node": "^26.1.0"
+    "puppeteer": "^25.3.0"
   },
   "peerDependencies": {
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@types/node-fetch": "^2.6.13",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "node-fetch": "^3.3.2",
-    "puppeteer": "^25.3.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "@cloudflare/puppeteer": "^0.0.12",
+    "hono": "^4.4.12"
   }
 }
