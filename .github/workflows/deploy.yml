@@ -28,6 +28,12 @@ jobs:
       - name: Sync providers dist to node_modules
         run: cp -r packages/providers/dist node_modules/@fishy/providers/
 
+      - name: Build scraper package
+        run: bun run --cwd packages/scraper build
+
+      - name: Sync scraper dist to node_modules
+        run: cp -r packages/scraper/dist node_modules/@fishy/scraper/
+
       - name: Build
         env:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}

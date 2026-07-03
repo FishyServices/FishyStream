@@ -21,6 +21,7 @@
       "@fishy/providers": ["./packages/providers/src/index.ts"],
       "@fishy/providers/tmdb": ["./packages/providers/src/tmdb/index.ts"],
       "@fishy/providers/*": ["./packages/providers/src/*.ts"],
+      "@fishy/scraper": ["./packages/scraper/src/index.ts"],
       "react": ["./node_modules/@types/react"],
       "react-dom": ["./node_modules/@types/react-dom"]
     },

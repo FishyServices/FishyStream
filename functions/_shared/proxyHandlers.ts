@@ -40,9 +40,24 @@ export async function handleProviderProxyRequest(context: PagesFunctionContext, 
   });
 }
 
+import scraperApp from "@fishy/scraper";
+import puppeteer from "@cloudflare/puppeteer";
+
 export async function handleApiRequest(context: PagesFunctionContext) {
   const { request, env, params } = context;
   const path = getSegments(params.path);
+  const subpath = path.join("/");
+
+  if (subpath === "scrape" || subpath === "m3u8-proxy" || subpath === "ts-proxy") {
+    return scraperApp.fetch(
+      request,
+      {
+        ...env,
+        launchBrowser: () => puppeteer.launch((env as any).MYBROWSER)
+      },
+      context as any
+    );
+  }
 
   const providerProxyPath = resolveProviderProxyPathFromSegments(path);
   if (providerProxyPath) {
@@ -61,7 +76,6 @@ export async function handleApiRequest(context: PagesFunctionContext) {
   }
 
   const base = siteUrl.replace(/\/$/, "");
-  const subpath = path.join("/");
   const url = new URL(request.url);
   const target = `${base}/api/${subpath}${url.search}`;
 
