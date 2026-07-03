@@ -362,9 +362,10 @@ export function VideoPlayer({
 
     const fetchRawStream = async () => {
       try {
-        const res = await fetch(
-          `http://localhost:4000/api/scrape?url=${encodeURIComponent(embedUrl)}`
-        );
+        const scraperEndpoint = import.meta.env.DEV
+          ? "http://localhost:4000/api/scrape"
+          : "/api/scrape";
+        const res = await fetch(`${scraperEndpoint}?url=${encodeURIComponent(embedUrl)}`);
         const data = await res.json();
         if (data.streamUrl && videoRef.current) {
           console.log("Successfully extracted raw stream URL via Scraper:", data.streamUrl);
@@ -398,9 +399,10 @@ export function VideoPlayer({
     let isMounted = true;
     const fetchRawStream = async () => {
       try {
-        const res = await fetch(
-          `http://localhost:4000/api/scrape?url=${encodeURIComponent(embedUrl)}`
-        );
+        const scraperEndpoint = import.meta.env.DEV
+          ? "http://localhost:4000/api/scrape"
+          : "/api/scrape";
+        const res = await fetch(`${scraperEndpoint}?url=${encodeURIComponent(embedUrl)}`);
         const data = await res.json();
         if (!isMounted) return;
 
