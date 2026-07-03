@@ -108,6 +108,7 @@ export function VideoPlayer({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { settings } = useAppSettings();
 
   const syncAnimeSeasonPlaybackMeta = useAction(api.seasonSync.syncAnimeSeasonPlaybackMeta);
@@ -357,34 +358,6 @@ export function VideoPlayer({
     setCurrentProgress(0);
   }, [content, tvTarget.episode, tvTarget.season, watchState]);
 
-  useEffect(() => {
-    if (!embedUrl) return;
-
-    const fetchRawStream = async () => {
-      try {
-        const scraperEndpoint = import.meta.env.DEV
-          ? "http://localhost:4000/api/scrape"
-          : "/api/scrape";
-        const res = await fetch(`${scraperEndpoint}?url=${encodeURIComponent(embedUrl)}`);
-        const data = await res.json();
-        if (data.streamUrl && videoRef.current) {
-          console.log("Successfully extracted raw stream URL via Scraper:", data.streamUrl);
-          if (Hls.isSupported()) {
-            const hls = new Hls();
-            hls.loadSource(data.streamUrl);
-            hls.attachMedia(videoRef.current);
-          } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-            videoRef.current.src = data.streamUrl;
-          }
-        }
-      } catch (e) {
-        console.error("Scraper Error:", e);
-      }
-    };
-
-    fetchRawStream();
-  }, [embedUrl]);
-
   const useCustomPlayer = searchParams.get("ui") === "custom";
   const [subtitles, setSubtitles] = useState<any[]>([]);
   const [skipTimes, setSkipTimes] = useState<{
@@ -430,6 +403,101 @@ export function VideoPlayer({
       isMounted = false;
     };
   }, [embedUrl, useCustomPlayer]);
+
+  useEffect(() => {
+    if (!embedUrl || !supportsProgressEvents || useCustomPlayer) return;
+
+    let expectedOrigin: string;
+    try {
+      expectedOrigin = new URL(embedUrl).origin;
+    } catch {
+      return;
+    }
+
+    let syncInFlight = false;
+
+    const handleMsg = (event: MessageEvent) => {
+      const originMatchesProvider = isTrustedPlayerMessageOrigin(event.origin, expectedOrigin);
+      if (!originMatchesProvider && event.origin !== expectedOrigin) return;
+      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
+        return;
+
+      if (
+        content.type === "tv" &&
+        (tvTargetRef.current.season !== loadedTvRef.current.season ||
+          tvTargetRef.current.episode !== loadedTvRef.current.episode)
+      ) {
+        return;
+      }
+
+      const parsed = parsePlayerMessage(event.data);
+      if (!parsed) return;
+
+      const { event: ev, currentTime, duration, progress } = parsed.data;
+      const nextProgress = clamp(progress ?? 0);
+      const nextPos = Math.max(0, currentTime ?? 0);
+
+      setCurrentProgress(nextProgress);
+
+      if (syncInFlight) return;
+
+      const sample = normalizePlaybackProgressSample({
+        event: ev,
+        currentTime: nextPos,
+        duration: duration ?? 0,
+        progress: nextProgress
+      });
+
+      if (!shouldStorePlaybackProgressSample(lastStoredProgressSampleRef.current, sample)) return;
+
+      const persistedSeason = content.type === "tv" ? tvTargetRef.current.season : undefined;
+      const persistedEpisode = content.type === "tv" ? tvTargetRef.current.episode : undefined;
+
+      realtimeDetectedRef.current = true;
+      syncInFlight = true;
+
+      updateProgress(
+        content._id,
+        nextProgress,
+        nextProgress >= 95,
+        nextPos,
+        duration,
+        persistedSeason,
+        persistedEpisode,
+        selectedSourceConfig?.name,
+        animeContent ? isDub : undefined,
+        {
+          title: content.title,
+          type: content.type,
+          posterUrl: content.posterUrl ?? "",
+          tmdbId: content.tmdbId ?? content._id.split(":").at(-1) ?? "",
+          genre: content.genre,
+          year: content.year,
+          voteAverage: content.voteAverage
+        }
+      );
+
+      lastSyncedProgressRef.current = nextProgress;
+      lastSyncedPositionRef.current = nextPos;
+      lastRealtimeSyncAtRef.current = sample.sampledAt;
+      lastStoredProgressSampleRef.current = sample;
+      syncInFlight = false;
+    };
+
+    window.addEventListener("message", handleMsg);
+    return () => window.removeEventListener("message", handleMsg);
+  }, [
+    content._id,
+    content.tmdbId,
+    content.type,
+    embedUrl,
+    selectedSourceConfig,
+    supportsProgressEvents,
+    updateProgress,
+    animeContent,
+    isDub,
+    useCustomPlayer
+  ]);
 
   useEffect(() => {
     if (!videoRef.current || !useCustomPlayer) return;
@@ -832,10 +900,13 @@ export function VideoPlayer({
           </>
         ) : (
           <iframe
+            ref={iframeRef}
             src={embedUrl}
             srcDoc={iframeSrcDoc}
             className="w-full h-full border-0"
             allowFullScreen
+            allow="fullscreen *; picture-in-picture *; encrypted-media *"
+            title={`Playing ${content.title}`}
             referrerPolicy={iframeReferrerPolicy as any}
           />
         )}
