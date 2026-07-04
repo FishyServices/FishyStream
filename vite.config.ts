@@ -32,14 +32,12 @@ function providerProxyPlugin(): Plugin {
       next();
       return;
     }
-
     try {
       const response = await proxyProviderRequest({
         url: requestUrl,
         method: req.method ?? "GET",
         headers: new Headers(req.headers as HeadersInit)
       });
-
       res.statusCode = response.status;
       response.headers.forEach((value, key) => {
         res.setHeader(key, value);
@@ -51,7 +49,6 @@ function providerProxyPlugin(): Plugin {
       res.end(error instanceof Error ? error.message : "Provider proxy failed");
     }
   };
-
   return {
     name: "provider-proxy",
     configureServer(server) {
@@ -66,7 +63,6 @@ function providerProxyPlugin(): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL;
-
   return {
     plugins: [fishyProvidersPlugin(), providerProxyPlugin(), tailwindcss(), react()],
     resolve: {
@@ -81,9 +77,18 @@ export default defineConfig(({ mode }) => {
       ]
     },
     build: {
+      target: "esnext",
+      modulePreload: { polyfill: false },
       chunkSizeWarningLimit: 1000,
-      rollupOptions: {
+      minify: "esbuild",
+      cssMinify: true,
+      reportCompressedSize: false,
+      rolldownOptions: {
         external: devDeps,
+        treeshake: {
+          moduleSideEffects: false,
+          propertyReadSideEffects: false
+        },
         output: {
           manualChunks(id) {
             if (id.includes("node_modules")) {
@@ -91,6 +96,11 @@ export default defineConfig(({ mode }) => {
               if (id.includes("lucide-react")) return "vendor-icons";
               if (id.includes("react") || id.includes("react-dom")) return "vendor-react";
               if (id.includes("@radix-ui")) return "vendor-ui";
+              if (id.includes("hls.js")) return "vendor-hls";
+              if (id.includes("convex")) return "vendor-convex";
+              if (id.includes("posthog")) return "vendor-posthog";
+              if (id.includes("react-router")) return "vendor-router";
+              if (id.includes("@capacitor")) return "vendor-capacitor";
               return "vendor";
             }
           }
