@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { toImageWire } from "../shared/contentMetadata";
 
 const MIN_PROGRESS_DELTA_TO_WRITE = 5;
 const MIN_POSITION_DELTA_TO_WRITE_SECONDS = 300;
@@ -74,7 +75,7 @@ export const saveWatchProgress = mutation({
         dub: args.dub,
         watchedAt: watchedAt,
         title: args.title,
-        posterUrl: args.posterUrl
+        posterUrl: toImageWire(args.posterUrl)
       });
       return existing._id;
     }
@@ -83,7 +84,7 @@ export const saveWatchProgress = mutation({
       clerkUserId: args.clerkUserId,
       contentId: args.contentId,
       title: args.title,
-      posterUrl: args.posterUrl,
+      posterUrl: toImageWire(args.posterUrl),
       positionSeconds,
       durationSeconds: args.durationSeconds,
       seasonNumber: args.seasonNumber,
