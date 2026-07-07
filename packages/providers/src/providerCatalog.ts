@@ -176,6 +176,7 @@ function defineProvider<TParams extends ProviderParamsDef>(
 }
 
 export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
+  // Primary Providers
   defineProvider({
     key: "peachify",
     name: "Peachify",
@@ -256,7 +257,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
-
+  // Anime Providers
   defineProvider({
     key: "filmu",
     name: "filmu",
@@ -307,32 +308,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
   }),
-  defineProvider({
-    key: "vidfast",
-    name: "VidFast",
-    category: "primary_anime",
-    idType: "both",
-    website: "https://vidfast.pro",
-    progress: { resumeParam: "startAt" },
-    referrerPolicy: "no-referrer",
-    params: {
-      title: { type: "boolean", default: true },
-      poster: { type: "boolean", default: true },
-      autoPlay: { type: "boolean", default: false },
-      startAt: { type: "time" },
-      theme: { type: "hex" },
-      server: { type: "string" },
-      hideServer: { type: "boolean", default: false },
-      fullscreenButton: { type: "boolean", default: true },
-      chromecast: { type: "boolean", default: true },
-      sub: { type: "string" },
-      nextButton: { type: "boolean", default: true },
-      autoNext: { type: "boolean", default: false }
-    },
-    moviePath: (id) => `/movie/${id}`,
-    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
-  }),
-
+  // Other Providers
   defineProvider({
     key: "111movies",
     name: "111movies",
@@ -540,6 +516,31 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/?video_id=${id}&tmdb=1&season=${season}&episode=${episode}`,
     animePath: (id, _season, episode, dub) =>
       `/?video_id=${id}&anime=1&episode=${episode}${dub ? "&dub=1" : ""}`
+  }),
+  defineProvider({
+    key: "vidfast",
+    name: "VidFast",
+    category: "other",
+    idType: "both",
+    website: "https://vidfast.pro",
+    progress: { resumeParam: "startAt" },
+    referrerPolicy: "no-referrer",
+    params: {
+      title: { type: "boolean", default: true },
+      poster: { type: "boolean", default: true },
+      autoPlay: { type: "boolean", default: false },
+      startAt: { type: "time" },
+      theme: { type: "hex" },
+      server: { type: "string" },
+      hideServer: { type: "boolean", default: false },
+      fullscreenButton: { type: "boolean", default: true },
+      chromecast: { type: "boolean", default: true },
+      sub: { type: "string" },
+      nextButton: { type: "boolean", default: true },
+      autoNext: { type: "boolean", default: false }
+    },
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "videasy",
