@@ -213,6 +213,19 @@ export async function fetchTmdbDiscover(
     minVoteCount?: number;
   } = {}
 ): Promise<TMDBDiscoverResult> {
+  if (opts.sortBy === "trending" && !opts.genreId) {
+    const res = await fetchTmdbListOrEmpty(`/trending/${type}/week`, apiKey, signal, {
+      page: opts.page ?? 1
+    });
+    return {
+      items: (res.results ?? [])
+        .map((item) => toTMDBContentCard(item, type))
+        .filter((c): c is TMDBContentCard => !!c),
+      totalPages: res.total_pages ?? 1,
+      totalResults: res.total_results ?? 0
+    };
+  }
+
   const params: Record<string, string | number | undefined> = {
     page: opts.page ?? 1,
     sort_by: tmdbSortParam(opts.sortBy ?? "popular", type),

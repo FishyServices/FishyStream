@@ -65,8 +65,8 @@ function HomepageContent({
   const categories = homepage?.categories ?? [];
   const featuredContent = homepage?.featured;
   const continueWatching =
-    useContinueWatching(!!isSignedIn && settings.showContinueWatchingRow, 6) ?? [];
-  const { recommendations } = useRecommendations(8, "all", 0, !!isSignedIn);
+    useContinueWatching(!!isSignedIn && settings.showContinueWatchingRow, 20) ?? [];
+  const { recommendations } = useRecommendations(20, "all", 0, !!isSignedIn);
   const isDiscoverMode = location.pathname === "/discover";
 
   if (homepage === undefined) {
@@ -178,7 +178,7 @@ function HomepageContent({
                 title="Picked For Your Queue"
                 content={recommendations}
                 onPlay={handlePlay}
-                viewAllHref="/my-list"
+                viewAllHref="/recommendations"
               />
             )}
 

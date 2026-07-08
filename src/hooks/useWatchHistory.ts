@@ -60,9 +60,9 @@ export function useContinueWatching(enabled = true, limit = 6): WatchHistoryItem
     if (!enabled) return [];
     if (history === undefined) return undefined;
 
-    const result = history.filter((item) => !item.completed).slice(0, limit);
+    const result = history.slice(0, limit);
     for (const [contentId, progress] of localProgress?.entries() ?? []) {
-      if (progress.completed || progress.progress < 5) continue;
+      if (progress.progress < 5) continue;
 
       const existingIndex = result.findIndex((item) => item._id === contentId);
       if (existingIndex >= 0) {

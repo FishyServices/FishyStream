@@ -1,0 +1,132 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
+import { Sparkles, RefreshCw, Film, Tv, Play } from "lucide-react";
+import { Header } from "@/components/Header";
+import { MovieCard } from "@/components/MovieCard";
+import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
+import { useMyWatchlist } from "@/hooks/useWatchlist";
+import { useUser } from "@clerk/react";
+import { useRecommendations } from "@/hooks/useContent";
+import { createPlayHandler } from "@/lib/watchNavigation";
+import { Button, Tabs, TabsList, TabsTrigger } from "@fishy/ui";
+
+export function RecommendationsPage() {
+  const navigate = useNavigate();
+  const { isSignedIn } = useUser();
+  const [typeFilter, setTypeFilter] = useState<"all" | "movie" | "tv">("all");
+  const [refreshSeed, setRefreshSeed] = useState(0);
+
+  useSeoMeta({
+    title: "Recommendations",
+    description:
+      "Personalized movie and TV show recommendations picked just for you on FishyStream.",
+    path: "/recommendations",
+    noIndex: true
+  });
+
+  const watchlistData = useMyWatchlist();
+  const hasHistoryOrWatchlist = !!(watchlistData && watchlistData.length > 0) || isSignedIn;
+
+  const { recommendations, isLoading } = useRecommendations(
+    36,
+    typeFilter,
+    refreshSeed,
+    hasHistoryOrWatchlist
+  );
+
+  const handlePlay = createPlayHandler(navigate);
+
+  const handleRefresh = () => {
+    setRefreshSeed((prev) => prev + 1);
+  };
+
+  if (isLoading && recommendations.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="page-shell-wide page-stack">
+          <GridSkeleton />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+
+      <main className="page-shell-wide page-stack">
+        <PageHeader title="Picked For Your Queue" />
+
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Personalized recommendations based on your preferences
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 sm:ml-auto">
+            <Tabs
+              value={typeFilter}
+              onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}
+            >
+              <TabsList className="h-auto rounded-xl bg-white/6 p-1">
+                <TabsTrigger
+                  value="all"
+                  className="rounded-lg data-selected:bg-white data-selected:text-black"
+                >
+                  All
+                </TabsTrigger>
+                <TabsTrigger
+                  value="movie"
+                  className="rounded-lg data-selected:bg-white data-selected:text-black"
+                >
+                  <Film className="w-3.5 h-3.5" />
+                  Movies
+                </TabsTrigger>
+                <TabsTrigger
+                  value="tv"
+                  className="rounded-lg data-selected:bg-white data-selected:text-black"
+                >
+                  <Tv className="w-3.5 h-3.5" />
+                  TV Shows
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="rounded-md text-white/60 hover:text-white"
+              aria-label="Refresh recommendations"
+              title="Refresh recommendations"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+        </div>
+
+        {recommendations.length === 0 ? (
+          <EmptyState
+            icon={<Sparkles className="h-10 w-10 text-muted-foreground" />}
+            title="We don't have enough data to recommend titles yet. Try adding titles to your list or watching content!"
+            action={
+              <Button className="rounded-md" onClick={() => navigate("/movies")}>
+                Browse movies
+              </Button>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {recommendations.map((item) => (
+              <MovieCard key={item._id} content={item} onPlay={handlePlay} layout="grid" />
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

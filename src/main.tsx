@@ -18,6 +18,7 @@ import { MyListPage } from "./pages/MyListPage";
 import { WatchHistoryPage } from "./pages/WatchHistoryPage";
 import { SearchPage } from "./pages/SearchPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { RecommendationsPage } from "./pages/RecommendationsPage";
 import { GlobalWatchlistProvider } from "./hooks/useWatchlist";
 import { WatchProgressProvider } from "./hooks/useWatchProgress";
 import { AppSettingsProvider } from "./hooks/useAppSettings";
@@ -121,6 +122,7 @@ function AppShell() {
                 <Route path="/best" element={<OwnersPicksPage />} />
                 <Route path="/my-list" element={<MyListPage />} />
                 <Route path="/history" element={<WatchHistoryPage />} />
+                <Route path="/recommendations" element={<RecommendationsPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/discover" element={<App />} />
                 <Route path="/settings" element={<SettingsPage />} />
