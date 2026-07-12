@@ -14,6 +14,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "bun run --hot src/dev.ts",
+    "postinstall": "puppeteer browsers install chrome",
     "lint": "tsc --noEmit"
   },
   "devDependencies": {

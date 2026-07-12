@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import Hls from "hls.js";
+import { CustomVideoPlayer } from "./CustomVideoPlayer";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import {
@@ -107,7 +107,6 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { settings } = useAppSettings();
 
@@ -359,50 +358,6 @@ export function VideoPlayer({
   }, [content, tvTarget.episode, tvTarget.season, watchState]);
 
   const useCustomPlayer = searchParams.get("ui") === "custom";
-  const [subtitles, setSubtitles] = useState<any[]>([]);
-  const [skipTimes, setSkipTimes] = useState<{
-    intro?: { start: number; end: number };
-    outro?: { start: number; end: number };
-  }>({});
-  const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
-
-  useEffect(() => {
-    if (!embedUrl || !useCustomPlayer) return;
-
-    let isMounted = true;
-    const fetchRawStream = async () => {
-      try {
-        const scraperEndpoint = import.meta.env.DEV
-          ? "http://localhost:4000/api/scrape"
-          : "/api/scrape";
-        const res = await fetch(`${scraperEndpoint}?url=${encodeURIComponent(embedUrl)}`);
-        const data = await res.json();
-        if (!isMounted) return;
-
-        if (data.streamUrl && videoRef.current) {
-          console.log("Successfully extracted raw stream URL via Scraper:", data.streamUrl);
-
-          if (data.tracks) setSubtitles(data.tracks);
-          if (data.intro || data.outro) setSkipTimes({ intro: data.intro, outro: data.outro });
-
-          if (Hls.isSupported()) {
-            const hls = new Hls();
-            hls.loadSource(data.streamUrl);
-            hls.attachMedia(videoRef.current);
-          } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-            videoRef.current.src = data.streamUrl;
-          }
-        }
-      } catch (e) {
-        console.error("Scraper Error:", e);
-      }
-    };
-
-    fetchRawStream();
-    return () => {
-      isMounted = false;
-    };
-  }, [embedUrl, useCustomPlayer]);
 
   useEffect(() => {
     if (!embedUrl || !supportsProgressEvents || useCustomPlayer) return;
@@ -499,89 +454,6 @@ export function VideoPlayer({
     useCustomPlayer
   ]);
 
-  useEffect(() => {
-    if (!videoRef.current || !useCustomPlayer) return;
-
-    let syncInFlight = false;
-
-    const handleTimeUpdate = () => {
-      const video = videoRef.current;
-      if (!video || !video.duration) return;
-
-      const currentTime = video.currentTime;
-      const duration = video.duration;
-      const progress = calculateProgress(currentTime, duration);
-
-      setCurrentProgress(progress);
-      setPlayerCurrentTime(currentTime);
-
-      if (syncInFlight) return;
-
-      const sample = normalizePlaybackProgressSample({
-        event: "timeupdate",
-        currentTime,
-        duration,
-        progress
-      });
-
-      if (!shouldStorePlaybackProgressSample(lastStoredProgressSampleRef.current, sample)) return;
-
-      const persistedSeason = content.type === "tv" ? tvTargetRef.current.season : undefined;
-      const persistedEpisode = content.type === "tv" ? tvTargetRef.current.episode : undefined;
-
-      realtimeDetectedRef.current = true;
-      syncInFlight = true;
-
-      updateProgress(
-        content._id,
-        progress,
-        progress >= 95 || video.ended,
-        currentTime,
-        duration,
-        persistedSeason,
-        persistedEpisode,
-        selectedSourceConfig?.name,
-        animeContent ? isDub : undefined,
-        {
-          title: content.title,
-          type: content.type,
-          posterUrl: content.posterUrl ?? "",
-          tmdbId: content.tmdbId ?? content._id.split(":").at(-1) ?? "",
-          genre: content.genre,
-          year: content.year,
-          voteAverage: content.voteAverage
-        }
-      );
-
-      lastSyncedProgressRef.current = progress;
-      lastSyncedPositionRef.current = currentTime;
-      lastRealtimeSyncAtRef.current = sample.sampledAt;
-      lastStoredProgressSampleRef.current = sample;
-      syncInFlight = false;
-    };
-
-    const handleEnded = () => handleTimeUpdate();
-
-    videoRef.current.addEventListener("timeupdate", handleTimeUpdate);
-    videoRef.current.addEventListener("ended", handleEnded);
-
-    return () => {
-      if (videoRef.current) {
-        videoRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-        videoRef.current.removeEventListener("ended", handleEnded);
-      }
-    };
-  }, [
-    content._id,
-    content.tmdbId,
-    content.type,
-    embedUrl,
-    selectedSourceConfig,
-    updateProgress,
-    animeContent,
-    isDub,
-    useCustomPlayer
-  ]);
 
   const handleSourceChange = async (nextUrl: string | null) => {
     if (!nextUrl) return;
@@ -706,14 +578,6 @@ export function VideoPlayer({
     };
   }, []);
 
-  const isIntro =
-    skipTimes.intro &&
-    playerCurrentTime >= skipTimes.intro.start &&
-    playerCurrentTime <= skipTimes.intro.end;
-  const isOutro =
-    skipTimes.outro &&
-    playerCurrentTime >= skipTimes.outro.start &&
-    playerCurrentTime <= skipTimes.outro.end;
 
   if (loading) {
     return (
@@ -861,43 +725,16 @@ export function VideoPlayer({
       {/* Main Player Area */}
       <div className="flex-1 relative bg-black group/player overflow-hidden flex items-center justify-center">
         {useCustomPlayer ? (
-          <>
-            <video
-              ref={videoRef}
-              className="w-full h-full object-contain"
-              autoPlay
-              playsInline
-              controls
-            >
-              {subtitles.map((track, i) => (
-                <track
-                  key={i}
-                  kind={track.kind}
-                  src={track.file}
-                  srcLang={track.label?.substring(0, 2).toLowerCase() || "en"}
-                  label={track.label}
-                  default={track.default}
-                />
-              ))}
-            </video>
-
-            {/* Skip Intro / Outro Button */}
-            {(isIntro || isOutro) && (
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (videoRef.current) {
-                    videoRef.current.currentTime = isIntro
-                      ? skipTimes.intro!.end
-                      : skipTimes.outro!.end;
-                  }
-                }}
-                className="absolute bottom-24 right-4 z-50 bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                Skip {isIntro ? "Intro" : "Outro"}
-              </Button>
-            )}
-          </>
+          <CustomVideoPlayer
+            embedUrl={embedUrl}
+            content={content}
+            tvTarget={tvTarget}
+            selectedSourceConfig={selectedSourceConfig}
+            animeContent={animeContent}
+            isDub={isDub}
+            updateProgress={updateProgress}
+            onProgressChange={setCurrentProgress}
+          />
         ) : (
           <iframe
             ref={iframeRef}
