@@ -365,12 +365,10 @@ export function usePlaybackSession({
       targetRef.current = next;
       setTarget(next);
       setResumePositionSeconds(0);
-      const params = new URLSearchParams();
+      const params = new URLSearchParams(searchParams);
       params.set("type", content.type);
       params.set("season", String(next.season));
       params.set("episode", String(next.episode));
-      const currentSource = searchParams.get("source");
-      if (currentSource) params.set("source", currentSource);
       if (isDub) params.set("dub", "true");
       navigate({ search: params.toString() }, { replace: true });
       sourceRequestIdRef.current += 1;

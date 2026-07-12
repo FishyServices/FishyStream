@@ -70,6 +70,7 @@ export interface ProviderCatalogEntry<TParams extends ProviderParamsDef = Provid
   referrerPolicy?: ProviderReferrerPolicy;
   unsafeWildcardOrigin?: boolean;
   progress?: ProviderProgressConfig;
+  supportsCustomUI?: boolean;
   params?: TParams;
   getMovieUrl: (id: string, params?: Partial<{ [K in keyof TParams]: any }>) => string;
   getTVUrl: (
@@ -282,6 +283,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animeIdType: "anilist",
     dubSupport: true,
     progress: { resumeParam: "startAt" },
+    supportsCustomUI: true,
     moviePath: (id) => `/stream/ani/${id}/1/sub`,
     tvPath: (id, _season, episode) => `/stream/ani/${id}/${episode}/sub`,
     animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`
