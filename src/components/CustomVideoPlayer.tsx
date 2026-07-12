@@ -1,11 +1,10 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Info,
   Mic2,
-  MonitorPlay,
   Play,
   Pause,
   Volume2,
@@ -15,17 +14,8 @@ import {
   Loader2,
   Settings
 } from "lucide-react";
-import {
-  Button,
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue
-} from "@fishy/ui";
+import { Button } from "@fishy/ui";
+import { ProviderSourceSelect, type ProviderUiMode } from "@/components/ProviderSourceSelect";
 import { calculateProgress } from "@fishy/providers/playerProviders";
 import {
   normalizePlaybackProgressSample,
@@ -46,7 +36,7 @@ interface CustomVideoPlayerProps {
   showDubToggle: boolean;
   handleDubToggle: (isDub: boolean) => void;
   selectedSource: string;
-  handleSourceChange: (nextUrl: string | null) => void;
+  onSelectProvider: (nextUrl: string, mode: ProviderUiMode) => void;
   groupedSources: any[];
   onInfoClick: () => void;
 }
@@ -78,7 +68,7 @@ export function CustomVideoPlayer({
   showDubToggle,
   handleDubToggle,
   selectedSource,
-  handleSourceChange,
+  onSelectProvider,
   groupedSources,
   onInfoClick
 }: CustomVideoPlayerProps) {
@@ -433,7 +423,7 @@ export function CustomVideoPlayer({
       </video>
 
       <div
-        className={`absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/80 flex flex-col justify-between transition-opacity duration-300 z-30 ${
+        className={`absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-black/80 flex flex-col justify-between transition-opacity duration-300 z-30 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
@@ -561,41 +551,16 @@ export function CustomVideoPlayer({
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs text-white/50">Source Provider</label>
-                    <Select
-                      value={selectedSource}
-                      onValueChange={(val) => {
-                        handleSourceChange(val);
+                    <ProviderSourceSelect
+                      groupedSources={groupedSources}
+                      selectedSource={selectedSource}
+                      useCustomPlayer
+                      onSelect={(url, mode) => {
+                        onSelectProvider(url, mode);
                         setShowSettings(false);
                       }}
-                    >
-                      <SelectTrigger className="w-full border-white/10 bg-black/40 text-xs text-white">
-                        <MonitorPlay className="w-3.5 h-3.5 mr-1.5 shrink-0" />
-                        <SelectValue placeholder="Source">
-                          {selectedSourceConfig ? selectedSourceConfig.name : undefined}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="z-50 border-white/10 bg-neutral-900 text-white">
-                        {groupedSources.map((group, index) => (
-                          <Fragment key={group.key}>
-                            {index > 0 ? <SelectSeparator /> : null}
-                            <SelectGroup>
-                              <SelectLabel className="text-white/50 text-[10px]">
-                                {group.label}
-                              </SelectLabel>
-                              {group.sources.map((source: any) => (
-                                <SelectItem
-                                  key={source.url}
-                                  value={source.url}
-                                  className="text-xs text-white focus:bg-neutral-800 focus:text-white"
-                                >
-                                  {source.name}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </Fragment>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      variant="panel"
+                    />
                   </div>
 
                   <Button

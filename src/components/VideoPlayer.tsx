@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CustomVideoPlayer } from "./CustomVideoPlayer";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -16,16 +16,7 @@ import { Button } from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ContentModal } from "@/components/ContentModal";
 import { useSeasonEpisodes } from "@/hooks/useContent";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue
-} from "@fishy/ui";
+import { ProviderSourceSelect, type ProviderUiMode } from "@/components/ProviderSourceSelect";
 import { useGetProgress, useUpdateProgress } from "@/hooks/useWatchProgress";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useOneShotConvexQuery } from "@/hooks/useOneShotConvexQuery";
@@ -454,10 +445,19 @@ export function VideoPlayer({
     useCustomPlayer
   ]);
 
-  const handleSourceChange = async (nextUrl: string | null) => {
+  const handleProviderSelect = async (nextUrl: string, mode: ProviderUiMode) => {
     if (!nextUrl) return;
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (mode === "custom") {
+      nextParams.set("ui", "custom");
+    } else {
+      nextParams.delete("ui");
+    }
+
+    setSearchParams(nextParams, { replace: true });
     realtimeDetectedRef.current = false;
-    await session.setSourceByUrl(nextUrl);
+    await session.setSourceByUrl(nextUrl, nextParams);
   };
 
   const handleDubToggle = (newIsDub: boolean) => {
@@ -680,33 +680,14 @@ export function VideoPlayer({
                 </div>
               )}
 
-              <Select value={selectedSource} onValueChange={handleSourceChange}>
-                <SelectTrigger className="w-full border-border/80 bg-card/90 text-sm text-foreground sm:w-55">
-                  <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
-                  <SelectValue placeholder="Source">
-                    {selectedSourceConfig ? selectedSourceConfig.name : undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="z-50 border-border/80 bg-popover text-popover-foreground">
-                  {groupedSources.map((group, index) => (
-                    <Fragment key={group.key}>
-                      {index > 0 ? <SelectSeparator /> : null}
-                      <SelectGroup>
-                        <SelectLabel>{group.label}</SelectLabel>
-                        {group.sources.map((source) => (
-                          <SelectItem
-                            key={source.url}
-                            value={source.url}
-                            className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                          >
-                            {source.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </Fragment>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ProviderSourceSelect
+                groupedSources={groupedSources}
+                selectedSource={selectedSource}
+                useCustomPlayer={useCustomPlayer}
+                onSelect={handleProviderSelect}
+                variant="header"
+                className="sm:w-55"
+              />
               <Button
                 variant="ghost"
                 size="icon"
@@ -737,7 +718,7 @@ export function VideoPlayer({
             showDubToggle={showDubToggle}
             handleDubToggle={handleDubToggle}
             selectedSource={selectedSource}
-            handleSourceChange={handleSourceChange}
+            onSelectProvider={handleProviderSelect}
             groupedSources={groupedSources}
             onInfoClick={() => setShowInfoModal(true)}
           />

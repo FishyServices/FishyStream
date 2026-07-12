@@ -53,7 +53,7 @@ export interface PlaybackSession {
   embedUrl: string;
   iframeSrcDoc?: string;
   canTryNextSource: boolean;
-  setSourceByUrl(url: string): Promise<void>;
+  setSourceByUrl(url: string, params?: URLSearchParams): Promise<void>;
   setDub(enabled: boolean): void;
   goToEpisode(target: PlaybackTarget): void;
   retry(): void;
@@ -317,14 +317,16 @@ export function usePlaybackSession({
       : undefined;
 
   const setSourceByUrl = useCallback(
-    async (nextUrl: string) => {
+    async (nextUrl: string, params?: URLSearchParams) => {
       const nextSource = sources.find((source) => source.url === nextUrl);
       if (!nextSource) return;
 
-      const params = new URLSearchParams(searchParams);
-      params.set("type", content.type);
-      params.set("source", nextSource.name);
-      navigate({ search: params.toString() }, { replace: true });
+      const nextSearchParams = params
+        ? new URLSearchParams(params)
+        : new URLSearchParams(searchParams);
+      nextSearchParams.set("type", content.type);
+      nextSearchParams.set("source", nextSource.name);
+      navigate({ search: nextSearchParams.toString() }, { replace: true });
       setResumePositionSeconds(
         pickResumePositionSeconds(
           content,
