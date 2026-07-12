@@ -454,7 +454,6 @@ export function VideoPlayer({
     useCustomPlayer
   ]);
 
-
   const handleSourceChange = async (nextUrl: string | null) => {
     if (!nextUrl) return;
     realtimeDetectedRef.current = false;
@@ -578,7 +577,6 @@ export function VideoPlayer({
     };
   }, []);
 
-
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -626,101 +624,103 @@ export function VideoPlayer({
   return (
     <div className="h-screen w-screen bg-black flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex-none border-b border-white/10 bg-black/90 backdrop-blur-sm z-10 transition-all duration-300">
-        <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/10 shrink-0"
-              onClick={() => navigate(-1)}
-              aria-label="Back"
-              title="Back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div className="min-w-0">
-              <h1 className="text-base font-semibold text-white truncate">{content.title}</h1>
-              <p className="text-xs text-white/50 truncate">
-                {content.type === "movie"
-                  ? `Movie · ${content.year}`
-                  : `TV Series · ${content.year} · S${tvTarget.season} E${tvTarget.episode}`}
-              </p>
+      {!useCustomPlayer && (
+        <div className="flex-none border-b border-white/10 bg-black/90 backdrop-blur-sm z-10 transition-all duration-300">
+          <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/10 shrink-0"
+                onClick={() => navigate(-1)}
+                aria-label="Back"
+                title="Back"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="min-w-0">
+                <h1 className="text-base font-semibold text-white truncate">{content.title}</h1>
+                <p className="text-xs text-white/50 truncate">
+                  {content.type === "movie"
+                    ? `Movie · ${content.year}`
+                    : `TV Series · ${content.year} · S${tvTarget.season} E${tvTarget.episode}`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 sm:shrink-0">
+              {showDubToggle && (
+                <div className="flex items-center rounded-md border border-border/80 bg-card/90 overflow-hidden shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDubToggle(false)}
+                    className={`flex items-center gap-1.5 rounded-none px-3 py-1.5 text-xs font-medium ${
+                      !isDub
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    }`}
+                  >
+                    <Mic2 className="w-3 h-3" />
+                    SUB
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDubToggle(true)}
+                    className={`flex items-center gap-1.5 rounded-none px-3 py-1.5 text-xs font-medium ${
+                      isDub
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    }`}
+                  >
+                    <Mic2 className="w-3 h-3" />
+                    DUB
+                  </Button>
+                </div>
+              )}
+
+              <Select value={selectedSource} onValueChange={handleSourceChange}>
+                <SelectTrigger className="w-full border-border/80 bg-card/90 text-sm text-foreground sm:w-55">
+                  <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
+                  <SelectValue placeholder="Source">
+                    {selectedSourceConfig ? selectedSourceConfig.name : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="z-50 border-border/80 bg-popover text-popover-foreground">
+                  {groupedSources.map((group, index) => (
+                    <Fragment key={group.key}>
+                      {index > 0 ? <SelectSeparator /> : null}
+                      <SelectGroup>
+                        <SelectLabel>{group.label}</SelectLabel>
+                        {group.sources.map((source) => (
+                          <SelectItem
+                            key={source.url}
+                            value={source.url}
+                            className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                          >
+                            {source.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </Fragment>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/10 shrink-0"
+                onClick={() => setShowInfoModal(true)}
+                aria-label="Content info"
+                title="Content info"
+              >
+                <Info className="w-5 h-5" />
+              </Button>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 sm:shrink-0">
-            {showDubToggle && (
-              <div className="flex items-center rounded-md border border-border/80 bg-card/90 overflow-hidden shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDubToggle(false)}
-                  className={`flex items-center gap-1.5 rounded-none px-3 py-1.5 text-xs font-medium ${
-                    !isDub
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                  }`}
-                >
-                  <Mic2 className="w-3 h-3" />
-                  SUB
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDubToggle(true)}
-                  className={`flex items-center gap-1.5 rounded-none px-3 py-1.5 text-xs font-medium ${
-                    isDub
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                  }`}
-                >
-                  <Mic2 className="w-3 h-3" />
-                  DUB
-                </Button>
-              </div>
-            )}
-
-            <Select value={selectedSource} onValueChange={handleSourceChange}>
-              <SelectTrigger className="w-full border-border/80 bg-card/90 text-sm text-foreground sm:w-55">
-                <MonitorPlay className="w-4 h-4 mr-1.5 shrink-0" />
-                <SelectValue placeholder="Source">
-                  {selectedSourceConfig ? selectedSourceConfig.name : undefined}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="z-50 border-border/80 bg-popover text-popover-foreground">
-                {groupedSources.map((group, index) => (
-                  <Fragment key={group.key}>
-                    {index > 0 ? <SelectSeparator /> : null}
-                    <SelectGroup>
-                      <SelectLabel>{group.label}</SelectLabel>
-                      {group.sources.map((source) => (
-                        <SelectItem
-                          key={source.url}
-                          value={source.url}
-                          className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                        >
-                          {source.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </Fragment>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/10 shrink-0"
-              onClick={() => setShowInfoModal(true)}
-              aria-label="Content info"
-              title="Content info"
-            >
-              <Info className="w-5 h-5" />
-            </Button>
-          </div>
         </div>
-      </div>
+      )}
 
       {/* Main Player Area */}
       <div className="flex-1 relative bg-black group/player overflow-hidden flex items-center justify-center">
@@ -734,6 +734,12 @@ export function VideoPlayer({
             isDub={isDub}
             updateProgress={updateProgress}
             onProgressChange={setCurrentProgress}
+            showDubToggle={showDubToggle}
+            handleDubToggle={handleDubToggle}
+            selectedSource={selectedSource}
+            handleSourceChange={handleSourceChange}
+            groupedSources={groupedSources}
+            onInfoClick={() => setShowInfoModal(true)}
           />
         ) : (
           <iframe
