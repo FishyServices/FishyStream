@@ -29,7 +29,9 @@ export type ProviderKey =
   | "vidup"
   | "vidzee"
   | "vidzen"
-  | "vixsrc";
+  | "vixsrc"
+  | "vaplayer"
+  | "vidlux";
 
 export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
@@ -723,6 +725,52 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vaplayer",
+    name: "Vaplayer",
+    category: "other",
+    idType: "both",
+    website: "https://vaplayer.ru",
+    params: {
+      primaryColor: { type: "hex" },
+      color: { type: "hex" },
+      title: { type: "string" },
+      poster: { type: "string" },
+      showTitle: { type: "boolean", default: true },
+      autoplay: { type: "number", default: 0 },
+      startAt: { type: "time" },
+      resumeAt: { type: "time" },
+      sub_url: { type: "string" },
+      sub_file: { type: "string" },
+      sub_label: { type: "string" },
+      sub_lang: { type: "string" },
+      sub_default: { type: "boolean", default: false },
+      ds_lang: { type: "string" },
+      lang: { type: "string" },
+      controls: { type: "boolean", default: true },
+      overlay: { type: "boolean", default: true },
+      thumbnails: { type: "string" }
+    },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidlux",
+    name: "VidLux",
+    category: "other",
+    idType: "tmdb",
+    website: "https://vidlux.xyz",
+    params: {
+      key: { type: "string" },
+      color: { type: "hex" },
+      logo: { type: "string" },
+      autoplay: { type: "boolean", default: true },
+      server: { type: "string", default: "star" },
+      title: { type: "string" }
+    },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   })
 ];
 
