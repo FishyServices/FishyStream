@@ -14,7 +14,9 @@ import {
   ChevronDown,
   LayoutGrid,
   List,
-  Play
+  Play,
+  Search,
+  X
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
@@ -46,7 +48,7 @@ import { getCustomFolders, setCustomFolders as setLSCustomFolders } from "@/lib/
 
 export function MyListPage() {
   const navigate = useNavigate();
-  const { isSignedIn, user } = useUser();
+  const { user } = useUser();
 
   useSeoMeta({
     title: "My List",
@@ -54,7 +56,6 @@ export function MyListPage() {
     path: "/my-list",
     noIndex: true
   });
-  const customFolderKey = `watchlist_custom_folders_${user?.id ?? "guest"}`;
   const watchlistData = useMyWatchlist();
   const [watchlist, setWatchlist] = useState<typeof watchlistData>(undefined);
   const updateFolder = useUpdateWatchlistFolder();
@@ -67,9 +68,12 @@ export function MyListPage() {
   });
   const [draggedContentId, setDraggedContentId] = useState<ContentId | null>(null);
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<string | null>(null);
+  const [isAutoSortDialogOpen, setIsAutoSortDialogOpen] = useState(false);
   const [folderMenuForContentId, setFolderMenuForContentId] = useState<ContentId | null>(null);
   const [sortBy, setSortBy] = useState<"recently" | "oldest" | "title-az" | "title-za">("recently");
   const [viewLayout, setViewLayout] = useState<"grid" | "list">("grid");
+  const [listTypeFilter, setListTypeFilter] = useState<"all" | "movie" | "tv">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [canDragCards, setCanDragCards] = useState(false);
   const { recommendations, isLoading: recsLoading } = useRecommendations(
     12,
@@ -116,15 +120,17 @@ export function MyListPage() {
 
   const filteredWatchlist = useMemo(() => {
     if (!watchlist) return [];
+    const normalizedQuery = searchQuery.trim().toLowerCase();
     return watchlist.filter((item) => {
-      const matchesType = typeFilter === "all" || item.type === typeFilter;
+      const matchesType = listTypeFilter === "all" || item.type === listTypeFilter;
       const itemFolder = item.watchlistFolder?.trim() || "";
       const matchesFolder =
         folderFilter === "all" ||
         (folderFilter === "unsorted" ? !itemFolder : itemFolder === folderFilter);
-      return matchesType && matchesFolder;
+      const matchesSearch = !normalizedQuery || item.title.toLowerCase().includes(normalizedQuery);
+      return matchesType && matchesFolder && matchesSearch;
     });
-  }, [folderFilter, typeFilter, watchlist]);
+  }, [folderFilter, listTypeFilter, searchQuery, watchlist]);
 
   const sortedFilteredWatchlist = useMemo(() => {
     const filtered = filteredWatchlist;
@@ -309,7 +315,15 @@ export function MyListPage() {
       <Header />
 
       <main className="page-shell-wide page-stack">
-        <PageHeader title="My List" />
+        <PageHeader
+          title="My List"
+          count={watchlist.length}
+          actions={
+            <Button variant="secondary" className="rounded-md" onClick={() => navigate("/movies")}>
+              Browse titles
+            </Button>
+          }
+        />
 
         {watchlist.length === 0 ? (
           <EmptyState
@@ -321,22 +335,19 @@ export function MyListPage() {
             }
           />
         ) : (
-          <div className="space-y-10">
-            <section className="rounded-lg border border-white/8 bg-white/4 p-4 sm:p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <BookMarked className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-medium text-white">Bookmarks & folders</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
+          <div className="space-y-8">
+            <section className="space-y-4 border-y border-white/8 py-4">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <BookMarked className="h-4 w-4 shrink-0 text-primary" />
+                  <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1">
                     <Button
                       variant={folderFilter === "all" ? "default" : "secondary"}
                       size="sm"
                       onClick={() => setFolderFilter("all")}
                       className="rounded-md"
                     >
-                      All ({watchlist.length})
+                      All <span className="ml-1 opacity-60">{watchlist.length}</span>
                     </Button>
                     <Button
                       variant={folderFilter === "unsorted" ? "default" : "secondary"}
@@ -344,7 +355,10 @@ export function MyListPage() {
                       onClick={() => setFolderFilter("unsorted")}
                       className="rounded-md"
                     >
-                      Unsorted ({watchlist.filter((item) => !item.watchlistFolder?.trim()).length})
+                      Unsorted
+                      <span className="ml-1 opacity-60">
+                        {watchlist.filter((item) => !item.watchlistFolder?.trim()).length}
+                      </span>
                     </Button>
                     {folderNames.map((folder) => (
                       <div
@@ -361,12 +375,13 @@ export function MyListPage() {
                           onClick={() => setFolderFilter(folder)}
                           className="rounded-none px-3 py-1.5 text-inherit hover:bg-transparent hover:text-inherit"
                         >
-                          {folder} (
-                          {
-                            watchlist.filter((item) => item.watchlistFolder?.trim() === folder)
-                              .length
-                          }
-                          )
+                          {folder}
+                          <span className="ml-1 opacity-60">
+                            {
+                              watchlist.filter((item) => item.watchlistFolder?.trim() === folder)
+                                .length
+                            }
+                          </span>
                         </Button>
                         <Button
                           type="button"
@@ -392,9 +407,10 @@ export function MyListPage() {
                   <Button
                     variant="secondary"
                     className="rounded-md"
-                    onClick={() => void handleAutoSortFolders()}
+                    onClick={() => setIsAutoSortDialogOpen(true)}
                   >
-                    Auto Sort
+                    <Folder className="mr-2 h-4 w-4" />
+                    Organize
                   </Button>
                   <div className="relative flex-1">
                     <FolderPlus className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
@@ -407,24 +423,72 @@ export function MyListPage() {
                           handleCreateFolder();
                         }
                       }}
-                      placeholder="New folder"
+                      placeholder="Create a folder"
                       className="min-w-0 rounded-md border-white/12 bg-white/6 pl-10 text-white placeholder:text-white/35 sm:w-64"
                     />
                   </div>
                   <Button className="rounded-md" onClick={handleCreateFolder}>
                     <FolderPlus className="mr-2 h-4 w-4" />
-                    Add
+                    Create
                   </Button>
                 </div>
               </div>
             </section>
 
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-white/6 bg-white/2 p-4">
-              <div className="text-sm text-white/50 font-medium">
-                Showing {filteredWatchlist.length}{" "}
-                {filteredWatchlist.length === 1 ? "title" : "titles"}
+            <div className="flex flex-col gap-3 border-b border-white/8 pb-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative min-w-0 flex-1 sm:max-w-sm">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search your list"
+                    aria-label="Search your list"
+                    className="h-10 rounded-md border-white/10 bg-white/5 pl-9 pr-9 text-white placeholder:text-white/40"
+                  />
+                  {searchQuery && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-md text-white/50 hover:text-white"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <Tabs
+                  value={listTypeFilter}
+                  onValueChange={(value) => setListTypeFilter(value as typeof listTypeFilter)}
+                >
+                  <TabsList className="h-10 rounded-md bg-white/5 p-1">
+                    <TabsTrigger
+                      value="all"
+                      className="rounded-sm px-3 text-xs data-selected:bg-white data-selected:text-black"
+                    >
+                      All
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="movie"
+                      className="rounded-sm px-3 text-xs data-selected:bg-white data-selected:text-black"
+                    >
+                      Movies
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="tv"
+                      className="rounded-sm px-3 text-xs data-selected:bg-white data-selected:text-black"
+                    >
+                      TV
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-medium text-white/50">
+                  {filteredWatchlist.length} {filteredWatchlist.length === 1 ? "title" : "titles"}
+                </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
@@ -499,7 +563,24 @@ export function MyListPage() {
             </div>
 
             {filteredWatchlist.length === 0 ? (
-              <EmptyState title="No saved titles" />
+              <EmptyState
+                title={
+                  searchQuery ? `No titles match “${searchQuery}”` : "No titles match these filters"
+                }
+                action={
+                  <Button
+                    variant="secondary"
+                    className="rounded-md"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setListTypeFilter("all");
+                      setFolderFilter("all");
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                }
+              />
             ) : (
               groupedWatchlist.map(([groupName, items]) => (
                 <section
@@ -799,6 +880,31 @@ export function MyListPage() {
           </div>
         )}
       </main>
+
+      <Dialog open={isAutoSortDialogOpen} onOpenChange={setIsAutoSortDialogOpen}>
+        <DialogContent className="border-white/10 bg-[hsl(220,20%,8%)] text-white">
+          <DialogHeader>
+            <DialogTitle>Organize your list?</DialogTitle>
+            <DialogDescription className="text-white/58">
+              This will put every movie in “Movies” and every TV show in “TV Shows”. Items already
+              in another folder will be moved.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsAutoSortDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                setIsAutoSortDialogOpen(false);
+                await handleAutoSortFolders();
+              }}
+            >
+              Organize list
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!pendingDeleteFolder}

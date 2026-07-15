@@ -81,6 +81,7 @@ export const toggleWatchlistEntry = mutation({
       if (currentlyInWatchlist === args.inWatchlist) return true;
       await ctx.db.patch(existing._id, {
         watchlistAddedAt: args.inWatchlist ? Date.now() : undefined,
+        folder: args.inWatchlist && currentlyInWatchlist ? existing.folder : undefined,
         title: args.title,
         posterUrl: toImageWire(args.posterUrl)
       });
