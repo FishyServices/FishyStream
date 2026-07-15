@@ -11,7 +11,6 @@ export type ProviderKey =
   | "direct" // for tvSeasonMappings.ts
   | "filmu"
   | "flickystream"
-  | "lordflix"
   | "mafiaembed"
   | "megaplay"
   | "peachify"
@@ -415,17 +414,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/player/movie/${id}`,
     tvPath: (id, season, episode) => `/player/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "lordflix",
-    name: "LordFlix",
-    category: "other",
-    idType: "tmdb",
-    website: "https://lordflix.org",
-    progress: { resumeParam: "progress" },
-    referrerPolicy: "no-referrer",
-    moviePath: (id) => `/watch/movie/${id}`,
-    tvPath: (id, season, episode) => `/watch/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "mafiaembed",
