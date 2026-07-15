@@ -29,7 +29,7 @@ export function ContentRow({
   content,
   onPlay,
   viewAllHref,
-  viewAllLabel = "All"
+  viewAllLabel = "View all"
 }: ContentRowProps) {
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -47,11 +47,11 @@ export function ContentRow({
   if (content.length === 0) return null;
 
   return (
-    <section className="group relative isolate overflow-hidden py-2 pb-8 sm:py-3 sm:pb-10">
-      <div className="page-shell-wide relative z-40 mb-5 flex items-end justify-between gap-3">
+    <section className="group relative isolate overflow-hidden py-3 pb-8 sm:py-4 sm:pb-11">
+      <div className="page-shell-wide relative z-40 mb-4 flex items-end justify-between gap-3 sm:mb-5">
         <div className="min-w-0">
           <h2
-            className="truncate font-display text-xl font-bold text-foreground sm:text-2xl"
+            className="truncate font-display text-lg font-bold text-foreground sm:text-2xl"
             title={title}
           >
             {title}
@@ -62,7 +62,7 @@ export function ContentRow({
             variant="outline"
             size="sm"
             onClick={() => navigate(viewAllHref)}
-            className="relative z-40 ml-4 whitespace-nowrap rounded-md border border-white/10 bg-white/3 text-muted-foreground hover:bg-card/80 hover:text-foreground"
+            className="relative z-40 ml-4 whitespace-nowrap rounded-full border border-white/10 bg-white/3 text-xs text-muted-foreground hover:bg-card/80 hover:text-foreground"
           >
             {viewAllLabel}
           </Button>

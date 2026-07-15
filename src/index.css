@@ -201,12 +201,12 @@
   }
 
   .page-shell-wide {
-    width: min(100% - 5.35rem, 175rem);
+    width: min(100% - 2rem, 175rem);
     margin-inline: auto;
   }
 
   .page-stack {
-    padding-top: clamp(5rem, 10vw, 6.5rem);
+    padding-top: clamp(5.75rem, 10vw, 7rem);
     padding-bottom: clamp(3rem, 8vw, 5rem);
   }
 
@@ -262,6 +262,12 @@
 
   .rating-TV-MA {
     @apply text-rose-300;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-shell-wide {
+    width: min(100% - 5.35rem, 175rem);
   }
 }
 

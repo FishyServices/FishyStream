@@ -187,14 +187,25 @@ export function SearchPage() {
           </div>
         </div>
 
-        {!query && <EmptyState icon={<Search className="h-12 w-12" />} title="Start typing" />}
+        {!query && (
+          <EmptyState
+            icon={<Search className="h-12 w-12" />}
+            title="Search movies and TV shows"
+            action={<p className="text-sm text-muted-foreground">Try a title, actor, or genre.</p>}
+          />
+        )}
 
         {loading && <GridSkeleton />}
 
         {error && <EmptyState title={error} />}
 
         {!loading && query && results.length === 0 && !error && (
-          <EmptyState title={`No results for "${query}"`} />
+          <EmptyState
+            title={`No matches for "${query}"`}
+            action={
+              <p className="text-sm text-muted-foreground">Try a different title or genre.</p>
+            }
+          />
         )}
 
         {!loading && results.length > 0 && (

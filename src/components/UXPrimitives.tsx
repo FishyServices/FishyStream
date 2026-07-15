@@ -47,11 +47,11 @@ export function EmptyState({
 }) {
   return (
     <div className="flex min-h-64 items-center justify-center px-6 py-16 text-center">
-      <div className="space-y-4">
+      <div className="max-w-sm space-y-3">
         {icon ? (
           <div className="mx-auto flex justify-center text-muted-foreground/45">{icon}</div>
         ) : null}
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
+        <p className="text-base font-medium text-foreground">{title}</p>
         {action}
       </div>
     </div>

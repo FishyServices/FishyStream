@@ -149,7 +149,7 @@ export function Hero({
   };
 
   return (
-    <div className="relative w-full h-[80svh] min-h-135 sm:h-[92vh] sm:min-h-160 max-h-225 overflow-hidden group/hero">
+    <div className="group/hero relative h-[68svh] min-h-135 w-full max-h-225 overflow-hidden sm:h-[92vh] sm:min-h-160">
       <div className="absolute inset-0 bg-neutral-950">
         <div
           className={`absolute inset-0 transition-all duration-1000 ease-out scale-100 ${loaded ? "opacity-100" : "opacity-0"}`}
@@ -238,15 +238,15 @@ export function Hero({
           </div>
 
           {activeContent.tagline && (
-            <p className="text-sm sm:text-base text-white/60 italic font-light">
+            <p className="hidden text-sm font-light italic text-white/60 sm:block sm:text-base">
               {activeContent.tagline}
             </p>
           )}
-          <p className="hidden max-w-lg text-sm leading-relaxed text-white/80 min-[380px]:line-clamp-2 min-[380px]:block sm:text-base">
+          <p className="hidden max-w-lg line-clamp-2 text-sm leading-relaxed text-white/80 min-[380px]:block sm:text-base">
             {activeContent.description}
           </p>
 
-          <div className="flex items-center gap-3 flex-wrap pt-2">
+          <div className="flex flex-wrap items-center gap-2 pt-2 sm:gap-3">
             <Button
               size="lg"
               className="w-full rounded-md bg-white px-7 text-base font-semibold text-black shadow-sm hover:bg-white/90 sm:w-auto"
@@ -258,7 +258,7 @@ export function Hero({
             <Button
               size="lg"
               variant="secondary"
-              className="w-full rounded-md border-white/20 bg-black/60 px-7 text-base font-semibold text-white hover:bg-black/80 sm:w-auto"
+              className="flex-1 rounded-md border-white/20 bg-black/60 px-5 text-base font-semibold text-white hover:bg-black/80 sm:flex-none sm:px-7"
               onClick={() => setShowModal(true)}
             >
               <Info className="w-5 h-5 mr-2" />

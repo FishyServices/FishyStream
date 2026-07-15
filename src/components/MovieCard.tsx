@@ -305,7 +305,7 @@ export function MovieCard({
           </div>
         </div>
 
-        <div className="mt-2.5 space-y-2 md:hidden">
+        <div className="mt-2 space-y-2 md:hidden">
           <div>
             <h3 className="line-clamp-1 text-sm font-display font-semibold leading-tight text-white">
               {content.title}
@@ -329,10 +329,10 @@ export function MovieCard({
           </div>
 
           {showMobileActions && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <Button
                 size="icon"
-                className="flex h-8 w-8 items-center justify-center rounded-md bg-white text-black hover:bg-white/90"
+                className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-black hover:bg-white/90"
                 onClick={handlePlay}
                 aria-label={`Play ${content.title}`}
                 title={`Play ${content.title}`}
@@ -342,7 +342,7 @@ export function MovieCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-md border border-white/12 bg-white/4"
+                className="h-9 w-9 rounded-md border border-white/12 bg-white/4"
                 onClick={handleWatchlist}
                 aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
                 title={isInWatchlist ? "Remove from list" : "Add to list"}
@@ -352,20 +352,6 @@ export function MovieCard({
                 ) : (
                   <Plus className="h-3.5 w-3.5 text-white" />
                 )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-md border border-white/12 bg-white/4"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleModalChange(true);
-                }}
-                aria-label="More info"
-                title="More info"
-              >
-                <ChevronDown className="h-3.5 w-3.5 text-white" />
               </Button>
             </div>
           )}
