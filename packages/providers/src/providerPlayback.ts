@@ -69,6 +69,9 @@ export function pickPreferredSource(
 ): StreamSource | undefined {
   const { initialSource, defaultProvider } = options;
 
+  const directSource = sources.find((entry) => entry.key === "direct");
+  if (directSource) return directSource;
+
   if (initialSource) {
     const source = sources.find(
       (entry) => entry.name.toLowerCase() === initialSource.toLowerCase()

@@ -1,5 +1,5 @@
 import { resolveAniListEpisodeAddress } from "./anilistResolver";
-import { mapCanonicalToProviderOrder } from "./tvSeasonMappings";
+import { mapCanonicalToProviderOrder, getTvOrderingOverride } from "./tvSeasonMappings";
 import type { AniListEpisodeMapping } from "./types";
 
 export type ProviderKey =
@@ -8,6 +8,7 @@ export type ProviderKey =
   | "autoembed"
   | "cinesrc"
   | "cinezo"
+  | "direct" // for tvSeasonMappings.ts
   | "filmu"
   | "flickystream"
   | "lordflix"
@@ -771,6 +772,16 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    // for tvSeasonMappings.ts
+    key: "direct",
+    name: "Direct",
+    category: "other",
+    idType: "tmdb",
+    website: "",
+    moviePath: () => "",
+    tvPath: () => ""
   })
 ];
 
@@ -856,6 +867,7 @@ function dedupeSources(sources: StreamSource[]) {
 export function buildMovieSources(args: { imdbId?: string; tmdbId?: string }): StreamSource[] {
   const { imdbId, tmdbId } = args;
   const sources = STREAM_PROVIDERS.flatMap((provider) => {
+    if (provider.key === "direct") return [];
     if (provider.animeOnly) return [];
 
     const id = getProviderId(provider, imdbId, tmdbId);
@@ -906,7 +918,19 @@ export async function buildTvSources(args: {
   );
 
   const sources: StreamSource[] = [];
+
+  const override = getTvOrderingOverride(tmdbId);
+  const directUrl = override?.videoUrlOverrides?.[`season=${season}&episode=${episode}`];
+  if (directUrl) {
+    sources.push({
+      key: "direct",
+      name: "Direct",
+      url: directUrl
+    });
+  }
+
   for (const provider of STREAM_PROVIDERS) {
+    if (provider.key === "direct") continue;
     if (provider.animeOnly && !isAnime) continue;
 
     const fallbackId = getProviderId(provider, imdbId, tmdbId);

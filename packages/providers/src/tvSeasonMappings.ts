@@ -17,9 +17,11 @@ export interface TvOrderingOverride {
   episodeGroupId?: string;
   canonicalSeasons: CanonicalSeasonDefinition[];
   providerFormats: Partial<Record<string, "canonical" | "tmdb">>;
+  videoUrlOverrides?: Record<string, string>;
 }
 
 const MONEY_HEIST_TMDB_ID = "71446";
+const GALACTIC_HEROES_TMDB_ID = "74018";
 
 const MONEY_HEIST_OVERRIDE: TvOrderingOverride = {
   tmdbId: MONEY_HEIST_TMDB_ID,
@@ -40,8 +42,31 @@ const MONEY_HEIST_OVERRIDE: TvOrderingOverride = {
   }
 };
 
+const GALACTIC_HEROES_OVERRIDE: TvOrderingOverride = {
+  tmdbId: GALACTIC_HEROES_TMDB_ID,
+  canonicalSeasonCount: 4,
+  canonicalTotalEpisodes: 48,
+  canonicalSeasons: [{ seasonNumber: 2, episodeCount: 12, sourceSeason: 2, sourceEpisodeStart: 1 }],
+  providerFormats: {},
+  videoUrlOverrides: {
+    "season=2&episode=1": "https://ok.ru/videoembed/4084616465042",
+    "season=2&episode=2": "https://ok.ru/videoembed/4084614236818",
+    "season=2&episode=3": "https://ok.ru/videoembed/4084611877522",
+    "season=2&episode=4": "https://ok.ru/videoembed/4084587825810",
+    "season=2&episode=5": "https://ok.ru/videoembed/4084591954578",
+    "season=2&episode=6": "https://ok.ru/videoembed/4084597394066",
+    "season=2&episode=7": "https://ok.ru/videoembed/4084590316178",
+    "season=2&episode=8": "https://ok.ru/videoembed/4084590906002",
+    "season=2&episode=9": "https://ok.ru/videoembed/4084587563666",
+    "season=2&episode=10": "https://ok.ru/videoembed/4084590250642",
+    "season=2&episode=11": "https://ok.ru/videoembed/4084565543570",
+    "season=2&episode=12": "https://ok.ru/videoembed/4084561349266"
+  }
+};
+
 const OVERRIDES: Record<string, TvOrderingOverride> = {
-  [MONEY_HEIST_TMDB_ID]: MONEY_HEIST_OVERRIDE
+  [MONEY_HEIST_TMDB_ID]: MONEY_HEIST_OVERRIDE,
+  [GALACTIC_HEROES_TMDB_ID]: GALACTIC_HEROES_OVERRIDE
 };
 
 function normalizeTmdbId(tmdbId?: string | number | null): string | undefined {
