@@ -60,7 +60,19 @@ const GALACTIC_HEROES_OVERRIDE: TvOrderingOverride = {
     "season=2&episode=9": "https://ok.ru/videoembed/4084587563666",
     "season=2&episode=10": "https://ok.ru/videoembed/4084590250642",
     "season=2&episode=11": "https://ok.ru/videoembed/4084565543570",
-    "season=2&episode=12": "https://ok.ru/videoembed/4084561349266"
+    "season=2&episode=12": "https://ok.ru/videoembed/4084561349266",
+    "season=3&episode=1": "https://ok.ru/videoembed/4084630620818",
+    "season=3&episode=2": "https://ok.ru/videoembed/4084628982418",
+    "season=3&episode=3": "https://ok.ru/videoembed/4084627147410",
+    "season=3&episode=4": "https://ok.ru/videoembed/4084626754194",
+    "season=3&episode=5": "https://ok.ru/videoembed/4084625836690",
+    "season=3&episode=6": "https://ok.ru/videoembed/4084625509010",
+    "season=3&episode=7": "https://ok.ru/videoembed/4084617644690",
+    "season=3&episode=8": "https://ok.ru/videoembed/4084613778066",
+    "season=3&episode=9": "https://ok.ru/videoembed/4084614498962",
+    "season=3&episode=10": "https://ok.ru/videoembed/4354216430226",
+    "season=3&episode=11": "https://ok.ru/videoembed/4325120215698",
+    "season=3&episode=12": "https://ok.ru/videoembed/4325122640530"
   }
 };
 
