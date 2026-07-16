@@ -183,8 +183,6 @@ export function CustomVideoPlayer({
         if (!isMounted) return;
 
         if (data.streamUrl && videoRef.current) {
-          console.log("Successfully extracted raw stream URL via Scraper:", data.streamUrl);
-
           if (data.tracks) setSubtitles(data.tracks);
           if (data.intro || data.outro) setSkipTimes({ intro: data.intro, outro: data.outro });
 
@@ -398,7 +396,7 @@ export function CustomVideoPlayer({
         <div className="absolute inset-0 bg-black flex items-center justify-center z-50">
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-sm text-white/70">Scraping stream link...</p>
+            <p className="text-sm text-white/70">Loading stream</p>
           </div>
         </div>
       )}
@@ -512,7 +510,7 @@ export function CustomVideoPlayer({
               {showSettings && (
                 <div className="absolute bottom-12 right-0 bg-neutral-950/95 border border-white/10 rounded-lg p-3 w-64 flex flex-col gap-3 shadow-2xl backdrop-blur-md text-white z-50">
                   <div className="text-xs font-semibold text-white/50 border-b border-white/10 pb-1.5">
-                    Playback Settings
+                    Settings
                   </div>
 
                   {showDubToggle && (
@@ -550,7 +548,7 @@ export function CustomVideoPlayer({
                   )}
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-white/50">Source Provider</label>
+                    <label className="text-xs text-white/50">Source</label>
                     <ProviderSourceSelect
                       groupedSources={groupedSources}
                       selectedSource={selectedSource}
@@ -573,7 +571,7 @@ export function CustomVideoPlayer({
                     }}
                   >
                     <Info className="w-3.5 h-3.5" />
-                    Content Details
+                    Details
                   </Button>
                 </div>
               )}

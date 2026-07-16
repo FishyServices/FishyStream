@@ -11,7 +11,7 @@ import {
   Folder,
   Trash2,
   MoreHorizontal,
-  ChevronDown,
+  ArrowDownUp,
   LayoutGrid,
   List,
   Play,
@@ -45,6 +45,13 @@ import {
 } from "@fishy/ui";
 import type { ContentId } from "../../shared/contentMetadata";
 import { getCustomFolders, setCustomFolders as setLSCustomFolders } from "@/lib/localStorageStore";
+
+const SORT_OPTIONS = [
+  { id: "recently", label: "Recently added" },
+  { id: "oldest", label: "Oldest added" },
+  { id: "title-az", label: "Title A → Z" },
+  { id: "title-za", label: "Title Z → A" }
+] as const;
 
 export function MyListPage() {
   const navigate = useNavigate();
@@ -228,10 +235,7 @@ export function MyListPage() {
       setWatchlist((current) =>
         current?.map((item) =>
           item._id === contentId
-            ? {
-                ...item,
-                watchlistFolder: folderValue === "unsorted" ? undefined : folderValue
-              }
+            ? { ...item, watchlistFolder: folderValue === "unsorted" ? undefined : folderValue }
             : item
         )
       );
@@ -320,7 +324,7 @@ export function MyListPage() {
           count={watchlist.length}
           actions={
             <Button variant="secondary" className="rounded-md" onClick={() => navigate("/movies")}>
-              Browse titles
+              Browse
             </Button>
           }
         />
@@ -394,7 +398,6 @@ export function MyListPage() {
                               : "hover:bg-white/8"
                           }`}
                           aria-label={`Delete ${folder} folder`}
-                          title={`Delete ${folder} folder`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -408,6 +411,7 @@ export function MyListPage() {
                     variant="secondary"
                     className="rounded-md"
                     onClick={() => setIsAutoSortDialogOpen(true)}
+                    aria-label="Organize into folders"
                   >
                     <Folder className="mr-2 h-4 w-4" />
                     Organize
@@ -423,12 +427,11 @@ export function MyListPage() {
                           handleCreateFolder();
                         }
                       }}
-                      placeholder="Create a folder"
-                      className="min-w-0 rounded-md border-white/12 bg-white/6 pl-10 text-white placeholder:text-white/35 sm:w-64"
+                      placeholder="New folder"
+                      className="min-w-0 rounded-md border-white/12 bg-white/6 pl-10 text-white placeholder:text-white/35 sm:w-56"
                     />
                   </div>
-                  <Button className="rounded-md" onClick={handleCreateFolder}>
-                    <FolderPlus className="mr-2 h-4 w-4" />
+                  <Button className="shrink-0 rounded-md" onClick={handleCreateFolder}>
                     Create
                   </Button>
                 </div>
@@ -486,42 +489,29 @@ export function MyListPage() {
                 </Tabs>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-medium text-white/50">
-                  {filteredWatchlist.length} {filteredWatchlist.length === 1 ? "title" : "titles"}
-                </div>
+                <div className="text-sm font-medium text-white/50">{filteredWatchlist.length}</div>
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
                       <Button
                         variant="secondary"
-                        size="sm"
-                        className="flex items-center gap-2 rounded-md border border-white/8 bg-white/6 px-4 py-2 text-xs font-semibold hover:bg-white/12"
+                        size="icon"
+                        className="rounded-md border border-white/8 bg-white/6 hover:bg-white/12"
+                        aria-label="Sort"
+                        title={SORT_OPTIONS.find((o) => o.id === sortBy)?.label}
                       >
-                        Sort:{" "}
-                        {sortBy === "recently"
-                          ? "Recently added"
-                          : sortBy === "oldest"
-                            ? "Oldest added"
-                            : sortBy === "title-az"
-                              ? "Title A → Z"
-                              : "Title Z → A"}
-                        <ChevronDown className="h-3.5 w-3.5" />
+                        <ArrowDownUp className="h-4 w-4" />
                       </Button>
                     }
                   />
                   <DropdownMenuContent className="mt-2 w-48 rounded-lg border border-white/10 bg-popover p-1 shadow-md">
-                    {[
-                      { id: "recently", label: "Recently added" },
-                      { id: "oldest", label: "Oldest added" },
-                      { id: "title-az", label: "Title A → Z" },
-                      { id: "title-za", label: "Title Z → A" }
-                    ].map((option) => (
+                    {SORT_OPTIONS.map((option) => (
                       <DropdownMenuItem
                         key={option.id}
                         className={`rounded-md px-3 py-2 text-xs font-medium focus:bg-white focus:text-black ${
                           sortBy === option.id ? "bg-white/10 text-white" : "text-white/70"
                         }`}
-                        onClick={() => setSortBy(option.id as any)}
+                        onClick={() => setSortBy(option.id)}
                       >
                         {option.label}
                       </DropdownMenuItem>
@@ -540,7 +530,6 @@ export function MyListPage() {
                     }`}
                     onClick={() => setViewLayout("grid")}
                     aria-label="Grid view"
-                    title="Grid view"
                   >
                     <LayoutGrid className="h-4 w-4" />
                   </Button>
@@ -554,7 +543,6 @@ export function MyListPage() {
                     }`}
                     onClick={() => setViewLayout("list")}
                     aria-label="List view"
-                    title="List view"
                   >
                     <List className="h-4 w-4" />
                   </Button>
@@ -565,7 +553,7 @@ export function MyListPage() {
             {filteredWatchlist.length === 0 ? (
               <EmptyState
                 title={
-                  searchQuery ? `No titles match “${searchQuery}”` : "No titles match these filters"
+                  searchQuery ? `No titles match "${searchQuery}"` : "No titles match these filters"
                 }
                 action={
                   <Button
@@ -601,10 +589,8 @@ export function MyListPage() {
                       <div className="flex items-center gap-2">
                         <Folder className="h-4 w-4 text-primary" />
                         <h2 className="text-xl font-semibold text-white">{groupName}</h2>
+                        <span className="text-sm text-white/45">{items.length}</span>
                       </div>
-                      <p className="text-sm text-white/45">
-                        {items.length} saved {items.length === 1 ? "title" : "titles"}
-                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {groupName !== "Unsorted" && (
@@ -615,7 +601,6 @@ export function MyListPage() {
                           onClick={() => setPendingDeleteFolder(groupName)}
                           className="rounded-md border border-white/10 bg-white/4 text-white/55 transition-colors hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300"
                           aria-label={`Delete ${groupName} folder`}
-                          title={`Delete ${groupName} folder`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -714,14 +699,14 @@ export function MyListPage() {
                             />
                           </>
                         ) : (
-                          <div className="flex items-center gap-4 w-full min-w-0">
+                          <div className="flex w-full min-w-0 items-center gap-4">
                             <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-lg border border-white/6 sm:h-24 sm:w-16">
                               <img
                                 src={item.posterUrl}
                                 alt={item.title}
                                 className="h-full w-full object-cover transition-transform duration-300 group-hover/listitem:scale-105"
                               />
-                              <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/45">
                                 <Button
                                   size="icon"
                                   variant="ghost"
@@ -738,23 +723,23 @@ export function MyListPage() {
                                     )
                                   }
                                 >
-                                  <Play className="h-3.5 w-3.5 fill-black text-black shrink-0" />
+                                  <Play className="h-3.5 w-3.5 shrink-0 fill-black text-black" />
                                 </Button>
                               </div>
                             </div>
 
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="text-base font-bold text-white truncate max-w-60 sm:max-w-100">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="max-w-60 truncate text-base font-bold text-white sm:max-w-100">
                                   {item.title}
                                 </h3>
-                                <span className="text-xs px-1.5 py-0.5 rounded border border-white/20 bg-white/5 text-white/60 capitalize font-medium">
+                                <span className="rounded border border-white/20 bg-white/5 px-1.5 py-0.5 text-xs font-medium capitalize text-white/60">
                                   {item.type}
                                 </span>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex shrink-0 items-center gap-2">
                               <div className="relative">
                                 <Button
                                   type="button"
@@ -818,12 +803,11 @@ export function MyListPage() {
           </div>
         )}
 
-        {/* Recommendations */}
         {watchlist.length > 0 && (
           <div className="mt-16">
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
               <div className="flex flex-wrap items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
+                <Sparkles className="h-5 w-5 text-primary" />
                 <h2 className="text-xl font-semibold text-white">Recommended</h2>
               </div>
 
@@ -842,15 +826,13 @@ export function MyListPage() {
                     value="movie"
                     className="rounded-lg data-selected:bg-white data-selected:text-black"
                   >
-                    <Film className="w-3.5 h-3.5" />
-                    Movies
+                    <Film className="h-3.5 w-3.5" />
                   </TabsTrigger>
                   <TabsTrigger
                     value="tv"
                     className="rounded-lg data-selected:bg-white data-selected:text-black"
                   >
-                    <Tv className="w-3.5 h-3.5" />
-                    TV Shows
+                    <Tv className="h-3.5 w-3.5" />
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -862,9 +844,8 @@ export function MyListPage() {
                 disabled={recsLoading}
                 className="self-start rounded-md text-white/60 hover:text-white sm:ml-auto"
                 aria-label="Refresh recommendations"
-                title="Refresh recommendations"
               >
-                <RefreshCw className={`w-4 h-4 ${recsLoading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-4 w-4 ${recsLoading ? "animate-spin" : ""}`} />
               </Button>
             </div>
 
@@ -875,7 +856,7 @@ export function MyListPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-white/40">No recommendations</p>
+              <p className="text-sm text-white/40">No recommendations yet</p>
             )}
           </div>
         )}
@@ -886,8 +867,8 @@ export function MyListPage() {
           <DialogHeader>
             <DialogTitle>Organize your list?</DialogTitle>
             <DialogDescription className="text-white/58">
-              This will put every movie in “Movies” and every TV show in “TV Shows”. Items already
-              in another folder will be moved.
+              Movies go to "Movies" and TV shows go to "TV Shows". Items already sorted elsewhere
+              will move.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -900,7 +881,7 @@ export function MyListPage() {
                 await handleAutoSortFolders();
               }}
             >
-              Organize list
+              Organize
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -915,7 +896,7 @@ export function MyListPage() {
             <DialogTitle>Delete folder?</DialogTitle>
             <DialogDescription className="text-white/58">
               {pendingDeleteFolder
-                ? `Are you sure you want to delete "${pendingDeleteFolder}"? Everything inside it will move back to Unsorted.`
+                ? `"${pendingDeleteFolder}" will be removed. Its titles move back to Unsorted.`
                 : "Are you sure?"}
             </DialogDescription>
           </DialogHeader>
@@ -932,7 +913,7 @@ export function MyListPage() {
                 await handleDeleteFolder(folderToDelete);
               }}
             >
-              Yes, delete it
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

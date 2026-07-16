@@ -623,7 +623,6 @@ export function VideoPlayer({
 
   return (
     <div className="h-screen w-screen bg-black flex flex-col overflow-hidden">
-      {/* Header */}
       {!useCustomPlayer && (
         <div className="flex-none border-b border-white/10 bg-black/90 backdrop-blur-sm z-10 transition-all duration-300">
           <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
@@ -703,7 +702,6 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Main Player Area */}
       <div className="flex-1 relative bg-black group/player overflow-hidden flex items-center justify-center">
         {useCustomPlayer ? (
           <CustomVideoPlayer
@@ -735,7 +733,6 @@ export function VideoPlayer({
           />
         )}
 
-        {/* Next Episode Button */}
         {showNextEpisodeButton && (
           <Button
             onClick={(e) => {
@@ -744,6 +741,7 @@ export function VideoPlayer({
             }}
             disabled={isNextEpisodeCooldown}
             className="absolute bottom-23 left-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-60 backdrop-blur-sm sm:left-auto"
+            aria-label="Play next episode"
           >
             <SkipForward className="w-4 h-4" />
             Next Episode
