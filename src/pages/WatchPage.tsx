@@ -32,21 +32,16 @@ export function WatchPage() {
 
   if (content === undefined) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-sm text-white/70">Finding sources</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
   }
 
   if (content === null) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">Not found</h1>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <h1 className="text-xl font-semibold text-white">Title not found</h1>
       </div>
     );
   }

@@ -60,7 +60,7 @@ export function TVShowsPage() {
               }}
             >
               <SelectTrigger className="flex items-center gap-2 rounded-lg border border-border bg-card/70 text-sm text-foreground/80">
-                <Filter className="w-3.5 h-3.5 shrink-0" />
+                <Filter className="h-3.5 w-3.5 shrink-0" />
                 <span>{sortLabel}</span>
               </SelectTrigger>
               <SelectContent>
@@ -81,7 +81,7 @@ export function TVShowsPage() {
                 key={g}
                 variant={genre === g ? "default" : "outline"}
                 size="sm"
-                className="shrink-0 rounded-md"
+                className="shrink-0 rounded-full"
                 onClick={() => updateBrowseParams(setSearchParams, { genre: g, page: 1 })}
               >
                 {g}
@@ -93,7 +93,7 @@ export function TVShowsPage() {
         {paginated.isLoading ? (
           <GridSkeleton />
         ) : shows.length === 0 ? (
-          <EmptyState icon={<Tv2 className="h-10 w-10" />} title="No shows" />
+          <EmptyState icon={<Tv2 className="h-10 w-10" />} title="No shows match this filter" />
         ) : (
           <>
             <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
@@ -102,31 +102,30 @@ export function TVShowsPage() {
               ))}
             </div>
 
-            {/* Pagination */}
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+            <div className="mt-8 flex items-center justify-center gap-4">
               <Button
                 variant="outline"
+                size="icon"
                 onClick={() => updateBrowseParams(setSearchParams, { page: page - 1 })}
                 disabled={!paginated.canGoBack}
-                className="flex w-full items-center justify-center gap-2 rounded-md sm:w-auto"
+                className="rounded-full"
                 aria-label="Previous page"
               >
-                <ChevronLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Previous</span>
+                <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {paginated.currentPage}
-                {paginated.totalPages ? ` of ${paginated.totalPages}` : ""}
+                {paginated.currentPage}
+                {paginated.totalPages ? ` / ${paginated.totalPages}` : ""}
               </span>
               <Button
                 variant="outline"
+                size="icon"
                 onClick={() => updateBrowseParams(setSearchParams, { page: page + 1 })}
                 disabled={!paginated.hasNextPage}
-                className="flex w-full items-center justify-center gap-2 rounded-md sm:w-auto"
+                className="rounded-full"
                 aria-label="Next page"
               >
-                <span className="hidden sm:inline">Next</span>
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </>

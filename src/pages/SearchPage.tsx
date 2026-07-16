@@ -14,7 +14,7 @@ type SearchTypeFilter = "all" | "movie" | "tv";
 type SearchSort = "relevance" | "title" | "newest" | "rating";
 
 const TYPE_FILTERS: Array<{ value: SearchTypeFilter; label: string }> = [
-  { value: "all", label: "Movies & TV" },
+  { value: "all", label: "All" },
   { value: "movie", label: "Movies" },
   { value: "tv", label: "TV Shows" }
 ];
@@ -159,17 +159,17 @@ export function SearchPage() {
       <Header />
 
       <main className="page-shell-wide page-stack">
-        <div className="max-w-2xl mb-10">
+        <div className="mb-8 max-w-2xl">
           <PageHeader title="Search" />
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30 pointer-events-none" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/30" />
             <Input
               type="text"
               placeholder="Search titles"
               value={input}
               autoFocus
               onChange={(e) => handleInput(e.target.value)}
-              className="w-full bg-white/8 border border-white/12 focus:border-primary/50 rounded-xl py-3.5 pl-12 pr-12 text-white placeholder:text-white/30 focus:outline-none focus:bg-white/12 transition-all text-sm"
+              className="w-full rounded-xl border border-white/12 bg-white/8 py-3.5 pl-12 pr-12 text-sm text-white placeholder:text-white/30 transition-all focus:border-primary/50 focus:bg-white/12 focus:outline-none"
             />
             {input && (
               <Button
@@ -177,22 +177,17 @@ export function SearchPage() {
                 variant="ghost"
                 size="icon"
                 onClick={() => handleInput("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 text-white/30 hover:text-white/70 hover:bg-transparent"
+                className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 text-white/30 hover:bg-transparent hover:text-white/70"
                 aria-label="Clear search"
-                title="Clear search"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </Button>
             )}
           </div>
         </div>
 
         {!query && (
-          <EmptyState
-            icon={<Search className="h-12 w-12" />}
-            title="Search movies and TV shows"
-            action={<p className="text-sm text-muted-foreground">Try a title, actor, or genre.</p>}
-          />
+          <EmptyState icon={<Search className="h-12 w-12" />} title="Search movies and TV shows" />
         )}
 
         {loading && <GridSkeleton />}
@@ -200,28 +195,23 @@ export function SearchPage() {
         {error && <EmptyState title={error} />}
 
         {!loading && query && results.length === 0 && !error && (
-          <EmptyState
-            title={`No matches for "${query}"`}
-            action={
-              <p className="text-sm text-muted-foreground">Try a different title or genre.</p>
-            }
-          />
+          <EmptyState title={`No matches for "${query}"`} />
         )}
 
         {!loading && results.length > 0 && (
           <>
             <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-white/40 sm:gap-4">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-white/40">
                 <span>{filteredResults.length} results</span>
                 <span className="flex items-center gap-1">
-                  <Film className="w-3.5 h-3.5" /> {movieCount} movies
+                  <Film className="h-3.5 w-3.5" /> {movieCount}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Tv className="w-3.5 h-3.5" /> {showCount} shows
+                  <Tv className="h-3.5 w-3.5" /> {showCount}
                 </span>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex gap-3">
                 <Select
                   value={typeFilter}
                   onValueChange={(value) => {
@@ -230,8 +220,8 @@ export function SearchPage() {
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full rounded-lg border border-border bg-card/70 text-sm text-foreground/80 sm:w-40">
-                    <Film className="w-3.5 h-3.5 shrink-0" />
+                  <SelectTrigger className="w-full rounded-lg border border-border bg-card/70 text-sm text-foreground/80 sm:w-36">
+                    <Film className="h-3.5 w-3.5 shrink-0" />
                     <span>{typeLabel}</span>
                   </SelectTrigger>
                   <SelectContent>
@@ -251,8 +241,8 @@ export function SearchPage() {
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full rounded-lg border border-border bg-card/70 text-sm text-foreground/80 sm:w-42">
-                    <Filter className="w-3.5 h-3.5 shrink-0" />
+                  <SelectTrigger className="w-full rounded-lg border border-border bg-card/70 text-sm text-foreground/80 sm:w-40">
+                    <Filter className="h-3.5 w-3.5 shrink-0" />
                     <span>{sortLabel}</span>
                   </SelectTrigger>
                   <SelectContent>
@@ -267,7 +257,9 @@ export function SearchPage() {
             </div>
 
             {filteredResults.length === 0 ? (
-              <EmptyState title={`No ${typeFilter === "movie" ? "movies" : "shows"}`} />
+              <EmptyState
+                title={`No ${typeFilter === "movie" ? "movies" : "shows"} match this filter`}
+              />
             ) : (
               <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 stagger-children">
                 {filteredResults.map((item) => (

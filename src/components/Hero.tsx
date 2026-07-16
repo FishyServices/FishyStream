@@ -29,9 +29,9 @@ function StarRating({ score }: { score: number }) {
   const pct = Math.round((score / 10) * 100);
   return (
     <div className="flex items-center gap-2">
-      <div className="relative h-1.5 w-20 bg-white/20 rounded-full overflow-hidden">
+      <div className="relative h-1.5 w-16 overflow-hidden rounded-full bg-white/20">
         <div
-          className="absolute left-0 top-0 h-full bg-primary rounded-full"
+          className="absolute left-0 top-0 h-full rounded-full bg-primary"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -152,27 +152,22 @@ export function Hero({
     <div className="group/hero relative h-[68svh] min-h-135 w-full max-h-225 overflow-hidden sm:h-[92vh] sm:min-h-160">
       <div className="absolute inset-0 bg-neutral-950">
         <div
-          className={`absolute inset-0 transition-all duration-1000 ease-out scale-100 ${loaded ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 transition-all duration-1000 ease-out ${loaded ? "opacity-100" : "opacity-0"}`}
         >
           {showTrailer && activeContent.trailerKey ? (
-            <div className="absolute inset-0 w-full h-full scale-125">
+            <div className="absolute inset-0 h-full w-full scale-125">
               <iframe
-                className="absolute inset-0 w-full h-full"
+                className="absolute inset-0 h-full w-full"
                 src={`https://www.youtube.com/embed/${activeContent.trailerKey}?autoplay=1&mute=${muted ? 1 : 0}&controls=1&loop=1&playlist=${activeContent.trailerKey}&modestbranding=1&showinfo=0`}
                 allow="autoplay"
                 title="Trailer"
               />
-              <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                <div className="rounded-md border border-white/20 bg-black/70 px-3 py-1.5 text-xs text-white/80 backdrop-blur-sm">
-                  Trailer
-                </div>
-              </div>
             </div>
           ) : (
             <img
               src={activeContent.backdropUrl}
               alt={activeContent.title}
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
               onLoad={() => setLoaded(true)}
               onError={() => setLoaded(true)}
             />
@@ -184,8 +179,8 @@ export function Hero({
       <div className="absolute inset-0 bg-linear-to-t from-background via-transparent to-black/20" />
 
       <div
-        className={`absolute bottom-0 left-0 right-0 px-4 pb-16 sm:px-10 sm:pb-24 lg:px-16 transition-all duration-700 ${
-          loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+        className={`absolute bottom-0 left-0 right-0 px-4 pb-16 transition-all duration-700 sm:px-10 sm:pb-24 lg:px-16 ${
+          loaded ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
         }`}
       >
         <div className="max-w-xl space-y-4 sm:max-w-2xl">
@@ -193,17 +188,17 @@ export function Hero({
             <img
               src={activeContent.logoUrl}
               alt={activeContent.title}
-              className="h-14 sm:h-20 lg:h-24 w-auto object-contain object-left max-w-[min(18rem,70vw)] sm:max-w-xs transition-transform duration-500 hover:scale-102"
+              className="h-14 w-auto max-w-[min(18rem,70vw)] object-contain object-left sm:h-20 sm:max-w-xs lg:h-24"
             />
           ) : (
-            <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-none tracking-tight">
+            <h1 className="font-display text-3xl font-black leading-none tracking-tight text-white sm:text-5xl lg:text-6xl">
               {activeContent.title}
             </h1>
           )}
 
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-wrap items-center gap-3">
             <span
-              className={`text-xs font-bold px-2 py-0.5 rounded border rating-${activeContent.rating} border-current`}
+              className={`rounded border border-current px-2 py-0.5 text-xs font-bold rating-${activeContent.rating}`}
             >
               {activeContent.rating}
             </span>
@@ -219,30 +214,9 @@ export function Hero({
             {activeContent.voteAverage && activeContent.voteAverage > 0 && (
               <StarRating score={activeContent.voteAverage} />
             )}
-            {activeContent.trending && (
-              <span className="text-xs font-semibold text-orange-400 flex items-center gap-1">
-                Trending
-              </span>
-            )}
           </div>
 
-          <div className="hidden flex-wrap gap-2 sm:flex">
-            {(activeContent.genre ?? []).slice(0, 2).map((g) => (
-              <span
-                key={g}
-                className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium text-white/80"
-              >
-                {g}
-              </span>
-            ))}
-          </div>
-
-          {activeContent.tagline && (
-            <p className="hidden text-sm font-light italic text-white/60 sm:block sm:text-base">
-              {activeContent.tagline}
-            </p>
-          )}
-          <p className="hidden max-w-lg line-clamp-2 text-sm leading-relaxed text-white/80 min-[380px]:block sm:text-base">
+          <p className="hidden max-w-lg text-sm leading-relaxed text-white/80 line-clamp-2 min-[380px]:block sm:text-base">
             {activeContent.description}
           </p>
 
@@ -252,7 +226,7 @@ export function Hero({
               className="w-full rounded-md bg-white px-7 text-base font-semibold text-black shadow-sm hover:bg-white/90 sm:w-auto"
               onClick={handlePlay}
             >
-              <Play className="w-5 h-5 mr-2 fill-black" />
+              <Play className="mr-2 h-5 w-5 fill-black" />
               Play
             </Button>
             <Button
@@ -261,7 +235,7 @@ export function Hero({
               className="flex-1 rounded-md border-white/20 bg-black/60 px-5 text-base font-semibold text-white hover:bg-black/80 sm:flex-none sm:px-7"
               onClick={() => setShowModal(true)}
             >
-              <Info className="w-5 h-5 mr-2" />
+              <Info className="mr-2 h-5 w-5" />
               Details
             </Button>
             <Button
@@ -270,19 +244,17 @@ export function Hero({
               className="h-11 w-11 rounded-md border border-white/20 bg-black/55 text-white hover:bg-black/75"
               onClick={handleWatchlist}
               aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
-              title={isInWatchlist ? "Remove from My List" : "Add to My List"}
             >
               {isInWatchlist ? <Check className="w-5 text-green-400" /> : <Plus className="w-5" />}
             </Button>
 
-            {activeContent.trailerKey && (
+            {activeContent.trailerKey && !showTrailer && (
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-11 w-11 rounded-md border border-white/20 bg-black/55 text-white/70 hover:bg-black/75 hover:text-white"
                 onClick={handleTrailerPlay}
                 aria-label="Play trailer"
-                title="Play trailer"
               >
                 <Video className="h-4 w-4" />
               </Button>
@@ -295,7 +267,6 @@ export function Hero({
                 className="h-11 w-11 rounded-md border border-white/20 bg-black/55 text-white/70 hover:bg-black/75 hover:text-white"
                 onClick={() => setMuted(!muted)}
                 aria-label={muted ? "Unmute trailer" : "Mute trailer"}
-                title={muted ? "Unmute trailer" : "Mute trailer"}
               >
                 {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </Button>
@@ -311,31 +282,31 @@ export function Hero({
             variant="ghost"
             size="icon"
             onClick={handlePrev}
-            className="absolute left-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-white/10 bg-black/45 text-white/80 opacity-100 transition-colors hover:bg-black/70 hover:text-white md:opacity-0 md:group-hover/hero:opacity-100 md:focus-visible:opacity-100"
+            className="absolute left-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-md border border-white/10 bg-black/45 text-white/80 opacity-100 transition-colors hover:bg-black/70 hover:text-white md:opacity-0 md:group-hover/hero:opacity-100 md:focus-visible:opacity-100"
             aria-label="Previous slide"
           >
-            <ChevronLeft className="w-6 h-6" />
+            <ChevronLeft className="h-6 w-6" />
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={handleNext}
-            className="absolute right-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-white/10 bg-black/45 text-white/80 opacity-100 transition-colors hover:bg-black/70 hover:text-white md:opacity-0 md:group-hover/hero:opacity-100 md:focus-visible:opacity-100"
+            className="absolute right-4 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-md border border-white/10 bg-black/45 text-white/80 opacity-100 transition-colors hover:bg-black/70 hover:text-white md:opacity-0 md:group-hover/hero:opacity-100 md:focus-visible:opacity-100"
             aria-label="Next slide"
           >
-            <ChevronRight className="w-6 h-6" />
+            <ChevronRight className="h-6 w-6" />
           </Button>
 
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2.5 z-20">
+          <div className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2.5">
             {contents.map((_, idx) => (
               <Button
                 key={idx}
                 type="button"
                 variant="ghost"
                 onClick={() => selectIndex(idx)}
-                className={`h-2 min-h-0 rounded-full p-0 transition-all duration-300 cursor-pointer hover:bg-white/70 ${
-                  currentIndex === idx ? "w-6 bg-primary" : "w-2 bg-white/40 hover:bg-white/70"
+                className={`h-2 min-h-0 rounded-full p-0 transition-all duration-300 hover:bg-white/70 ${
+                  currentIndex === idx ? "w-6 bg-primary" : "w-2 bg-white/40"
                 }`}
                 aria-label={`Go to slide ${idx + 1}`}
               />

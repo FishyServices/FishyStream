@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSeoMeta } from "@/hooks/useSeoMeta";
-import { Sparkles, RefreshCw, Film, Tv, Play } from "lucide-react";
+import { Sparkles, RefreshCw, Film, Tv } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
@@ -37,9 +37,7 @@ export function RecommendationsPage() {
 
   const handlePlay = createPlayHandler(navigate);
 
-  const handleRefresh = () => {
-    setRefreshSeed((prev) => prev + 1);
-  };
+  const handleRefresh = () => setRefreshSeed((prev) => prev + 1);
 
   if (isLoading && recommendations.length === 0) {
     return (
@@ -57,62 +55,54 @@ export function RecommendationsPage() {
       <Header />
 
       <main className="page-shell-wide page-stack">
-        <PageHeader title="Picked For Your Queue" />
+        <PageHeader
+          title="For You"
+          actions={
+            <div className="flex items-center gap-2">
+              <Tabs
+                value={typeFilter}
+                onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}
+              >
+                <TabsList className="h-auto rounded-xl bg-white/6 p-1">
+                  <TabsTrigger
+                    value="all"
+                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                  >
+                    All
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="movie"
+                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                  >
+                    <Film className="w-3.5 h-3.5" />
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="tv"
+                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                  >
+                    <Tv className="w-3.5 h-3.5" />
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Personalized recommendations based on your preferences
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3 sm:ml-auto">
-            <Tabs
-              value={typeFilter}
-              onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}
-            >
-              <TabsList className="h-auto rounded-xl bg-white/6 p-1">
-                <TabsTrigger
-                  value="all"
-                  className="rounded-lg data-selected:bg-white data-selected:text-black"
-                >
-                  All
-                </TabsTrigger>
-                <TabsTrigger
-                  value="movie"
-                  className="rounded-lg data-selected:bg-white data-selected:text-black"
-                >
-                  <Film className="w-3.5 h-3.5" />
-                  Movies
-                </TabsTrigger>
-                <TabsTrigger
-                  value="tv"
-                  className="rounded-lg data-selected:bg-white data-selected:text-black"
-                >
-                  <Tv className="w-3.5 h-3.5" />
-                  TV Shows
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="rounded-md text-white/60 hover:text-white"
-              aria-label="Refresh recommendations"
-              title="Refresh recommendations"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
-        </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="rounded-md text-white/60 hover:text-white"
+                aria-label="Refresh recommendations"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+          }
+        />
 
         {recommendations.length === 0 ? (
           <EmptyState
             icon={<Sparkles className="h-10 w-10 text-muted-foreground" />}
-            title="We don't have enough data to recommend titles yet. Try adding titles to your list or watching content!"
+            title="Add a few titles to your list to unlock picks made for you"
             action={
               <Button className="rounded-md" onClick={() => navigate("/movies")}>
                 Browse movies

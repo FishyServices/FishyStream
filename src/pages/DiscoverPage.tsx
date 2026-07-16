@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowUp, ChevronLeft, ChevronRight, Film, Info, Play, Sparkles, Tv } from "lucide-react";
+import { ArrowUp, ChevronLeft, ChevronRight, Film, Info, Play, Tv } from "lucide-react";
 import { Header } from "@/components/Header";
 import { MovieCard } from "@/components/MovieCard";
 import { GridSkeleton } from "@/components/UXPrimitives";
@@ -92,7 +92,7 @@ function FeaturedDiscoverCarousel({
             {active.rating ? (
               <span className="rounded-md border border-white/20 px-2 py-0.5">{active.rating}</span>
             ) : null}
-            {active.voteAverage ? <span>{active.voteAverage.toFixed(1)} TMDB</span> : null}
+            {active.voteAverage ? <span>{active.voteAverage.toFixed(1)}</span> : null}
             {active.seasons ? <span>{active.seasons} seasons</span> : null}
           </div>
           {active.description ? (
@@ -116,7 +116,7 @@ function FeaturedDiscoverCarousel({
               }
             >
               <Play className="mr-2 h-4 w-4 fill-black" />
-              Play now
+              Play
             </Button>
             <Button
               variant="secondary"
@@ -124,7 +124,7 @@ function FeaturedDiscoverCarousel({
               onClick={() => onDetails(active)}
             >
               <Info className="mr-2 h-4 w-4" />
-              More info
+              Details
             </Button>
           </div>
         </div>
@@ -155,9 +155,7 @@ function FeaturedDiscoverCarousel({
               <Button
                 key={item._id}
                 variant="ghost"
-                className={`h-2 min-h-0 rounded-full p-0 ${
-                  itemIndex === index ? "w-7 bg-white" : "w-2 bg-white/45"
-                }`}
+                className={`h-2 min-h-0 rounded-full p-0 ${itemIndex === index ? "w-7 bg-white" : "w-2 bg-white/45"}`}
                 onClick={() => setIndex(itemIndex)}
                 aria-label={`Show ${item.title}`}
               />
@@ -182,7 +180,7 @@ function DiscoverRail({
 
   return (
     <section className="space-y-3">
-      <div className="page-shell-wide flex items-center justify-between gap-4">
+      <div className="page-shell-wide">
         <h2 className="text-lg font-bold text-foreground sm:text-xl">{title}</h2>
       </div>
       <div className="carousel-fade page-shell-wide flex snap-x snap-mandatory gap-3 overflow-x-auto pb-5 sm:gap-4">
@@ -227,7 +225,7 @@ function MediaDiscoverContent({ type, onPlay }: { type: "movie" | "tv"; onPlay: 
   return (
     <div className="space-y-8">
       <DiscoverRail
-        title={type === "tv" ? "For You: Shows" : "For You: Movies"}
+        title={type === "tv" ? "For You" : "For You"}
         items={trending.items}
         onPlay={onPlay}
       />
@@ -263,13 +261,14 @@ function ScrollToTopButton() {
   return (
     <Button
       variant="secondary"
-      className={`fixed bottom-5 left-5 z-50 rounded-full border border-white/12 bg-background/82 px-4 text-white shadow-lg backdrop-blur-md transition-all md:left-1/2 md:-translate-x-1/2 ${
+      size="icon"
+      className={`fixed bottom-5 right-5 z-50 h-11 w-11 rounded-full border border-white/12 bg-background/82 text-white shadow-lg backdrop-blur-md transition-all ${
         visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
       }`}
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      aria-label="Back to top"
     >
-      <ArrowUp className="mr-2 h-4 w-4" />
-      <span className="hidden sm:inline">Back to top</span>
+      <ArrowUp className="h-4 w-4" />
     </Button>
   );
 }

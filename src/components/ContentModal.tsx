@@ -1,19 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Play,
-  Plus,
-  Check,
-  Star,
-  Clock,
-  X,
-  Tv,
-  Film,
-  User,
-  Video,
-  Users,
-  Loader2
-} from "lucide-react";
+import { Play, Plus, Check, Star, Clock, X, Tv, Film, User, Loader2 } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -45,17 +32,6 @@ interface WatchHistoryFields {
   seasonNumber?: number;
   episodeNumber?: number;
   completed?: boolean;
-}
-
-interface SeasonEpisodeView {
-  overview?: string;
-  episodes: Array<{
-    episodeNumber: number;
-    name: string;
-    overview?: string;
-    stillUrl?: string;
-    runtime?: number;
-  }>;
 }
 
 type LeanModalContent = {
@@ -129,7 +105,7 @@ function EpisodePill({
         </div>
       )}
       <div className="min-w-0 flex-1 pt-0.5">
-        <div className="flex items-center gap-2 mb-0.5">
+        <div className="mb-0.5 flex items-center gap-2">
           <span className="text-xs font-bold text-muted-foreground">E{ep.episodeNumber}</span>
           {selected && <span className="text-[10px] font-bold text-primary">▶ Playing</span>}
         </div>
@@ -393,8 +369,7 @@ export function ContentModal({
       <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden border-border/80 bg-card p-0 text-card-foreground">
         <DialogTitle className="sr-only">{contentData.title}</DialogTitle>
 
-        {/* Hero */}
-        <div className="relative h-70 sm:h-85 shrink-0">
+        <div className="relative h-70 shrink-0 sm:h-85">
           {isHydratingContent && !heroImageUrl ? (
             <div className="flex h-full w-full items-center justify-center bg-muted/60">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -403,7 +378,7 @@ export function ContentModal({
             <img
               src={heroImageUrl}
               alt={contentData.title}
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
               loading="lazy"
             />
           ) : (
@@ -415,15 +390,14 @@ export function ContentModal({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-3 top-3 z-10 h-8 w-8 rounded-md border border-border/80 bg-background/78 text-foreground hover:bg-background"
+            className="absolute right-3 top-3 z-10 h-9 w-9 rounded-md border border-border/80 bg-background/78 text-foreground hover:bg-background"
             onClick={onClose}
-            aria-label="Close details"
-            title="Close details"
+            aria-label="Close"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </Button>
           <div className="absolute bottom-0 left-0 right-0 p-5">
-            <h2 className="font-display text-2xl sm:text-3xl font-black text-white mb-3 leading-tight">
+            <h2 className="mb-3 font-display text-2xl font-black leading-tight text-white sm:text-3xl">
               {contentData.title}
             </h2>
             <div className="flex items-center gap-3">
@@ -431,7 +405,7 @@ export function ContentModal({
                 className="rounded-md bg-white font-semibold text-black hover:bg-white/90"
                 onClick={() => handlePlay()}
               >
-                <Play className="w-4 h-4 mr-2 fill-black" />
+                <Play className="mr-2 h-4 w-4 fill-black" />
                 {contentData.progress && contentData.progress > 0 ? "Resume" : "Play"}
                 {isTV ? ` S${selectedSeason} E${selectedEpisode}` : ""}
               </Button>
@@ -441,62 +415,57 @@ export function ContentModal({
                 className="flex h-10 w-10 rounded-md border border-border/80 bg-background/60 text-foreground hover:bg-background"
                 onClick={handleWatchlist}
                 aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
-                title={isInWatchlist ? "Remove from My List" : "Add to My List"}
               >
                 {isInWatchlist ? (
-                  <Check className="w-5 h-5 text-green-400" />
+                  <Check className="h-5 w-5 text-green-400" />
                 ) : (
-                  <Plus className="w-5 h-5 text-foreground" />
+                  <Plus className="h-5 w-5 text-foreground" />
                 )}
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 scrollbar-thin">
-          <div className="p-5 space-y-6">
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
+          <div className="space-y-6 p-5">
             {isHydratingContent && (
               <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                Loading details
+                Loading
               </div>
             )}
-            {/* Meta row */}
             <div className="flex flex-wrap items-center gap-3 text-sm">
               {contentData.voteAverage && contentData.voteAverage > 0 && (
-                <span className="flex items-center gap-1 text-yellow-400 font-semibold">
-                  <Star className="w-4 h-4 fill-yellow-400" />
+                <span className="flex items-center gap-1 font-semibold text-yellow-400">
+                  <Star className="h-4 w-4 fill-yellow-400" />
                   {contentData.voteAverage.toFixed(1)}
                 </span>
               )}
 
               {detailContent?.duration && (
                 <span className="flex items-center gap-1 text-muted-foreground">
-                  <Clock className="w-3.5 h-3.5" />
+                  <Clock className="h-3.5 w-3.5" />
                   {detailContent.duration}
                 </span>
               )}
               {ratingLabel && (
                 <span
-                  className={`font-semibold text-xs px-2 py-0.5 rounded border border-current rating-${ratingLabel}`}
+                  className={`rounded border border-current px-2 py-0.5 text-xs font-semibold rating-${ratingLabel}`}
                 >
                   {ratingLabel}
                 </span>
               )}
               <span className="flex items-center gap-1 text-muted-foreground/90">
-                {isTV ? <Tv className="w-3.5 h-3.5" /> : <Film className="w-3.5 h-3.5" />}
+                {isTV ? <Tv className="h-3.5 w-3.5" /> : <Film className="h-3.5 w-3.5" />}
                 {isTV ? `${totalSeasons} Season${totalSeasons > 1 ? "s" : ""}` : "Movie"}
               </span>
             </div>
 
-            {/* Description */}
             {detailContent?.description && (
               <p className="text-sm leading-relaxed text-muted-foreground">
                 {compactCopy ? detailContent.description.slice(0, 360) : detailContent.description}
               </p>
             )}
 
-            {/* Genre pills */}
             {(contentData.genre?.length ?? 0) > 0 && (
               <div className="flex flex-wrap gap-2">
                 {(contentData.genre ?? []).map((g) => (
@@ -510,7 +479,6 @@ export function ContentModal({
               </div>
             )}
 
-            {/* Progress */}
             {contentData.progress !== undefined && contentData.progress > 0 && (
               <div className="rounded-lg border border-border bg-muted/65 p-3">
                 <div className="mb-2 flex justify-between text-xs text-muted-foreground">
@@ -530,14 +498,13 @@ export function ContentModal({
               </div>
             )}
 
-            {/* Tabs */}
             <div className="flex gap-1 border-b border-border/60">
               {isTV && (
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={() => setActiveTab("episodes")}
-                  className={`h-auto rounded-none bg-transparent px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px hover:bg-transparent ${
+                  className={`-mb-px h-auto rounded-none border-b-2 bg-transparent px-3 py-2 text-sm font-medium transition-colors hover:bg-transparent ${
                     activeTab === "episodes"
                       ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"
@@ -550,7 +517,7 @@ export function ContentModal({
                 type="button"
                 variant="ghost"
                 onClick={() => setActiveTab("cast")}
-                className={`h-auto rounded-none bg-transparent px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px hover:bg-transparent ${
+                className={`-mb-px h-auto rounded-none border-b-2 bg-transparent px-3 py-2 text-sm font-medium transition-colors hover:bg-transparent ${
                   activeTab === "cast"
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
@@ -562,7 +529,7 @@ export function ContentModal({
                 type="button"
                 variant="ghost"
                 onClick={() => setActiveTab("videos")}
-                className={`h-auto rounded-none bg-transparent px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px hover:bg-transparent ${
+                className={`-mb-px h-auto rounded-none border-b-2 bg-transparent px-3 py-2 text-sm font-medium transition-colors hover:bg-transparent ${
                   activeTab === "videos"
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
@@ -574,21 +541,20 @@ export function ContentModal({
                 type="button"
                 variant="ghost"
                 onClick={() => setActiveTab("related")}
-                className={`h-auto rounded-none bg-transparent px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px hover:bg-transparent ${
+                className={`-mb-px h-auto rounded-none border-b-2 bg-transparent px-3 py-2 text-sm font-medium transition-colors hover:bg-transparent ${
                   activeTab === "related"
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                More Like This
+                Related
               </Button>
             </div>
 
-            {/* Episodes tab */}
             {activeTab === "episodes" && isTV && (
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  {totalSeasons > 1 && (
+                {totalSeasons > 1 && (
+                  <div className="mb-4">
                     <Select
                       value={String(selectedSeason)}
                       onValueChange={(value) => {
@@ -608,8 +574,8 @@ export function ContentModal({
                         ))}
                       </SelectContent>
                     </Select>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {dbSeason?.overview && (
                   <p className="mb-3 text-sm text-muted-foreground">{dbSeason.overview}</p>
@@ -618,7 +584,7 @@ export function ContentModal({
                 {tmdbSeasonLoading && episodes.length === 0 ? (
                   <p className="py-8 text-center text-xs text-muted-foreground">Loading episodes</p>
                 ) : episodeLoadError ? (
-                  <p className="text-xs text-red-300/80 text-center py-8">{episodeLoadError}</p>
+                  <p className="py-8 text-center text-xs text-red-300/80">{episodeLoadError}</p>
                 ) : episodes.length > 0 ? (
                   <div className="space-y-1">
                     {episodes.map((ep) => (
@@ -639,18 +605,17 @@ export function ContentModal({
               </div>
             )}
 
-            {/* Cast tab */}
             {activeTab === "cast" && (
               <div>
                 {!credits ? (
                   <div className="flex items-center justify-center py-10">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : credits.cast.length > 0 ? (
                   <>
-                    <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
+                    <div className="scrollbar-thin flex gap-3 overflow-x-auto pb-2">
                       {credits.cast.slice(0, 10).map((actor) => (
-                        <div key={actor.id} className="shrink-0 w-16 text-center">
+                        <div key={actor.id} className="w-16 shrink-0 text-center">
                           {actor.profileUrl ? (
                             <img
                               src={actor.profileUrl}
@@ -674,7 +639,7 @@ export function ContentModal({
                     </div>
                     {credits.directors.length > 0 && (
                       <p className="mt-2 text-xs text-muted-foreground">
-                        <span className="text-muted-foreground/80">Directed by:</span>{" "}
+                        <span className="text-muted-foreground/80">Directed by</span>{" "}
                         {credits.directors.slice(0, 3).join(", ")}
                       </p>
                     )}
@@ -685,41 +650,34 @@ export function ContentModal({
               </div>
             )}
 
-            {/* Videos tab */}
             {activeTab === "videos" && (
               <div>
                 {videos.length === 0 ? (
                   <p className="py-8 text-center text-xs text-muted-foreground">No trailers</p>
                 ) : (
-                  <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
+                  <div className="scrollbar-thin flex gap-3 overflow-x-auto pb-2">
                     {videos.slice(0, 5).map((video) => (
                       <a
                         key={video.key}
                         href={`https://youtube.com/watch?v=${video.key}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="shrink-0 w-40 group"
+                        className="group w-40 shrink-0"
                       >
                         <div className="relative mb-1 aspect-video overflow-hidden rounded-lg bg-muted">
                           <img
                             src={`https://img.youtube.com/vi/${video.key}/mqdefault.jpg`}
                             alt={video.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
                             loading="lazy"
                           />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
-                            <Play className="w-8 h-8 text-white fill-white drop-shadow-lg" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/10">
+                            <Play className="h-8 w-8 fill-white text-white drop-shadow-lg" />
                           </div>
-                          {video.official && (
-                            <span className="absolute top-1 left-1 bg-primary/90 text-[9px] font-bold px-1.5 py-0.5 rounded text-white">
-                              OFFICIAL
-                            </span>
-                          )}
                         </div>
                         <p className="line-clamp-1 text-xs font-medium text-foreground transition-colors group-hover:text-primary">
                           {video.name}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">{video.type}</p>
                       </a>
                     ))}
                   </div>
@@ -727,7 +685,6 @@ export function ContentModal({
               </div>
             )}
 
-            {/* Related tab */}
             {activeTab === "related" && (
               <div>
                 {related.length === 0 ? (
@@ -735,7 +692,7 @@ export function ContentModal({
                     No related titles
                   </p>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {related.map((item) => (
                       <div
                         key={item.tmdbId}
@@ -746,7 +703,7 @@ export function ContentModal({
                           <img
                             src={item.posterUrl}
                             alt={item.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
                             loading="lazy"
                           />
                         </div>
@@ -754,7 +711,7 @@ export function ContentModal({
                           {item.title}
                         </p>
                         <p className="text-[10px] text-muted-foreground">
-                          {item.year} • {item.voteAverage?.toFixed(1)} ★
+                          {item.year} · {item.voteAverage?.toFixed(1)}
                         </p>
                       </div>
                     ))}
@@ -766,7 +723,6 @@ export function ContentModal({
         </div>
       </DialogContent>
 
-      {/* Nested modal for related content */}
       {relatedModalItem && relatedSyncing && (
         <Dialog
           open={true}
@@ -776,10 +732,7 @@ export function ContentModal({
         >
           <DialogContent className="flex max-w-xs items-center justify-center border-border/80 bg-card p-8 text-card-foreground">
             <DialogTitle className="sr-only">Loading</DialogTitle>
-            <div className="text-center">
-              <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Loading details</p>
-            </div>
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
           </DialogContent>
         </Dialog>
       )}

@@ -10,7 +10,7 @@ export function PosterSkeleton({ className = "" }: { className?: string }) {
 export function RailSkeleton({ count = 8 }: { count?: number }) {
   return (
     <section className="py-2 pb-8 sm:py-3 sm:pb-10" aria-hidden="true">
-      <div className="page-shell-wide mb-5 h-7 w-48 rounded-md bg-white/8" />
+      <div className="page-shell-wide mb-4 h-6 w-40 rounded-md bg-white/8" />
       <div className="page-shell-wide flex gap-3 overflow-hidden sm:gap-4">
         {Array.from({ length: count }).map((_, index) => (
           <PosterSkeleton
@@ -46,12 +46,12 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-64 items-center justify-center px-6 py-16 text-center">
+    <div className="flex min-h-56 items-center justify-center px-6 py-14 text-center">
       <div className="max-w-sm space-y-3">
         {icon ? (
-          <div className="mx-auto flex justify-center text-muted-foreground/45">{icon}</div>
+          <div className="mx-auto flex justify-center text-muted-foreground/40">{icon}</div>
         ) : null}
-        <p className="text-base font-medium text-foreground">{title}</p>
+        <p className="text-sm font-medium text-foreground">{title}</p>
         {action}
       </div>
     </div>
@@ -68,11 +68,13 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{title}</h1>
+    <div className="mb-5 flex items-center justify-between gap-3">
+      <div className="min-w-0 flex items-baseline gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          {title}
+        </h1>
         {count !== undefined ? (
-          <p className="mt-1 text-sm text-muted-foreground">{count} titles</p>
+          <span className="text-sm text-muted-foreground">{count}</span>
         ) : null}
       </div>
       {actions ? <div className="shrink-0">{actions}</div> : null}
@@ -81,11 +83,7 @@ export function PageHeader({
 }
 
 export function FilterBar({ children }: { children: ReactNode }) {
-  return (
-    <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      {children}
-    </div>
-  );
+  return <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">{children}</div>;
 }
 
 export function IconTooltipButton({
@@ -95,7 +93,12 @@ export function IconTooltipButton({
   ...props
 }: React.ComponentProps<typeof Button> & { label: string }) {
   return (
-    <Button aria-label={label} title={label} className={className} {...props}>
+    <Button
+      aria-label={label}
+      title={label}
+      className={`min-h-11 min-w-11 ${className}`}
+      {...props}
+    >
       {children}
     </Button>
   );

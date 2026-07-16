@@ -19,8 +19,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
   Popover,
@@ -39,9 +37,9 @@ const navLinks = [
     href: "/movies",
     icon: Film,
     dropdown: [
-      { label: "All Movies", href: "/movies" },
+      { label: "All", href: "/movies" },
       { label: "Trending", href: "/movies?sort=trending" },
-      { label: "New Releases", href: "/movies?sort=new" },
+      { label: "New", href: "/movies?sort=new" },
       { label: "Top Rated", href: "/movies?sort=rating" }
     ]
   },
@@ -50,13 +48,19 @@ const navLinks = [
     href: "/tv-shows",
     icon: Tv,
     dropdown: [
-      { label: "All Shows", href: "/tv-shows" },
+      { label: "All", href: "/tv-shows" },
       { label: "Trending", href: "/tv-shows?sort=trending" },
       { label: "Now Airing", href: "/tv-shows?sort=new" },
       { label: "Top Rated", href: "/tv-shows?sort=rating" }
     ]
   },
   { label: "Picks", href: "/best", icon: Crown }
+];
+
+const profileLinks = [
+  { label: "My List", href: "/my-list", icon: BookMarked },
+  { label: "History", href: "/history", icon: Clock },
+  { label: "Settings", href: "/settings", icon: Settings }
 ];
 
 export function Header() {
@@ -107,66 +111,61 @@ export function Header() {
       <div className="px-4 sm:px-6 lg:px-10">
         <div className="flex min-h-18 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-8">
-            <Link to="/" className="group flex shrink-0 items-center gap-2.5">
-              <div className="relative h-8 w-8">
-                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-primary">
-                  <span className="font-display text-sm font-bold text-white">F</span>
-                </div>
+            <Link to="/" className="flex shrink-0 items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <span className="font-display text-sm font-bold text-white">F</span>
               </div>
-              <div className="hidden sm:block">
-                <span className="block font-display text-lg font-bold tracking-tight text-white">
-                  FishyStream
-                </span>
-              </div>
+              <span className="hidden font-display text-lg font-bold tracking-tight text-white sm:block">
+                FishyStream
+              </span>
             </Link>
 
             <nav className="hidden items-center gap-1 rounded-lg border border-white/8 bg-white/[0.035] p-1 lg:flex">
-              {navLinks.map((link) => (
-                <div key={link.label} className="relative">
-                  {link.dropdown ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium ${
-                              location.pathname === link.href
-                                ? "bg-white text-black hover:bg-white/90 hover:text-black"
-                                : "text-white/68 hover:bg-white/7 hover:text-white"
-                            }`}
-                          >
-                            {link.label}
-                            <ChevronDown className="h-3.5 w-3.5" />
-                          </Button>
-                        }
-                      />
-                      <DropdownMenuContent className="mt-2 w-52 rounded-lg border-white/10 bg-popover p-1 shadow-md">
-                        {link.dropdown.map((item) => (
-                          <DropdownMenuItem
-                            key={item.label}
-                            className="rounded-md px-3 py-2 text-sm text-foreground/74 focus:bg-accent focus:text-accent-foreground"
-                            onClick={() => navigate(item.href)}
-                          >
-                            {item.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : (
-                    <Link
-                      to={link.href}
-                      className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                        location.pathname === link.href
-                          ? "bg-white text-black"
-                          : "text-white/68 hover:bg-white/7 hover:text-white"
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  )}
-                </div>
-              ))}
+              {navLinks.map((link) =>
+                link.dropdown ? (
+                  <DropdownMenu key={link.label}>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium ${
+                            location.pathname === link.href
+                              ? "bg-white text-black hover:bg-white/90 hover:text-black"
+                              : "text-white/68 hover:bg-white/7 hover:text-white"
+                          }`}
+                        >
+                          {link.label}
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </Button>
+                      }
+                    />
+                    <DropdownMenuContent className="mt-2 w-44 rounded-lg border-white/10 bg-popover p-1 shadow-md">
+                      {link.dropdown.map((item) => (
+                        <DropdownMenuItem
+                          key={item.label}
+                          className="rounded-md px-3 py-2 text-sm text-foreground/74 focus:bg-accent focus:text-accent-foreground"
+                          onClick={() => navigate(item.href)}
+                        >
+                          {item.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Link
+                    key={link.label}
+                    to={link.href}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      location.pathname === link.href
+                        ? "bg-white text-black"
+                        : "text-white/68 hover:bg-white/7 hover:text-white"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                )
+              )}
             </nav>
           </div>
 
@@ -178,7 +177,7 @@ export function Header() {
                   <Input
                     ref={searchRef}
                     type="text"
-                    placeholder="Search titles, movies, TV shows..."
+                    placeholder="Search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
@@ -210,7 +209,7 @@ export function Header() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="rounded-md text-white/70 hover:bg-white/8 hover:text-white"
+                className="h-11 w-11 rounded-md text-white/70 hover:bg-white/8 hover:text-white"
                 onClick={() => setSearchOpen(true)}
                 aria-label="Search"
               >
@@ -224,7 +223,7 @@ export function Header() {
                   render={
                     <Button
                       variant="ghost"
-                      className="flex h-auto items-center gap-2 rounded-md py-1 pl-1 pr-2 hover:bg-white/5"
+                      className="flex h-11 w-11 items-center justify-center rounded-full p-0 hover:bg-white/5"
                     >
                       <img
                         src={
@@ -238,11 +237,10 @@ export function Header() {
                           target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.firstName ?? "U").charAt(0))}&background=e50914&color=fff`;
                         }}
                       />
-                      <ChevronDown className="hidden h-3.5 w-3.5 text-white/60 sm:block" />
                     </Button>
                   }
                 />
-                <PopoverContent className="mt-2 w-56 overflow-hidden rounded-lg border-white/10 bg-popover p-1 shadow-md">
+                <PopoverContent className="mt-2 w-52 overflow-hidden rounded-lg border-white/10 bg-popover p-1 shadow-md">
                   <div className="border-b border-white/8 px-4 py-3">
                     <p className="truncate text-sm font-medium text-foreground">
                       {user?.firstName} {user?.lastName}
@@ -252,11 +250,7 @@ export function Header() {
                     </p>
                   </div>
                   <div className="py-1">
-                    {[
-                      { label: "My List", href: "/my-list", icon: BookMarked },
-                      { label: "Watch History", href: "/history", icon: Clock },
-                      { label: "Settings", href: "/settings", icon: Settings }
-                    ].map((item) => (
+                    {profileLinks.map((item) => (
                       <Button
                         key={item.label}
                         variant="ghost"
@@ -290,21 +284,11 @@ export function Header() {
               <div className="hidden items-center gap-1 sm:flex">
                 <Link
                   to="/my-list"
-                  className="flex items-center justify-center h-9 w-9 text-white/70 hover:bg-white/8 hover:text-white rounded-md transition-colors"
+                  className="flex h-11 w-11 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/8 hover:text-white"
                   aria-label="My List"
-                  title="My List"
                 >
                   <BookMarked className="h-4 w-4" />
                 </Link>
-                <Link
-                  to="/history"
-                  className="flex items-center justify-center h-9 w-9 text-white/70 hover:bg-white/8 hover:text-white rounded-md transition-colors"
-                  aria-label="Watch History"
-                  title="Watch History"
-                >
-                  <Clock className="h-4 w-4" />
-                </Link>
-                <div className="w-px h-5 bg-white/10 mx-2" />
                 <Button
                   size="sm"
                   className="rounded-md bg-primary px-4 text-white hover:bg-primary/90"
@@ -337,7 +321,7 @@ export function Header() {
               <Input
                 ref={searchRef}
                 type="text"
-                placeholder="Search titles, movies, TV shows..."
+                placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-lg border-white/14 bg-white/8 py-3 pl-11 pr-11 text-sm text-white placeholder:text-white/40 focus-visible:border-primary/60 focus-visible:bg-white/12"
@@ -375,23 +359,23 @@ export function Header() {
                   <Link
                     to={link.href}
                     onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-3 text-sm font-medium transition-all duration-200 ${
+                    className={`flex items-center gap-3 px-3 py-3 text-sm font-medium transition-colors ${
                       location.pathname === link.href
-                        ? "text-white bg-white/10"
+                        ? "bg-white/10 text-white"
                         : "text-white/72 hover:bg-white/8 hover:text-white"
                     }`}
                   >
                     {link.icon && <link.icon className="h-4 w-4" />}
-                    <span>{link.label}</span>
+                    {link.label}
                   </Link>
                   {link.dropdown && (
-                    <div className="grid grid-cols-1 gap-1 px-3 pb-2 min-[380px]:grid-cols-2">
+                    <div className="grid grid-cols-2 gap-1 px-3 pb-2">
                       {link.dropdown.map((item) => (
                         <Link
                           key={item.label}
                           to={item.href}
                           onClick={() => setMobileOpen(false)}
-                          className="rounded-md px-3 py-2 text-xs font-medium text-white/68 transition-all duration-200 hover:bg-white/8 hover:text-white"
+                          className="rounded-md px-3 py-2 text-xs font-medium text-white/68 transition-colors hover:bg-white/8 hover:text-white"
                         >
                           {item.label}
                         </Link>
@@ -403,7 +387,7 @@ export function Header() {
 
               <div className="mt-2 border-t border-white/6 pt-3">
                 {isSignedIn ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <div className="px-1 pb-2">
                       <p className="truncate text-sm font-medium text-white">
                         {user?.firstName} {user?.lastName}
@@ -412,25 +396,20 @@ export function Header() {
                         {user?.emailAddresses[0]?.emailAddress}
                       </p>
                     </div>
-                    <Link
-                      to="/my-list"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-all duration-200 hover:bg-white/8 hover:text-white"
-                    >
-                      <BookMarked className="h-4 w-4" />
-                      My List
-                    </Link>
-                    <Link
-                      to="/history"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-all duration-200 hover:bg-white/8 hover:text-white"
-                    >
-                      <Clock className="h-4 w-4" />
-                      Watch History
-                    </Link>
+                    {profileLinks.map((item) => (
+                      <Link
+                        key={item.label}
+                        to={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-colors hover:bg-white/8 hover:text-white"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    ))}
                     <Button
                       variant="ghost"
-                      className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-400 justify-start transition-all duration-200"
+                      className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-400"
                       onClick={() => signOut()}
                     >
                       <UserIcon className="h-4 w-4" />
@@ -438,11 +417,11 @@ export function Header() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Link
                       to="/my-list"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-all duration-200 hover:bg-white/8 hover:text-white"
+                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-colors hover:bg-white/8 hover:text-white"
                     >
                       <BookMarked className="h-4 w-4" />
                       My List
@@ -450,14 +429,13 @@ export function Header() {
                     <Link
                       to="/history"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-all duration-200 hover:bg-white/8 hover:text-white"
+                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-colors hover:bg-white/8 hover:text-white"
                     >
                       <Clock className="h-4 w-4" />
                       Watch History
                     </Link>
-                    <div className="h-px bg-white/6 my-2 mx-2" />
                     <Button
-                      className="w-full bg-primary text-white hover:bg-primary/90 transition-all duration-200 mt-2"
+                      className="mt-2 w-full bg-primary text-white hover:bg-primary/90"
                       onClick={() => navigate("/sign-in")}
                     >
                       Sign In

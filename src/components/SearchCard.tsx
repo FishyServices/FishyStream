@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, ChevronDown, Star } from "lucide-react";
+import { Play, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { TMDBItem, TMDBFullDetail } from "@/hooks/useContent";
 import { ContentModal } from "./ContentModal";
@@ -106,111 +106,62 @@ export function SearchCard({
             />
           )}
 
-          {/* Hover overlay */}
           <div
             className={`absolute inset-0 hidden md:flex bg-linear-to-t from-black via-black/60 to-black/10 flex-col justify-end p-3 transition-opacity duration-200 ${
               hovered ? "opacity-100" : "opacity-0"
             }`}
           >
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2">
-                <Button
-                  size="icon"
-                  className="h-9 w-9 shrink-0 rounded-md bg-white text-black shadow-sm hover:bg-white/90"
-                  onClick={handlePlay}
-                  aria-label={`Play ${item.title}`}
-                >
-                  <Play className="w-4 h-4 fill-black text-black ml-0.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="ml-auto h-8 w-8 shrink-0 rounded-md border border-white/30 bg-black/55 hover:border-white/60"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCardClick();
-                  }}
-                  aria-label="More info"
-                >
-                  <ChevronDown className="w-3.5 h-3.5 text-white" />
-                </Button>
-              </div>
+            <div className="space-y-2">
+              <Button
+                size="icon"
+                className="h-9 w-9 shrink-0 rounded-md bg-white text-black shadow-sm hover:bg-white/90"
+                onClick={handlePlay}
+                aria-label={`Play ${item.title}`}
+              >
+                <Play className="w-4 h-4 fill-black text-black ml-0.5" />
+              </Button>
 
-              <div>
-                <h3 className="text-sm font-display font-semibold text-white truncate leading-tight">
-                  {item.title}
-                </h3>
-                <div className="flex items-center gap-2 mt-1 text-xs text-white/60">
-                  <span>{item.rating}</span>
-                  <span>·</span>
-                  <span>{item.year}</span>
-                  {score && score > 0 && (
-                    <>
-                      <span>·</span>
-                      <span className="flex items-center gap-0.5">
-                        <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
-                        {score.toFixed(1)}
-                      </span>
-                    </>
-                  )}
-                </div>
-                {(item.genre?.length ?? 0) > 0 && (
-                  <p className="text-[10px] text-white/40 mt-0.5 truncate">
-                    {item.genre?.slice(0, 2).join(" · ")}
-                  </p>
+              <h3 className="text-sm font-display font-semibold text-white truncate leading-tight">
+                {item.title}
+              </h3>
+              <div className="flex items-center gap-2 text-xs text-white/60">
+                <span>{item.year}</span>
+                {score && score > 0 && (
+                  <span className="flex items-center gap-0.5">
+                    <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
+                    {score.toFixed(1)}
+                  </span>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-2.5 space-y-2 md:hidden">
+        <div className="mt-2 space-y-2 md:hidden">
           <div>
             <h3 className="line-clamp-1 text-sm font-display font-semibold leading-tight text-white">
               {item.title}
             </h3>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/58">
-              <span>{item.rating}</span>
+            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-white/58">
               <span>{item.year}</span>
               {score && score > 0 && (
                 <span className="flex items-center gap-1">
-                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
                   {score.toFixed(1)}
                 </span>
               )}
             </div>
-            {(item.genre?.length ?? 0) > 0 && (
-              <p className="mt-1 line-clamp-1 text-[10px] text-white/40">
-                {item.genre?.slice(0, 2).join(" · ")}
-              </p>
-            )}
           </div>
 
           {showMobileActions && (
-            <div className="flex items-center gap-2">
-              <Button
-                size="icon"
-                className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-black hover:bg-white/90"
-                onClick={handlePlay}
-                aria-label={`Play ${item.title}`}
-                title={`Play ${item.title}`}
-              >
-                <Play className="h-4 w-4 fill-black text-black" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-md border border-white/16 bg-white/6"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCardClick();
-                }}
-                aria-label="More info"
-                title="More info"
-              >
-                <ChevronDown className="h-4 w-4 text-white" />
-              </Button>
-            </div>
+            <Button
+              size="icon"
+              className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-black hover:bg-white/90"
+              onClick={handlePlay}
+              aria-label={`Play ${item.title}`}
+            >
+              <Play className="h-4 w-4 fill-black text-black" />
+            </Button>
           )}
         </div>
       </div>

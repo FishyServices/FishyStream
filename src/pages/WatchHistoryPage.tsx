@@ -7,12 +7,10 @@ import { MovieCard } from "@/components/MovieCard";
 import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
 import { useMyWatchHistory, useRemoveFromHistory } from "@/hooks/useWatchHistory";
 import { createPlayHandler } from "@/lib/watchNavigation";
-import { useUser } from "@clerk/react";
 import { Button, toast } from "@fishy/ui";
 
 export function WatchHistoryPage() {
   const navigate = useNavigate();
-  const { isSignedIn } = useUser();
 
   useSeoMeta({
     title: "Watch History",
@@ -34,7 +32,7 @@ export function WatchHistoryPage() {
     try {
       await removeFromHistory(contentId as any);
       setHistory((current) => current?.filter((item) => item._id !== contentId));
-      toast.success("Removed from history");
+      toast.success("Removed");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to remove";
       toast.error(message);
@@ -58,7 +56,7 @@ export function WatchHistoryPage() {
       <Header />
 
       <main className="page-shell-wide page-stack">
-        <PageHeader title="Watch History" />
+        <PageHeader title="History" />
 
         {history.length === 0 ? (
           <EmptyState
@@ -72,20 +70,17 @@ export function WatchHistoryPage() {
         ) : (
           <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {history.map((item) => (
-              <div key={item._id} className="relative group">
+              <div key={item._id} className="group relative">
                 <MovieCard content={item} onPlay={handlePlay} layout="grid" />
-                <div className="absolute top-2 right-2 z-20">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 bg-black/60 text-white opacity-100 transition-opacity hover:bg-red-500/80 md:opacity-0 md:group-hover:opacity-100"
-                    onClick={() => handleRemove(item._id)}
-                    aria-label={`Remove ${item.title} from history`}
-                    title={`Remove ${item.title} from history`}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 top-2 z-20 h-8 w-8 rounded-md bg-black/60 text-white opacity-100 transition-opacity hover:bg-red-500/80 md:opacity-0 md:group-hover:opacity-100"
+                  onClick={() => handleRemove(item._id)}
+                  aria-label={`Remove ${item.title} from history`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
             ))}
           </div>

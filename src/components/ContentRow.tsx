@@ -36,9 +36,8 @@ export function ContentRow({
 
   const scroll = (direction: "left" | "right") => {
     if (scrollRef.current) {
-      const scrollAmount = 600;
       scrollRef.current.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
+        left: direction === "left" ? -600 : 600,
         behavior: "smooth"
       });
     }
@@ -48,21 +47,19 @@ export function ContentRow({
 
   return (
     <section className="group relative isolate overflow-hidden py-3 pb-8 sm:py-4 sm:pb-11">
-      <div className="page-shell-wide relative z-40 mb-4 flex items-end justify-between gap-3 sm:mb-5">
-        <div className="min-w-0">
-          <h2
-            className="truncate font-display text-lg font-bold text-foreground sm:text-2xl"
-            title={title}
-          >
-            {title}
-          </h2>
-        </div>
+      <div className="page-shell-wide relative z-40 mb-4 flex items-center justify-between gap-3 sm:mb-5">
+        <h2
+          className="truncate font-display text-lg font-bold text-foreground sm:text-2xl"
+          title={title}
+        >
+          {title}
+        </h2>
         {viewAllHref && (
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => navigate(viewAllHref)}
-            className="relative z-40 ml-4 whitespace-nowrap rounded-full border border-white/10 bg-white/3 text-xs text-muted-foreground hover:bg-card/80 hover:text-foreground"
+            className="relative z-40 shrink-0 rounded-full text-xs text-muted-foreground hover:text-foreground"
           >
             {viewAllLabel}
           </Button>
@@ -93,10 +90,7 @@ export function ContentRow({
         <div
           ref={scrollRef}
           className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-4 sm:gap-4 sm:px-0"
-          style={{
-            scrollbarWidth: "none",
-            msOverflowStyle: "none"
-          }}
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {content.map((item) => (
             <MovieCard key={item._id} content={item} onPlay={onPlay} />
