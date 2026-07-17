@@ -4,7 +4,6 @@ import { useSearchParams } from "react-router-dom";
 import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/hooks/useWatchlist";
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
-import { useUser } from "@clerk/react";
 import type { PlayHandler } from "@/lib/watchNavigation";
 import type { ContentCard, ContentId, ContentType } from "../../shared/contentMetadata";
 
@@ -50,7 +49,6 @@ export function MovieCard({
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const { isSignedIn } = useUser();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isInWatchlist = useIsInWatchlist(content._id);
@@ -151,7 +149,7 @@ export function MovieCard({
   return (
     <>
       <div
-        className={`group/card relative ${layout === "rail" ? "snap-start shrink-0" : ""} ${widthClass} cursor-pointer select-none`}
+        className={`group/card isolate relative ${layout === "rail" ? "snap-start shrink-0" : ""} ${widthClass} cursor-pointer select-none`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={(e) => {

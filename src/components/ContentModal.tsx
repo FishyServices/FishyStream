@@ -366,7 +366,7 @@ export function ContentModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden border-border/80 bg-card p-0 text-card-foreground">
+      <DialogContent className="z-1001 flex max-h-[90vh] max-w-3xl flex-col overflow-hidden border-border/80 bg-card p-0 text-card-foreground">
         <DialogTitle className="sr-only">{contentData.title}</DialogTitle>
 
         <div className="relative h-70 shrink-0 sm:h-85">
@@ -730,7 +730,7 @@ export function ContentModal({
             setRelatedModalItem(null);
           }}
         >
-          <DialogContent className="flex max-w-xs items-center justify-center border-border/80 bg-card p-8 text-card-foreground">
+          <DialogContent className="z-1001 flex max-w-xs items-center justify-center border-border/80 bg-card p-8 text-card-foreground">
             <DialogTitle className="sr-only">Loading</DialogTitle>
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
           </DialogContent>

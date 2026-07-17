@@ -16,22 +16,23 @@ export type ProviderKey =
   | "peachify"
   | "superembed"
   | "tryembed"
+  | "vaplayer"
+  | "vidcodin"
   | "vidcore"
   | "videasy"
   | "vidfast"
   | "vidking"
+  | "vidlux"
   | "vidnest"
   | "vidplays"
-  | "vidplus (ads)"
+  | "vidplus-ads"
   | "vidrock"
   | "vidsrc"
   | "vidsrcpro"
   | "vidup"
   | "vidzee"
   | "vidzen"
-  | "vixsrc"
-  | "vaplayer"
-  | "vidlux";
+  | "vixsrc";
 
 export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
@@ -178,141 +179,22 @@ function defineProvider<TParams extends ProviderParamsDef>(
   };
 }
 
+const STANDARD_EMBED_PLAYER_PARAMS: ProviderParamsDef = {
+  title: { type: "boolean", default: true },
+  poster: { type: "boolean", default: true },
+  autoPlay: { type: "boolean", default: false },
+  startAt: { type: "time" },
+  theme: { type: "hex" },
+  server: { type: "string" },
+  hideServer: { type: "boolean", default: false },
+  fullscreenButton: { type: "boolean", default: true },
+  chromecast: { type: "boolean", default: true },
+  sub: { type: "string" },
+  nextButton: { type: "boolean", default: true },
+  autoNext: { type: "boolean", default: false }
+};
+
 export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
-  // Primary Providers
-  defineProvider({
-    key: "peachify",
-    name: "Peachify",
-    category: "primary",
-    idType: "tmdb",
-    website: "https://peachify.top",
-    progress: { resumeParam: "startAt" },
-    referrerPolicy: "no-referrer",
-    params: {
-      server: { type: "string" },
-      dub: { type: "string" },
-      sub: { type: "string" },
-      startAt: { type: "time" },
-      autoNext: { type: "number", default: 1 },
-      showNextBtn: { type: "boolean", default: true },
-      autoPlay: { type: "boolean", default: true },
-      pip: { type: "string" },
-      cast: { type: "string" },
-      fullscreen: { type: "string" },
-      volume: { type: "string" },
-      servers: { type: "string" },
-      captions: { type: "string" },
-      quality: { type: "string" }
-    },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "vidcore",
-    name: "VidCore",
-    category: "primary",
-    idType: "both",
-    website: "https://vidcore.net",
-    progress: { resumeParam: "startAt" },
-    params: {
-      title: { type: "boolean", default: true },
-      poster: { type: "boolean", default: true },
-      autoPlay: { type: "boolean", default: false },
-      startAt: { type: "time" },
-      theme: { type: "hex" },
-      nextButton: { type: "boolean", default: true },
-      autoNext: { type: "boolean", default: false },
-      server: { type: "string" },
-      hideServer: { type: "boolean", default: false },
-      fullscreenButton: { type: "boolean", default: true },
-      chromecast: { type: "boolean", default: true },
-      sub: { type: "string" }
-    },
-    moviePath: (id) => `/movie/${id}`,
-    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "vidking",
-    name: "VidKing",
-    category: "primary",
-    idType: "tmdb",
-    website: "https://www.vidking.net",
-    progress: { resumeParam: "progress" },
-    referrerPolicy: "no-referrer",
-    params: {
-      color: { type: "hex", default: "e50914" },
-      autoPlay: { type: "boolean", default: false },
-      nextEpisode: { type: "boolean", default: false },
-      episodeSelector: { type: "boolean", default: false },
-      progress: { type: "time" }
-    },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "vidzen",
-    name: "VidZen",
-    category: "primary",
-    idType: "tmdb",
-    website: "https://vidzen.fun",
-    progress: { resumeParam: "startAt" },
-    referrerPolicy: "no-referrer",
-    moviePath: (id) => `/movie/${id}`,
-    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
-  }),
-  // Anime Providers
-  defineProvider({
-    key: "filmu",
-    name: "filmu",
-    category: "primary_anime",
-    idType: "both",
-    website: "https://embed.filmu.in",
-    animeIdType: "anilist",
-    dubSupport: true,
-    referrerPolicy: "no-referrer",
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) =>
-      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
-  }),
-  defineProvider({
-    key: "megaplay",
-    name: "MegaPlay",
-    category: "primary_anime",
-    idType: "tmdb",
-    website: "https://megaplay.buzz",
-    animeOnly: true,
-    animeIdType: "anilist",
-    dubSupport: true,
-    progress: { resumeParam: "startAt" },
-    supportsCustomUI: true,
-    moviePath: (id) => `/stream/ani/${id}/1/sub`,
-    tvPath: (id, _season, episode) => `/stream/ani/${id}/${episode}/sub`,
-    animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`
-  }),
-  defineProvider({
-    key: "tryembed",
-    name: "TryEmbed",
-    category: "primary_anime",
-    idType: "tmdb",
-    website: "https://tryembed.us.cc",
-    animeIdType: "anilist",
-    dubSupport: true,
-    progress: { resumeParam: "startAt" },
-    referrerPolicy: "no-referrer",
-    params: {
-      autoplay: { type: "boolean", default: true },
-      autoSkip: { type: "boolean", default: false },
-      autoNext: { type: "boolean", default: false },
-      "lang-type": { type: "boolean", default: false },
-      startAt: { type: "time" },
-      opensubs: { type: "string" }
-    },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
-  }),
-  // Other Providers
   defineProvider({
     key: "111movies",
     name: "111movies",
@@ -349,7 +231,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
   }),
   defineProvider({
     key: "cinesrc",
-    name: "cinesrc",
+    name: "CineSrc",
     category: "other",
     idType: "tmdb",
     website: "https://cinesrc.st",
@@ -399,6 +281,30 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
       logourl: { type: "string" },
       server: { type: "string" }
     },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) =>
+      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
+  }),
+  defineProvider({
+    // for tvSeasonMappings.ts
+    key: "direct",
+    name: "Direct",
+    category: "other",
+    idType: "tmdb",
+    website: "",
+    moviePath: () => "",
+    tvPath: () => ""
+  }),
+  defineProvider({
+    key: "filmu",
+    name: "Filmu",
+    category: "primary_anime",
+    idType: "both",
+    website: "https://embed.filmu.in",
+    animeIdType: "anilist",
+    dubSupport: true,
+    referrerPolicy: "no-referrer",
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) =>
@@ -498,6 +404,48 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
+    key: "megaplay",
+    name: "MegaPlay",
+    category: "primary_anime",
+    idType: "tmdb",
+    website: "https://megaplay.buzz",
+    animeOnly: true,
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: { resumeParam: "startAt" },
+    supportsCustomUI: true,
+    moviePath: (id) => `/stream/ani/${id}/1/sub`,
+    tvPath: (id, _season, episode) => `/stream/ani/${id}/${episode}/sub`,
+    animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`
+  }),
+  defineProvider({
+    key: "peachify",
+    name: "Peachify",
+    category: "primary",
+    idType: "tmdb",
+    website: "https://peachify.top",
+    progress: { resumeParam: "startAt" },
+    referrerPolicy: "no-referrer",
+    params: {
+      server: { type: "string" },
+      dub: { type: "string" },
+      sub: { type: "string" },
+      startAt: { type: "time" },
+      autoNext: { type: "number", default: 1 },
+      showNextBtn: { type: "boolean", default: true },
+      autoPlay: { type: "boolean", default: true },
+      pip: { type: "string" },
+      cast: { type: "string" },
+      fullscreen: { type: "string" },
+      volume: { type: "string" },
+      servers: { type: "string" },
+      captions: { type: "string" },
+      quality: { type: "string" }
+    },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
     key: "superembed",
     name: "SuperEmbed",
     category: "other",
@@ -511,27 +459,74 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
       `/?video_id=${id}&anime=1&episode=${episode}${dub ? "&dub=1" : ""}`
   }),
   defineProvider({
-    key: "vidfast",
-    name: "VidFast",
-    category: "other",
-    idType: "both",
-    website: "https://vidfast.pro",
+    key: "tryembed",
+    name: "TryEmbed",
+    category: "primary_anime",
+    idType: "tmdb",
+    website: "https://tryembed.us.cc",
+    animeIdType: "anilist",
+    dubSupport: true,
     progress: { resumeParam: "startAt" },
     referrerPolicy: "no-referrer",
     params: {
-      title: { type: "boolean", default: true },
-      poster: { type: "boolean", default: true },
-      autoPlay: { type: "boolean", default: false },
+      autoplay: { type: "boolean", default: true },
+      autoSkip: { type: "boolean", default: false },
+      autoNext: { type: "boolean", default: false },
+      "lang-type": { type: "boolean", default: false },
       startAt: { type: "time" },
-      theme: { type: "hex" },
-      server: { type: "string" },
-      hideServer: { type: "boolean", default: false },
-      fullscreenButton: { type: "boolean", default: true },
-      chromecast: { type: "boolean", default: true },
-      sub: { type: "string" },
-      nextButton: { type: "boolean", default: true },
-      autoNext: { type: "boolean", default: false }
+      opensubs: { type: "string" }
     },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) => `/embed/anime/${id}/${episode}/${dub ? "dub" : "sub"}`
+  }),
+  defineProvider({
+    key: "vaplayer",
+    name: "Vaplayer",
+    category: "other",
+    idType: "both",
+    website: "https://vaplayer.ru",
+    params: {
+      primaryColor: { type: "hex" },
+      color: { type: "hex" },
+      title: { type: "string" },
+      poster: { type: "string" },
+      showTitle: { type: "boolean", default: true },
+      autoplay: { type: "number", default: 0 },
+      startAt: { type: "time" },
+      resumeAt: { type: "time" },
+      sub_url: { type: "string" },
+      sub_file: { type: "string" },
+      sub_label: { type: "string" },
+      sub_lang: { type: "string" },
+      sub_default: { type: "boolean", default: false },
+      ds_lang: { type: "string" },
+      lang: { type: "string" },
+      controls: { type: "boolean", default: true },
+      overlay: { type: "boolean", default: true },
+      thumbnails: { type: "string" }
+    },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidcodin",
+    name: "VidCodin",
+    category: "other",
+    idType: "tmdb",
+    website: "https://vidcodin.net",
+    referrerPolicy: "no-referrer",
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidcore",
+    name: "VidCore",
+    category: "primary",
+    idType: "both",
+    website: "https://vidcore.net",
+    progress: { resumeParam: "startAt" },
+    params: STANDARD_EMBED_PLAYER_PARAMS,
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
@@ -555,6 +550,53 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode) => `/anime/${id}/${episode}`
+  }),
+  defineProvider({
+    key: "vidfast",
+    name: "VidFast",
+    category: "other",
+    idType: "both",
+    website: "https://vidfast.pro",
+    progress: { resumeParam: "startAt" },
+    referrerPolicy: "no-referrer",
+    params: STANDARD_EMBED_PLAYER_PARAMS,
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidking",
+    name: "VidKing",
+    category: "primary",
+    idType: "tmdb",
+    website: "https://www.vidking.net",
+    progress: { resumeParam: "progress" },
+    referrerPolicy: "no-referrer",
+    params: {
+      color: { type: "hex", default: "e50914" },
+      autoPlay: { type: "boolean", default: false },
+      nextEpisode: { type: "boolean", default: false },
+      episodeSelector: { type: "boolean", default: false },
+      progress: { type: "time" }
+    },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidlux",
+    name: "VidLux",
+    category: "other",
+    idType: "tmdb",
+    website: "https://vidlux.xyz",
+    params: {
+      key: { type: "string" },
+      color: { type: "hex" },
+      logo: { type: "string" },
+      autoplay: { type: "boolean", default: true },
+      server: { type: "string", default: "star" },
+      title: { type: "string" }
+    },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "vidnest",
@@ -604,8 +646,8 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
-    key: "vidplus (ads)",
-    name: "VidPlus (Ads)",
+    key: "vidplus-ads",
+    name: "VidPlus",
     category: "other",
     idType: "both",
     website: "https://player.vidplus.to",
@@ -670,20 +712,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://vidup.to",
     referrerPolicy: "no-referrer",
-    params: {
-      title: { type: "boolean", default: true },
-      poster: { type: "boolean", default: true },
-      autoPlay: { type: "boolean", default: false },
-      startAt: { type: "time" },
-      theme: { type: "hex" },
-      server: { type: "string" },
-      hideServer: { type: "boolean", default: false },
-      fullscreenButton: { type: "boolean", default: true },
-      chromecast: { type: "boolean", default: true },
-      sub: { type: "string" },
-      nextButton: { type: "boolean", default: true },
-      autoNext: { type: "boolean", default: false }
-    },
+    params: STANDARD_EMBED_PLAYER_PARAMS,
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
@@ -696,6 +725,17 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/v2/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/v2/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidzen",
+    name: "VidZen",
+    category: "primary",
+    idType: "tmdb",
+    website: "https://vidzen.fun",
+    progress: { resumeParam: "startAt" },
+    referrerPolicy: "no-referrer",
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "vixsrc",
@@ -714,67 +754,38 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "vaplayer",
-    name: "Vaplayer",
-    category: "other",
-    idType: "both",
-    website: "https://vaplayer.ru",
-    params: {
-      primaryColor: { type: "hex" },
-      color: { type: "hex" },
-      title: { type: "string" },
-      poster: { type: "string" },
-      showTitle: { type: "boolean", default: true },
-      autoplay: { type: "number", default: 0 },
-      startAt: { type: "time" },
-      resumeAt: { type: "time" },
-      sub_url: { type: "string" },
-      sub_file: { type: "string" },
-      sub_label: { type: "string" },
-      sub_lang: { type: "string" },
-      sub_default: { type: "boolean", default: false },
-      ds_lang: { type: "string" },
-      lang: { type: "string" },
-      controls: { type: "boolean", default: true },
-      overlay: { type: "boolean", default: true },
-      thumbnails: { type: "string" }
-    },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "vidlux",
-    name: "VidLux",
-    category: "other",
-    idType: "tmdb",
-    website: "https://vidlux.xyz",
-    params: {
-      key: { type: "string" },
-      color: { type: "hex" },
-      logo: { type: "string" },
-      autoplay: { type: "boolean", default: true },
-      server: { type: "string", default: "star" },
-      title: { type: "string" }
-    },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    // for tvSeasonMappings.ts
-    key: "direct",
-    name: "Direct",
-    category: "other",
-    idType: "tmdb",
-    website: "",
-    moviePath: () => "",
-    tvPath: () => ""
   })
 ];
 
+const PROVIDER_MAP: ReadonlyMap<ProviderKey, ProviderCatalogEntry> = (() => {
+  const map = new Map<ProviderKey, ProviderCatalogEntry>();
+  for (const provider of STREAM_PROVIDERS) {
+    if (map.has(provider.key)) {
+      throw new Error(`Duplicate provider key in STREAM_PROVIDERS: ${provider.key}`);
+    }
+    map.set(provider.key, provider);
+  }
+  return map;
+})();
+
+const ORIGIN_MAP: ReadonlyMap<string, ProviderCatalogEntry> = (() => {
+  const map = new Map<string, ProviderCatalogEntry>();
+  for (const provider of STREAM_PROVIDERS) {
+    for (const origin of provider.origins) {
+      if (origin === "*" || map.has(origin)) continue;
+      map.set(origin, provider);
+    }
+  }
+  return map;
+})();
+
+const WILDCARD_PROVIDER: ProviderCatalogEntry | undefined = STREAM_PROVIDERS.find(
+  (provider) => provider.origins.includes("*") && provider.unsafeWildcardOrigin !== true
+);
+
 export function getProviderByKey(key: string): ProviderCatalogEntry | undefined {
-  return STREAM_PROVIDERS.find((provider) => provider.key === key);
+  const resolvedKey = key as ProviderKey;
+  return PROVIDER_MAP.get(resolvedKey);
 }
 
 export function getProviderCapabilities(provider: ProviderCatalogEntry): string[] {
@@ -817,14 +828,7 @@ export function getGroupedProviders(providers: ProviderCatalogEntry[] = STREAM_P
 }
 
 export function getProviderByOrigin(origin: string): ProviderCatalogEntry | undefined {
-  return STREAM_PROVIDERS.find((provider) => {
-    const { origins } = provider;
-    return (
-      !!origins &&
-      (origins.includes(origin) ||
-        (origins.includes("*") && provider.unsafeWildcardOrigin !== true))
-    );
-  });
+  return ORIGIN_MAP.get(origin) ?? WILDCARD_PROVIDER;
 }
 
 export function getProviderId(
@@ -899,12 +903,6 @@ export async function buildTvSources(args: {
     year,
     dub
   } = args;
-  let resolvedAniListAddress: Awaited<ReturnType<typeof resolveAniListEpisodeAddress>> | undefined =
-    undefined;
-  const storedAniListAddress = anilistEpisodeMappings?.find(
-    (mapping) => mapping.episodeNumber === episode
-  );
-
   const sources: StreamSource[] = [];
 
   const override = getTvOrderingOverride(tmdbId);
@@ -917,43 +915,44 @@ export async function buildTvSources(args: {
     });
   }
 
+  const storedAniListAddress = anilistEpisodeMappings?.find(
+    (mapping) => mapping.episodeNumber === episode
+  );
+
+  let aniListAddressPromise:
+    | Promise<Awaited<ReturnType<typeof resolveAniListEpisodeAddress>>>
+    | undefined;
+  const getAniListAddress = () => {
+    if (!aniListAddressPromise) {
+      aniListAddressPromise = storedAniListAddress
+        ? Promise.resolve({
+            anilistId: storedAniListAddress.anilistId,
+            episode: storedAniListAddress.anilistEpisodeNumber
+          })
+        : resolveAniListEpisodeAddress({ anilistId, title, season, seasonTitle, year, episode });
+    }
+    return aniListAddressPromise;
+  };
+
   for (const provider of STREAM_PROVIDERS) {
     if (provider.key === "direct") continue;
     if (provider.animeOnly && !isAnime) continue;
 
     const fallbackId = getProviderId(provider, imdbId, tmdbId);
-    let animeId = fallbackId;
-
-    if (isAnime && provider.getAnimeTVUrl && provider.animeIdType === "anilist") {
-      if (resolvedAniListAddress === undefined) {
-        resolvedAniListAddress = storedAniListAddress
-          ? {
-              anilistId: storedAniListAddress.anilistId,
-              episode: storedAniListAddress.anilistEpisodeNumber
-            }
-          : await resolveAniListEpisodeAddress({
-              anilistId,
-              title,
-              season,
-              seasonTitle,
-              year,
-              episode
-            });
-      }
-      animeId = resolvedAniListAddress?.anilistId ?? null;
-    }
+    const usesAniList = isAnime && !!provider.getAnimeTVUrl && provider.animeIdType === "anilist";
+    const aniListAddress = usesAniList ? await getAniListAddress() : undefined;
+    const animeId = usesAniList ? (aniListAddress?.anilistId ?? null) : null;
 
     const id = animeId ?? fallbackId;
     if (!id) continue;
 
-    const mapped =
-      isAnime && provider.getAnimeTVUrl && animeId
-        ? { season, episode: resolvedAniListAddress?.episode ?? episode }
-        : mapCanonicalToProviderOrder(tmdbId, provider.name, { season, episode });
-    const url =
-      isAnime && provider.getAnimeTVUrl && animeId
-        ? provider.getAnimeTVUrl(id, mapped.season, mapped.episode, dub ?? false)
-        : provider.getTVUrl(id, mapped.season, mapped.episode);
+    const isAnimeMatch = isAnime && !!provider.getAnimeTVUrl && !!animeId;
+    const mapped = isAnimeMatch
+      ? { season, episode: aniListAddress?.episode ?? episode }
+      : mapCanonicalToProviderOrder(tmdbId, provider.name, { season, episode });
+    const url = isAnimeMatch
+      ? provider.getAnimeTVUrl!(id, mapped.season, mapped.episode, dub ?? false)
+      : provider.getTVUrl(id, mapped.season, mapped.episode);
 
     sources.push({
       key: provider.key,

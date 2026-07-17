@@ -13,7 +13,6 @@ import {
 import { Button } from "@fishy/ui";
 import { ContentModal } from "./ContentModal";
 import { useIsInWatchlist, useToggleWatchlist, type WatchlistSnapshot } from "@/hooks/useWatchlist";
-import { useUser } from "@clerk/react";
 import { toast } from "@fishy/ui";
 import type { PlayHandler } from "@/lib/watchNavigation";
 import type { ContentFeatured } from "../../shared/contentMetadata";
@@ -46,7 +45,6 @@ export function Hero({
   autoPlayTrailer = false,
   trailerMuted = true
 }: HeroProps) {
-  const { isSignedIn } = useUser();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [muted, setMuted] = useState(trailerMuted);
