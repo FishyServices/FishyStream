@@ -23,7 +23,6 @@ import { useOneShotConvexQuery } from "@/hooks/useOneShotConvexQuery";
 import type { PlayerEventPayload } from "@fishy/providers/playerProviders";
 import {
   parsePlayerMessage,
-  calculateProgress,
   isTrustedPlayerMessageOrigin,
   postMessageToPlayer
 } from "@fishy/providers/playerProviders";
@@ -31,14 +30,11 @@ import {
   getNextEpisodeAddress,
   hasNextEpisode as hasProviderNextEpisode,
   isAnimeProviderContent,
-  normalizePlaybackProgressSample,
   shouldWaitForAnimeSeasonMetadata,
-  shouldStorePlaybackProgressSample,
   WATCH_PROGRESS_STATUS_POLL_MS
 } from "@fishy/providers/providerPlayback";
 import { buildWatchPath } from "@/lib/watchNavigation";
 import type { ContentPlayback } from "../../shared/contentMetadata";
-import type { PlaybackProgressSample } from "@fishy/providers/providerPlayback";
 import { usePlaybackSession, type PlaybackSeasonMeta } from "@/playback/usePlaybackSession";
 
 interface VideoPlayerProps {
@@ -106,14 +102,9 @@ export function VideoPlayer({
   const watchState = useGetProgress(content._id);
   const animeContent = isAnimeProviderContent(content);
 
-  const [currentProgress, setCurrentProgress] = useState(0);
-
   const historyInitRef = useRef(false);
-  const realtimeDetectedRef = useRef(false);
   const lastSyncedProgressRef = useRef(0);
   const lastSyncedPositionRef = useRef(0);
-  const lastRealtimeSyncAtRef = useRef(0);
-  const lastStoredProgressSampleRef = useRef<PlaybackProgressSample | undefined>(undefined);
   const nextEpisodeClickLockedRef = useRef(false);
   const nextEpisodeCooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isNextEpisodeCooldown, setIsNextEpisodeCooldown] = useState(false);
@@ -201,7 +192,8 @@ export function VideoPlayer({
     searchParams,
     setSearchParams,
     navigate,
-    lastSyncedPositionRef
+    lastSyncedPositionRef,
+    updateProgress
   });
   const {
     sources,
@@ -215,7 +207,9 @@ export function VideoPlayer({
     embedUrl,
     iframeSrcDoc,
     canTryNextSource,
-    goToEpisode
+    goToEpisode,
+    currentProgress,
+    reportPlaybackEvent
   } = session;
   const selectedSource = selectedSourceConfig?.url ?? "";
   const supportsProgressEvents = !!selectedProvider?.progress;
@@ -267,11 +261,8 @@ export function VideoPlayer({
 
   useEffect(() => {
     historyInitRef.current = false;
-    realtimeDetectedRef.current = false;
     lastSyncedProgressRef.current = 0;
     lastSyncedPositionRef.current = 0;
-    lastRealtimeSyncAtRef.current = 0;
-    lastStoredProgressSampleRef.current = undefined;
     const s = initialSeason ?? 1;
     const e = initialEpisode ?? 1;
     lastAppliedRouteTvTargetRef.current = { season: s, episode: e };
@@ -293,12 +284,8 @@ export function VideoPlayer({
     lastAppliedRouteTvTargetRef.current = { season: s, episode: e };
 
     if (tvTargetRef.current.season !== s || tvTargetRef.current.episode !== e) {
-      setCurrentProgress(0);
-      realtimeDetectedRef.current = false;
       lastSyncedProgressRef.current = 0;
       lastSyncedPositionRef.current = 0;
-      lastRealtimeSyncAtRef.current = 0;
-      lastStoredProgressSampleRef.current = undefined;
       tvTargetRef.current = { season: s, episode: e };
       setTvTarget({ season: s, episode: e });
     }
@@ -337,15 +324,12 @@ export function VideoPlayer({
   useEffect(() => {
     if (!watchState) return;
     if (isMatchingEpisodeProgress(content, watchState, tvTarget.season, tvTarget.episode)) {
-      setCurrentProgress(clamp(watchState.progress));
       lastSyncedPositionRef.current = Math.max(
         lastSyncedPositionRef.current,
         Math.max(0, watchState.positionSeconds)
       );
       return;
     }
-
-    setCurrentProgress(0);
   }, [content, tvTarget.episode, tvTarget.season, watchState]);
 
   const useCustomPlayer = searchParams.get("ui") === "custom";
@@ -359,8 +343,6 @@ export function VideoPlayer({
     } catch {
       return;
     }
-
-    let syncInFlight = false;
 
     const handleMsg = (event: MessageEvent) => {
       const originMatchesProvider = isTrustedPlayerMessageOrigin(event.origin, expectedOrigin);
@@ -380,54 +362,12 @@ export function VideoPlayer({
       if (!parsed) return;
 
       const { event: ev, currentTime, duration, progress } = parsed.data;
-      const nextProgress = clamp(progress ?? 0);
-      const nextPos = Math.max(0, currentTime ?? 0);
-
-      setCurrentProgress(nextProgress);
-
-      if (syncInFlight) return;
-
-      const sample = normalizePlaybackProgressSample({
+      reportPlaybackEvent({
         event: ev,
-        currentTime: nextPos,
+        currentTime: currentTime ?? 0,
         duration: duration ?? 0,
-        progress: nextProgress
+        progress
       });
-
-      if (!shouldStorePlaybackProgressSample(lastStoredProgressSampleRef.current, sample)) return;
-
-      const persistedSeason = content.type === "tv" ? tvTargetRef.current.season : undefined;
-      const persistedEpisode = content.type === "tv" ? tvTargetRef.current.episode : undefined;
-
-      realtimeDetectedRef.current = true;
-      syncInFlight = true;
-
-      updateProgress(
-        content._id,
-        nextProgress,
-        nextProgress >= 95,
-        nextPos,
-        duration,
-        persistedSeason,
-        persistedEpisode,
-        selectedSourceConfig?.name,
-        animeContent ? isDub : undefined,
-        {
-          title: content.title,
-          type: content.type,
-          posterUrl: content.posterUrl ?? "",
-          tmdbId: content.tmdbId ?? content._id.split(":").at(-1) ?? "",
-          genre: content.genre,
-          year: content.year,
-          voteAverage: content.voteAverage
-        }
-      );
-
-      lastSyncedProgressRef.current = nextProgress;
-      lastSyncedPositionRef.current = nextPos;
-      lastRealtimeSyncAtRef.current = sample.sampledAt;
-      lastStoredProgressSampleRef.current = sample;
-      syncInFlight = false;
     };
 
     window.addEventListener("message", handleMsg);
@@ -439,10 +379,10 @@ export function VideoPlayer({
     embedUrl,
     selectedSourceConfig,
     supportsProgressEvents,
-    updateProgress,
     animeContent,
     isDub,
-    useCustomPlayer
+    useCustomPlayer,
+    reportPlaybackEvent
   ]);
 
   const handleProviderSelect = async (nextUrl: string, mode: ProviderUiMode) => {
@@ -456,7 +396,6 @@ export function VideoPlayer({
     }
 
     setSearchParams(nextParams, { replace: true });
-    realtimeDetectedRef.current = false;
     await session.setSourceByUrl(nextUrl, nextParams);
   };
 
@@ -502,12 +441,8 @@ export function VideoPlayer({
 
     tvTargetRef.current = next;
     setTvTarget(next);
-    setCurrentProgress(0);
     lastSyncedProgressRef.current = 0;
     lastSyncedPositionRef.current = 0;
-    lastRealtimeSyncAtRef.current = 0;
-    lastStoredProgressSampleRef.current = undefined;
-    realtimeDetectedRef.current = false;
 
     goToEpisode(next);
   };
@@ -708,11 +643,9 @@ export function VideoPlayer({
             embedUrl={embedUrl}
             content={content}
             tvTarget={tvTarget}
-            selectedSourceConfig={selectedSourceConfig}
             animeContent={animeContent}
             isDub={isDub}
-            updateProgress={updateProgress}
-            onProgressChange={setCurrentProgress}
+            onPlaybackEvent={reportPlaybackEvent}
             showDubToggle={showDubToggle}
             handleDubToggle={handleDubToggle}
             selectedSource={selectedSource}

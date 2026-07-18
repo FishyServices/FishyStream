@@ -16,23 +16,16 @@ import {
 } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { ProviderSourceSelect, type ProviderUiMode } from "@/components/ProviderSourceSelect";
-import { calculateProgress } from "@fishy/providers/playerProviders";
-import {
-  normalizePlaybackProgressSample,
-  shouldStorePlaybackProgressSample
-} from "@fishy/providers/providerPlayback";
 import type { ContentPlayback } from "../../shared/contentMetadata";
-import type { PlaybackProgressSample } from "@fishy/providers/providerPlayback";
+import type { PlaybackEvent } from "@/playback/usePlaybackSession";
 
 interface CustomVideoPlayerProps {
   embedUrl: string;
   content: ContentPlayback;
   tvTarget: { season: number; episode: number };
-  selectedSourceConfig: any;
   animeContent: boolean;
   isDub: boolean;
-  updateProgress: any;
-  onProgressChange: (progress: number) => void;
+  onPlaybackEvent: (event: PlaybackEvent) => void;
   showDubToggle: boolean;
   handleDubToggle: (isDub: boolean) => void;
   selectedSource: string;
@@ -60,11 +53,9 @@ export function CustomVideoPlayer({
   embedUrl,
   content,
   tvTarget,
-  selectedSourceConfig,
   animeContent,
   isDub,
-  updateProgress,
-  onProgressChange,
+  onPlaybackEvent,
   showDubToggle,
   handleDubToggle,
   selectedSource,
@@ -93,33 +84,7 @@ export function CustomVideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
 
-  const lastStoredProgressSampleRef = useRef<PlaybackProgressSample | undefined>(undefined);
-  const realtimeDetectedRef = useRef(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const propsRef = useRef({
-    content,
-    tvTarget,
-    selectedSourceConfig,
-    updateProgress,
-    animeContent,
-    isDub,
-    onProgressChange
-  });
-
-  useEffect(() => {
-    propsRef.current = {
-      content,
-      tvTarget,
-      selectedSourceConfig,
-      updateProgress,
-      animeContent,
-      isDub,
-      onProgressChange
-    };
-  });
-
-  const syncInFlightRef = useRef(false);
 
   const triggerControls = () => {
     setShowControls(true);
@@ -262,62 +227,13 @@ export function CustomVideoPlayer({
 
       const curr = video.currentTime;
       const dur = video.duration;
-      const progress = calculateProgress(curr, dur);
-
       setCurrentTime(curr);
-
-      const {
-        content: latestContent,
-        tvTarget: latestTvTarget,
-        selectedSourceConfig: latestSourceConfig,
-        updateProgress: latestUpdateProgress,
-        animeContent: latestAnimeContent,
-        isDub: latestIsDub,
-        onProgressChange: latestOnProgressChange
-      } = propsRef.current;
-
-      latestOnProgressChange(progress);
-
-      if (syncInFlightRef.current) return;
-
-      const sample = normalizePlaybackProgressSample({
+      onPlaybackEvent({
         event: "timeupdate",
         currentTime: curr,
         duration: dur,
-        progress
+        completed: video.ended
       });
-
-      if (!shouldStorePlaybackProgressSample(lastStoredProgressSampleRef.current, sample)) return;
-
-      const persistedSeason = latestContent.type === "tv" ? latestTvTarget.season : undefined;
-      const persistedEpisode = latestContent.type === "tv" ? latestTvTarget.episode : undefined;
-
-      realtimeDetectedRef.current = true;
-      syncInFlightRef.current = true;
-
-      latestUpdateProgress(
-        latestContent._id,
-        progress,
-        progress >= 95 || video.ended,
-        curr,
-        dur,
-        persistedSeason,
-        persistedEpisode,
-        latestSourceConfig?.name,
-        latestAnimeContent ? latestIsDub : undefined,
-        {
-          title: latestContent.title,
-          type: latestContent.type,
-          posterUrl: latestContent.posterUrl ?? "",
-          tmdbId: latestContent.tmdbId ?? latestContent._id.split(":").at(-1) ?? "",
-          genre: latestContent.genre,
-          year: latestContent.year,
-          voteAverage: latestContent.voteAverage
-        }
-      );
-
-      lastStoredProgressSampleRef.current = sample;
-      syncInFlightRef.current = false;
     };
 
     video.addEventListener("play", handlePlayState);
@@ -335,7 +251,7 @@ export function CustomVideoPlayer({
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("ended", handlePlayState);
     };
-  }, [isScraping]);
+  }, [isScraping, onPlaybackEvent]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;

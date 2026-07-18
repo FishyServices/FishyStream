@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NavigateFunction, URLSearchParamsInit } from "react-router-dom";
-import { createProviderEmbedUrl, type ProviderContentType } from "@fishy/providers/playerProviders";
+import {
+  calculateProgress,
+  createProviderEmbedUrl,
+  type ProviderContentType
+} from "@fishy/providers/playerProviders";
 import {
   buildMovieSources,
   buildTvSources,
@@ -12,13 +16,25 @@ import {
   getSeasonYear,
   groupSourcesByProviderCategory,
   isAnimeProviderContent,
-  pickPreferredSource
+  normalizePlaybackProgressSample,
+  pickPreferredSource,
+  shouldStorePlaybackProgressSample
 } from "@fishy/providers/providerPlayback";
 import type { ProviderGroupedSources } from "@fishy/providers/providerPlayback";
 import type { AppSettings } from "@/lib/appSettings";
 import { logProviderInfo, logProviderWarning } from "./providerDiagnostics";
 import type { ContentPlayback } from "../../shared/contentMetadata";
-import type { ProgressState } from "@/hooks/useWatchProgress";
+import type { ProgressState, useUpdateProgress } from "@/hooks/useWatchProgress";
+
+type UpdateProgress = ReturnType<typeof useUpdateProgress>;
+
+export interface PlaybackEvent {
+  event: "timeupdate" | "play" | "pause" | "ended" | "seeked" | "playerstatus";
+  currentTime: number;
+  duration: number;
+  progress?: number;
+  completed?: boolean;
+}
 
 export interface PlaybackTarget {
   season: number;
@@ -53,6 +69,8 @@ export interface PlaybackSession {
   embedUrl: string;
   iframeSrcDoc?: string;
   canTryNextSource: boolean;
+  currentProgress: number;
+  reportPlaybackEvent(event: PlaybackEvent): void;
   setSourceByUrl(url: string, params?: URLSearchParams): Promise<void>;
   setDub(enabled: boolean): void;
   goToEpisode(target: PlaybackTarget): void;
@@ -73,6 +91,7 @@ export interface UsePlaybackSessionArgs {
   setSearchParams: (nextInit: URLSearchParamsInit, options?: { replace?: boolean }) => void;
   navigate: NavigateFunction;
   lastSyncedPositionRef: { current: number };
+  updateProgress: UpdateProgress;
 }
 
 function safeEp(v: number | null | undefined) {
@@ -102,6 +121,25 @@ function pickResumePositionSeconds(
   return Math.floor(Math.max(storedPosition, Math.max(0, lastSyncedPosition)));
 }
 
+function clampProgress(value: number) {
+  return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
+}
+
+export function getEffectiveAnimeDub(searchParams: URLSearchParams, prefersDub: boolean) {
+  if (searchParams.get("dub") === "true") return true;
+  if (searchParams.get("dub") === "false") return false;
+  return prefersDub;
+}
+
+export function setAnimeDubSearchParam(
+  params: URLSearchParams,
+  enabled: boolean,
+  prefersDub: boolean
+) {
+  if (enabled || prefersDub) params.set("dub", String(enabled));
+  else params.delete("dub");
+}
+
 export function usePlaybackSession({
   content,
   initialSeason,
@@ -114,7 +152,8 @@ export function usePlaybackSession({
   searchParams,
   setSearchParams,
   navigate,
-  lastSyncedPositionRef
+  lastSyncedPositionRef,
+  updateProgress
 }: UsePlaybackSessionArgs): PlaybackSession {
   const animeContent = isAnimeProviderContent(content);
   const [sources, setSources] = useState<StreamSource[]>([]);
@@ -134,8 +173,21 @@ export function usePlaybackSession({
   });
   const [loadedTarget, setLoadedTarget] = useState<PlaybackTarget>({ season: 1, episode: 1 });
   const [resumePositionSeconds, setResumePositionSeconds] = useState(0);
-  const isDub = searchParams.get("dub") === "true";
+  const [currentProgress, setCurrentProgress] = useState(0);
+  const lastStoredProgressSampleRef = useRef<
+    ReturnType<typeof normalizePlaybackProgressSample> | undefined
+  >(undefined);
+  const playbackSyncInFlightRef = useRef(false);
   const prefersDub = settings.defaultAnimeLanguage === "dub";
+  const isDub = animeContent ? getEffectiveAnimeDub(searchParams, prefersDub) : false;
+
+  useEffect(() => {
+    if (!animeContent || !prefersDub || searchParams.has("dub")) return;
+
+    const params = new URLSearchParams(searchParams);
+    params.set("dub", "true");
+    setSearchParams(params, { replace: true });
+  }, [animeContent, prefersDub, searchParams, setSearchParams]);
 
   useEffect(() => {
     sourceRequestIdRef.current += 1;
@@ -149,6 +201,8 @@ export function usePlaybackSession({
     setLoading(true);
     setError(null);
     setResumePositionSeconds(0);
+    setCurrentProgress(0);
+    lastStoredProgressSampleRef.current = undefined;
   }, [content._id]);
 
   useEffect(() => {
@@ -164,7 +218,20 @@ export function usePlaybackSession({
     setLoading(true);
     setError(null);
     setResumePositionSeconds(0);
+    setCurrentProgress(0);
+    lastStoredProgressSampleRef.current = undefined;
   }, [initialSeason, initialEpisode]);
+
+  useEffect(() => {
+    if (
+      !watchState ||
+      !isMatchingEpisodeProgress(content, watchState, target.season, target.episode)
+    ) {
+      setCurrentProgress(0);
+      return;
+    }
+    setCurrentProgress(clampProgress(watchState.progress));
+  }, [content, target.episode, target.season, watchState]);
 
   const loadSources = useCallback(
     async (reason: string) => {
@@ -350,8 +417,7 @@ export function usePlaybackSession({
     (newIsDub: boolean) => {
       if (newIsDub === isDub) return;
       const params = new URLSearchParams(searchParams);
-      if (newIsDub) params.set("dub", "true");
-      else params.delete("dub");
+      setAnimeDubSearchParam(params, newIsDub, prefersDub);
       setSearchParams(params, { replace: true });
       sourceRequestIdRef.current += 1;
       setSources([]);
@@ -359,7 +425,7 @@ export function usePlaybackSession({
       setLoading(true);
       setError(null);
     },
-    [isDub, searchParams, setSearchParams]
+    [isDub, prefersDub, searchParams, setSearchParams]
   );
 
   const goToEpisode = useCallback(
@@ -367,6 +433,8 @@ export function usePlaybackSession({
       targetRef.current = next;
       setTarget(next);
       setResumePositionSeconds(0);
+      setCurrentProgress(0);
+      lastStoredProgressSampleRef.current = undefined;
       const params = new URLSearchParams(searchParams);
       params.set("type", content.type);
       params.set("season", String(next.season));
@@ -408,6 +476,49 @@ export function usePlaybackSession({
 
   const canTryNextSource = sources.some((source) => source.url !== selectedSourceUrl);
 
+  const reportPlaybackEvent = useCallback(
+    ({ event, currentTime, duration, progress, completed }: PlaybackEvent) => {
+      const nextProgress = clampProgress(progress ?? calculateProgress(currentTime, duration));
+      setCurrentProgress(nextProgress);
+
+      if (playbackSyncInFlightRef.current) return;
+
+      const sample = normalizePlaybackProgressSample({
+        event,
+        currentTime,
+        duration,
+        progress: nextProgress
+      });
+      if (!shouldStorePlaybackProgressSample(lastStoredProgressSampleRef.current, sample)) return;
+
+      playbackSyncInFlightRef.current = true;
+      updateProgress(
+        content._id,
+        nextProgress,
+        completed ?? nextProgress >= 95,
+        sample.currentTime,
+        sample.duration,
+        content.type === "tv" ? targetRef.current.season : undefined,
+        content.type === "tv" ? targetRef.current.episode : undefined,
+        selectedSource?.name,
+        animeContent ? isDub : undefined,
+        {
+          title: content.title,
+          type: content.type,
+          posterUrl: content.posterUrl ?? "",
+          tmdbId: content.tmdbId ?? content._id.split(":").at(-1) ?? "",
+          genre: content.genre,
+          year: content.year,
+          voteAverage: content.voteAverage
+        }
+      );
+      lastSyncedPositionRef.current = sample.currentTime;
+      lastStoredProgressSampleRef.current = sample;
+      playbackSyncInFlightRef.current = false;
+    },
+    [animeContent, content, isDub, lastSyncedPositionRef, selectedSource, updateProgress]
+  );
+
   return {
     target,
     loadedTarget,
@@ -423,6 +534,8 @@ export function usePlaybackSession({
     embedUrl,
     iframeSrcDoc,
     canTryNextSource,
+    currentProgress,
+    reportPlaybackEvent,
     setSourceByUrl,
     setDub,
     goToEpisode,
