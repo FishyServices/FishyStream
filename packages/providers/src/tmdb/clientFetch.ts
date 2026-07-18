@@ -1,6 +1,6 @@
-import { TMDB_BASE_URL } from "./constants";
-import { getPosterUrl, getBackdropUrl, getProfileUrl, getLogoUrl } from "./imageHelpers";
-import { getGenres, getYear, getRating, getTrailerKey, formatRuntime } from "./metadataHelpers";
+import { TMDB_BASE_URL } from "./constants.js";
+import { getPosterUrl, getBackdropUrl, getProfileUrl, getLogoUrl } from "./imageHelpers.js";
+import { getGenres, getYear, getRating, getTrailerKey, formatRuntime } from "./metadataHelpers.js";
 import type {
   TMDBMediaType,
   TMDBBrowseListItem,
@@ -19,8 +19,8 @@ import type {
   TMDBSearchResult,
   TMDBDiscoverResult,
   TMDBFullDetail
-} from "./types";
-import { GENRE_MAP } from "./constants";
+} from "./types.js";
+import { GENRE_MAP } from "./constants.js";
 
 export function buildTmdbUrl(
   path: string,

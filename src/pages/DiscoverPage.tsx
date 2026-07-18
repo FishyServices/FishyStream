@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowUp, ChevronLeft, ChevronRight, Film, Info, Play, Tv } from "lucide-react";
-import { Header } from "@/components/Header";
-import { MovieCard } from "@/components/MovieCard";
-import { GridSkeleton } from "@/components/UXPrimitives";
-import { useHomepageContent, usePaginatedContent } from "@/hooks/useContent";
-import { createPlayHandler, type PlayHandler } from "@/lib/watchNavigation";
+import { Header } from "@/ui/components/Header";
+import { MovieCard } from "@/ui/components/MovieCard";
+import { GridSkeleton } from "@/ui/components/UXPrimitives";
+import { useHomepageContent, usePaginatedContent } from "@/features/catalog/queries/useContent";
+import { createPlayHandler, type PlayHandler } from "@/shared/navigation/watchNavigation";
 import { Button } from "@fishy/ui";
-import type { ContentCard, ContentFeatured } from "../../shared/contentMetadata";
+import type { ContentCard, ContentFeatured } from "@content/contentMetadata";
 
 type DiscoverTab = "movies" | "tv";
 

@@ -1,6 +1,6 @@
-import { getPosterUrl, getStillUrl } from "./imageHelpers";
-import { getYear } from "./metadataHelpers";
-import type { TMDBSeasonDetails, CanonicalSeasonPayload, CompactEpisode } from "./types";
+import { getPosterUrl, getStillUrl } from "./imageHelpers.js";
+import { getYear } from "./metadataHelpers.js";
+import type { TMDBSeasonDetails, CanonicalSeasonPayload, CompactEpisode } from "./types.js";
 
 export function mapTmdbSeasonToCanonicalPayload(
   data: TMDBSeasonDetails,

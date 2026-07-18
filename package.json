@@ -3,15 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/providers",
+    "packages/scraper"
+  ],
   "scripts": {
     "dev": "concurrently \"convex dev\" \"vite --port 3000\" \"bun run --cwd packages/scraper dev\"",
     "dev:mobile": "concurrently \"convex dev\" \"vite --host 0.0.0.0\" \"bun run --cwd packages/scraper dev\"",
-    "build": "bun run --cwd packages/providers build && tsc -b && vite build",
-    "build:android": "npm run build && npx cap sync android",
-    "cap:sync": "npx cap sync",
-    "cap:android": "npx cap open android",
+    "build:providers": "bun run --cwd packages/providers build",
+    "build:scraper": "bun run --cwd packages/scraper build",
+    "build": "bun run build:providers && bun run build:scraper && tsc -b && vite build",
+    "build:android": "bun run build && bunx cap sync android",
+    "cap:sync": "bunx cap sync",
+    "cap:android": "bunx cap open android",
     "preview": "vite preview",
-    "lint": "bun run --cwd packages/providers lint && tsc --noEmit",
+    "lint:providers": "bun run --cwd packages/providers lint",
+    "lint:scraper": "bun run --cwd packages/scraper lint",
+    "lint": "bun run lint:providers && bun run lint:scraper && tsc --noEmit",
     "test": "vitest run",
     "format": "prettier --write \"**/*.{ts,tsx,json,css}\"",
     "icons": "bun scripts/generate-icons.ts"

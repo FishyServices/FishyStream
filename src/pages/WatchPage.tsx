@@ -1,8 +1,8 @@
 import { useParams, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { VideoPlayer } from "@/components/VideoPlayer";
-import { useContentPlaybackByTmdbId } from "@/hooks/useContent";
-import { useSeoMeta } from "@/hooks/useSeoMeta";
+import { VideoPlayer } from "@/ui/components/VideoPlayer";
+import { useContentPlaybackByTmdbId } from "@/features/catalog/queries/useContent";
+import { useSeoMeta } from "@/shared/seo/useSeoMeta";
 
 export function WatchPage() {
   const { id } = useParams<{ id: string }>();

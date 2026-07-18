@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSeoMeta } from "@/hooks/useSeoMeta";
+import { useSeoMeta } from "@/shared/seo/useSeoMeta";
 import {
   Sparkles,
   RefreshCw,
@@ -18,13 +18,13 @@ import {
   Search,
   X
 } from "lucide-react";
-import { Header } from "@/components/Header";
-import { MovieCard } from "@/components/MovieCard";
-import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
-import { useMyWatchlist, useUpdateWatchlistFolder } from "@/hooks/useWatchlist";
+import { Header } from "@/ui/components/Header";
+import { MovieCard } from "@/ui/components/MovieCard";
+import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
+import { useMyWatchlist, useUpdateWatchlistFolder } from "@/features/library/useWatchlist";
 import { useUser } from "@clerk/react";
-import { useRecommendations } from "@/hooks/useContent";
-import { createPlayHandler } from "@/lib/watchNavigation";
+import { useRecommendations } from "@/features/catalog/queries/useContent";
+import { createPlayHandler } from "@/shared/navigation/watchNavigation";
 import {
   Button,
   Dialog,
@@ -43,8 +43,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from "@fishy/ui";
-import type { ContentId } from "../../shared/contentMetadata";
-import { getCustomFolders, setCustomFolders as setLSCustomFolders } from "@/lib/localStorageStore";
+import type { ContentId } from "@content/contentMetadata";
+import {
+  getCustomFolders,
+  setCustomFolders as setLSCustomFolders
+} from "@/shared/storage/localStorageStore";
 
 const SORT_OPTIONS = [
   { id: "recently", label: "Recently added" },

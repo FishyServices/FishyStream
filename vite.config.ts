@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { readFileSync, existsSync } from "fs";
-import { matchProviderProxyPath, proxyProviderRequest } from "@fishy/providers/providerProxy";
+import { matchProviderProxyPath, proxyProviderRequest } from "@fishy/providers/proxy";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
 const devDeps = Object.keys(pkg.devDependencies ?? {});
@@ -68,6 +68,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: [
         { find: "@", replacement: path.resolve(__dirname, "./src") },
+        { find: "@content", replacement: path.resolve(__dirname, "./shared/content") },
         {
           find: "@fishy/ui",
           replacement: path.resolve(__dirname, "./node_modules/@fishy/ui/src/index.ts")

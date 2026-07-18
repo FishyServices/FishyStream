@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useSeoMeta } from "@/hooks/useSeoMeta";
+import { useSeoMeta } from "@/shared/seo/useSeoMeta";
 import { usePostHog } from "@posthog/react";
 import { Filter, Search, X, Tv, Film } from "lucide-react";
-import { Header } from "@/components/Header";
-import { useSearchAll, type TMDBItem } from "@/hooks/useContent";
-import { SearchCard } from "@/components/SearchCard";
-import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
+import { Header } from "@/ui/components/Header";
+import { useSearchAll, type TMDBItem } from "@/features/catalog/queries/useContent";
+import { SearchCard } from "@/ui/components/SearchCard";
+import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger } from "@fishy/ui";
-import { isPostHogEnabled } from "@/lib/posthog";
+import { isPostHogEnabled } from "@/shared/config/posthog";
 
 type SearchTypeFilter = "all" | "movie" | "tv";
 type SearchSort = "relevance" | "title" | "newest" | "rating";

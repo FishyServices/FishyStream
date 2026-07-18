@@ -8,11 +8,11 @@
  * @module
  */
 
-import type * as seasonSync from "../seasonSync.js";
-import type * as seasons from "../seasons.js";
-import type * as watchHistory from "../watchHistory.js";
-import type * as watchProgress from "../watchProgress.js";
-import type * as watchlist from "../watchlist.js";
+import type * as domains_history_watchHistory from "../domains/history/watchHistory.js";
+import type * as domains_progress_watchProgress from "../domains/progress/watchProgress.js";
+import type * as domains_seasons_seasonSync from "../domains/seasons/seasonSync.js";
+import type * as domains_seasons_seasons from "../domains/seasons/seasons.js";
+import type * as domains_watchlist_watchlist from "../domains/watchlist/watchlist.js";
 
 import type {
   ApiFromModules,
@@ -21,11 +21,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  seasonSync: typeof seasonSync;
-  seasons: typeof seasons;
-  watchHistory: typeof watchHistory;
-  watchProgress: typeof watchProgress;
-  watchlist: typeof watchlist;
+  "domains/history/watchHistory": typeof domains_history_watchHistory;
+  "domains/progress/watchProgress": typeof domains_progress_watchProgress;
+  "domains/seasons/seasonSync": typeof domains_seasons_seasonSync;
+  "domains/seasons/seasons": typeof domains_seasons_seasons;
+  "domains/watchlist/watchlist": typeof domains_watchlist_watchlist;
 }>;
 
 /**

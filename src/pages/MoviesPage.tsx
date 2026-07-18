@@ -1,14 +1,18 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Film, Filter, ChevronLeft, ChevronRight } from "lucide-react";
-import { useSeoMeta } from "@/hooks/useSeoMeta";
-import { Header } from "@/components/Header";
-import { MovieCard } from "@/components/MovieCard";
-import { EmptyState, FilterBar, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
-import { useAppSettings } from "@/hooks/useAppSettings";
-import { usePaginatedContent, type ContentSort } from "@/hooks/useContent";
-import { MOVIE_SORT_OPTIONS } from "@/lib/appSettings";
-import { parsePageParam, parseSortParam, updateBrowseParams } from "@/lib/browseNavigation";
-import { createPlayHandler } from "@/lib/watchNavigation";
+import { useSeoMeta } from "@/shared/seo/useSeoMeta";
+import { Header } from "@/ui/components/Header";
+import { MovieCard } from "@/ui/components/MovieCard";
+import { EmptyState, FilterBar, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
+import { useAppSettings } from "@/features/settings/useAppSettings";
+import { usePaginatedContent, type ContentSort } from "@/features/catalog/queries/useContent";
+import { MOVIE_SORT_OPTIONS } from "@/shared/config/appSettings";
+import {
+  parsePageParam,
+  parseSortParam,
+  updateBrowseParams
+} from "@/shared/navigation/browseNavigation";
+import { createPlayHandler } from "@/shared/navigation/watchNavigation";
 import { Button, Select, SelectContent, SelectItem, SelectTrigger } from "@fishy/ui";
 
 const GENRES = [

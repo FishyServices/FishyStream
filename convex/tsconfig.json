@@ -3,7 +3,7 @@
     "strict": true,
     "target": "ESNext",
     "lib": ["ES2021", "dom"],
-    "types": ["node"],
+    "types": ["@types/bun"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "isolatedModules": true,
@@ -11,14 +11,13 @@
     "skipLibCheck": true,
     "jsx": "react-jsx",
     "paths": {
+      "@content/*": ["../shared/content/*"],
       "@fishy/providers": ["../packages/providers/src/index.ts"],
       "@fishy/providers/tmdb": ["../packages/providers/src/tmdb/index.ts"],
-      "@fishy/providers/providerCatalog": ["../packages/providers/src/providerCatalog.ts"],
-      "@fishy/providers/providerProxy": ["../packages/providers/src/providerProxy.ts"],
-      "@fishy/providers/playerProviders": ["../packages/providers/src/playerProviders.ts"],
-      "@fishy/providers/providerPlayback": ["../packages/providers/src/providerPlayback.ts"],
-      "@fishy/providers/tvSeasonMappings": ["../packages/providers/src/tvSeasonMappings.ts"],
-      "@fishy/providers/anilistResolver": ["../packages/providers/src/anilistResolver.ts"],
+      "@fishy/providers/catalog": ["../packages/providers/src/catalog/index.ts"],
+      "@fishy/providers/proxy": ["../packages/providers/src/proxy/index.ts"],
+      "@fishy/providers/playback": ["../packages/providers/src/playback/index.ts"],
+      "@fishy/providers/anime": ["../packages/providers/src/anime/index.ts"],
       "@fishy/providers/types": ["../packages/providers/src/types.ts"]
     }
   },

@@ -1,5 +1,5 @@
-import { TMDB_IMAGE_BASE } from "./constants";
-import type { TMDBLogo } from "./types";
+import { TMDB_IMAGE_BASE } from "./constants.js";
+import type { TMDBLogo } from "./types.js";
 
 export function getPosterUrl(path: string | null, size = "w500"): string {
   if (!path) return "https://placehold.co/500x750/1a1a2e/666?text=No+Poster";

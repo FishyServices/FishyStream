@@ -15,6 +15,22 @@
       "types": "./dist/tmdb/index.d.ts",
       "import": "./dist/tmdb/index.js"
     },
+    "./catalog": {
+      "types": "./dist/catalog/index.d.ts",
+      "import": "./dist/catalog/index.js"
+    },
+    "./playback": {
+      "types": "./dist/playback/index.d.ts",
+      "import": "./dist/playback/index.js"
+    },
+    "./anime": {
+      "types": "./dist/anime/index.d.ts",
+      "import": "./dist/anime/index.js"
+    },
+    "./proxy": {
+      "types": "./dist/proxy/index.d.ts",
+      "import": "./dist/proxy/index.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "import": "./dist/*.js"

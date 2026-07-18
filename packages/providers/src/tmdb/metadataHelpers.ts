@@ -1,5 +1,5 @@
-import { GENRE_MAP } from "./constants";
-import type { TMDBVideo } from "./types";
+import { GENRE_MAP } from "./constants.js";
+import type { TMDBVideo } from "./types.js";
 
 export function getGenres(item: {
   genres?: Array<{ id: number; name: string }>;

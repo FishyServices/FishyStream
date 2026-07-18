@@ -1,15 +1,15 @@
-import { resolveAniListEpisodeAddress, resolveAniListId } from "../anilistResolver";
-import { getPosterUrl, getStillUrl } from "./imageHelpers";
-import { getYear } from "./metadataHelpers";
-import { mapTmdbSeasonToCanonicalPayload, hasEpisodes } from "./seasonHelpers";
-import { tmdbGet } from "./serverFetch";
+import { resolveAniListEpisodeAddress, resolveAniListId } from "../anime/anilistResolver.js";
+import { getPosterUrl, getStillUrl } from "./imageHelpers.js";
+import { getYear } from "./metadataHelpers.js";
+import { mapTmdbSeasonToCanonicalPayload, hasEpisodes } from "./seasonHelpers.js";
+import { tmdbGet } from "./serverFetch.js";
 import type {
   TMDBSeasonDetails,
   TMDBListItem,
   TMDBListResponse,
   CanonicalSeasonPayload
-} from "./types";
-import { getTvOrderingOverride } from "../tvSeasonMappings";
+} from "./types.js";
+import { getTvOrderingOverride } from "../anime/tvSeasonMappings.js";
 
 export interface AniListEpisodeMapping {
   episodeNumber: number;

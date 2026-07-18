@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSeoMeta } from "@/hooks/useSeoMeta";
+import { useSeoMeta } from "@/shared/seo/useSeoMeta";
 import { Sparkles, RefreshCw, Film, Tv } from "lucide-react";
-import { Header } from "@/components/Header";
-import { MovieCard } from "@/components/MovieCard";
-import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
-import { useMyWatchlist } from "@/hooks/useWatchlist";
+import { Header } from "@/ui/components/Header";
+import { MovieCard } from "@/ui/components/MovieCard";
+import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
+import { useMyWatchlist } from "@/features/library/useWatchlist";
 import { useUser } from "@clerk/react";
-import { useRecommendations } from "@/hooks/useContent";
-import { createPlayHandler } from "@/lib/watchNavigation";
+import { useRecommendations } from "@/features/catalog/queries/useContent";
+import { createPlayHandler } from "@/shared/navigation/watchNavigation";
 import { Button, Tabs, TabsList, TabsTrigger } from "@fishy/ui";
 
 export function RecommendationsPage() {

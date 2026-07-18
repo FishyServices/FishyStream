@@ -1,11 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { Film, Tv, Star } from "lucide-react";
-import { useSeoMeta } from "@/hooks/useSeoMeta";
-import { Header } from "@/components/Header";
-import { MovieCard } from "@/components/MovieCard";
-import { EmptyState, GridSkeleton, PageHeader } from "@/components/UXPrimitives";
-import { useCuratedPicks } from "@/hooks/useContent";
-import { createPlayHandler } from "@/lib/watchNavigation";
+import { useSeoMeta } from "@/shared/seo/useSeoMeta";
+import { Header } from "@/ui/components/Header";
+import { MovieCard } from "@/ui/components/MovieCard";
+import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
+import { useCuratedPicks } from "@/features/catalog/queries/useContent";
+import { createPlayHandler } from "@/shared/navigation/watchNavigation";
 
 export function OwnersPicksPage() {
   const navigate = useNavigate();

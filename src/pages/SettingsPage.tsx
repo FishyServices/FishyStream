@@ -1,19 +1,19 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { Header } from "@/components/Header";
-import { useAppSettings } from "@/hooks/useAppSettings";
+import { Header } from "@/ui/components/Header";
+import { useAppSettings } from "@/features/settings/useAppSettings";
 import {
   DEFAULT_APP_SETTINGS,
   MOVIE_SORT_OPTIONS,
   TV_SORT_OPTIONS,
   type AnimeLanguagePreference
-} from "@/lib/appSettings";
+} from "@/shared/config/appSettings";
 import {
   STREAM_PROVIDERS,
   getGroupedProviders,
   getProviderByKey,
   getProviderCapabilities
-} from "@fishy/providers/providerCatalog";
+} from "@fishy/providers/catalog";
 import {
   Button,
   Card,

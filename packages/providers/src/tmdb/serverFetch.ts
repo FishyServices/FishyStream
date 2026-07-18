@@ -1,4 +1,4 @@
-import { TMDB_API_KEY, TMDB_BASE_URL, TMDB_BASE_URL_2 } from "./constants";
+import { TMDB_API_KEY, TMDB_BASE_URL, TMDB_BASE_URL_2 } from "./constants.js";
 
 interface CacheEntry<T> {
   value: T;
