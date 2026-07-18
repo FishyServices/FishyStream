@@ -1,13 +1,63 @@
 @import "tailwindcss";
-@import "../node_modules/@fishy/ui/src/index.css";
-@source "../node_modules/@fishy/ui/src/**/*.{ts,tsx}";
+@import "../../fishy-ui/src/index.css";
+@source "../../fishy-ui/src/**/*.{ts,tsx}";
 
-/* draw above isolated card and carousel stacking contexts. */
+@layer base {
+  :root {
+    --z-content: 0;
+    --z-sticky: 100;
+    --z-header: 200;
+    --z-menu: 500;
+    --z-popover: 600;
+    --z-tooltip: 700;
+    --z-overlay: 1000;
+    --z-modal: 1010;
+    --z-floating: 1020;
+    --z-toast: 1100;
+  }
+}
+
+@layer utilities {
+  .z-content {
+    z-index: var(--z-content);
+  }
+  .z-sticky {
+    z-index: var(--z-sticky);
+  }
+  .z-header {
+    z-index: var(--z-header);
+  }
+  .z-menu {
+    z-index: var(--z-menu);
+  }
+  .z-popover {
+    z-index: var(--z-popover);
+  }
+  .z-tooltip {
+    z-index: var(--z-tooltip);
+  }
+  .z-overlay {
+    z-index: var(--z-overlay);
+  }
+  .z-modal {
+    z-index: var(--z-modal);
+  }
+  .z-floating {
+    z-index: var(--z-floating);
+  }
+  .z-toast {
+    z-index: var(--z-toast);
+  }
+}
+
 [data-base-ui-portal] {
+  pointer-events: none;
+}
+
+[data-base-ui-portal]:has([role="dialog"]) {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  pointer-events: none;
+  z-index: var(--z-overlay);
 }
 
 [data-base-ui-portal] > * {

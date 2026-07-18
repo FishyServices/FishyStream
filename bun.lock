@@ -11,8 +11,6 @@
         "@clerk/react": "6.10.3",
         "@clerk/themes": "2.4.57",
         "@cloudflare/puppeteer": "1.1.0",
-        "@fishy/providers": "file:./packages/providers",
-        "@fishy/scraper": "file:./packages/scraper",
         "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git",
         "@posthog/react": "^1.10.3",
         "class-variance-authority": "0.7.1",
@@ -149,7 +147,7 @@
 
     "@fishy/scraper": ["@fishy/scraper@workspace:packages/scraper"],
 
-    "@fishy/ui": ["@fishy/ui@github:official-notfishvr/fishy-ui#bb612a2", { "dependencies": { "@base-ui/react": "^1.6.0", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "lucide-react": "^1.21.0", "next-themes": "^0.4.6", "sonner": "^2.0.7", "tailwind-merge": "^3.6.0" }, "peerDependencies": { "react": "^19.2.7", "react-dom": "^19.2.7", "tailwindcss": "^4.2.2" } }, "FishyServices-fishy-ui-bb612a2", "sha512-E9WVfLG6Et80pCIkKYWahg5VxEUMPD57mXhMj/3UpjYBM6Hmse641By/xQsIKXyeuV42yDNJYA7bCUxhvgL9vA=="],
+    "@fishy/ui": ["@fishy/ui@github:official-notfishvr/fishy-ui#e5ebcd2", { "dependencies": { "@base-ui/react": "^1.6.0", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "lucide-react": "^1.21.0", "next-themes": "^0.4.6", "sonner": "^2.0.7", "tailwind-merge": "^3.6.0" }, "peerDependencies": { "react": "^19.2.7", "react-dom": "^19.2.7", "tailwindcss": "^4.2.2" } }, "FishyServices-fishy-ui-e5ebcd2", "sha512-3OJoVoWM89C9IqYTZsacsQfjjgaBNbFtdvRPyFFz9XZqOU3/4YgkBE8PnYscvgnllp+8Bw1ddSZ++3zX73yURQ=="],
 
     "@floating-ui/core": ["@floating-ui/core@1.8.0", "", { "dependencies": { "@floating-ui/utils": "^0.2.12" } }, "sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ=="],
 

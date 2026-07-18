@@ -102,7 +102,7 @@ export function Header() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-header transition-all duration-300 ${
         scrolled
           ? "border-b border-white/8 bg-background/95 shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
           : "bg-linear-to-b from-background/88 via-background/36 to-transparent"
