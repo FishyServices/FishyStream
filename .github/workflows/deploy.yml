@@ -25,14 +25,8 @@ jobs:
       - name: Build providers package
         run: bun run --cwd packages/providers build
 
-      - name: Sync providers dist to node_modules
-        run: cp -r packages/providers/dist node_modules/@fishy/providers/
-
       - name: Build scraper package
         run: bun run --cwd packages/scraper build
-
-      - name: Sync scraper dist to node_modules
-        run: cp -r packages/scraper/dist node_modules/@fishy/scraper/
 
       - name: Build
         env:
