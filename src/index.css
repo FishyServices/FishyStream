@@ -1,6 +1,6 @@
 @import "tailwindcss";
-@import "../../fishy-ui/src/index.css";
-@source "../../fishy-ui/src/**/*.{ts,tsx}";
+@import "@fishy/ui/src/index.css";
+@source "./../node_modules/@fishy/ui/src/**/*.{ts,tsx}";
 
 @layer base {
   :root {
