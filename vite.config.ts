@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { readFileSync, existsSync } from "fs";
-import { matchProviderProxyPath, proxyProviderRequest } from "@fishy/providers/proxy";
+import { pathToFileURL } from "url";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
 const devDeps = Object.keys(pkg.devDependencies ?? {});
@@ -26,20 +26,32 @@ function fishyProvidersPlugin(): Plugin {
 }
 
 function providerProxyPlugin(): Plugin {
+  const providersSrc = path.resolve(__dirname, "./packages/providers/src/proxy.ts");
+  const providersDist = path.resolve(__dirname, "./packages/providers/dist/proxy/index.js");
+  let loadedModule: any | null = null;
+
   const handleProviderProxyRequest: Connect.NextHandleFunction = async (req, res, next) => {
     const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-    if (!matchProviderProxyPath(requestUrl.pathname)) {
-      next();
-      return;
-    }
+
     try {
+      if (!loadedModule) {
+        const modulePath = existsSync(providersDist) ? providersDist : providersSrc;
+        loadedModule = await import(pathToFileURL(modulePath).href);
+      }
+      const { matchProviderProxyPath, proxyProviderRequest } = loadedModule;
+
+      if (!matchProviderProxyPath(requestUrl.pathname)) {
+        next();
+        return;
+      }
+
       const response = await proxyProviderRequest({
         url: requestUrl,
         method: req.method ?? "GET",
         headers: new Headers(req.headers as HeadersInit)
       });
       res.statusCode = response.status;
-      response.headers.forEach((value, key) => {
+      response.headers.forEach((value: string, key: string) => {
         res.setHeader(key, value);
       });
       res.end(Buffer.from(await response.arrayBuffer()));
