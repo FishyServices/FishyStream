@@ -28,6 +28,7 @@
     "@capacitor/android": "8.4.0",
     "@capacitor/cli": "8.4.0",
     "@capacitor/core": "8.4.0",
+    "@cloudflare/puppeteer": "1.1.0",
     "@clerk/react": "6.10.3",
     "@clerk/themes": "2.4.57",
     "@fishy/providers": "file:./packages/providers",
