@@ -4,6 +4,7 @@ import { useConvexAuth } from "convex/react";
 import { Header } from "@/ui/components/Header";
 import { Hero } from "@/ui/components/Hero";
 import { ContentRow } from "@/ui/components/ContentRow";
+import { ProjectCard } from "@/ui/components/ProjectCard";
 import { RailSkeleton } from "@/ui/components/UXPrimitives";
 import { useHomepageContent, useRecommendations } from "@/features/catalog/queries/useContent";
 import { useContinueWatching } from "@/features/library/useWatchHistory";
@@ -195,6 +196,7 @@ function HomepageContent({
             ))}
           </div>
         )}
+        <ProjectCard />
       </main>
     </div>
   );
