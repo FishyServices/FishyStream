@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowUp, ChevronLeft, ChevronRight, Film, Info, Play, Tv } from "lucide-react";
 import { Header } from "@/ui/components/Header";
-import { MovieCard } from "@/ui/components/MovieCard";
+import { ContentRow } from "@/ui/components/ContentRow";
 import { GridSkeleton } from "@/ui/components/UXPrimitives";
 import { useHomepageContent, usePaginatedContent } from "@/features/catalog/queries/useContent";
 import { createPlayHandler, type PlayHandler } from "@/shared/navigation/watchNavigation";
@@ -176,20 +176,7 @@ function DiscoverRail({
   items: ContentCard[];
   onPlay: PlayHandler;
 }) {
-  if (items.length === 0) return null;
-
-  return (
-    <section className="space-y-3">
-      <div className="page-shell-wide">
-        <h2 className="text-lg font-bold text-foreground sm:text-xl">{title}</h2>
-      </div>
-      <div className="carousel-fade page-shell-wide flex snap-x snap-mandatory gap-3 overflow-x-auto pb-5 sm:gap-4">
-        {items.map((item) => (
-          <MovieCard key={item._id} content={item} onPlay={onPlay} />
-        ))}
-      </div>
-    </section>
-  );
+  return <ContentRow title={title} content={items} onPlay={onPlay} />;
 }
 
 function MediaDiscoverContent({ type, onPlay }: { type: "movie" | "tv"; onPlay: PlayHandler }) {
@@ -309,7 +296,7 @@ export function DiscoverContentMode({ onPlay }: { onPlay: PlayHandler }) {
         </div>
       </div>
 
-      <div className="relative z-20 space-y-8 px-0 pb-20 pt-2">
+      <div className="relative z-20 space-y-1 pb-20 pt-2">
         {tab === "tv" ? (
           <MediaDiscoverContent type="tv" onPlay={onPlay} />
         ) : (
