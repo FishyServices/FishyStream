@@ -1,15 +1,7 @@
-# scraper
+# Scraper
 
-To install dependencies:
+uses puppeteer to scrap video data from the providers
 
-```bash
-bun install
-```
+Know to work
 
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.4.0. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+[megaplay](https://megaplay.buzz)
