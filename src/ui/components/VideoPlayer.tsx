@@ -48,7 +48,7 @@ interface VideoPlayerProps {
 }
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
-const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:anime-season-sync-keys";
+const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:anime-season-sync-keys:v2";
 
 function clamp(v: number) {
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
@@ -152,6 +152,7 @@ export function VideoPlayer({
       : null;
   const animeSeasonKey =
     animeContent && content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
+  const animeSeasonSyncAttemptKey = animeSeasonKey ? `${animeSeasonKey}:${tvTarget.episode}` : null;
   const animeSeasonData = useOneShotConvexQuery<PlaybackSeasonMeta | null>(
     !!animeSeasonKey && !hasPendingInitialTvTarget,
     (convex) =>
@@ -161,7 +162,7 @@ export function VideoPlayer({
         episodeNumber: tvTarget.episode
       }),
     [content._id, tvTarget.season, tvTarget.episode, animeSeasonReloadKey],
-    undefined,
+    animeSeasonKey ? [animeSeasonKey, tvTarget.episode] : undefined,
     animeSeasonKey
       ? `animeSeasonPlayback:${animeSeasonKey}:${tvTarget.episode}:${animeSeasonReloadKey}`
       : undefined
@@ -170,20 +171,26 @@ export function VideoPlayer({
     animeSeasonData === null || animeSeasonData?.seasonNumber === tvTarget.season
       ? animeSeasonData
       : undefined;
+  const hasCurrentAnimeEpisodeMapping =
+    matchingAnimeSeasonData?.anilistEpisodeMappings?.some(
+      (mapping) => mapping.episodeNumber === tvTarget.episode
+    ) ?? false;
   const currentSeasonData = matchingAnimeSeasonData ?? clientSeasonData;
   const currentSeasonEpisodeCount = currentSeasonData?.episodeCount;
   const waitingForAnimeSeasonMetadata =
     !!animeSeasonKey &&
     !animeSeasonFailedRef.current.has(animeSeasonKey) &&
-    (shouldWaitForAnimeSeasonMetadata({
-      contentType: content.type,
-      isAnime: animeContent,
-      seasonNumber: tvTarget.season,
-      currentSeasonData: matchingAnimeSeasonData
-    }) ||
+    (matchingAnimeSeasonData === undefined ||
+      !hasCurrentAnimeEpisodeMapping ||
+      shouldWaitForAnimeSeasonMetadata({
+        contentType: content.type,
+        isAnime: animeContent,
+        seasonNumber: tvTarget.season,
+        currentSeasonData: matchingAnimeSeasonData
+      }) ||
       animeSeasonSyncingRef.current.has(animeSeasonKey) ||
       (matchingAnimeSeasonData === null &&
-        !readSessionAnimeSeasonSyncKeys().includes(animeSeasonKey)));
+        !readSessionAnimeSeasonSyncKeys().includes(animeSeasonSyncAttemptKey ?? "")));
 
   const session = usePlaybackSession({
     content,
@@ -227,19 +234,26 @@ export function VideoPlayer({
 
   useEffect(() => {
     if (!animeSeasonKey || !content.tmdbId || hasPendingInitialTvTarget) return;
-    if (animeSeasonData !== null) return;
+    if (animeSeasonData === undefined || hasCurrentAnimeEpisodeMapping) return;
     if (animeSeasonSyncingRef.current.has(animeSeasonKey)) return;
-    if (readSessionAnimeSeasonSyncKeys().includes(animeSeasonKey)) return;
+    if (
+      animeSeasonSyncAttemptKey &&
+      readSessionAnimeSeasonSyncKeys().includes(animeSeasonSyncAttemptKey)
+    )
+      return;
 
     animeSeasonSyncingRef.current.add(animeSeasonKey);
     void syncAnimeSeasonPlaybackMeta({
       contentId: content._id,
       tmdbId: content.tmdbId,
       title: content.title,
-      seasonNumber: tvTarget.season
+      seasonNumber: tvTarget.season,
+      episodeNumber: tvTarget.episode
     })
       .then((result) => {
-        rememberSessionAnimeSeasonSyncKey(animeSeasonKey);
+        if (animeSeasonSyncAttemptKey) {
+          rememberSessionAnimeSeasonSyncKey(animeSeasonSyncAttemptKey);
+        }
         if (!result) {
           animeSeasonFailedRef.current.add(animeSeasonKey);
         }
@@ -247,7 +261,9 @@ export function VideoPlayer({
       })
       .catch(() => {
         animeSeasonFailedRef.current.add(animeSeasonKey);
-        rememberSessionAnimeSeasonSyncKey(animeSeasonKey);
+        if (animeSeasonSyncAttemptKey) {
+          rememberSessionAnimeSeasonSyncKey(animeSeasonSyncAttemptKey);
+        }
         setAnimeSeasonReloadKey((value) => value + 1);
       })
       .finally(() => {
@@ -256,9 +272,11 @@ export function VideoPlayer({
   }, [
     animeSeasonData,
     animeSeasonKey,
+    animeSeasonSyncAttemptKey,
     content._id,
     content.tmdbId,
     content.title,
+    hasCurrentAnimeEpisodeMapping,
     hasPendingInitialTvTarget,
     syncAnimeSeasonPlaybackMeta,
     tvTarget.season

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "../../_generated/server";
+import { internalMutation, internalQuery, query } from "../../_generated/server";
 import type { MutationCtx } from "../../_generated/server";
 
 const mappingValidator = v.object({
@@ -104,6 +104,15 @@ export const upsertAnimeSeasonMeta = internalMutation({
       )
       .first();
 
+    const existingMappings = await ctx.db
+      .query("seasonEpisodeMappings")
+      .withIndex("by_content_season", (q: any) =>
+        q.eq("contentId", args.contentId).eq("seasonNumber", args.seasonNumber)
+      )
+      .collect();
+    const expectedMappingCount = args.anilistEpisodeMappings?.length ?? 0;
+    const mappingsNeedRepair = existingMappings.length !== expectedMappingCount;
+
     if (!existingSeason || existingSeason.payloadHash !== payloadHash) {
       const seasonPayload = {
         contentId: args.contentId,
@@ -121,6 +130,13 @@ export const upsertAnimeSeasonMeta = internalMutation({
       } else {
         await ctx.db.insert("seasonEpisodes", seasonPayload);
       }
+      await replaceEpisodeMappings(ctx, {
+        contentId: args.contentId,
+        seasonNumber: args.seasonNumber,
+        mappings: args.anilistEpisodeMappings,
+        now
+      });
+    } else if (mappingsNeedRepair) {
       await replaceEpisodeMappings(ctx, {
         contentId: args.contentId,
         seasonNumber: args.seasonNumber,
@@ -169,18 +185,14 @@ export const getSeasonPlaybackMeta = query({
       .first();
     if (!meta) return null;
 
+    const mappings = await ctx.db
+      .query("seasonEpisodeMappings")
+      .withIndex("by_content_season", (q: any) =>
+        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
+      )
+      .collect();
     const mapping =
-      episodeNumber == null
-        ? null
-        : await ctx.db
-            .query("seasonEpisodeMappings")
-            .withIndex("by_content_season_episode", (q) =>
-              q
-                .eq("contentId", contentId)
-                .eq("seasonNumber", seasonNumber)
-                .eq("episodeNumber", episodeNumber)
-            )
-            .first();
+      episodeNumber == null ? null : mappings.find((row) => row.episodeNumber === episodeNumber);
 
     return {
       seasonNumber,
@@ -189,15 +201,53 @@ export const getSeasonPlaybackMeta = query({
       episodeCount: meta.episodeCount,
       anilistId: mapping?.anilistId ?? meta.anilistId,
       anilistEpisodeMappingCount: meta.anilistEpisodeMappingCount,
-      anilistEpisodeMappings: mapping
-        ? [
-            {
-              episodeNumber: mapping.episodeNumber,
-              anilistId: mapping.anilistId,
-              anilistEpisodeNumber: mapping.anilistEpisodeNumber
-            }
-          ]
-        : undefined
+      anilistEpisodeMappings:
+        mappings.length > 0
+          ? mappings.map((row) => ({
+              episodeNumber: row.episodeNumber,
+              anilistId: row.anilistId,
+              anilistEpisodeNumber: row.anilistEpisodeNumber
+            }))
+          : undefined
+    };
+  }
+});
+
+export const getSeasonPlaybackMetaInternal = internalQuery({
+  args: {
+    contentId: v.string(),
+    seasonNumber: v.number(),
+    episodeNumber: v.optional(v.number())
+  },
+  handler: async (ctx, { contentId, seasonNumber, episodeNumber }) => {
+    const meta = await ctx.db
+      .query("seasonPlaybackMeta")
+      .withIndex("by_content_season", (q) =>
+        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
+      )
+      .first();
+    if (!meta) return null;
+
+    if (episodeNumber != null) {
+      const mapping = await ctx.db
+        .query("seasonEpisodeMappings")
+        .withIndex("by_content_season_episode", (q) =>
+          q
+            .eq("contentId", contentId)
+            .eq("seasonNumber", seasonNumber)
+            .eq("episodeNumber", episodeNumber)
+        )
+        .first();
+      if (!mapping) return null;
+    }
+
+    return {
+      seasonNumber,
+      name: meta.name,
+      airDate: meta.airDate,
+      episodeCount: meta.episodeCount,
+      anilistId: meta.anilistId,
+      anilistEpisodeMappingCount: meta.anilistEpisodeMappingCount
     };
   }
 });
