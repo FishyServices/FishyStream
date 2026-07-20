@@ -11,16 +11,20 @@ import {
 export const listWatchlist = query({
   args: {
     clerkUserId: v.string(),
-    paginationOpts: paginationOptsValidator
+    paginationOpts: paginationOptsValidator,
+    folder: v.optional(v.union(v.string(), v.null()))
   },
-  handler: async (ctx, { clerkUserId, paginationOpts }) => {
-    const result = await ctx.db
+  handler: async (ctx, { clerkUserId, paginationOpts, folder }) => {
+    const baseQuery = ctx.db
       .query("mediaState")
       .withIndex("by_clerk_watchlist_added", (q) =>
         q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
-      )
-      .order("desc")
-      .paginate(paginationOpts);
+      );
+    const watchlistQuery =
+      folder === undefined
+        ? baseQuery
+        : baseQuery.filter((q) => q.eq(q.field("folder"), folder === null ? undefined : folder));
+    const result = await watchlistQuery.order("desc").paginate(paginationOpts);
 
     return {
       ...result,

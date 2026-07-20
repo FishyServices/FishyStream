@@ -58,6 +58,22 @@ function writeWatchlistGridCache(userId: string | undefined, data: WatchlistGrid
   } catch {}
 }
 
+function matchesWatchlistFolder(item: WatchlistGridItem, folder?: string | null) {
+  if (folder === undefined) return true;
+  const itemFolder = item.watchlistFolder?.trim();
+  return folder === null ? !itemFolder : itemFolder === folder;
+}
+
+function mergeWatchlistItems(...lists: WatchlistGridItem[][]) {
+  const merged = new Map<string, WatchlistGridItem>();
+  for (const list of lists) {
+    for (const item of list) {
+      if (!merged.has(item._id)) merged.set(item._id, item);
+    }
+  }
+  return Array.from(merged.values());
+}
+
 type WatchlistCtx = {
   set: Set<string>;
   tmdbSet: Set<string>;
@@ -272,16 +288,18 @@ export function useWatchlistHydrated(): boolean {
   return useWatchlistCtx().hydrated;
 }
 
-function useMyWatchlistData() {
+function useMyWatchlistData(folder?: string | null) {
   const { user } = useUser();
   const { hydrateFromServerIds } = useWatchlistCtx();
   const [cachedServerData, setCachedServerData] = useState<WatchlistGridItem[] | undefined>(() =>
-    readWatchlistGridCache(user?.id)
+    readWatchlistGridCache(user?.id)?.filter((item) => matchesWatchlistFolder(item, folder))
   );
 
   useEffect(() => {
-    setCachedServerData(readWatchlistGridCache(user?.id));
-  }, [user?.id]);
+    setCachedServerData(
+      readWatchlistGridCache(user?.id)?.filter((item) => matchesWatchlistFolder(item, folder))
+    );
+  }, [folder, user?.id]);
 
   const {
     results: serverResults,
@@ -289,40 +307,51 @@ function useMyWatchlistData() {
     loadMore: loadMoreServerData
   } = usePaginatedQuery(
     api.domains.watchlist.watchlist.listWatchlist,
-    user ? { clerkUserId: user.id } : "skip",
+    user ? { clerkUserId: user.id, ...(folder !== undefined ? { folder } : {}) } : "skip",
     { initialNumItems: MY_LIST_PAGE_SIZE }
   );
 
   useEffect(() => {
     if (serverStatus === "LoadingFirstPage" || !user) return;
-    writeWatchlistGridCache(user.id, serverResults);
-    setCachedServerData(serverResults);
-  }, [serverResults, serverStatus, user]);
+    const merged = mergeWatchlistItems(serverResults, readWatchlistGridCache(user.id) ?? []);
+    writeWatchlistGridCache(user.id, merged);
+    setCachedServerData(merged.filter((item) => matchesWatchlistFolder(item, folder)));
+  }, [folder, serverResults, serverStatus, user]);
 
   const { set } = useWatchlistCtx();
   const offlineData = useMemo(() => {
     if (user || serverStatus !== "LoadingFirstPage") return undefined;
 
-    return listGuestWatchlist().map((item) => ({ ...item, savedAt: Date.now() }));
-  }, [serverStatus, set, user]);
+    return listGuestWatchlist()
+      .filter((item) => {
+        if (folder === undefined) return true;
+        return folder === null
+          ? !item.watchlistFolder?.trim()
+          : item.watchlistFolder?.trim() === folder;
+      })
+      .map((item) => ({ ...item, savedAt: Date.now() }));
+  }, [folder, serverStatus, set, user]);
 
   const effectiveData =
     serverStatus === "LoadingFirstPage"
       ? (cachedServerData ?? offlineData)
       : user
-        ? serverResults
+        ? mergeWatchlistItems(serverResults, cachedServerData ?? [])
         : offlineData;
+  const allItems = user
+    ? mergeWatchlistItems(readWatchlistGridCache(user.id) ?? [], serverResults)
+    : listGuestWatchlist().map((item) => ({ ...item, savedAt: Date.now() }));
 
   useEffect(() => {
-    if (serverResults.length > 0) {
-      hydrateFromServerIds(serverResults.map((item) => ({ id: item._id, tmdbId: item.tmdbId })));
-    } else if (cachedServerData) {
-      hydrateFromServerIds(cachedServerData.map((item) => ({ id: item._id, tmdbId: item.tmdbId })));
+    const hydratedItems = mergeWatchlistItems(serverResults, cachedServerData ?? []);
+    if (hydratedItems.length > 0) {
+      hydrateFromServerIds(hydratedItems.map((item) => ({ id: item._id, tmdbId: item.tmdbId })));
     }
-  }, [serverResults, cachedServerData, hydrateFromServerIds]);
+  }, [cachedServerData, hydrateFromServerIds, serverResults]);
 
   return {
     items: effectiveData,
+    allItems,
     isLoading: effectiveData === undefined,
     isLoadingMore: serverStatus === "LoadingMore",
     canLoadMore: serverStatus === "CanLoadMore",
@@ -334,8 +363,8 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
   return useMyWatchlistData().items;
 }
 
-export function useMyWatchlistPagination() {
-  return useMyWatchlistData();
+export function useMyWatchlistPagination(folder?: string | null) {
+  return useMyWatchlistData(folder);
 }
 
 export function useUpdateWatchlistFolder() {

@@ -62,6 +62,7 @@ const SORT_OPTIONS = [
 export function MyListPage() {
   const navigate = useNavigate();
   const { user } = useUser();
+  const [folderFilter, setFolderFilter] = useState("all");
 
   useSeoMeta({
     title: "My List",
@@ -69,13 +70,21 @@ export function MyListPage() {
     path: "/my-list",
     noIndex: true
   });
-  const { items: watchlistData, canLoadMore, isLoadingMore, loadMore } = useMyWatchlistPagination();
+  const {
+    items: watchlistData,
+    allItems,
+    canLoadMore,
+    isLoadingMore,
+    loadMore
+  } = useMyWatchlistPagination(
+    folderFilter === "all" ? undefined : folderFilter === "unsorted" ? null : folderFilter
+  );
   const [watchlist, setWatchlist] = useState<typeof watchlistData>(undefined);
   const updateFolder = useUpdateWatchlistFolder();
   const [typeFilter, setTypeFilter] = useState<"all" | "movie" | "tv">("all");
   const [refreshSeed, setRefreshSeed] = useState(0);
-  const [folderFilter, setFolderFilter] = useState("all");
   const [newFolderName, setNewFolderName] = useState("");
+  const [pendingFolderLoad, setPendingFolderLoad] = useState<string | null>(null);
   const [customFolders, setCustomFolders] = useState<string[]>(() => {
     return getCustomFolders(user?.id ?? "guest");
   });
@@ -115,12 +124,12 @@ export function MyListPage() {
     return Array.from(
       new Set([
         ...customFolders,
-        ...watchlist
+        ...allItems
           .map((item) => item.watchlistFolder?.trim())
           .filter((folder): folder is string => !!folder)
       ])
     ).sort((a, b) => a.localeCompare(b));
-  }, [customFolders, watchlist]);
+  }, [allItems, customFolders]);
 
   const folderOptions = useMemo(() => {
     const options = new Set(folderNames);
@@ -202,10 +211,28 @@ export function MyListPage() {
     setCustomFolders(getCustomFolders(user?.id ?? "guest"));
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!pendingFolderLoad || pendingFolderLoad !== folderFilter || !canLoadMore || isLoadingMore) {
+      return;
+    }
+    setPendingFolderLoad(null);
+    loadMore();
+  }, [canLoadMore, folderFilter, isLoadingMore, loadMore, pendingFolderLoad]);
+
   const handlePlay = createPlayHandler(navigate, "movie");
 
   const handleRefresh = () => {
     setRefreshSeed((prev) => prev + 1);
+  };
+
+  const handleLoadMoreForFolder = (groupName: string) => {
+    const targetFolder = groupName === "Unsorted" ? "unsorted" : groupName;
+    if (folderFilter !== targetFolder) {
+      setPendingFolderLoad(targetFolder);
+      setFolderFilter(targetFolder);
+      return;
+    }
+    loadMore();
   };
 
   const handleCreateFolder = () => {
@@ -334,9 +361,9 @@ export function MyListPage() {
           }
         />
 
-        {watchlist.length === 0 ? (
+        {watchlist.length === 0 && folderFilter === "all" ? (
           <EmptyState
-            title="No saved titles"
+            title={folderFilter === "all" ? "No saved titles" : "No titles in this folder"}
             action={
               <Button className="rounded-md" onClick={() => navigate("/movies")}>
                 Browse movies
@@ -356,7 +383,7 @@ export function MyListPage() {
                       onClick={() => setFolderFilter("all")}
                       className="rounded-md"
                     >
-                      All <span className="ml-1 opacity-60">{watchlist.length}</span>
+                      All <span className="ml-1 opacity-60">{allItems.length}</span>
                     </Button>
                     <Button
                       variant={folderFilter === "unsorted" ? "default" : "secondary"}
@@ -366,7 +393,7 @@ export function MyListPage() {
                     >
                       Unsorted
                       <span className="ml-1 opacity-60">
-                        {watchlist.filter((item) => !item.watchlistFolder?.trim()).length}
+                        {allItems.filter((item) => !item.watchlistFolder?.trim()).length}
                       </span>
                     </Button>
                     {folderNames.map((folder) => (
@@ -387,7 +414,7 @@ export function MyListPage() {
                           {folder}
                           <span className="ml-1 opacity-60">
                             {
-                              watchlist.filter((item) => item.watchlistFolder?.trim() === folder)
+                              allItems.filter((item) => item.watchlistFolder?.trim() === folder)
                                 .length
                             }
                           </span>
@@ -555,7 +582,10 @@ export function MyListPage() {
               </div>
             </div>
 
-            {filteredWatchlist.length === 0 ? (
+            {filteredWatchlist.length === 0 &&
+            folderFilter !== "all" &&
+            !searchQuery &&
+            listTypeFilter === "all" ? null : filteredWatchlist.length === 0 ? (
               <EmptyState
                 title={
                   searchQuery ? `No titles match "${searchQuery}"` : "No titles match these filters"
@@ -810,7 +840,7 @@ export function MyListPage() {
                           type="button"
                           variant="secondary"
                           className="rounded-md"
-                          onClick={() => loadMore()}
+                          onClick={() => handleLoadMoreForFolder(groupName)}
                           disabled={isLoadingMore}
                         >
                           {isLoadingMore ? "Loading…" : "Load more items"}
