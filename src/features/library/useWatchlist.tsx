@@ -7,7 +7,7 @@ import {
   useMemo,
   type ReactNode
 } from "react";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, usePaginatedQuery } from "convex/react";
 import { useUser } from "@clerk/react";
 import { useLocation } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
@@ -25,7 +25,7 @@ import {
   type LocalContentSnapshot as WatchlistSnapshot
 } from "@/shared/storage/localStorageStore";
 
-const MY_LIST_LIMIT = 150;
+const MY_LIST_PAGE_SIZE = 20;
 const WATCHLIST_GRID_CACHE_TTL_MS = 30_000;
 
 function watchlistGridCacheKey(userId: string) {
@@ -272,7 +272,7 @@ export function useWatchlistHydrated(): boolean {
   return useWatchlistCtx().hydrated;
 }
 
-export function useMyWatchlist(): WatchlistGridItem[] | undefined {
+function useMyWatchlistData() {
   const { user } = useUser();
   const { hydrateFromServerIds } = useWatchlistCtx();
   const [cachedServerData, setCachedServerData] = useState<WatchlistGridItem[] | undefined>(() =>
@@ -283,40 +283,59 @@ export function useMyWatchlist(): WatchlistGridItem[] | undefined {
     setCachedServerData(readWatchlistGridCache(user?.id));
   }, [user?.id]);
 
-  const serverData = useQuery(
+  const {
+    results: serverResults,
+    status: serverStatus,
+    loadMore: loadMoreServerData
+  } = usePaginatedQuery(
     api.domains.watchlist.watchlist.listWatchlist,
-    user
-      ? {
-          clerkUserId: user.id,
-          limit: MY_LIST_LIMIT
-        }
-      : "skip"
+    user ? { clerkUserId: user.id } : "skip",
+    { initialNumItems: MY_LIST_PAGE_SIZE }
   );
 
   useEffect(() => {
-    if (!serverData) return;
-    writeWatchlistGridCache(user?.id, serverData);
-    setCachedServerData(serverData);
-  }, [serverData, user?.id]);
+    if (serverStatus === "LoadingFirstPage" || !user) return;
+    writeWatchlistGridCache(user.id, serverResults);
+    setCachedServerData(serverResults);
+  }, [serverResults, serverStatus, user]);
 
   const { set } = useWatchlistCtx();
   const offlineData = useMemo(() => {
-    if (user || serverData !== undefined) return undefined;
+    if (user || serverStatus !== "LoadingFirstPage") return undefined;
 
     return listGuestWatchlist().map((item) => ({ ...item, savedAt: Date.now() }));
-  }, [user, serverData, set]);
+  }, [serverStatus, set, user]);
 
-  const effectiveData = serverData ?? cachedServerData ?? offlineData;
+  const effectiveData =
+    serverStatus === "LoadingFirstPage"
+      ? (cachedServerData ?? offlineData)
+      : user
+        ? serverResults
+        : offlineData;
 
   useEffect(() => {
-    if (serverData) {
-      hydrateFromServerIds(serverData.map((item) => ({ id: item._id, tmdbId: item.tmdbId })));
+    if (serverResults.length > 0) {
+      hydrateFromServerIds(serverResults.map((item) => ({ id: item._id, tmdbId: item.tmdbId })));
     } else if (cachedServerData) {
       hydrateFromServerIds(cachedServerData.map((item) => ({ id: item._id, tmdbId: item.tmdbId })));
     }
-  }, [serverData, cachedServerData, hydrateFromServerIds]);
+  }, [serverResults, cachedServerData, hydrateFromServerIds]);
 
-  return effectiveData;
+  return {
+    items: effectiveData,
+    isLoading: effectiveData === undefined,
+    isLoadingMore: serverStatus === "LoadingMore",
+    canLoadMore: serverStatus === "CanLoadMore",
+    loadMore: () => loadMoreServerData(MY_LIST_PAGE_SIZE)
+  };
+}
+
+export function useMyWatchlist(): WatchlistGridItem[] | undefined {
+  return useMyWatchlistData().items;
+}
+
+export function useMyWatchlistPagination() {
+  return useMyWatchlistData();
 }
 
 export function useUpdateWatchlistFolder() {

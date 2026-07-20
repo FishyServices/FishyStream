@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { mutation, query } from "../../_generated/server";
 import {
@@ -10,19 +11,20 @@ import {
 export const listWatchlist = query({
   args: {
     clerkUserId: v.string(),
-    limit: v.optional(v.number())
+    paginationOpts: paginationOptsValidator
   },
-  handler: async (ctx, { clerkUserId, limit = 150 }): Promise<WatchlistGridItem[]> => {
-    const pageSize = Math.max(1, Math.min(150, Math.floor(limit)));
-    const items = await ctx.db
+  handler: async (ctx, { clerkUserId, paginationOpts }) => {
+    const result = await ctx.db
       .query("mediaState")
-      .withIndex("by_clerk_watchlist_added", (q) => q.eq("clerkUserId", clerkUserId))
+      .withIndex("by_clerk_watchlist_added", (q) =>
+        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
+      )
       .order("desc")
-      .take(pageSize);
+      .paginate(paginationOpts);
 
-    return items
-      .filter((item) => item.watchlistAddedAt)
-      .map((item) => {
+    return {
+      ...result,
+      page: result.page.map((item) => {
         const parsed = parseContentId(item.contentId);
         return {
           _id: item.contentId as never,
@@ -32,29 +34,26 @@ export const listWatchlist = query({
           tmdbId: parsed?.tmdbId || "",
           watchlistFolder: item.folder
         };
-      });
+      })
+    };
   }
 });
 
 export const listWatchlistContentIds = query({
-  args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
-  handler: async (
-    ctx,
-    { clerkUserId, limit = 300 }
-  ): Promise<Array<{ id: string; tmdbId?: string }>> => {
-    const maxIds = Math.max(1, Math.min(300, Math.floor(limit)));
+  args: { clerkUserId: v.string() },
+  handler: async (ctx, { clerkUserId }): Promise<Array<{ id: string; tmdbId?: string }>> => {
     const items = await ctx.db
       .query("mediaState")
-      .withIndex("by_clerk_watchlist_added", (q) => q.eq("clerkUserId", clerkUserId))
+      .withIndex("by_clerk_watchlist_added", (q) =>
+        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
+      )
       .order("desc")
-      .take(maxIds);
+      .collect();
 
-    return items
-      .filter((item) => item.watchlistAddedAt)
-      .map((item) => {
-        const parsed = parseContentId(item.contentId);
-        return { id: item.contentId, tmdbId: parsed?.tmdbId || "" };
-      });
+    return items.map((item) => {
+      const parsed = parseContentId(item.contentId);
+      return { id: item.contentId, tmdbId: parsed?.tmdbId || "" };
+    });
   }
 });
 
