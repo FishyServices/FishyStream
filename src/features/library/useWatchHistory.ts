@@ -7,7 +7,7 @@ import { type ContentId, type WatchHistoryItemMeta } from "@content/contentMetad
 import { useOneShotConvexQuery } from "@/shared/useOneShotConvexQuery";
 import { removeWatchProgressEntry } from "@/shared/storage/localStorageStore";
 
-const WATCH_HISTORY_PAGE_SIZE = 1;
+const WATCH_HISTORY_PAGE_SIZE = 20;
 
 export function useMyWatchHistoryPagination() {
   const { user } = useUser();
