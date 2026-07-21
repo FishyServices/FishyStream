@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
 import {
@@ -80,6 +80,7 @@ export function MyListPage() {
     folderFilter === "all" ? undefined : folderFilter === "unsorted" ? null : folderFilter
   );
   const [watchlist, setWatchlist] = useState<typeof watchlistData>(undefined);
+  const pendingFolderMoves = useRef<Map<ContentId, string | undefined>>(new Map());
   const updateFolder = useUpdateWatchlistFolder();
   const [typeFilter, setTypeFilter] = useState<"all" | "movie" | "tv">("all");
   const [refreshSeed, setRefreshSeed] = useState(0);
@@ -105,7 +106,24 @@ export function MyListPage() {
   );
 
   useEffect(() => {
-    setWatchlist(watchlistData);
+    if (!watchlistData) {
+      setWatchlist(watchlistData);
+      return;
+    }
+    // A paginated query can briefly emit the page from before a mutation.
+    // Keep a local move authoritative until that query contains the new folder.
+    setWatchlist(
+      watchlistData.map((item) => {
+        const pendingFolder = pendingFolderMoves.current.get(item._id);
+        if (pendingFolder === undefined && !pendingFolderMoves.current.has(item._id)) return item;
+        const serverFolder = item.watchlistFolder?.trim() || undefined;
+        if (serverFolder === pendingFolder) {
+          pendingFolderMoves.current.delete(item._id);
+          return item;
+        }
+        return { ...item, watchlistFolder: pendingFolder };
+      })
+    );
   }, [watchlistData]);
 
   useEffect(() => {
@@ -259,24 +277,31 @@ export function MyListPage() {
     options?: { silent?: boolean }
   ) => {
     if (!user) return false;
+    const nextFolder = folderValue === "unsorted" ? undefined : folderValue;
+    const previousFolder = watchlist?.find((item) => item._id === contentId)?.watchlistFolder;
+    pendingFolderMoves.current.set(contentId, nextFolder);
+    setWatchlist((current) =>
+      current?.map((item) =>
+        item._id === contentId ? { ...item, watchlistFolder: nextFolder } : item
+      )
+    );
     try {
       await updateFolder({
         clerkUserId: user.id,
         contentId,
-        folder: folderValue === "unsorted" ? undefined : folderValue
+        folder: nextFolder
       });
-      setWatchlist((current) =>
-        current?.map((item) =>
-          item._id === contentId
-            ? { ...item, watchlistFolder: folderValue === "unsorted" ? undefined : folderValue }
-            : item
-        )
-      );
       if (!options?.silent) {
         toast.success(folderValue === "unsorted" ? "Removed from folder" : "Folder updated");
       }
       return true;
     } catch {
+      pendingFolderMoves.current.delete(contentId);
+      setWatchlist((current) =>
+        current?.map((item) =>
+          item._id === contentId ? { ...item, watchlistFolder: previousFolder } : item
+        )
+      );
       if (!options?.silent) {
         toast.error("Couldn't update folder");
       }

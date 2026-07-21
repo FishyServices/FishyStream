@@ -1,12 +1,13 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { mutation, query } from "../../_generated/server";
-import {
-  fromImageWire,
-  toImageWire,
-  type WatchlistGridItem,
-  parseContentId
-} from "@content/contentMetadata";
+import { fromImageWire, toImageWire, parseContentId } from "@content/contentMetadata";
+
+const folderName = v.string();
+
+function cleanFolder(name: string) {
+  return name.trim().replace(/\s+/g, " ");
+}
 
 export const listWatchlist = query({
   args: {
@@ -20,18 +21,17 @@ export const listWatchlist = query({
       .withIndex("by_clerk_watchlist_added", (q) =>
         q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
       );
-    const watchlistQuery =
+    const scopedQuery =
       folder === undefined
         ? baseQuery
         : baseQuery.filter((q) => q.eq(q.field("folder"), folder === null ? undefined : folder));
-    const result = await watchlistQuery.order("desc").paginate(paginationOpts);
-
+    const result = await scopedQuery.order("desc").paginate(paginationOpts);
     return {
       ...result,
       page: result.page.map((item) => {
         const parsed = parseContentId(item.contentId);
         return {
-          _id: item.contentId as never,
+          _id: item.contentId,
           title: item.title,
           type: parsed?.type || "movie",
           posterUrl: fromImageWire(item.posterUrl),
@@ -45,19 +45,50 @@ export const listWatchlist = query({
 
 export const listWatchlistContentIds = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<Array<{ id: string; tmdbId?: string }>> => {
+  handler: async (ctx, { clerkUserId }) => {
     const items = await ctx.db
       .query("mediaState")
       .withIndex("by_clerk_watchlist_added", (q) =>
         q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
       )
-      .order("desc")
       .collect();
+    return items.map((item) => ({
+      id: item.contentId,
+      tmdbId: parseContentId(item.contentId)?.tmdbId
+    }));
+  }
+});
 
-    return items.map((item) => {
-      const parsed = parseContentId(item.contentId);
-      return { id: item.contentId, tmdbId: parsed?.tmdbId || "" };
-    });
+export const listFolders = query({
+  args: { clerkUserId: v.string() },
+  handler: async (ctx, { clerkUserId }) => {
+    const entries = await ctx.db
+      .query("mediaState")
+      .withIndex("by_clerk_watchlist_added", (q) =>
+        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
+      )
+      .collect();
+    return Array.from(
+      new Set(entries.flatMap((entry) => (entry.folder ? [entry.folder] : [])))
+    ).sort((a, b) => a.localeCompare(b));
+  }
+});
+
+export const deleteFolder = mutation({
+  args: { clerkUserId: v.string(), name: folderName },
+  handler: async (ctx, { clerkUserId, name }) => {
+    const normalized = cleanFolder(name);
+    const entries = await ctx.db
+      .query("mediaState")
+      .withIndex("by_clerk_watchlist_added", (q) =>
+        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
+      )
+      .collect();
+    await Promise.all(
+      entries
+        .filter((entry) => entry.folder === normalized)
+        .map((entry) => ctx.db.patch(entry._id, { folder: undefined }))
+    );
   }
 });
 
@@ -71,20 +102,17 @@ export const toggleWatchlistEntry = mutation({
     posterUrl: v.string(),
     inWatchlist: v.boolean()
   },
-  handler: async (ctx, args): Promise<boolean> => {
+  handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("mediaState")
       .withIndex("by_clerk_content", (q) =>
         q.eq("clerkUserId", args.clerkUserId).eq("contentId", args.contentId)
       )
       .first();
-
     if (existing) {
-      const currentlyInWatchlist = !!existing.watchlistAddedAt;
-      if (currentlyInWatchlist === args.inWatchlist) return true;
       await ctx.db.patch(existing._id, {
         watchlistAddedAt: args.inWatchlist ? Date.now() : undefined,
-        folder: args.inWatchlist && currentlyInWatchlist ? existing.folder : undefined,
+        folder: args.inWatchlist ? existing.folder : undefined,
         title: args.title,
         posterUrl: toImageWire(args.posterUrl)
       });
@@ -97,30 +125,20 @@ export const toggleWatchlistEntry = mutation({
         watchlistAddedAt: Date.now()
       });
     }
-
-    return true;
   }
 });
 
 export const setWatchlistFolder = mutation({
-  args: {
-    clerkUserId: v.string(),
-    contentId: v.string(),
-    folder: v.optional(v.string())
-  },
-  handler: async (ctx, { clerkUserId, contentId, folder }): Promise<boolean> => {
-    const existing = await ctx.db
+  args: { clerkUserId: v.string(), contentId: v.string(), folder: v.optional(folderName) },
+  handler: async (ctx, { clerkUserId, contentId, folder }) => {
+    const entry = await ctx.db
       .query("mediaState")
       .withIndex("by_clerk_content", (q) =>
         q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
       )
       .first();
-    if (!existing) return false;
-
-    const nextFolder = folder?.trim() || undefined;
-    if (existing.folder === nextFolder) return true;
-
-    await ctx.db.patch(existing._id, { folder: nextFolder });
-    return true;
+    if (!entry || !entry.watchlistAddedAt) throw new Error("Watchlist item not found");
+    const normalized = folder ? cleanFolder(folder) : undefined;
+    await ctx.db.patch(entry._id, { folder: normalized });
   }
 });
