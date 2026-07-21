@@ -138,7 +138,6 @@ export function useWatchlistHydrated() {
   return useWatchlistContext().hydrated;
 }
 
-/** Each folder has its own 20-item stream; folder metadata is queried separately. */
 export function useMyWatchlistPagination(folder?: string | null) {
   const { user } = useUser();
   const cacheKey = folderCacheKey(folder);
@@ -152,6 +151,17 @@ export function useMyWatchlistPagination(folder?: string | null) {
   );
   const serverItems = results as WatchlistGridItem[];
   const cachedItems = pagesByFolder.get(cacheKey);
+  const cachedFolderItems = useMemo(() => {
+    const unique = new Map<string, WatchlistGridItem>();
+    for (const page of pagesByFolder.values()) {
+      for (const item of page) unique.set(item._id, item);
+    }
+    return [...unique.values()].filter((item) => {
+      const itemFolder = item.watchlistFolder?.trim();
+      return folder === undefined ? true : folder === null ? !itemFolder : itemFolder === folder;
+    });
+  }, [folder, pagesByFolder]);
+  const immediateItems = cachedItems ?? cachedFolderItems;
 
   useEffect(() => {
     if (!user || status === "LoadingFirstPage") return;
@@ -168,22 +178,24 @@ export function useMyWatchlistPagination(folder?: string | null) {
   const guestItems = useMemo(() => listGuestWatchlist(), []);
   const items = user
     ? status === "LoadingFirstPage"
-      ? cachedItems
-      : mergePages(serverItems, cachedItems)
+      ? immediateItems
+      : mergePages(serverItems, immediateItems)
     : guestItems;
+  const visibleItems =
+    user && status === "LoadingFirstPage" && !immediateItems.length ? undefined : items;
   const allItems = useMemo(() => {
     if (!user) return guestItems;
     const unique = new Map<string, WatchlistGridItem>();
     for (const page of pagesByFolder.values()) {
       for (const item of page) unique.set(item._id, item);
     }
-    for (const item of items ?? []) unique.set(item._id, item);
+    for (const item of visibleItems ?? []) unique.set(item._id, item);
     return [...unique.values()];
-  }, [guestItems, items, pagesByFolder, user]);
+  }, [guestItems, pagesByFolder, user, visibleItems]);
   return {
-    items,
+    items: visibleItems,
     allItems,
-    isLoading: status === "LoadingFirstPage" && !!user && !cachedItems,
+    isLoading: status === "LoadingFirstPage" && !!user && !immediateItems.length,
     isLoadingMore: status === "LoadingMore",
     canLoadMore: status === "CanLoadMore",
     loadMore: () => loadMore(PAGE_SIZE)
