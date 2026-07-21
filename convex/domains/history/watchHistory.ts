@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { mutation, query } from "../../_generated/server";
 import type { Doc } from "../../_generated/dataModel";
@@ -71,6 +72,25 @@ export const listWatchHistory = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
     return await listHistory(ctx, clerkUserId, 100, true);
+  }
+});
+
+export const listWatchHistoryPage = query({
+  args: {
+    clerkUserId: v.string(),
+    paginationOpts: paginationOptsValidator
+  },
+  handler: async (ctx, { clerkUserId, paginationOpts }) => {
+    const result = await ctx.db
+      .query("mediaState")
+      .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId).gt("watchedAt", 0))
+      .order("desc")
+      .paginate(paginationOpts);
+
+    return {
+      ...result,
+      page: result.page.map(toHistoryItem)
+    };
   }
 });
 

@@ -1,4 +1,4 @@
-import { useMutation } from "convex/react";
+import { useMutation, usePaginatedQuery } from "convex/react";
 import { useUser } from "@clerk/react";
 import { useCallback, useMemo } from "react";
 import { api } from "../../../convex/_generated/api";
@@ -6,6 +6,30 @@ import { useWatchProgressContext } from "./useWatchProgress";
 import { type ContentId, type WatchHistoryItemMeta } from "@content/contentMetadata";
 import { useOneShotConvexQuery } from "@/shared/useOneShotConvexQuery";
 import { removeWatchProgressEntry } from "@/shared/storage/localStorageStore";
+
+const WATCH_HISTORY_PAGE_SIZE = 1;
+
+export function useMyWatchHistoryPagination() {
+  const { user } = useUser();
+
+  const {
+    results: history,
+    status,
+    loadMore
+  } = usePaginatedQuery(
+    api.domains.history.watchHistory.listWatchHistoryPage,
+    user ? { clerkUserId: user.id } : "skip",
+    { initialNumItems: WATCH_HISTORY_PAGE_SIZE }
+  );
+
+  return {
+    history,
+    isLoading: status === "LoadingFirstPage",
+    isLoadingMore: status === "LoadingMore",
+    canLoadMore: status === "CanLoadMore",
+    loadMore: () => loadMore(WATCH_HISTORY_PAGE_SIZE)
+  };
+}
 
 export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
   const { user } = useUser();
