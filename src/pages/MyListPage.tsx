@@ -110,8 +110,6 @@ export function MyListPage() {
       setWatchlist(watchlistData);
       return;
     }
-    // A paginated query can briefly emit the page from before a mutation.
-    // Keep a local move authoritative until that query contains the new folder.
     setWatchlist(
       watchlistData.map((item) => {
         const pendingFolder = pendingFolderMoves.current.get(item._id);

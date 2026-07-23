@@ -176,13 +176,19 @@ export function useMyWatchlistPagination(folder?: string | null) {
   }, [cacheKey, serverItems, status, user]);
 
   const guestItems = useMemo(() => listGuestWatchlist(), []);
-  const items = user
-    ? status === "LoadingFirstPage"
-      ? immediateItems
-      : mergePages(serverItems, immediateItems)
-    : guestItems;
-  const visibleItems =
-    user && status === "LoadingFirstPage" && !immediateItems.length ? undefined : items;
+  const items = useMemo(
+    () =>
+      user
+        ? status === "LoadingFirstPage"
+          ? immediateItems
+          : mergePages(serverItems, immediateItems)
+        : guestItems,
+    [user, status, serverItems, immediateItems, guestItems]
+  );
+  const visibleItems = useMemo(
+    () => (user && status === "LoadingFirstPage" && !immediateItems.length ? undefined : items),
+    [user, status, immediateItems, items]
+  );
   const allItems = useMemo(() => {
     if (!user) return guestItems;
     const unique = new Map<string, WatchlistGridItem>();
