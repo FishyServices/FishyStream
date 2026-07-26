@@ -22,7 +22,7 @@ export function OwnersPicksPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="app-canvas min-h-screen">
         <Header />
         <div className="page-shell-wide page-stack">
           <GridSkeleton />
@@ -38,18 +38,25 @@ export function OwnersPicksPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-20 text-foreground">
+    <div className="app-canvas min-h-screen pb-20 text-foreground">
       <Header />
 
-      <main className="page-shell-wide page-stack pt-24">
+      <main className="page-shell-wide page-stack">
         <PageHeader title="Picks" />
 
-        <div className="space-y-14 sm:space-y-16">
+        <div className="space-y-10 sm:space-y-12">
           {sections.map((sect) => (
-            <section key={sect.title} className="space-y-5">
-              <div className="flex items-center gap-2.5 border-b border-white/6 pb-3">
-                <sect.icon className="h-5 w-5 text-primary" />
-                <h2 className="font-display text-xl font-bold text-white">{sect.title}</h2>
+            <section
+              key={sect.title}
+              className="rounded-2xl border border-border/55 bg-card/28 p-4 sm:p-5"
+            >
+              <div className="mb-5 flex items-center gap-3 border-b border-border/55 pb-4">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/12">
+                  <sect.icon className="h-4 w-4 text-primary" />
+                </span>
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-foreground">{sect.title}</h2>
+                </div>
               </div>
 
               {sect.items.length === 0 ? (

@@ -309,10 +309,10 @@ export function CustomVideoPlayer({
       className="relative h-full w-full bg-black flex items-center justify-center select-none overflow-hidden group/custom-player"
     >
       {isScraping && (
-        <div className="absolute inset-0 bg-black flex items-center justify-center z-50">
-          <div className="text-center">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-xl">
+          <div className="media-surface rounded-2xl p-8 text-center">
             <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-sm text-white/70">Loading stream</p>
+            <p className="text-sm text-muted-foreground">Loading stream</p>
           </div>
         </div>
       )}
@@ -337,7 +337,7 @@ export function CustomVideoPlayer({
       </video>
 
       <div
-        className={`absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-black/80 flex flex-col justify-between transition-opacity duration-300 z-30 ${
+        className={`absolute inset-0 z-30 flex flex-col justify-between bg-linear-to-t from-background/92 via-transparent to-background/50 transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
@@ -346,7 +346,7 @@ export function CustomVideoPlayer({
             <Button
               variant="ghost"
               size="icon"
-              className="text-white hover:bg-white/10 shrink-0"
+              className="shrink-0 rounded-xl bg-background/65 text-foreground backdrop-blur-sm hover:bg-accent"
               onClick={() => navigate(-1)}
               aria-label="Back"
               title="Back"
@@ -354,8 +354,10 @@ export function CustomVideoPlayer({
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="min-w-0">
-              <h1 className="text-base font-semibold text-white truncate">{content.title}</h1>
-              <p className="text-xs text-white/50 truncate">
+              <h1 className="truncate font-display text-base font-semibold text-foreground">
+                {content.title}
+              </h1>
+              <p className="truncate text-xs text-foreground/65">
                 {content.type === "movie"
                   ? `Movie · ${content.year}`
                   : `TV Series · ${content.year} · S${tvTarget.season} E${tvTarget.episode}`}
@@ -364,9 +366,12 @@ export function CustomVideoPlayer({
           </div>
         </div>
 
-        <div className="w-full p-4 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="m-3 w-auto rounded-2xl border border-border/60 bg-background/72 p-4 backdrop-blur-xl sm:m-5"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="w-full flex items-center gap-2 group/scrubber">
-            <span className="text-xs text-white/80 font-mono w-12 text-right">
+            <span className="w-12 text-right font-mono text-xs text-foreground/80">
               {formatTime(currentTime)}
             </span>
             <input
@@ -375,9 +380,9 @@ export function CustomVideoPlayer({
               max={duration || 100}
               value={currentTime}
               onChange={(e) => handleSeek(Number(e.target.value))}
-              className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary group-hover/scrubber:h-2 transition-all"
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary transition-all group-hover/scrubber:h-2"
             />
-            <span className="text-xs text-white/80 font-mono w-12 text-left">
+            <span className="w-12 text-left font-mono text-xs text-foreground/80">
               {formatTime(duration)}
             </span>
           </div>

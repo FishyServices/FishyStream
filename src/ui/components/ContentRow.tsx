@@ -46,20 +46,22 @@ export function ContentRow({
   if (content.length === 0) return null;
 
   return (
-    <section className="group relative isolate overflow-hidden py-3 pb-8 sm:py-4 sm:pb-11">
+    <section className="group relative isolate overflow-hidden py-5 pb-9 sm:py-7 sm:pb-12">
       <div className="page-shell-wide relative z-40 mb-4 flex items-center justify-between gap-3 sm:mb-5">
-        <h2
-          className="truncate font-display text-lg font-bold text-foreground sm:text-2xl"
-          title={title}
-        >
-          {title}
-        </h2>
+        <div>
+          <h2
+            className="truncate font-display text-xl font-bold text-foreground sm:text-2xl"
+            title={title}
+          >
+            {title}
+          </h2>
+        </div>
         {viewAllHref && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate(viewAllHref)}
-            className="relative z-40 shrink-0 rounded-full text-xs text-muted-foreground hover:text-foreground"
+            className="relative z-40 shrink-0 rounded-full text-xs text-primary hover:bg-primary/10 hover:text-primary"
           >
             {viewAllLabel}
           </Button>
@@ -70,7 +72,7 @@ export function ContentRow({
         <Button
           variant="ghost"
           size="icon"
-          className="absolute left-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-r-2xl border border-l-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-background xl:flex group-hover:opacity-100"
+          className="absolute left-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-r-2xl border border-l-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-lg transition-opacity hover:bg-accent xl:flex group-hover:opacity-100"
           onClick={() => scroll("left")}
           aria-label={`Scroll ${title} left`}
         >
@@ -80,7 +82,7 @@ export function ContentRow({
         <Button
           variant="ghost"
           size="icon"
-          className="absolute right-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-l-2xl border border-r-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-background xl:flex group-hover:opacity-100"
+          className="absolute right-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-l-2xl border border-r-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-lg transition-opacity hover:bg-accent xl:flex group-hover:opacity-100"
           onClick={() => scroll("right")}
           aria-label={`Scroll ${title} right`}
         >

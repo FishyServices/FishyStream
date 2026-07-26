@@ -155,21 +155,21 @@ export function SearchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-canvas min-h-screen">
       <Header />
 
       <main className="page-shell-wide page-stack">
-        <div className="mb-8 max-w-2xl">
+        <div className="mb-8 max-w-3xl">
           <PageHeader title="Search" />
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/30" />
+          <div className="media-surface relative rounded-2xl border-border/65 bg-card/72 p-1.5 shadow-lg">
+            <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
             <Input
               type="text"
               placeholder="Search titles"
               value={input}
               autoFocus
               onChange={(e) => handleInput(e.target.value)}
-              className="w-full rounded-xl border border-white/12 bg-white/8 py-3.5 pl-12 pr-12 text-sm text-white placeholder:text-white/30 transition-all focus:border-primary/50 focus:bg-white/12 focus:outline-none"
+              className="h-12 w-full rounded-xl border-0 bg-transparent py-3.5 pl-11 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
             />
             {input && (
               <Button
@@ -177,7 +177,7 @@ export function SearchPage() {
                 variant="ghost"
                 size="icon"
                 onClick={() => handleInput("")}
-                className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 text-white/30 hover:bg-transparent hover:text-white/70"
+                className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Clear search"
               >
                 <X className="h-4 w-4" />
@@ -200,13 +200,15 @@ export function SearchPage() {
 
         {!loading && results.length > 0 && (
           <>
-            <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-3 text-sm text-white/40">
-                <span>{filteredResults.length} results</span>
-                <span className="flex items-center gap-1">
+            <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-border/60 bg-card/42 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span className="rounded-full bg-primary/12 px-2.5 py-1 font-semibold text-primary">
+                  {filteredResults.length} results
+                </span>
+                <span className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1">
                   <Film className="h-3.5 w-3.5" /> {movieCount}
                 </span>
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1">
                   <Tv className="h-3.5 w-3.5" /> {showCount}
                 </span>
               </div>
@@ -220,7 +222,7 @@ export function SearchPage() {
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full rounded-lg border border-border bg-card/70 text-sm text-foreground/80 sm:w-36">
+                  <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/65 text-sm text-foreground sm:w-36">
                     <Film className="h-3.5 w-3.5 shrink-0" />
                     <span>{typeLabel}</span>
                   </SelectTrigger>
@@ -241,7 +243,7 @@ export function SearchPage() {
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full rounded-lg border border-border bg-card/70 text-sm text-foreground/80 sm:w-40">
+                  <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/65 text-sm text-foreground sm:w-40">
                     <Filter className="h-3.5 w-3.5 shrink-0" />
                     <span>{sortLabel}</span>
                   </SelectTrigger>
@@ -261,12 +263,14 @@ export function SearchPage() {
                 title={`No ${typeFilter === "movie" ? "movies" : "shows"} match this filter`}
               />
             ) : (
-              <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 stagger-children">
-                {filteredResults.map((item) => (
-                  <div key={`${item.type}-${item.tmdbId}`} className="animate-fade-in-up">
-                    <SearchCard item={item} layout="grid" />
-                  </div>
-                ))}
+              <div className="rounded-2xl border border-border/55 bg-card/25 p-3 sm:p-5">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 stagger-children">
+                  {filteredResults.map((item) => (
+                    <div key={`${item.type}-${item.tmdbId}`} className="animate-fade-in-up">
+                      <SearchCard item={item} layout="grid" />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </>

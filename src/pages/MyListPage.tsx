@@ -391,8 +391,8 @@ function FolderSection({
 }) {
   return (
     <section
-      className={`space-y-4 rounded-lg border border-white/6 bg-white/2 p-4 transition-colors ${
-        isDropTarget ? "border-white/18 bg-white/4" : ""
+      className={`media-surface space-y-5 rounded-2xl border-border/60 bg-card/55 p-4 transition-colors sm:p-5 ${
+        isDropTarget ? "border-primary/60 bg-primary/8 shadow-lg shadow-primary/10" : ""
       }`}
       onDragOver={onDragOverSection}
       onDrop={onDropSection}
@@ -400,18 +400,20 @@ function FolderSection({
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
-          className="flex items-center gap-2 rounded-md py-1 pr-2 text-left hover:opacity-80"
+          className="flex items-center gap-2 rounded-lg py-1 pr-2 text-left transition-colors hover:bg-accent/60"
           onClick={onToggleCollapsed}
           aria-expanded={!isCollapsed}
         >
           {isCollapsed ? (
-            <ChevronRight className="h-4 w-4 text-white/40" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-white/40" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           )}
           <Folder className="h-4 w-4 text-primary" />
-          <h2 className="text-xl font-semibold text-white">{name}</h2>
-          <span className="text-sm text-white/45">{items.length}</span>
+          <h2 className="font-display text-xl font-bold text-foreground">{name}</h2>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {items.length}
+          </span>
         </button>
         {name !== "Unsorted" && (
           <div className="flex items-center gap-2">
@@ -420,7 +422,7 @@ function FolderSection({
               variant="ghost"
               size="icon"
               onClick={onRename}
-              className="rounded-md border border-white/10 bg-white/4 text-white/55 hover:border-white/25 hover:bg-white/10 hover:text-white"
+              className="rounded-xl border-border/70 bg-background/45 text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label={`Rename ${name} folder`}
             >
               <Pencil className="h-4 w-4" />
@@ -430,7 +432,7 @@ function FolderSection({
               variant="ghost"
               size="icon"
               onClick={onDeleteRequest}
-              className="rounded-md border border-white/10 bg-white/4 text-white/55 transition-colors hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300"
+              className="rounded-xl border-border/70 bg-background/45 text-muted-foreground transition-colors hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300"
               aria-label={`Delete ${name} folder`}
             >
               <Trash2 className="h-4 w-4" />
@@ -916,7 +918,7 @@ export function MyListPage() {
 
   if (watchlist === undefined) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="app-canvas min-h-screen">
         <Header />
         <div className="page-shell-wide page-stack">
           <GridSkeleton />
@@ -933,15 +935,15 @@ export function MyListPage() {
     listTypeFilter === "all";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-canvas min-h-screen">
       <Header />
 
       <main className="page-shell-wide page-stack pb-28">
         <PageHeader
           title="My List"
           actions={
-            <Button variant="secondary" className="rounded-md" onClick={() => navigate("/movies")}>
-              Browse
+            <Button variant="secondary" className="rounded-xl" onClick={() => navigate("/movies")}>
+              <Film className="mr-2 h-4 w-4" /> Browse
             </Button>
           }
         />
@@ -950,14 +952,14 @@ export function MyListPage() {
           <EmptyState
             title="No saved titles"
             action={
-              <Button className="rounded-md" onClick={() => navigate("/movies")}>
+              <Button className="rounded-xl" onClick={() => navigate("/movies")}>
                 Browse movies
               </Button>
             }
           />
         ) : (
           <div className="space-y-8">
-            <section className="space-y-4 border-y border-white/8 py-4">
+            <section className="media-surface space-y-4 rounded-2xl border-border/65 bg-card/55 p-4 sm:p-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                   <BookMarked className="h-4 w-4 shrink-0 text-primary" />
@@ -966,7 +968,7 @@ export function MyListPage() {
                       variant={folderFilter === "all" ? "default" : "secondary"}
                       size="sm"
                       onClick={() => setFolderFilter("all")}
-                      className="rounded-md"
+                      className="rounded-xl"
                     >
                       All <span className="ml-1 opacity-60">{allItems.length}</span>
                     </Button>
@@ -974,7 +976,7 @@ export function MyListPage() {
                       variant={folderFilter === "unsorted" ? "default" : "secondary"}
                       size="sm"
                       onClick={() => setFolderFilter("unsorted")}
-                      className="rounded-md"
+                      className="rounded-xl"
                     >
                       Unsorted
                       <span className="ml-1 opacity-60">
@@ -984,10 +986,10 @@ export function MyListPage() {
                     {folderNames.map((folder) => (
                       <div
                         key={folder}
-                        className={`flex items-center overflow-hidden rounded-md text-sm transition-colors ${
+                        className={`flex items-center overflow-hidden rounded-xl border text-sm transition-colors ${
                           folderFilter === folder
-                            ? "bg-primary text-white"
-                            : "bg-white/8 text-white/70 hover:bg-white/14"
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border/60 bg-background/45 text-muted-foreground hover:bg-accent"
                         }`}
                       >
                         <Button
@@ -1044,7 +1046,7 @@ export function MyListPage() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Button
                     variant="secondary"
-                    className="rounded-md"
+                    className="rounded-xl"
                     onClick={() => setIsAutoSortDialogOpen(true)}
                     aria-label="Organize into folders"
                   >
@@ -1052,7 +1054,7 @@ export function MyListPage() {
                     Organize
                   </Button>
                   <div className="relative flex-1">
-                    <FolderPlus className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+                    <FolderPlus className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       value={newFolderName}
                       onChange={(e) => setNewFolderName(e.target.value)}
@@ -1063,26 +1065,26 @@ export function MyListPage() {
                         }
                       }}
                       placeholder="New folder"
-                      className="min-w-0 rounded-md border-white/12 bg-white/6 pl-10 text-white placeholder:text-white/35 sm:w-56"
+                      className="min-w-0 rounded-xl border-border/70 bg-background/60 pl-10 text-foreground placeholder:text-muted-foreground sm:w-56"
                     />
                   </div>
-                  <Button className="shrink-0 rounded-md" onClick={handleCreateFolder}>
+                  <Button className="shrink-0 rounded-xl" onClick={handleCreateFolder}>
                     Create
                   </Button>
                 </div>
               </div>
             </section>
 
-            <div className="sticky top-16 z-30 -mx-4 flex flex-col gap-3 border-b border-white/8 bg-background/95 px-4 pb-4 pt-2 backdrop-blur supports-backdrop-blur:bg-background/75 lg:flex-row lg:items-center lg:justify-between">
+            <div className="sticky top-16 z-30 flex flex-col gap-3 rounded-2xl border border-border/65 bg-background/90 p-3 shadow-lg backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative min-w-0 flex-1 sm:max-w-sm">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search your list"
                     aria-label="Search your list"
-                    className="h-10 rounded-md border-white/10 bg-white/5 pl-9 pr-9 text-white placeholder:text-white/40"
+                    className="h-10 rounded-xl border-border/70 bg-card/70 pl-9 pr-9 text-foreground placeholder:text-muted-foreground"
                   />
                   {searchQuery && (
                     <Button
@@ -1090,7 +1092,7 @@ export function MyListPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-md text-white/50 hover:text-white"
+                      className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
                       aria-label="Clear search"
                     >
                       <X className="h-4 w-4" />
@@ -1101,22 +1103,22 @@ export function MyListPage() {
                   value={listTypeFilter}
                   onValueChange={(value) => setListTypeFilter(value as TypeFilter)}
                 >
-                  <TabsList className="h-10 rounded-md bg-white/5 p-1">
+                  <TabsList className="h-10 rounded-xl border border-border/65 bg-muted/45 p-1">
                     <TabsTrigger
                       value="all"
-                      className="rounded-sm px-3 text-xs data-selected:bg-white data-selected:text-black"
+                      className="rounded-lg px-3 text-xs data-selected:bg-primary data-selected:text-primary-foreground"
                     >
                       All
                     </TabsTrigger>
                     <TabsTrigger
                       value="movie"
-                      className="rounded-sm px-3 text-xs data-selected:bg-white data-selected:text-black"
+                      className="rounded-lg px-3 text-xs data-selected:bg-primary data-selected:text-primary-foreground"
                     >
                       Movies
                     </TabsTrigger>
                     <TabsTrigger
                       value="tv"
-                      className="rounded-sm px-3 text-xs data-selected:bg-white data-selected:text-black"
+                      className="rounded-lg px-3 text-xs data-selected:bg-primary data-selected:text-primary-foreground"
                     >
                       TV
                     </TabsTrigger>
@@ -1124,14 +1126,16 @@ export function MyListPage() {
                 </Tabs>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-medium text-white/50">{filteredWatchlist.length}</div>
+                <div className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                  {filteredWatchlist.length} titles
+                </div>
 
                 {user && (
                   <Button
                     type="button"
                     variant={selectionMode ? "default" : "secondary"}
                     size="sm"
-                    className="rounded-md"
+                    className="rounded-xl"
                     onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
                   >
                     {selectionMode ? (
@@ -1149,7 +1153,7 @@ export function MyListPage() {
                       <Button
                         variant="secondary"
                         size="icon"
-                        className="rounded-md border border-white/8 bg-white/6 hover:bg-white/12"
+                        className="rounded-xl border-border/65 bg-card/70 hover:bg-accent"
                         aria-label="Sort"
                         title={SORT_OPTIONS.find((o) => o.id === sortBy)?.label}
                       >
@@ -1157,7 +1161,7 @@ export function MyListPage() {
                       </Button>
                     }
                   />
-                  <DropdownMenuContent className="mt-2 w-48 rounded-lg border border-white/10 bg-popover p-1 shadow-md">
+                  <DropdownMenuContent className="mt-2 w-48 rounded-xl border-border/70 bg-popover p-1 shadow-xl">
                     {SORT_OPTIONS.map((option) => (
                       <DropdownMenuItem
                         key={option.id}
@@ -1172,14 +1176,14 @@ export function MyListPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <div className="flex items-center rounded-md border border-white/8 bg-white/4 p-1">
+                <div className="flex items-center rounded-xl border border-border/65 bg-muted/45 p-1">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`h-8 w-8 rounded-md ${
+                    className={`h-8 w-8 rounded-lg ${
                       viewLayout === "grid"
-                        ? "bg-white text-black hover:bg-white hover:text-black"
-                        : "text-white/60 hover:text-white"
+                        ? "bg-primary text-primary-foreground hover:bg-primary"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                     onClick={() => setViewLayout("grid")}
                     aria-label="Grid view"
@@ -1189,10 +1193,10 @@ export function MyListPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`h-8 w-8 rounded-md ${
+                    className={`h-8 w-8 rounded-lg ${
                       viewLayout === "list"
-                        ? "bg-white text-black hover:bg-white hover:text-black"
-                        : "text-white/60 hover:text-white"
+                        ? "bg-primary text-primary-foreground hover:bg-primary"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                     onClick={() => setViewLayout("list")}
                     aria-label="List view"
@@ -1274,33 +1278,36 @@ export function MyListPage() {
         )}
 
         {watchlist.length > 0 && (
-          <div className="mt-16">
+          <section className="mt-16 border-t border-border/60 pt-10">
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
               <div className="flex flex-wrap items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-semibold text-white">Recommended</h2>
+                <div>
+                  <p className="eyebrow mb-1">Keep exploring</p>
+                  <h2 className="font-display text-2xl font-bold text-foreground">Recommended</h2>
+                </div>
               </div>
 
               <Tabs
                 value={typeFilter}
                 onValueChange={(value) => setTypeFilter(value as TypeFilter)}
               >
-                <TabsList className="h-auto rounded-xl bg-white/6 p-1">
+                <TabsList className="h-auto rounded-xl border border-border/65 bg-muted/45 p-1">
                   <TabsTrigger
                     value="all"
-                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                    className="rounded-lg data-selected:bg-primary data-selected:text-primary-foreground"
                   >
                     All
                   </TabsTrigger>
                   <TabsTrigger
                     value="movie"
-                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                    className="rounded-lg data-selected:bg-primary data-selected:text-primary-foreground"
                   >
                     <Film className="h-3.5 w-3.5" />
                   </TabsTrigger>
                   <TabsTrigger
                     value="tv"
-                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                    className="rounded-lg data-selected:bg-primary data-selected:text-primary-foreground"
                   >
                     <Tv className="h-3.5 w-3.5" />
                   </TabsTrigger>
@@ -1312,7 +1319,7 @@ export function MyListPage() {
                 size="icon"
                 onClick={handleRefresh}
                 disabled={recsLoading}
-                className="self-start rounded-md text-white/60 hover:text-white sm:ml-auto"
+                className="self-start rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground sm:ml-auto"
                 aria-label="Refresh recommendations"
               >
                 <RefreshCw className={`h-4 w-4 ${recsLoading ? "animate-spin" : ""}`} />
@@ -1326,9 +1333,9 @@ export function MyListPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-white/40">No recommendations yet</p>
+              <p className="text-sm text-muted-foreground">No recommendations yet</p>
             )}
-          </div>
+          </section>
         )}
       </main>
 

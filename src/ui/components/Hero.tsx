@@ -151,7 +151,7 @@ export function Hero({
   };
 
   return (
-    <div className="group/hero relative h-[68svh] min-h-135 w-full max-h-225 overflow-hidden sm:h-[92vh] sm:min-h-160">
+    <section className="group/hero relative h-[70svh] min-h-130 w-full max-h-225 overflow-hidden border-b border-border/45 sm:h-[86vh] sm:min-h-150">
       <div className="absolute inset-0 bg-neutral-950">
         <div
           className={`absolute inset-0 transition-all duration-1000 ease-out ${loaded ? "opacity-100" : "opacity-0"}`}
@@ -177,8 +177,9 @@ export function Hero({
         </div>
       </div>
 
-      <div className="absolute inset-0 bg-linear-to-r from-black/95 via-black/40 to-transparent" />
-      <div className="absolute inset-0 bg-linear-to-t from-background via-transparent to-black/20" />
+      <div className="absolute inset-0 bg-linear-to-r from-background via-background/58 to-transparent" />
+      <div className="absolute inset-0 bg-linear-to-t from-background via-transparent to-background/15" />
+      <div className="absolute inset-x-0 top-0 h-40 bg-linear-to-b from-background/50 to-transparent" />
 
       <div
         className={`absolute bottom-0 left-0 right-0 px-4 pb-16 transition-all duration-700 sm:px-10 sm:pb-24 lg:px-16 ${
@@ -193,7 +194,7 @@ export function Hero({
               className="h-14 w-auto max-w-[min(18rem,70vw)] object-contain object-left sm:h-20 sm:max-w-xs lg:h-24"
             />
           ) : (
-            <h1 className="font-display text-3xl font-black leading-none tracking-tight text-white sm:text-5xl lg:text-6xl">
+            <h1 className="font-display text-4xl font-black leading-[0.94] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
               {activeContent.title}
             </h1>
           )}
@@ -204,12 +205,12 @@ export function Hero({
             >
               {activeContent.rating}
             </span>
-            <span className="text-sm text-white/70">{activeContent.year}</span>
+            <span className="text-sm text-foreground/75">{activeContent.year}</span>
             {activeContent.duration && (
-              <span className="text-sm text-white/70">{activeContent.duration}</span>
+              <span className="text-sm text-foreground/75">{activeContent.duration}</span>
             )}
             {activeContent.seasons && (
-              <span className="text-sm text-white/70">
+              <span className="text-sm text-foreground/75">
                 {activeContent.seasons} Season{activeContent.seasons > 1 ? "s" : ""}
               </span>
             )}
@@ -218,23 +219,23 @@ export function Hero({
             )}
           </div>
 
-          <p className="hidden max-w-lg text-sm leading-relaxed text-white/80 line-clamp-2 min-[380px]:block sm:text-base">
+          <p className="hidden max-w-lg text-sm leading-relaxed text-foreground/80 line-clamp-3 min-[380px]:block sm:text-base">
             {activeContent.description}
           </p>
 
           <div className="flex flex-wrap items-center gap-2 pt-2 sm:gap-3">
             <Button
               size="lg"
-              className="w-full rounded-md bg-white px-7 text-base font-semibold text-black shadow-sm hover:bg-white/90 sm:w-auto"
+              className="w-full rounded-xl bg-primary px-7 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 sm:w-auto"
               onClick={handlePlay}
             >
-              <Play className="mr-2 h-5 w-5 fill-black" />
+              <Play className="mr-2 h-5 w-5 fill-current" />
               Play
             </Button>
             <Button
               size="lg"
               variant="secondary"
-              className="flex-1 rounded-md border-white/20 bg-black/60 px-5 text-base font-semibold text-white hover:bg-black/80 sm:flex-none sm:px-7"
+              className="flex-1 rounded-xl border-border/80 bg-card/75 px-5 text-base font-semibold text-foreground backdrop-blur-sm hover:bg-accent sm:flex-none sm:px-7"
               onClick={() => setShowModal(true)}
             >
               <Info className="mr-2 h-5 w-5" />
@@ -243,7 +244,7 @@ export function Hero({
             <Button
               size="icon"
               variant="ghost"
-              className="h-11 w-11 rounded-md border border-white/20 bg-black/55 text-white hover:bg-black/75"
+              className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-foreground backdrop-blur-sm hover:bg-accent"
               onClick={handleWatchlist}
               aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
             >
@@ -254,7 +255,7 @@ export function Hero({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-11 w-11 rounded-md border border-white/20 bg-black/55 text-white/70 hover:bg-black/75 hover:text-white"
+                className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-muted-foreground backdrop-blur-sm hover:bg-accent hover:text-foreground"
                 onClick={handleTrailerPlay}
                 aria-label="Play trailer"
               >
@@ -266,7 +267,7 @@ export function Hero({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-11 w-11 rounded-md border border-white/20 bg-black/55 text-white/70 hover:bg-black/75 hover:text-white"
+                className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-muted-foreground backdrop-blur-sm hover:bg-accent hover:text-foreground"
                 onClick={() => setMuted(!muted)}
                 aria-label={muted ? "Unmute trailer" : "Mute trailer"}
               >
@@ -323,6 +324,6 @@ export function Hero({
         onClose={() => setShowModal(false)}
         onPlay={onPlay || (() => {})}
       />
-    </div>
+    </section>
   );
 }

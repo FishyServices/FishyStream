@@ -59,7 +59,7 @@ export function MoviesPage() {
   const handlePlay = createPlayHandler(navigate, "movie");
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-canvas min-h-screen">
       <Header />
       <main className="page-shell-wide page-stack">
         <PageHeader
@@ -73,7 +73,7 @@ export function MoviesPage() {
                 updateBrowseParams(setSearchParams, { sort: value, page: 1 });
               }}
             >
-              <SelectTrigger className="flex items-center gap-2 rounded-lg border border-border bg-card/70 text-sm text-foreground/80">
+              <SelectTrigger className="flex items-center gap-2 rounded-xl border-border/70 bg-card/70 text-sm text-foreground">
                 <Filter className="h-3.5 w-3.5 shrink-0" />
                 <span>{sortLabel}</span>
               </SelectTrigger>
@@ -89,13 +89,13 @@ export function MoviesPage() {
         />
 
         <FilterBar>
-          <div className="-mx-1 flex gap-2 overflow-x-auto scrollbar-hide px-1">
+          <div className="media-surface -mx-1 flex gap-2 overflow-x-auto rounded-2xl border-border/60 bg-card/48 p-2 scrollbar-hide">
             {GENRES.map((g) => (
               <Button
                 key={g}
                 variant={genre === g ? "default" : "outline"}
                 size="sm"
-                className="shrink-0 rounded-full"
+                className="shrink-0 rounded-xl"
                 onClick={() => updateBrowseParams(setSearchParams, { genre: g, page: 1 })}
               >
                 {g}
@@ -110,10 +110,20 @@ export function MoviesPage() {
           <EmptyState icon={<Film className="h-10 w-10" />} title="No movies match this filter" />
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {movies.map((movie) => (
-                <MovieCard key={movie._id} content={movie} onPlay={handlePlay} layout="grid" />
-              ))}
+            <div className="rounded-2xl border border-border/55 bg-card/25 p-3 sm:p-5">
+              <div className="mb-5 flex items-center gap-2">
+                <Film className="h-4 w-4 text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  {genre === "All"
+                    ? "Explore the complete movie library"
+                    : `${genre} movies, sorted by ${sortLabel.toLowerCase()}`}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                {movies.map((movie) => (
+                  <MovieCard key={movie._id} content={movie} onPlay={handlePlay} layout="grid" />
+                ))}
+              </div>
             </div>
 
             <div className="mt-8 flex items-center justify-center gap-4">
@@ -122,7 +132,7 @@ export function MoviesPage() {
                 size="icon"
                 onClick={() => updateBrowseParams(setSearchParams, { page: page - 1 })}
                 disabled={!paginated.canGoBack}
-                className="rounded-full"
+                className="rounded-xl"
                 aria-label="Previous page"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -136,7 +146,7 @@ export function MoviesPage() {
                 size="icon"
                 onClick={() => updateBrowseParams(setSearchParams, { page: page + 1 })}
                 disabled={!paginated.hasNextPage}
-                className="rounded-full"
+                className="rounded-xl"
                 aria-label="Next page"
               >
                 <ChevronRight className="h-4 w-4" />

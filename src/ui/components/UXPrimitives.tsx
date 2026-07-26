@@ -3,14 +3,17 @@ import { Button } from "@fishy/ui";
 
 export function PosterSkeleton({ className = "" }: { className?: string }) {
   return (
-    <div className={`poster-skeleton aspect-2/3 rounded-lg ${className}`} aria-hidden="true" />
+    <div
+      className={`poster-skeleton aspect-2/3 rounded-xl border border-border/45 ${className}`}
+      aria-hidden="true"
+    />
   );
 }
 
 export function RailSkeleton({ count = 8 }: { count?: number }) {
   return (
     <section className="py-2 pb-8 sm:py-3 sm:pb-10" aria-hidden="true">
-      <div className="page-shell-wide mb-4 h-6 w-40 rounded-md bg-white/8" />
+      <div className="page-shell-wide mb-4 h-6 w-40 rounded-md bg-muted" />
       <div className="page-shell-wide flex gap-3 overflow-hidden sm:gap-4">
         {Array.from({ length: count }).map((_, index) => (
           <PosterSkeleton
@@ -68,16 +71,18 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-5 flex items-center justify-between gap-3">
+    <div className="page-intro">
       <div className="min-w-0 flex items-baseline gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          {title}
-        </h1>
+        <div>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            {title}
+          </h1>
+        </div>
         {count !== undefined ? (
           <span className="text-sm text-muted-foreground">{count}</span>
         ) : null}
       </div>
-      {actions ? <div className="shrink-0">{actions}</div> : null}
+      {actions ? <div className="shrink-0 self-end sm:self-auto">{actions}</div> : null}
     </div>
   );
 }

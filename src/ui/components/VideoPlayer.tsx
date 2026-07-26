@@ -537,10 +537,10 @@ export function VideoPlayer({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="media-surface rounded-2xl p-8 text-center">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-sm text-white/70">Finding sources</p>
+          <p className="text-sm text-muted-foreground">Finding the best source for you</p>
         </div>
       </div>
     );
@@ -548,13 +548,15 @@ export function VideoPlayer({
 
   if (error || !sources.length || !selectedSourceConfig) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center max-w-md px-6">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg bg-destructive/20">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="media-surface max-w-md rounded-2xl p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/15">
             <AlertCircle className="w-8 h-8 text-destructive" />
           </div>
-          <h2 className="mb-2 text-xl font-semibold text-white">No source</h2>
-          {error ? <p className="mb-6 text-sm text-white/50">{error}</p> : null}
+          <h2 className="mb-2 font-display text-2xl font-semibold text-foreground">
+            No source available
+          </h2>
+          {error ? <p className="mb-6 text-sm text-muted-foreground">{error}</p> : null}
           <div className="flex gap-3 justify-center">
             <Button onClick={() => navigate(-1)} variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -580,15 +582,15 @@ export function VideoPlayer({
   }
 
   return (
-    <div className="h-screen w-screen bg-black flex flex-col overflow-hidden">
+    <div className="h-dvh w-screen bg-background flex flex-col overflow-hidden">
       {!useCustomPlayer && (
-        <div className="flex-none border-b border-white/10 bg-black/90 backdrop-blur-sm z-10 transition-all duration-300">
+        <div className="z-10 flex-none border-b border-border/65 bg-background/88 backdrop-blur-xl transition-all duration-300">
           <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
             <div className="flex items-center gap-3 min-w-0">
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-white hover:bg-white/10 shrink-0"
+                className="shrink-0 text-foreground hover:bg-accent"
                 onClick={() => navigate(-1)}
                 aria-label="Back"
                 title="Back"
@@ -596,8 +598,10 @@ export function VideoPlayer({
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div className="min-w-0">
-                <h1 className="text-base font-semibold text-white truncate">{content.title}</h1>
-                <p className="text-xs text-white/50 truncate">
+                <h1 className="truncate font-display text-base font-semibold text-foreground">
+                  {content.title}
+                </h1>
+                <p className="truncate text-xs text-muted-foreground">
                   {content.type === "movie"
                     ? `Movie · ${content.year}`
                     : `TV Series · ${content.year} · S${tvTarget.season} E${tvTarget.episode}`}
@@ -648,7 +652,7 @@ export function VideoPlayer({
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-white hover:bg-white/10 shrink-0"
+                className="shrink-0 text-foreground hover:bg-accent"
                 onClick={() => setShowInfoModal(true)}
                 aria-label="Content info"
                 title="Content info"
@@ -660,7 +664,7 @@ export function VideoPlayer({
         </div>
       )}
 
-      <div className="flex-1 relative bg-black group/player overflow-hidden flex items-center justify-center">
+      <div className="group/player relative flex flex-1 items-center justify-center overflow-hidden bg-black">
         {useCustomPlayer ? (
           <CustomVideoPlayer
             embedUrl={embedUrl}
@@ -696,7 +700,7 @@ export function VideoPlayer({
               handleNextEpisode({ fromClick: true });
             }}
             disabled={isNextEpisodeCooldown}
-            className="absolute bottom-23 left-4 right-4 gap-2 bg-black/70 border border-white/20 text-white hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-60 backdrop-blur-sm sm:left-auto"
+            className="absolute bottom-23 left-4 right-4 gap-2 border-border/80 bg-card/90 text-foreground shadow-xl backdrop-blur-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 sm:left-auto"
             aria-label="Play next episode"
           >
             <SkipForward className="w-4 h-4" />

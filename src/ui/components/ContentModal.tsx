@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Plus, Check, Star, Clock, X, Tv, Film, User, Loader2 } from "lucide-react";
+import { Play, Plus, Check, Star, Clock, Tv, Film, User, Loader2 } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -91,8 +91,10 @@ function EpisodePill({
   return (
     <Button
       variant="ghost"
-      className={`group flex w-full items-start gap-3 rounded-lg p-3 text-left h-auto justify-start ${
-        selected ? "bg-accent ring-1 ring-primary/40" : ""
+      className={`group flex h-auto w-full items-start justify-start gap-3 rounded-xl border p-3 text-left transition-colors ${
+        selected
+          ? "border-primary/50 bg-primary/10 shadow-sm"
+          : "border-transparent bg-card/40 hover:border-border hover:bg-accent/65"
       }`}
       onClick={onClick}
     >
@@ -100,18 +102,22 @@ function EpisodePill({
         <img
           src={ep.stillUrl}
           alt={ep.name}
-          className="h-14 w-24 shrink-0 rounded-md bg-muted object-cover"
+          className="h-14 w-24 shrink-0 rounded-lg bg-muted object-cover"
           loading="lazy"
         />
       ) : (
-        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-md bg-muted">
+        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg bg-muted">
           <Tv className="h-5 w-5 text-muted-foreground/50" />
         </div>
       )}
       <div className="min-w-0 flex-1 pt-0.5">
         <div className="mb-0.5 flex items-center gap-2">
           <span className="text-xs font-bold text-muted-foreground">E{ep.episodeNumber}</span>
-          {selected && <span className="text-[10px] font-bold text-primary">▶ Playing</span>}
+          {selected && (
+            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+              Now selected
+            </span>
+          )}
         </div>
         <p className="line-clamp-1 text-sm font-medium text-foreground">{ep.name}</p>
         {ep.overview && (
@@ -119,7 +125,7 @@ function EpisodePill({
         )}
         {ep.runtime && <p className="mt-1 text-[11px] text-muted-foreground/80">{ep.runtime}m</p>}
       </div>
-      <Play className="mt-4 h-4 w-4 shrink-0 text-transparent transition-colors group-hover:text-muted-foreground" />
+      <Play className="mt-4 h-4 w-4 shrink-0 text-transparent transition-colors group-hover:text-primary" />
     </Button>
   );
 }
@@ -320,8 +326,7 @@ export function ContentModal({
 
   const isHydratingContent = isOpen && !hasFullContent(content) && fullContent === undefined;
   const contentData = resolvedContent;
-  const heroImageUrl =
-    detailContent?.backdropUrl ?? ("posterUrl" in contentData ? contentData.posterUrl : undefined);
+  const heroImageUrl = detailContent?.backdropUrl;
 
   const isTV = contentData.type === "tv";
   const totalSeasons = getCanonicalSeasonCount(
@@ -370,10 +375,10 @@ export function ContentModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="z-modal flex max-h-[90vh] max-w-3xl flex-col overflow-hidden border-border/80 bg-card p-0 text-card-foreground">
+      <DialogContent className="z-modal flex max-h-[min(92dvh,58rem)] w-[calc(100%-1rem)] max-w-4xl flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-0 text-card-foreground shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-10 [&>button]:w-10 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button]:p-0 [&>button]:backdrop-blur-sm [&>button:hover]:bg-accent">
+        {" "}
         <DialogTitle className="sr-only">{contentData.title}</DialogTitle>
-
-        <div className="relative h-70 shrink-0 sm:h-85">
+        <div className="relative h-64 shrink-0 overflow-hidden sm:h-88">
           {isHydratingContent && !heroImageUrl ? (
             <div className="flex h-full w-full items-center justify-center bg-muted/60">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -386,37 +391,39 @@ export function ContentModal({
               loading="lazy"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-muted/60">
-              <Film className="h-10 w-10 text-muted-foreground/60" />
+            <div className="relative flex h-full w-full items-center overflow-hidden bg-muted/55">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,color-mix(in_oklab,var(--color-primary)_28%,transparent),transparent_36%),linear-gradient(135deg,var(--color-card),var(--color-background))]" />
+              <Film className="relative ml-7 h-10 w-10 text-primary/55" />
             </div>
           )}
-          <div className="absolute inset-0 bg-linear-to-t from-card via-background/35 to-transparent" />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-3 top-3 z-10 h-9 w-9 rounded-md border border-border/80 bg-background/78 text-foreground hover:bg-background"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-          <div className="absolute bottom-0 left-0 right-0 p-5">
-            <h2 className="mb-3 font-display text-2xl font-black leading-tight text-white sm:text-3xl">
+          <div className="absolute inset-0 bg-linear-to-t from-card via-background/45 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-r from-background/35 via-transparent to-transparent" />
+          {contentData.posterUrl && (
+            <img
+              src={contentData.posterUrl}
+              alt=""
+              aria-hidden="true"
+              className="absolute bottom-0 right-8 hidden h-52 w-35 rounded-t-xl border border-b-0 border-border/70 bg-muted object-cover shadow-2xl lg:block"
+            />
+          )}
+          <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
+            <p className="eyebrow mb-2">{isTV ? "Series details" : "Feature presentation"}</p>
+            <h2 className="mb-4 max-w-2xl font-display text-3xl font-black leading-[0.95] tracking-tight text-foreground sm:text-4xl lg:pr-44">
               {contentData.title}
             </h2>
             <div className="flex items-center gap-3">
               <Button
-                className="rounded-md bg-white font-semibold text-black hover:bg-white/90"
+                className="rounded-xl bg-primary font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90"
                 onClick={() => handlePlay()}
               >
-                <Play className="mr-2 h-4 w-4 fill-black" />
+                <Play className="mr-2 h-4 w-4 fill-current" />
                 {contentData.progress && contentData.progress > 0 ? "Resume" : "Play"}
                 {isTV ? ` S${selectedSeason} E${selectedEpisode}` : ""}
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="flex h-10 w-10 rounded-md border border-border/80 bg-background/60 text-foreground hover:bg-background"
+                className="flex h-10 w-10 rounded-xl border-border/80 bg-background/70 text-foreground backdrop-blur-sm hover:bg-accent"
                 onClick={handleWatchlist}
                 aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
               >
@@ -429,24 +436,23 @@ export function ContentModal({
             </div>
           </div>
         </div>
-
         <div className="flex-1 overflow-y-auto scrollbar-thin">
-          <div className="space-y-6 p-5">
+          <div className="space-y-6 p-5 sm:p-7">
             {isHydratingContent && (
-              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                Loading
+              <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/45 px-4 py-3 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading title details
               </div>
             )}
-            <div className="flex flex-wrap items-center gap-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
               {contentData.voteAverage && contentData.voteAverage > 0 && (
-                <span className="flex items-center gap-1 font-semibold text-yellow-400">
+                <span className="flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 font-semibold text-amber-300">
                   <Star className="h-4 w-4 fill-yellow-400" />
                   {contentData.voteAverage.toFixed(1)}
                 </span>
               )}
 
               {detailContent?.duration && (
-                <span className="flex items-center gap-1 text-muted-foreground">
+                <span className="flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
                   {detailContent.duration}
                 </span>
@@ -458,14 +464,14 @@ export function ContentModal({
                   {ratingLabel}
                 </span>
               )}
-              <span className="flex items-center gap-1 text-muted-foreground/90">
+              <span className="flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-muted-foreground">
                 {isTV ? <Tv className="h-3.5 w-3.5" /> : <Film className="h-3.5 w-3.5" />}
                 {isTV ? `${totalSeasons} Season${totalSeasons > 1 ? "s" : ""}` : "Movie"}
               </span>
             </div>
 
             {detailContent?.description && (
-              <p className="text-sm leading-relaxed text-muted-foreground">
+              <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-[0.95rem]">
                 {compactCopy ? detailContent.description.slice(0, 360) : detailContent.description}
               </p>
             )}
@@ -475,7 +481,7 @@ export function ContentModal({
                 {(contentData.genre ?? []).map((g) => (
                   <span
                     key={g}
-                    className="rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground"
+                    className="rounded-full border border-border/70 bg-muted/45 px-3 py-1 text-xs text-muted-foreground"
                   >
                     {g}
                   </span>
@@ -484,7 +490,7 @@ export function ContentModal({
             )}
 
             {contentData.progress !== undefined && contentData.progress > 0 && (
-              <div className="rounded-lg border border-border bg-muted/65 p-3">
+              <div className="rounded-xl border border-border/70 bg-muted/45 p-4">
                 <div className="mb-2 flex justify-between text-xs text-muted-foreground">
                   <span>
                     {isTV && contentData.seasonNumber
@@ -493,7 +499,7 @@ export function ContentModal({
                   </span>
                   <span>{Math.round(contentData.progress)}%</span>
                 </div>
-                <div className="h-1 overflow-hidden rounded-full bg-border/80">
+                <div className="media-progress">
                   <div
                     className="h-full bg-primary"
                     style={{ width: `${contentData.progress}%` }}
@@ -502,16 +508,16 @@ export function ContentModal({
               </div>
             )}
 
-            <div className="flex gap-1 border-b border-border/60">
+            <div className="flex gap-1 overflow-x-auto rounded-xl border border-border/65 bg-muted/35 p-1">
               {isTV && (
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={() => setActiveTab("episodes")}
-                  className={`-mb-px h-auto rounded-none border-b-2 bg-transparent px-3 py-2 text-sm font-medium transition-colors hover:bg-transparent ${
+                  className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     activeTab === "episodes"
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
                 >
                   Episodes
@@ -521,10 +527,10 @@ export function ContentModal({
                 type="button"
                 variant="ghost"
                 onClick={() => setActiveTab("cast")}
-                className={`-mb-px h-auto rounded-none border-b-2 bg-transparent px-3 py-2 text-sm font-medium transition-colors hover:bg-transparent ${
+                className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   activeTab === "cast"
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
                 Cast
@@ -533,10 +539,10 @@ export function ContentModal({
                 type="button"
                 variant="ghost"
                 onClick={() => setActiveTab("videos")}
-                className={`-mb-px h-auto rounded-none border-b-2 bg-transparent px-3 py-2 text-sm font-medium transition-colors hover:bg-transparent ${
+                className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   activeTab === "videos"
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
                 Trailers
@@ -545,10 +551,10 @@ export function ContentModal({
                 type="button"
                 variant="ghost"
                 onClick={() => setActiveTab("related")}
-                className={`-mb-px h-auto rounded-none border-b-2 bg-transparent px-3 py-2 text-sm font-medium transition-colors hover:bg-transparent ${
+                className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   activeTab === "related"
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
                 Related
@@ -558,7 +564,8 @@ export function ContentModal({
             {activeTab === "episodes" && isTV && (
               <div>
                 {totalSeasons > 1 && (
-                  <div className="mb-4">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <p className="eyebrow">Choose an episode</p>
                     <Select
                       value={String(selectedSeason)}
                       onValueChange={(value) => {
@@ -567,7 +574,7 @@ export function ContentModal({
                         setEpisodeLoadError(null);
                       }}
                     >
-                      <SelectTrigger className="w-40 border-border/80 bg-background text-foreground">
+                      <SelectTrigger className="w-40 rounded-xl border-border/80 bg-background text-foreground">
                         <SelectValue placeholder="Season">{`Season ${selectedSeason}`}</SelectValue>
                       </SelectTrigger>
                       <SelectContent className="border-border/80 bg-popover text-popover-foreground">
@@ -590,7 +597,7 @@ export function ContentModal({
                 ) : episodeLoadError ? (
                   <p className="py-8 text-center text-xs text-red-300/80">{episodeLoadError}</p>
                 ) : episodes.length > 0 ? (
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {episodes.map((ep) => (
                       <EpisodePill
                         key={ep.episodeNumber}
@@ -617,18 +624,18 @@ export function ContentModal({
                   </div>
                 ) : credits.cast.length > 0 ? (
                   <>
-                    <div className="scrollbar-thin flex gap-3 overflow-x-auto pb-2">
+                    <div className="scrollbar-thin flex gap-4 overflow-x-auto pb-2">
                       {credits.cast.slice(0, 10).map((actor) => (
-                        <div key={actor.id} className="w-16 shrink-0 text-center">
+                        <div key={actor.id} className="w-17 shrink-0 text-center">
                           {actor.profileUrl ? (
                             <img
                               src={actor.profileUrl}
                               alt={actor.name}
-                              className="mb-1 h-16 w-16 rounded-full bg-muted object-cover"
+                              className="mb-2 h-16 w-16 rounded-full border-2 border-border/70 bg-muted object-cover"
                               loading="lazy"
                             />
                           ) : (
-                            <div className="mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                            <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full border-2 border-border/70 bg-muted">
                               <User className="h-6 w-6 text-muted-foreground/60" />
                             </div>
                           )}
@@ -668,7 +675,7 @@ export function ContentModal({
                         rel="noopener noreferrer"
                         className="group w-40 shrink-0"
                       >
-                        <div className="relative mb-1 aspect-video overflow-hidden rounded-lg bg-muted">
+                        <div className="relative mb-1.5 aspect-video overflow-hidden rounded-xl border border-border/60 bg-muted shadow-sm">
                           <img
                             src={`https://img.youtube.com/vi/${video.key}/mqdefault.jpg`}
                             alt={video.name}
@@ -700,10 +707,10 @@ export function ContentModal({
                     {related.map((item) => (
                       <div
                         key={item.tmdbId}
-                        className="group cursor-pointer"
+                        className="group cursor-pointer rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         onClick={() => handleRelatedClick(item)}
                       >
-                        <div className="mb-1.5 aspect-2/3 overflow-hidden rounded-lg bg-muted">
+                        <div className="mb-2 aspect-2/3 overflow-hidden rounded-xl border border-border/60 bg-muted shadow-sm">
                           <img
                             src={item.posterUrl}
                             alt={item.title}

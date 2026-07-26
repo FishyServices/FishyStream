@@ -175,9 +175,10 @@ function NativeSignInCard() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-lg border border-white/10 bg-white/4 p-6 shadow-sm sm:p-7">
+    <div className="media-surface w-full max-w-md rounded-2xl p-6 shadow-2xl sm:p-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-semibold text-white">Sign in</h1>
+        <p className="eyebrow mb-2">Welcome back</p>
+        <h1 className="font-display text-3xl font-bold text-foreground">Sign in</h1>
       </div>
 
       {errorMessage && (
@@ -301,7 +302,7 @@ export function SignInPage() {
   const isNativeApp = Capacitor.isNativePlatform();
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="auth-canvas flex items-center justify-center">
       <ClerkLoading>
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </ClerkLoading>

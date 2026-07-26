@@ -38,10 +38,12 @@ import {
 import {
   Check,
   ChevronsUpDown,
+  CircleGauge,
   MonitorPlay,
   Palette,
   PlayCircle,
   RotateCcw,
+  SlidersHorizontal,
   Tv2
 } from "lucide-react";
 
@@ -55,10 +57,12 @@ function SettingRow({
   control: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-t border-border/70 py-4 first:border-t-0 first:pt-0 sm:flex-row sm:items-center sm:justify-between">
-      <div className="max-w-xl space-y-0.5">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
+    <div className="flex flex-col gap-3 border-t border-border/60 py-4 first:border-t-0 first:pt-0 sm:flex-row sm:items-center sm:justify-between">
+      <div className="max-w-xl space-y-1">
+        <p className="text-sm font-semibold text-foreground">{label}</p>
+        {description ? (
+          <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
+        ) : null}
       </div>
       <div className="sm:min-w-48 sm:max-w-[16rem]">{control}</div>
     </div>
@@ -75,10 +79,14 @@ function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <Card className="surface border-border/70 bg-card/85 p-5 sm:p-6">
-      <div className="mb-4 flex items-center gap-2">
-        {icon}
-        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+    <Card className="media-surface overflow-hidden rounded-2xl border-border/65 bg-card/78 p-5 sm:p-6">
+      <div className="mb-5 flex items-center gap-3">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/12 text-primary">
+          {icon}
+        </span>
+        <div>
+          <h2 className="font-display text-lg font-bold text-foreground">{title}</h2>
+        </div>
       </div>
       {children}
     </Card>
@@ -95,7 +103,7 @@ function ToggleSettingControl({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-end rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
+    <div className="flex items-center justify-end rounded-xl border border-border/65 bg-muted/35 px-3 py-2">
       <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
@@ -120,7 +128,7 @@ function ProviderPicker({
           <Button
             type="button"
             variant="outline"
-            className="w-full justify-between bg-background text-foreground hover:bg-background"
+            className="w-full justify-between rounded-xl border-border/70 bg-background/70 text-foreground hover:bg-accent"
             aria-expanded={open}
           >
             <span className="flex min-w-0 flex-col items-start text-left">
@@ -135,8 +143,8 @@ function ProviderPicker({
           </Button>
         }
       />
-      <PopoverContent className="w-[min(32rem,calc(100vw-2rem))] p-0">
-        <Command>
+      <PopoverContent className="w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border-border/70 p-0 shadow-2xl">
+        <Command className="bg-popover">
           <CommandInput placeholder="Search providers" />
           <CommandList className="max-h-96">
             <CommandEmpty>No matches.</CommandEmpty>
@@ -195,28 +203,33 @@ export function SettingsPage() {
   const { settings, updateSetting, resetSettings } = useAppSettings();
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="app-canvas min-h-screen text-foreground">
       <Header />
 
       <main className="page-shell page-stack">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-            Settings
-          </h1>
+        <div className="page-intro">
+          <div>
+            <p className="eyebrow mb-2">Your FishyStream</p>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              Settings
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              Fine-tune how FishyStream looks, browses, and plays on every device.
+            </p>
+          </div>
           <Button
             variant="outline"
-            size="icon"
-            className="shrink-0 rounded-full"
+            className="shrink-0 rounded-xl"
             onClick={() => resetSettings()}
             disabled={JSON.stringify(settings) === JSON.stringify(DEFAULT_APP_SETTINGS)}
-            aria-label="Reset to defaults"
+            aria-label="Reset preferences to defaults"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="mr-2 h-4 w-4" /> Reset
           </Button>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)]">
-          <SettingsSection icon={<Palette className="h-4 w-4 text-primary" />} title="Appearance">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
+          <SettingsSection icon={<Palette className="h-4 w-4" />} title="Appearance">
             <SettingRow
               label="Theme"
               control={
@@ -234,7 +247,7 @@ export function SettingsPage() {
                   value={settings.accent}
                   onValueChange={(value) => updateSetting("accent", value as any)}
                 >
-                  <SelectTrigger className="w-full bg-background text-foreground">
+                  <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/70 text-foreground">
                     <SelectValue placeholder="Accent" />
                   </SelectTrigger>
                   <SelectContent>
@@ -254,7 +267,7 @@ export function SettingsPage() {
                   value={settings.radius}
                   onValueChange={(value) => updateSetting("radius", value as any)}
                 >
-                  <SelectTrigger className="w-full bg-background text-foreground">
+                  <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/70 text-foreground">
                     <SelectValue placeholder="Radius" />
                   </SelectTrigger>
                   <SelectContent>
@@ -290,112 +303,114 @@ export function SettingsPage() {
             />
           </SettingsSection>
 
-          <SettingsSection icon={<PlayCircle className="h-4 w-4 text-primary" />} title="Home">
-            <SettingRow
-              label="Continue watching row"
-              control={
-                <ToggleSettingControl
-                  id="continue-row"
-                  checked={settings.showContinueWatchingRow}
-                  onCheckedChange={(checked) => updateSetting("showContinueWatchingRow", checked)}
-                />
-              }
-            />
-          </SettingsSection>
+          <div className="space-y-6">
+            <SettingsSection icon={<PlayCircle className="h-4 w-4" />} title="Home">
+              <SettingRow
+                label="Continue watching row"
+                control={
+                  <ToggleSettingControl
+                    id="continue-row"
+                    checked={settings.showContinueWatchingRow}
+                    onCheckedChange={(checked) => updateSetting("showContinueWatchingRow", checked)}
+                  />
+                }
+              />
+            </SettingsSection>
 
-          <SettingsSection icon={<Tv2 className="h-4 w-4 text-primary" />} title="Browse">
-            <SettingRow
-              label="Default movie sort"
-              control={
-                <Select
-                  value={settings.defaultMovieSort}
-                  onValueChange={(value) =>
-                    updateSetting("defaultMovieSort", value as typeof settings.defaultMovieSort)
-                  }
-                >
-                  <SelectTrigger className="w-full bg-background text-foreground">
-                    <SelectValue placeholder="Sort" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MOVIE_SORT_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              }
-            />
+            <SettingsSection icon={<Tv2 className="h-4 w-4" />} title="Browse">
+              <SettingRow
+                label="Default movie sort"
+                control={
+                  <Select
+                    value={settings.defaultMovieSort}
+                    onValueChange={(value) =>
+                      updateSetting("defaultMovieSort", value as typeof settings.defaultMovieSort)
+                    }
+                  >
+                    <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/70 text-foreground">
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MOVIE_SORT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                }
+              />
 
-            <SettingRow
-              label="Default TV sort"
-              control={
-                <Select
-                  value={settings.defaultTVSort}
-                  onValueChange={(value) =>
-                    updateSetting("defaultTVSort", value as typeof settings.defaultTVSort)
-                  }
-                >
-                  <SelectTrigger className="w-full bg-background text-foreground">
-                    <SelectValue placeholder="Sort" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TV_SORT_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              }
-            />
-          </SettingsSection>
+              <SettingRow
+                label="Default TV sort"
+                control={
+                  <Select
+                    value={settings.defaultTVSort}
+                    onValueChange={(value) =>
+                      updateSetting("defaultTVSort", value as typeof settings.defaultTVSort)
+                    }
+                  >
+                    <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/70 text-foreground">
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TV_SORT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                }
+              />
+            </SettingsSection>
 
-          <SettingsSection icon={<MonitorPlay className="h-4 w-4 text-primary" />} title="Playback">
-            <SettingRow
-              label="Preferred provider"
-              control={
-                <ProviderPicker
-                  value={settings.defaultProvider}
-                  onValueChange={(value) =>
-                    updateSetting("defaultProvider", value as typeof settings.defaultProvider)
-                  }
-                />
-              }
-            />
+            <SettingsSection icon={<MonitorPlay className="h-4 w-4" />} title="Playback">
+              <SettingRow
+                label="Preferred provider"
+                control={
+                  <ProviderPicker
+                    value={settings.defaultProvider}
+                    onValueChange={(value) =>
+                      updateSetting("defaultProvider", value as typeof settings.defaultProvider)
+                    }
+                  />
+                }
+              />
 
-            <SettingRow
-              label="Anime audio"
-              control={
-                <Select
-                  value={settings.defaultAnimeLanguage}
-                  onValueChange={(value) =>
-                    updateSetting("defaultAnimeLanguage", value as AnimeLanguagePreference)
-                  }
-                >
-                  <SelectTrigger className="w-full bg-background text-foreground">
-                    <SelectValue placeholder="Audio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sub">Subtitled first</SelectItem>
-                    <SelectItem value="dub">Dub first</SelectItem>
-                  </SelectContent>
-                </Select>
-              }
-            />
+              <SettingRow
+                label="Anime audio"
+                control={
+                  <Select
+                    value={settings.defaultAnimeLanguage}
+                    onValueChange={(value) =>
+                      updateSetting("defaultAnimeLanguage", value as AnimeLanguagePreference)
+                    }
+                  >
+                    <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/70 text-foreground">
+                      <SelectValue placeholder="Audio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sub">Subtitled first</SelectItem>
+                      <SelectItem value="dub">Dub first</SelectItem>
+                    </SelectContent>
+                  </Select>
+                }
+              />
 
-            <SettingRow
-              label="Auto advance episodes"
-              description="Skip to next at 98%"
-              control={
-                <ToggleSettingControl
-                  id="auto-advance"
-                  checked={settings.autoAdvanceEpisodes}
-                  onCheckedChange={(checked) => updateSetting("autoAdvanceEpisodes", checked)}
-                />
-              }
-            />
-          </SettingsSection>
+              <SettingRow
+                label="Auto advance episodes"
+                description="Skip to next at 98%"
+                control={
+                  <ToggleSettingControl
+                    id="auto-advance"
+                    checked={settings.autoAdvanceEpisodes}
+                    onCheckedChange={(checked) => updateSetting("autoAdvanceEpisodes", checked)}
+                  />
+                }
+              />
+            </SettingsSection>
+          </div>
         </div>
       </main>
     </div>

@@ -1,452 +1,333 @@
-import { useState, useEffect, useRef } from "react";
-import { useUser, useClerk } from "@clerk/react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useClerk, useUser } from "@clerk/react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Search,
-  Menu,
-  X,
-  ChevronDown,
-  Crown,
-  Settings,
-  Tv,
-  Film,
-  Clock,
   BookMarked,
-  User as UserIcon
+  Compass,
+  Film,
+  History,
+  Home,
+  Menu,
+  Search,
+  Settings,
+  Sparkles,
+  Tv,
+  UserRound
 } from "lucide-react";
 import {
   Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  Dialog,
+  DialogContent,
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle
 } from "@fishy/ui";
 
-const navLinks = [
-  { label: "Home", href: "/" },
-  {
-    label: "Movies",
-    href: "/movies",
-    icon: Film,
-    dropdown: [
-      { label: "All", href: "/movies" },
-      { label: "Trending", href: "/movies?sort=trending" },
-      { label: "New", href: "/movies?sort=new" },
-      { label: "Top Rated", href: "/movies?sort=rating" }
-    ]
-  },
-  {
-    label: "TV Shows",
-    href: "/tv-shows",
-    icon: Tv,
-    dropdown: [
-      { label: "All", href: "/tv-shows" },
-      { label: "Trending", href: "/tv-shows?sort=trending" },
-      { label: "Now Airing", href: "/tv-shows?sort=new" },
-      { label: "Top Rated", href: "/tv-shows?sort=rating" }
-    ]
-  },
-  { label: "Picks", href: "/best", icon: Crown }
+type NavItem = { label: string; href: string; icon: typeof Home };
+
+const primaryNav: NavItem[] = [
+  { label: "Home", href: "/", icon: Home },
+  { label: "Discover", href: "/discover", icon: Compass },
+  { label: "Movies", href: "/movies", icon: Film },
+  { label: "TV Shows", href: "/tv-shows", icon: Tv },
+  { label: "Picks", href: "/best", icon: Sparkles }
 ];
 
-const profileLinks = [
+const libraryNav: NavItem[] = [
   { label: "My List", href: "/my-list", icon: BookMarked },
-  { label: "History", href: "/history", icon: Clock },
-  { label: "Settings", href: "/settings", icon: Settings }
+  { label: "History", href: "/history", icon: History }
 ];
+
+function Brand({ compact = false }: { compact?: boolean }) {
+  return (
+    <Link
+      to="/"
+      className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-sm font-black text-primary-foreground shadow-lg shadow-primary/25">
+        F
+      </span>
+      {!compact && (
+        <span className="font-display text-lg font-bold tracking-tight text-foreground">
+          FishyStream
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function NavLink({
+  item,
+  collapsed,
+  onNavigate
+}: {
+  item: NavItem;
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
+  const location = useLocation();
+  const active =
+    item.href === "/" ? location.pathname === "/" : location.pathname.startsWith(item.href);
+  const Icon = item.icon;
+  return (
+    <Link
+      to={item.href}
+      onClick={onNavigate}
+      title={collapsed ? item.label : undefined}
+      className={`group relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        active
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+      } ${collapsed ? "justify-center px-0 xl:justify-start xl:px-3" : ""}`}
+    >
+      <Icon className="h-4.5 w-4.5 shrink-0" />
+      <span className={collapsed ? "hidden xl:block" : "block"}>{item.label}</span>
+    </Link>
+  );
+}
+
+function SearchDialog({
+  open,
+  onOpenChange
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const navigate = useNavigate();
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (open) window.setTimeout(() => inputRef.current?.focus(), 0);
+  }, [open]);
+  const go = (href: string) => {
+    onOpenChange(false);
+    navigate(href);
+  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="media-surface w-[calc(100%-2rem)] max-w-2xl overflow-hidden rounded-2xl p-0">
+        <Command className="bg-transparent">
+          <CommandInput
+            ref={inputRef}
+            placeholder="Search titles or jump to a page…"
+            className="h-14 text-base"
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                const value = event.currentTarget.value.trim();
+                if (value) go(`/search?q=${encodeURIComponent(value)}`);
+              }
+            }}
+          />
+          <CommandList className="max-h-[min(26rem,60dvh)] p-2">
+            <CommandEmpty className="py-8 text-muted-foreground">
+              Press Enter to search the catalog.
+            </CommandEmpty>
+            <CommandGroup heading="Go to">
+              {[
+                ...primaryNav,
+                ...libraryNav,
+                { label: "Settings", href: "/settings", icon: Settings }
+              ].map((item) => (
+                <CommandItem
+                  key={item.href}
+                  value={item.label}
+                  onSelect={() => go(item.href)}
+                  className="gap-3 rounded-lg px-3 py-2.5"
+                >
+                  <item.icon className="h-4 w-4 text-primary" />
+                  {item.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup heading="Search">
+              <CommandItem
+                value="Search movies and television"
+                onSelect={() => go("/search")}
+                className="gap-3 rounded-lg px-3 py-2.5"
+              >
+                <Search className="h-4 w-4 text-primary" />
+                Open catalog search
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function Header() {
-  const { user, isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const { signOut } = useClerk();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [profileOpen, setProfileOpen] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handler, { passive: true });
-    return () => window.removeEventListener("scroll", handler);
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const editing = target?.matches("input, textarea, select, [contenteditable='true']");
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+      if (event.key === "/" && !editing) {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  useEffect(() => {
-    setMobileOpen(false);
-    setSearchOpen(false);
-    setProfileOpen(false);
-  }, [location.pathname]);
-
-  useEffect(() => {
-    if (searchOpen) searchRef.current?.focus();
-  }, [searchOpen]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = searchQuery.trim();
-    if (!q) return;
-    navigate(`/search?q=${encodeURIComponent(q)}`);
-    setSearchOpen(false);
-    setSearchQuery("");
-  };
-
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-header transition-all duration-300 ${
-        scrolled
-          ? "border-b border-white/8 bg-background/95 shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
-          : "bg-linear-to-b from-background/88 via-background/36 to-transparent"
-      }`}
-    >
-      <div className="px-4 sm:px-6 lg:px-10">
-        <div className="flex min-h-18 items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-8">
-            <Link to="/" className="flex shrink-0 items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <span className="font-display text-sm font-bold text-white">F</span>
-              </div>
-              <span className="hidden font-display text-lg font-bold tracking-tight text-white sm:block">
-                FishyStream
-              </span>
-            </Link>
-
-            <nav className="hidden items-center gap-1 rounded-lg border border-white/8 bg-white/[0.035] p-1 lg:flex">
-              {navLinks.map((link) =>
-                link.dropdown ? (
-                  <DropdownMenu key={link.label}>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={`flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium ${
-                            location.pathname === link.href
-                              ? "bg-white text-black hover:bg-white/90 hover:text-black"
-                              : "text-white/68 hover:bg-white/7 hover:text-white"
-                          }`}
-                        >
-                          {link.label}
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        </Button>
-                      }
-                    />
-                    <DropdownMenuContent className="mt-2 w-44 rounded-lg border-white/10 bg-popover p-1 shadow-md">
-                      {link.dropdown.map((item) => (
-                        <DropdownMenuItem
-                          key={item.label}
-                          className="rounded-md px-3 py-2 text-sm text-foreground/74 focus:bg-accent focus:text-accent-foreground"
-                          onClick={() => navigate(item.href)}
-                        >
-                          {item.label}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <Link
-                    key={link.label}
-                    to={link.href}
-                    className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                      location.pathname === link.href
-                        ? "bg-white text-black"
-                        : "text-white/68 hover:bg-white/7 hover:text-white"
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                )
-              )}
-            </nav>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            {searchOpen ? (
-              <form onSubmit={handleSearch} className="hidden items-center md:flex">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                  <Input
-                    ref={searchRef}
-                    type="text"
-                    placeholder="Search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        setSearchOpen(false);
-                        setSearchQuery("");
-                      }
-                    }}
-                    className="w-56 rounded-full border-white/14 bg-white/8 py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-white/36 focus-visible:border-primary/60 focus-visible:bg-white/12 sm:w-72"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setSearchOpen(false);
-                      setSearchQuery("");
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 text-white/40 hover:text-white/80 hover:bg-transparent"
-                    aria-label="Close search"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </form>
-            ) : null}
-
-            {!searchOpen && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-11 w-11 rounded-md text-white/70 hover:bg-white/8 hover:text-white"
-                onClick={() => setSearchOpen(true)}
-                aria-label="Search"
-              >
-                <Search className="h-5 w-5" />
-              </Button>
-            )}
-
-            {isSignedIn ? (
-              <Popover open={profileOpen} onOpenChange={setProfileOpen}>
-                <PopoverTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      className="flex h-11 w-11 items-center justify-center rounded-full p-0 hover:bg-white/5"
-                    >
-                      <img
-                        src={
-                          user?.imageUrl ||
-                          `https://ui-avatars.com/api/?name=${user?.firstName ?? "U"}&background=e50914&color=fff`
-                        }
-                        alt="Profile"
-                        className="h-8 w-8 rounded-full object-cover ring-2 ring-white/10"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.firstName ?? "U").charAt(0))}&background=e50914&color=fff`;
-                        }}
-                      />
-                    </Button>
-                  }
-                />
-                <PopoverContent className="mt-2 w-52 overflow-hidden rounded-lg border-white/10 bg-popover p-1 shadow-md">
-                  <div className="border-b border-white/8 px-4 py-3">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {user?.firstName} {user?.lastName}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {user?.emailAddresses[0]?.emailAddress}
-                    </p>
-                  </div>
-                  <div className="py-1">
-                    {profileLinks.map((item) => (
-                      <Button
-                        key={item.label}
-                        variant="ghost"
-                        className="mx-1 flex w-[calc(100%-0.5rem)] items-center justify-start gap-3 rounded-md px-3 py-2 text-left text-sm text-foreground/74 hover:bg-accent hover:text-accent-foreground"
-                        onClick={() => {
-                          setProfileOpen(false);
-                          navigate(item.href);
-                        }}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="border-t border-white/8 py-1">
-                    <Button
-                      variant="ghost"
-                      className="mx-1 flex w-[calc(100%-0.5rem)] items-center justify-start gap-3 rounded-md px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-400"
-                      onClick={() => {
-                        setProfileOpen(false);
-                        signOut();
-                      }}
-                    >
-                      <UserIcon className="h-4 w-4" />
-                      Sign Out
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <div className="hidden items-center gap-1 sm:flex">
-                <Link
-                  to="/my-list"
-                  className="flex h-11 w-11 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/8 hover:text-white"
-                  aria-label="My List"
-                >
-                  <BookMarked className="h-4 w-4" />
-                </Link>
-                <Button
-                  size="sm"
-                  className="rounded-md bg-primary px-4 text-white hover:bg-primary/90"
-                  onClick={() => navigate("/sign-in")}
-                >
-                  Sign In
-                </Button>
-              </div>
-            )}
-
+    <>
+      <aside className="app-rail flex-col px-3 py-5">
+        <div className="mb-8 px-2 xl:px-1">
+          <Brand compact />
+        </div>
+        <nav className="space-y-1" aria-label="Primary navigation">
+          {primaryNav.map((item) => (
+            <NavLink key={item.href} item={item} collapsed />
+          ))}
+        </nav>
+        <div className="my-5 border-t border-border/60" />
+        <nav className="space-y-1" aria-label="Library navigation">
+          {libraryNav.map((item) => (
+            <NavLink key={item.href} item={item} collapsed />
+          ))}
+        </nav>
+        <div className="mt-auto space-y-2">
+          <Button
+            variant="secondary"
+            onClick={() => setSearchOpen(true)}
+            className="h-11 w-full justify-center rounded-lg px-0 xl:justify-start xl:px-3"
+          >
+            <Search className="h-4.5 w-4.5 shrink-0" />
+            <span className="hidden xl:inline">Search</span>
+            <kbd className="ml-auto hidden rounded border border-border/80 px-1.5 py-0.5 text-[10px] text-muted-foreground xl:inline">
+              ⌘K
+            </kbd>
+          </Button>
+          {isSignedIn ? (
             <Button
               variant="ghost"
-              size="icon"
-              className="h-11 w-11 rounded-md text-white/70 hover:bg-white/8 hover:text-white lg:hidden"
-              onClick={(e) => {
-                e.currentTarget.blur();
-                setMobileOpen(true);
-              }}
-              aria-label="Open menu"
+              onClick={() => navigate("/settings")}
+              className="h-11 w-full justify-center rounded-lg px-0 text-muted-foreground xl:justify-start xl:px-3"
             >
-              <Menu className="h-5 w-5" />
+              <UserRound className="h-4.5 w-4.5 shrink-0" />
+              <span className="hidden max-w-36 truncate xl:inline">
+                {user?.firstName ?? "Account"}
+              </span>
             </Button>
-          </div>
+          ) : (
+            <Button
+              onClick={() => navigate("/sign-in")}
+              className="h-11 w-full justify-center rounded-lg px-0 xl:px-3"
+            >
+              {" "}
+              <span className="hidden xl:inline">Sign in</span>
+              <UserRound className="h-4.5 w-4.5 xl:hidden" />
+            </Button>
+          )}
         </div>
+      </aside>
 
-        {searchOpen && (
-          <div className="border-t border-white/8 py-3 md:hidden">
-            <form onSubmit={handleSearch} className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-              <Input
-                ref={searchRef}
-                type="text"
-                placeholder="Search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border-white/14 bg-white/8 py-3 pl-11 pr-11 text-sm text-white placeholder:text-white/40 focus-visible:border-primary/60 focus-visible:bg-white/12"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setSearchOpen(false);
-                  setSearchQuery("");
-                }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 h-7 w-7 text-white/40 hover:text-white/80 hover:bg-transparent"
-                aria-label="Close search"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </form>
-          </div>
-        )}
-      </div>
+      <header className="app-topbar">
+        <Brand />
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search"
+          >
+            <Search className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </div>
+      </header>
+      <nav className="app-bottom-nav" aria-label="Mobile navigation">
+        <div className="mx-auto flex max-w-md items-center justify-between">
+          {primaryNav.slice(0, 2).map((item) => (
+            <NavLink key={item.href} item={item} collapsed />
+          ))}
+          <Button
+            size="icon"
+            className="h-11 w-11 rounded-full shadow-lg shadow-primary/30"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search"
+          >
+            <Search className="h-5 w-5" />
+          </Button>
+          <NavLink item={libraryNav[0]!} collapsed />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </div>
+      </nav>
 
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent
           side="right"
-          className="w-[min(22rem,calc(100vw-0.75rem))] border-l border-white/8 bg-background p-0 text-white sm:w-88"
+          className="w-[min(22rem,calc(100vw-1rem))] border-border/70 bg-background p-4"
         >
-          <SheetHeader className="border-b border-white/8 px-5 py-4">
-            <SheetTitle className="text-lg font-semibold text-white">Browse</SheetTitle>
+          <SheetHeader className="mb-5">
+            <SheetTitle>
+              <Brand />
+            </SheetTitle>
           </SheetHeader>
-          <div className="max-h-[calc(100dvh-4.5rem)] overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
-            <nav className="flex flex-col gap-2">
-              {navLinks.map((link) => (
-                <div key={link.label} className="border-b border-white/6 last:border-b-0">
-                  <Link
-                    to={link.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-3 text-sm font-medium transition-colors ${
-                      location.pathname === link.href
-                        ? "bg-white/10 text-white"
-                        : "text-white/72 hover:bg-white/8 hover:text-white"
-                    }`}
-                  >
-                    {link.icon && <link.icon className="h-4 w-4" />}
-                    {link.label}
-                  </Link>
-                  {link.dropdown && (
-                    <div className="grid grid-cols-2 gap-1 px-3 pb-2">
-                      {link.dropdown.map((item) => (
-                        <Link
-                          key={item.label}
-                          to={item.href}
-                          onClick={() => setMobileOpen(false)}
-                          className="rounded-md px-3 py-2 text-xs font-medium text-white/68 transition-colors hover:bg-white/8 hover:text-white"
-                        >
-                          {item.label}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <div className="mt-2 border-t border-white/6 pt-3">
-                {isSignedIn ? (
-                  <div className="space-y-1">
-                    <div className="px-1 pb-2">
-                      <p className="truncate text-sm font-medium text-white">
-                        {user?.firstName} {user?.lastName}
-                      </p>
-                      <p className="truncate text-xs text-white/45">
-                        {user?.emailAddresses[0]?.emailAddress}
-                      </p>
-                    </div>
-                    {profileLinks.map((item) => (
-                      <Link
-                        key={item.label}
-                        to={item.href}
-                        onClick={() => setMobileOpen(false)}
-                        className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-colors hover:bg-white/8 hover:text-white"
-                      >
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                      </Link>
-                    ))}
-                    <Button
-                      variant="ghost"
-                      className="flex w-full items-center justify-start gap-3 rounded-md px-3 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-400"
-                      onClick={() => signOut()}
-                    >
-                      <UserIcon className="h-4 w-4" />
-                      Sign Out
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <Link
-                      to="/my-list"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-colors hover:bg-white/8 hover:text-white"
-                    >
-                      <BookMarked className="h-4 w-4" />
-                      My List
-                    </Link>
-                    <Link
-                      to="/history"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-white/72 transition-colors hover:bg-white/8 hover:text-white"
-                    >
-                      <Clock className="h-4 w-4" />
-                      Watch History
-                    </Link>
-                    <Button
-                      className="mt-2 w-full bg-primary text-white hover:bg-primary/90"
-                      onClick={() => navigate("/sign-in")}
-                    >
-                      Sign In
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </nav>
+          <div className="space-y-1">
+            {primaryNav.slice(2).map((item) => (
+              <NavLink key={item.href} item={item} onNavigate={() => setMenuOpen(false)} />
+            ))}
+            <div className="my-4 border-t border-border/60" />
+            {libraryNav.slice(1).map((item) => (
+              <NavLink key={item.href} item={item} onNavigate={() => setMenuOpen(false)} />
+            ))}
+            <NavLink
+              item={{ label: "Settings", href: "/settings", icon: Settings }}
+              onNavigate={() => setMenuOpen(false)}
+            />
+            {isSignedIn ? (
+              <Button
+                variant="ghost"
+                className="mt-3 w-full justify-start gap-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => signOut()}
+              >
+                <UserRound className="h-4.5 w-4.5" />
+                Sign out
+              </Button>
+            ) : (
+              <Button className="mt-4 w-full" onClick={() => navigate("/sign-in")}>
+                Sign in
+              </Button>
+            )}
           </div>
         </SheetContent>
       </Sheet>
-    </header>
+      <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+    </>
   );
 }

@@ -60,7 +60,6 @@ function HomepageContent({
   isSignedIn: boolean | undefined;
   settings: ReturnType<typeof useAppSettings>["settings"];
 }) {
-  const navigate = useNavigate();
   const location = useLocation();
   const homepage = useHomepageContent();
   const categories = homepage?.categories ?? [];
@@ -123,42 +122,6 @@ function HomepageContent({
             trailerMuted={settings.heroTrailerMuted}
           />
         )}
-        <section className="page-shell-wide relative z-10 pb-2">
-          <div className="flex justify-center">
-            <div
-              className="inline-flex rounded-full border border-white/10 bg-white/4 p-1"
-              role="tablist"
-              aria-label="Home or Discover"
-            >
-              <Button
-                variant="ghost"
-                role="tab"
-                aria-selected={!isDiscoverMode}
-                className={`rounded-full px-5 ${
-                  !isDiscoverMode
-                    ? "bg-white text-black hover:bg-white/90"
-                    : "text-white/58 hover:bg-white/8 hover:text-white"
-                }`}
-                onClick={() => navigate("/")}
-              >
-                Home
-              </Button>
-              <Button
-                variant="ghost"
-                role="tab"
-                aria-selected={isDiscoverMode}
-                className={`rounded-full px-5 ${
-                  isDiscoverMode
-                    ? "bg-white text-black hover:bg-white/90"
-                    : "text-white/58 hover:bg-white/8 hover:text-white"
-                }`}
-                onClick={() => navigate("/discover")}
-              >
-                Discover
-              </Button>
-            </div>
-          </div>
-        </section>
         {isDiscoverMode ? (
           <div className="relative z-10 pb-18 pt-6">
             <DiscoverContentMode onPlay={handlePlay} />

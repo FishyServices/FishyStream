@@ -41,7 +41,7 @@ export function RecommendationsPage() {
 
   if (isLoading && recommendations.length === 0) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="app-canvas min-h-screen">
         <Header />
         <div className="page-shell-wide page-stack">
           <GridSkeleton />
@@ -51,7 +51,7 @@ export function RecommendationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-canvas min-h-screen">
       <Header />
 
       <main className="page-shell-wide page-stack">
@@ -63,22 +63,22 @@ export function RecommendationsPage() {
                 value={typeFilter}
                 onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}
               >
-                <TabsList className="h-auto rounded-xl bg-white/6 p-1">
+                <TabsList className="h-auto rounded-xl border border-border/65 bg-muted/45 p-1">
                   <TabsTrigger
                     value="all"
-                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                    className="rounded-lg data-selected:bg-primary data-selected:text-primary-foreground"
                   >
                     All
                   </TabsTrigger>
                   <TabsTrigger
                     value="movie"
-                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                    className="rounded-lg data-selected:bg-primary data-selected:text-primary-foreground"
                   >
                     <Film className="w-3.5 h-3.5" />
                   </TabsTrigger>
                   <TabsTrigger
                     value="tv"
-                    className="rounded-lg data-selected:bg-white data-selected:text-black"
+                    className="rounded-lg data-selected:bg-primary data-selected:text-primary-foreground"
                   >
                     <Tv className="w-3.5 h-3.5" />
                   </TabsTrigger>
@@ -90,7 +90,7 @@ export function RecommendationsPage() {
                 size="icon"
                 onClick={handleRefresh}
                 disabled={isLoading}
-                className="rounded-md text-white/60 hover:text-white"
+                className="rounded-xl border border-border/65 bg-card/60 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Refresh recommendations"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -104,16 +104,24 @@ export function RecommendationsPage() {
             icon={<Sparkles className="h-10 w-10 text-muted-foreground" />}
             title="Add a few titles to your list to unlock picks made for you"
             action={
-              <Button className="rounded-md" onClick={() => navigate("/movies")}>
+              <Button className="rounded-xl" onClick={() => navigate("/movies")}>
                 Browse movies
               </Button>
             }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {recommendations.map((item) => (
-              <MovieCard key={item._id} content={item} onPlay={handlePlay} layout="grid" />
-            ))}
+          <div className="rounded-2xl border border-border/55 bg-card/28 p-3 sm:p-5">
+            <div className="mb-5 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <p className="text-sm text-muted-foreground">
+                Based on your saved titles and viewing activity
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {recommendations.map((item) => (
+                <MovieCard key={item._id} content={item} onPlay={handlePlay} layout="grid" />
+              ))}
+            </div>
           </div>
         )}
       </main>

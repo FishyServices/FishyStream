@@ -54,7 +54,7 @@ function FeaturedDiscoverCarousel({
   };
 
   return (
-    <section className="relative h-[76vh] min-h-145 overflow-hidden">
+    <section className="relative h-[72svh] min-h-130 overflow-hidden border-b border-border/55 sm:h-[80vh] sm:min-h-150">
       {items.map((item, itemIndex) => (
         <div
           key={item._id}
@@ -71,8 +71,8 @@ function FeaturedDiscoverCarousel({
         </div>
       ))}
 
-      <div className="absolute inset-0 bg-linear-to-r from-black/95 via-black/45 to-black/10" />
-      <div className="absolute inset-0 bg-linear-to-t from-background via-background/20 to-black/10" />
+      <div className="absolute inset-0 bg-linear-to-r from-background via-background/60 to-transparent" />
+      <div className="absolute inset-0 bg-linear-to-t from-background via-background/20 to-transparent" />
 
       <div className="page-shell-wide absolute inset-x-0 bottom-18 z-10">
         <div className="max-w-3xl space-y-5">
@@ -83,26 +83,28 @@ function FeaturedDiscoverCarousel({
               className="max-h-24 max-w-[min(22rem,78vw)] object-contain object-left drop-shadow-2xl"
             />
           ) : (
-            <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
+            <h1 className="max-w-2xl font-display text-4xl font-bold leading-[0.95] tracking-tight text-foreground sm:text-6xl">
               {active.title}
             </h1>
           )}
-          <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-white/72">
+          <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground/75">
             {active.year ? <span>{active.year}</span> : null}
             {active.rating ? (
-              <span className="rounded-md border border-white/20 px-2 py-0.5">{active.rating}</span>
+              <span className="rounded-md border border-border/70 bg-card/65 px-2 py-0.5">
+                {active.rating}
+              </span>
             ) : null}
             {active.voteAverage ? <span>{active.voteAverage.toFixed(1)}</span> : null}
             {active.seasons ? <span>{active.seasons} seasons</span> : null}
           </div>
           {active.description ? (
-            <p className="line-clamp-3 max-w-2xl text-base leading-7 text-white/74">
+            <p className="line-clamp-3 max-w-2xl text-base leading-7 text-foreground/78">
               {active.description}
             </p>
           ) : null}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
-              className="rounded-md bg-white px-6 text-black hover:bg-white/90"
+              className="rounded-xl bg-primary px-6 text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90"
               onClick={() =>
                 active.tmdbId &&
                 onPlay(
@@ -115,12 +117,12 @@ function FeaturedDiscoverCarousel({
                 )
               }
             >
-              <Play className="mr-2 h-4 w-4 fill-black" />
+              <Play className="mr-2 h-4 w-4 fill-current" />
               Play
             </Button>
             <Button
               variant="secondary"
-              className="rounded-md border border-white/18 bg-black/55 text-white hover:bg-black/75"
+              className="rounded-xl border-border/75 bg-card/75 text-foreground backdrop-blur-sm hover:bg-accent"
               onClick={() => onDetails(active)}
             >
               <Info className="mr-2 h-4 w-4" />
@@ -135,7 +137,7 @@ function FeaturedDiscoverCarousel({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute left-4 top-1/2 z-20 h-12 w-12 -translate-y-1/2 rounded-full bg-black/35 text-white hover:bg-black/55"
+            className="absolute left-4 top-1/2 z-20 h-12 w-12 -translate-y-1/2 rounded-xl border border-border/70 bg-background/70 text-foreground backdrop-blur-sm hover:bg-accent"
             onClick={() => move(-1)}
             aria-label="Previous featured title"
           >
@@ -144,7 +146,7 @@ function FeaturedDiscoverCarousel({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-4 top-1/2 z-20 h-12 w-12 -translate-y-1/2 rounded-full bg-black/35 text-white hover:bg-black/55"
+            className="absolute right-4 top-1/2 z-20 h-12 w-12 -translate-y-1/2 rounded-xl border border-border/70 bg-background/70 text-foreground backdrop-blur-sm hover:bg-accent"
             onClick={() => move(1)}
             aria-label="Next featured title"
           >
@@ -155,7 +157,7 @@ function FeaturedDiscoverCarousel({
               <Button
                 key={item._id}
                 variant="ghost"
-                className={`h-2 min-h-0 rounded-full p-0 ${itemIndex === index ? "w-7 bg-white" : "w-2 bg-white/45"}`}
+                className={`h-2 min-h-0 rounded-full p-0 ${itemIndex === index ? "w-7 bg-primary" : "w-2 bg-foreground/35"}`}
                 onClick={() => setIndex(itemIndex)}
                 aria-label={`Show ${item.title}`}
               />
@@ -249,7 +251,7 @@ function ScrollToTopButton() {
     <Button
       variant="secondary"
       size="icon"
-      className={`fixed bottom-5 right-5 z-50 h-11 w-11 rounded-full border border-white/12 bg-background/82 text-white shadow-lg backdrop-blur-md transition-all ${
+      className={`fixed bottom-5 right-5 z-50 h-11 w-11 rounded-xl border border-border/70 bg-background/88 text-foreground shadow-lg backdrop-blur-xl transition-all ${
         visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
       }`}
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -276,15 +278,15 @@ export function DiscoverContentMode({ onPlay }: { onPlay: PlayHandler }) {
     <>
       <div className="relative z-20 px-4 pb-6 pt-2 md:px-10">
         <div className="mx-auto flex max-w-7xl justify-center">
-          <div className="flex gap-3 rounded-full border border-white/10 bg-background/86 p-1.5 shadow-2xl shadow-black/40 backdrop-blur-md">
+          <div className="media-surface flex gap-2 rounded-2xl border-border/65 bg-card/85 p-1.5 shadow-2xl backdrop-blur-xl">
             {tabs.map((item) => (
               <Button
                 key={item.value}
                 variant="ghost"
-                className={`rounded-full px-4 text-base font-bold transition-transform md:text-xl ${
+                className={`rounded-xl px-4 text-base font-bold transition-transform md:text-xl ${
                   tab === item.value
-                    ? "scale-105 bg-white text-black hover:bg-white/90"
-                    : "text-white/54 hover:bg-white/8 hover:text-white"
+                    ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
                 onClick={() => setTab(item.value)}
               >
@@ -325,7 +327,7 @@ export function DiscoverPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="app-canvas min-h-screen text-foreground">
       <Header />
 
       <main>
