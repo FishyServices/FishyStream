@@ -618,10 +618,16 @@ export function MyListPage() {
     return Array.from(options).sort((a, b) => a.localeCompare(b));
   }, [folderFilter, folderNames]);
 
+  useEffect(() => {
+    if (!debouncedSearchQuery.trim() || !canLoadMore || isLoadingMore) return;
+    loadMore();
+  }, [canLoadMore, debouncedSearchQuery, isLoadingMore, loadMore]);
+
   const filteredWatchlist = useMemo(() => {
     if (!watchlist) return [];
     const normalizedQuery = debouncedSearchQuery.trim().toLowerCase();
-    return watchlist.filter((item) => {
+    const itemsToFilter = normalizedQuery ? allItems : watchlist;
+    return itemsToFilter.filter((item) => {
       const matchesType = listTypeFilter === "all" || item.type === listTypeFilter;
       const itemFolder = item.watchlistFolder?.trim() || "";
       const matchesFolder =
@@ -630,7 +636,7 @@ export function MyListPage() {
       const matchesSearch = !normalizedQuery || item.title.toLowerCase().includes(normalizedQuery);
       return matchesType && matchesFolder && matchesSearch;
     });
-  }, [debouncedSearchQuery, folderFilter, listTypeFilter, watchlist]);
+  }, [allItems, debouncedSearchQuery, folderFilter, listTypeFilter, watchlist]);
 
   const sortedFilteredWatchlist = useMemo(() => {
     const filtered = filteredWatchlist;
