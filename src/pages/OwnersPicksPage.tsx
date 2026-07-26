@@ -25,7 +25,7 @@ export function OwnersPicksPage() {
       <div className="app-canvas min-h-screen">
         <Header />
         <div className="page-shell-wide page-stack">
-          <GridSkeleton />
+          <GridSkeleton variant="picks" />
         </div>
       </div>
     );

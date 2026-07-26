@@ -4,7 +4,7 @@ import { Button } from "@fishy/ui";
 export function PosterSkeleton({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`poster-skeleton aspect-2/3 rounded-xl border border-border/45 ${className}`}
+      className={`poster-skeleton aspect-2/3 w-full min-w-0 rounded-xl border border-border/55 bg-card/80 shadow-md ${className}`}
       aria-hidden="true"
     />
   );
@@ -12,29 +12,101 @@ export function PosterSkeleton({ className = "" }: { className?: string }) {
 
 export function RailSkeleton({ count = 8 }: { count?: number }) {
   return (
-    <section className="py-2 pb-8 sm:py-3 sm:pb-10" aria-hidden="true">
-      <div className="page-shell-wide mb-4 h-6 w-40 rounded-md bg-muted" />
-      <div className="page-shell-wide flex gap-3 overflow-hidden sm:gap-4">
-        {Array.from({ length: count }).map((_, index) => (
-          <PosterSkeleton
-            key={index}
-            className="w-[42vw] min-w-37 max-w-53.75 shrink-0 sm:w-46.25 lg:w-53.75"
-          />
-        ))}
+    <section className="py-5 pb-9 sm:py-7 sm:pb-12" aria-hidden="true">
+      <div className="page-shell-wide poster-skeleton mb-4 h-7 w-44 rounded-xl border border-border/55 bg-card/60 sm:mb-5 sm:h-8" />
+      <div className="page-shell-wide relative pt-2">
+        <div className="flex gap-3 overflow-hidden px-1 pb-4 sm:gap-4 sm:px-0">
+          {Array.from({ length: count }).map((_, index) => (
+            <PosterSkeleton
+              key={index}
+              className="w-[42vw] min-w-37 max-w-53.75 shrink-0 sm:w-46.25 lg:w-53.75"
+            />
+          ))}
+        </div>
       </div>
     </section>
   );
 }
 
-export function GridSkeleton({ count = 12 }: { count?: number }) {
+type GridSkeletonVariant = "grid" | "library" | "picks";
+
+const gridSkeletonClassName =
+  "grid min-w-0 grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
+
+function SkeletonGrid({
+  count,
+  className = gridSkeletonClassName
+}: {
+  count: number;
+  className?: string;
+}) {
   return (
-    <div
-      className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
-      aria-hidden="true"
-    >
+    <div className={className}>
       {Array.from({ length: count }).map((_, index) => (
         <PosterSkeleton key={index} />
       ))}
+    </div>
+  );
+}
+
+export function GridSkeleton({
+  count = 12,
+  variant = "grid"
+}: {
+  count?: number;
+  variant?: GridSkeletonVariant;
+}) {
+  if (variant === "picks") {
+    return (
+      <div aria-hidden="true">
+        <div className="page-intro">
+          <div className="poster-skeleton h-10 w-32 rounded-xl border border-border/55 bg-card/60 sm:h-11 sm:w-40" />
+        </div>
+        <div className="space-y-10 sm:space-y-12">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <section
+              key={index}
+              className="rounded-2xl border border-border/55 bg-card/28 p-4 sm:p-5"
+            >
+              <div className="mb-5 flex items-center gap-3 border-b border-border/55 pb-4">
+                <div className="poster-skeleton h-9 w-9 shrink-0 rounded-xl border border-border/55 bg-card/60" />
+                <div className="poster-skeleton h-7 w-40 rounded-lg border border-border/55 bg-card/60" />
+              </div>
+              <SkeletonGrid
+                count={count}
+                className={`${gridSkeletonClassName} lg:gap-x-5 2xl:grid-cols-7 2xl:gap-x-6`}
+              />
+            </section>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "library") {
+    return (
+      <div aria-hidden="true">
+        <div className="page-intro">
+          <div className="poster-skeleton h-10 w-40 rounded-xl border border-border/55 bg-card/60 sm:h-11 sm:w-48" />
+          <div className="poster-skeleton h-10 w-24 shrink-0 self-end rounded-xl border border-border/55 bg-card/60 sm:self-auto" />
+        </div>
+        <div className="space-y-8">
+          <section className="media-surface space-y-4 rounded-2xl border-border/65 bg-card/55 p-4 sm:p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="poster-skeleton h-9 w-20 rounded-xl border border-border/55 bg-card/60" />
+              <div className="poster-skeleton h-9 w-24 rounded-xl border border-border/55 bg-card/60" />
+              <div className="poster-skeleton h-9 w-28 rounded-xl border border-border/55 bg-card/60" />
+            </div>
+            <SkeletonGrid count={count} />
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div aria-hidden="true">
+      <SkeletonGrid count={count} />
     </div>
   );
 }

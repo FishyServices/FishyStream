@@ -375,10 +375,10 @@ export function ContentModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="z-modal flex max-h-[min(92dvh,58rem)] w-[calc(100%-1rem)] max-w-4xl flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-0 text-card-foreground shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-10 [&>button]:w-10 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button]:p-0 [&>button]:backdrop-blur-sm [&>button:hover]:bg-accent">
+      <DialogContent className="z-modal flex max-h-[min(96dvh,70rem)] w-[calc(100%-1rem)] max-w-4xl flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-0 text-card-foreground shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-10 [&>button]:w-10 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button]:p-0 [&>button]:backdrop-blur-sm [&>button:hover]:bg-accent">
         {" "}
         <DialogTitle className="sr-only">{contentData.title}</DialogTitle>
-        <div className="relative h-64 shrink-0 overflow-hidden sm:h-88">
+        <div className="relative h-72 shrink-0 overflow-hidden sm:h-96">
           {isHydratingContent && !heroImageUrl ? (
             <div className="flex h-full w-full items-center justify-center bg-muted/60">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -407,7 +407,6 @@ export function ContentModal({
             />
           )}
           <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
-            <p className="eyebrow mb-2">{isTV ? "Series details" : "Feature presentation"}</p>
             <h2 className="mb-4 max-w-2xl font-display text-3xl font-black leading-[0.95] tracking-tight text-foreground sm:text-4xl lg:pr-44">
               {contentData.title}
             </h2>

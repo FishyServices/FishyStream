@@ -921,7 +921,7 @@ export function MyListPage() {
       <div className="app-canvas min-h-screen">
         <Header />
         <div className="page-shell-wide page-stack">
-          <GridSkeleton />
+          <GridSkeleton variant="library" />
         </div>
       </div>
     );
