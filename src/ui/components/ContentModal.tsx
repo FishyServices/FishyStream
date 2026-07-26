@@ -443,16 +443,16 @@ export function ContentModal({
                 <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading title details
               </div>
             )}
-            <div className="flex flex-wrap items-center gap-2 text-sm">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
               {contentData.voteAverage && contentData.voteAverage > 0 && (
-                <span className="flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 font-semibold text-amber-300">
+                <span className="flex items-center gap-1 font-semibold text-amber-300">
                   <Star className="h-4 w-4 fill-yellow-400" />
                   {contentData.voteAverage.toFixed(1)}
                 </span>
               )}
 
               {detailContent?.duration && (
-                <span className="flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-muted-foreground">
+                <span className="flex items-center gap-3 text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
                   {detailContent.duration}
                 </span>
@@ -464,7 +464,7 @@ export function ContentModal({
                   {ratingLabel}
                 </span>
               )}
-              <span className="flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-muted-foreground">
+              <span className="flex items-center gap-1 text-muted-foreground">
                 {isTV ? <Tv className="h-3.5 w-3.5" /> : <Film className="h-3.5 w-3.5" />}
                 {isTV ? `${totalSeasons} Season${totalSeasons > 1 ? "s" : ""}` : "Movie"}
               </span>
@@ -565,7 +565,6 @@ export function ContentModal({
               <div>
                 {totalSeasons > 1 && (
                   <div className="mb-4 flex items-center justify-between gap-3">
-                    <p className="eyebrow">Choose an episode</p>
                     <Select
                       value={String(selectedSeason)}
                       onValueChange={(value) => {
