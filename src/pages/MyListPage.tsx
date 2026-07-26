@@ -1283,7 +1283,6 @@ export function MyListPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="eyebrow mb-1">Keep exploring</p>
                   <h2 className="font-display text-2xl font-bold text-foreground">Recommended</h2>
                 </div>
               </div>

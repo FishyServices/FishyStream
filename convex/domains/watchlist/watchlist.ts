@@ -9,6 +9,23 @@ function cleanFolder(name: string) {
   return name.trim().replace(/\s+/g, " ");
 }
 
+function toWatchlistItem(item: {
+  contentId: string;
+  title: string;
+  folder?: string;
+  posterUrl: string;
+}) {
+  const parsed = parseContentId(item.contentId);
+  return {
+    _id: item.contentId,
+    title: item.title,
+    type: parsed?.type || "movie",
+    posterUrl: fromImageWire(item.posterUrl),
+    tmdbId: parsed?.tmdbId || "",
+    watchlistFolder: item.folder
+  };
+}
+
 export const listWatchlist = query({
   args: {
     clerkUserId: v.string(),
@@ -25,20 +42,40 @@ export const listWatchlist = query({
       folder === undefined
         ? baseQuery
         : baseQuery.filter((q) => q.eq(q.field("folder"), folder === null ? undefined : folder));
+
+    if (folder === undefined) {
+      const entries = await scopedQuery.order("desc").collect();
+      const representatives: typeof entries = [];
+      const seenFolders = new Set<string>();
+      const remaining: typeof entries = [];
+
+      for (const entry of entries) {
+        const entryFolder = entry.folder?.trim();
+        if (entryFolder && !seenFolders.has(entryFolder)) {
+          seenFolders.add(entryFolder);
+          representatives.push(entry);
+        } else {
+          remaining.push(entry);
+        }
+      }
+
+      const orderedEntries = [...representatives, ...remaining];
+      const start = paginationOpts.cursor === null ? 0 : Number(paginationOpts.cursor);
+      const safeStart = Number.isFinite(start) && start >= 0 ? start : 0;
+      const end = safeStart + paginationOpts.numItems;
+      const page = orderedEntries.slice(safeStart, end);
+
+      return {
+        page: page.map(toWatchlistItem),
+        isDone: end >= orderedEntries.length,
+        continueCursor: String(end)
+      };
+    }
+
     const result = await scopedQuery.order("desc").paginate(paginationOpts);
     return {
       ...result,
-      page: result.page.map((item) => {
-        const parsed = parseContentId(item.contentId);
-        return {
-          _id: item.contentId,
-          title: item.title,
-          type: parsed?.type || "movie",
-          posterUrl: fromImageWire(item.posterUrl),
-          tmdbId: parsed?.tmdbId || "",
-          watchlistFolder: item.folder
-        };
-      })
+      page: result.page.map(toWatchlistItem)
     };
   }
 });
