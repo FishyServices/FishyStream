@@ -17,6 +17,7 @@ import {
   fetchTmdbVideos,
   fetchTmdbRelated,
   fetchTmdbDetails,
+  fetchTmdbCardDetail,
   fetchTmdbFullDetail,
   fetchTmdbSeasonEpisodes,
   fetchTmdbSearch,
@@ -116,6 +117,8 @@ function tmdbCardToContentCard(card: TMDBContentCard): ContentCard {
 function getApiKey(): string {
   return (import.meta.env.VITE_TMDB_KEY as string | undefined) ?? TMDB_API_KEY;
 }
+
+const curatedCardCache = new Map<string, TMDBContentCard>();
 
 /* ─── Homepage ───────────────────────────────────────────────────────────────── */
 
@@ -264,57 +267,48 @@ export function useCuratedPicks() {
     const tvIds = tvItems.map((item) => item.tmdbId);
     const animeIds = animeItems.map((item) => item.tmdbId);
 
+    const cardCache = curatedCardCache;
+
     async function load() {
-      try {
-        const fetchGroup = async (ids: string[], type: TMDBMediaType) => {
-          const results = await Promise.all(
-            ids.map(async (id) => {
-              try {
-                const detail = await fetchTmdbFullDetail(id, type, apiKey, controller.signal);
-                if (!detail) return null;
-                return {
-                  _id: makeContentId(detail.type, detail.tmdbId),
-                  title: detail.title,
-                  type: detail.type,
-                  genre: detail.genre,
-                  year: detail.year,
-                  voteAverage: detail.voteAverage,
-                  posterUrl: detail.posterUrl,
-                  tmdbId: detail.tmdbId,
-                  new: detail.isNew
-                } as ContentCard;
-              } catch {
-                return null;
-              }
-            })
-          );
-          return results.filter((item): item is ContentCard => !!item);
-        };
-
-        const [movies, tv, anime] = await Promise.all([
-          fetchGroup(movieIds, "movie"),
-          fetchGroup(tvIds, "tv"),
-          fetchGroup(animeIds, "tv")
-        ]);
-
+      const fetchGroup = async (
+        ids: string[],
+        type: TMDBMediaType,
+        group: "movies" | "tv" | "anime"
+      ) => {
+        const results = await Promise.all(
+          ids.map(async (id) => {
+            const key = `${type}:${id}`;
+            let card: TMDBContentCard | null | undefined = cardCache.get(key);
+            if (card === undefined) {
+              card = await fetchTmdbCardDetail(id, type, apiKey, controller.signal);
+              if (card) cardCache.set(key, card);
+            }
+            if (!card) return null;
+            return {
+              _id: makeContentId(card.type, card.tmdbId),
+              title: card.title,
+              type: card.type,
+              genre: card.genre,
+              year: card.year,
+              voteAverage: card.voteAverage,
+              posterUrl: card.posterUrl,
+              tmdbId: card.tmdbId,
+              new: card.isNew
+            } as ContentCard;
+          })
+        );
         if (!controller.signal.aborted) {
-          setPicks({
-            movies,
-            tv,
-            anime,
+          setPicks((current) => ({
+            ...current,
+            [group]: results.filter((item): item is ContentCard => !!item),
             isLoading: false
-          });
+          }));
         }
-      } catch {
-        if (!controller.signal.aborted) {
-          setPicks({
-            movies: [],
-            tv: [],
-            anime: [],
-            isLoading: false
-          });
-        }
-      }
+      };
+
+      void fetchGroup(movieIds, "movie", "movies");
+      void fetchGroup(tvIds, "tv", "tv");
+      void fetchGroup(animeIds, "tv", "anime");
     }
 
     void load();

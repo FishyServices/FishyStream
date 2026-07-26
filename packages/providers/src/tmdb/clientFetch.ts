@@ -325,6 +325,35 @@ export async function fetchTmdbFullDetail(
   }
 }
 
+export async function fetchTmdbCardDetail(
+  tmdbId: string,
+  type: TMDBMediaType,
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<TMDBContentCard | null> {
+  const url = buildTmdbUrl(`/${type}/${tmdbId}`, apiKey);
+  try {
+    const res = await fetch(url, { signal });
+    if (!res.ok) return null;
+    const item = (await res.json()) as TMDBMovieDetails & TMDBTVDetails;
+    const title = type === "movie" ? item.title : item.name;
+    if (!title || !item.poster_path) return null;
+
+    return {
+      tmdbId,
+      title,
+      type,
+      year: getYear(type === "movie" ? item.release_date : item.first_air_date),
+      posterUrl: getPosterUrl(item.poster_path),
+      voteAverage: item.vote_average,
+      genre: getGenres(item),
+      isNew: false
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchTmdbSeasonEpisodes(
   tmdbId: string,
   seasonNumber: number,
