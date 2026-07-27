@@ -1,6 +1,21 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Plus, Check, Star, Clock, Tv, Film, User, Loader2 } from "lucide-react";
+import {
+  Play,
+  Plus,
+  Check,
+  Star,
+  Clock,
+  Tv,
+  Film,
+  User,
+  Loader2,
+  Download,
+  Globe,
+  FileVideo,
+  ExternalLink,
+  AlertTriangle
+} from "lucide-react";
 import {
   Button,
   Dialog,
@@ -138,9 +153,9 @@ export function ContentModal({
   initialTab,
   compactCopy = true
 }: ContentModalProps) {
-  const [activeTab, setActiveTab] = useState<"episodes" | "cast" | "videos" | "related">(
-    initialTab ?? "episodes"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "episodes" | "cast" | "videos" | "related" | "downloads"
+  >(initialTab ?? "episodes");
 
   const tmdbDetailEnabled = isOpen && !!content && !!content.tmdbId && !hasFullContent(content);
   const { detail: tmdbDetail } = useContentDetail(
@@ -276,6 +291,184 @@ export function ContentModal({
       new: relatedTmdbDetail.isNew
     } as ContentDetail);
   }, [relatedTmdbDetail, relatedModalItem]);
+
+  const [downloads, setDownloads] = useState<any[]>([]);
+  const [downloadsLoading, setDownloadsLoading] = useState(false);
+  const [downloadsError, setDownloadsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen && activeTab === "downloads" && resolvedContent) {
+      const loadDownloads = async () => {
+        try {
+          setDownloadsLoading(true);
+          setDownloadsError(null);
+          setDownloads([]);
+
+          const scraperHost = import.meta.env.DEV ? "http://localhost:4000" : "";
+
+          const tmdbId = resolvedContent.tmdbId || resolvedContent._id.split(":").at(-1) || "";
+          const type = resolvedContent.type;
+          const currentSeason = selectedSeason;
+          const currentEpisode = selectedEpisode;
+
+          const results: any[] = [];
+
+          // 1Embed
+          let embedUrl = "";
+          if (type === "tv") {
+            embedUrl = `https://1embed.cc/download/tv/${tmdbId}/${currentSeason}/${currentEpisode}`;
+          } else {
+            embedUrl = `https://1embed.cc/download/movie/${tmdbId}`;
+          }
+          results.push({
+            source: "1Embed.cc",
+            name: "Open Download Page (1Embed)",
+            url: embedUrl,
+            direct: false
+          });
+
+          // 02MovieDownloader
+          let movieDownloaderUrl = "";
+          if (type === "tv") {
+            movieDownloaderUrl = `https://02moviedownloader.site/api/download/tv/${tmdbId}/${currentSeason}/${currentEpisode}`;
+          } else {
+            movieDownloaderUrl = `https://02moviedownloader.site/api/download/movie/${tmdbId}`;
+          }
+          results.push({
+            source: "02MovieDownloader",
+            name: "Open Download Page (02Movie)",
+            url: movieDownloaderUrl,
+            direct: false
+          });
+
+          // StreamRip
+          if (scraperHost) {
+            try {
+              const streamripUrl = `${scraperHost}/api/download/streamrip?type=${type}&id=${tmdbId}&season=${currentSeason}&episode=${currentEpisode}`;
+              const res = await fetch(streamripUrl);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.downloads && Array.isArray(data.downloads)) {
+                  data.downloads.forEach((dl: any) => {
+                    results.push({
+                      source: "StreamRip",
+                      name: `${dl.server} - ${dl.quality}p (${dl.size || "Unknown size"})`,
+                      url: dl.url,
+                      headers: dl._headers || dl.headers,
+                      direct: true
+                    });
+                  });
+                }
+              }
+            } catch (e) {
+              console.error("StreamRip fetch failed:", e);
+            }
+
+            // AniSnatch
+            try {
+              const aniId =
+                ("anilistId" in resolvedContent ? (resolvedContent as any).anilistId : undefined) ||
+                tmdbId;
+              const anisnatchUrl = `${scraperHost}/api/download/anisnatch?id=${aniId}&episode=${currentEpisode}`;
+              const res = await fetch(anisnatchUrl);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.downloads && Array.isArray(data.downloads)) {
+                  data.downloads.forEach((dl: any) => {
+                    results.push({
+                      source: "AniSnatch",
+                      name: dl.name,
+                      url: dl.url,
+                      direct: true
+                    });
+                  });
+                }
+              }
+            } catch (e) {
+              console.error("AniSnatch fetch failed:", e);
+            }
+
+            // Animex
+            try {
+              const query = resolvedContent.title;
+              const animexUrl = `${scraperHost}/api/download/animex?q=${encodeURIComponent(query)}`;
+              const res = await fetch(animexUrl);
+              if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                  const resolvePromises = data.slice(0, 2).map(async (item: any) => {
+                    try {
+                      const resolveRes = await fetch(
+                        `${scraperHost}/api/download/animex?id=${encodeURIComponent(item.id)}`
+                      );
+                      if (resolveRes.ok) {
+                        const resolveData = await resolveRes.json();
+                        if (resolveData.downloads && Array.isArray(resolveData.downloads)) {
+                          return resolveData.downloads;
+                        }
+                      }
+                    } catch (e) {
+                      console.error("Animex resolve failed for", item.id, e);
+                    }
+                    return null;
+                  });
+
+                  const resolvedBundles = await Promise.all(resolvePromises);
+                  let addedAny = false;
+
+                  resolvedBundles.forEach((bundle) => {
+                    if (bundle) {
+                      bundle.forEach((dl: any) => {
+                        results.push({
+                          source: "Animex",
+                          name: dl.text,
+                          url: dl.url,
+                          direct: true
+                        });
+                        addedAny = true;
+                      });
+                    }
+                  });
+
+                  if (!addedAny) {
+                    data.forEach((dl: any) => {
+                      results.push({
+                        source: "Animex",
+                        name: dl.title,
+                        url: `https://animex.one/community/download?id=${dl.id}`,
+                        direct: false
+                      });
+                    });
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("Animex fetch failed:", e);
+            }
+          }
+
+          setDownloads(results);
+        } catch (error) {
+          console.error("Download loading failed:", error);
+          setDownloadsError("Failed to load download options. Please try again later.");
+          setDownloads([]);
+        } finally {
+          setDownloadsLoading(false);
+        }
+      };
+
+      loadDownloads();
+    }
+  }, [
+    isOpen,
+    activeTab,
+    resolvedContent?._id,
+    resolvedContent?.title,
+    resolvedContent?.type,
+    resolvedContent?.tmdbId,
+    selectedSeason,
+    selectedEpisode
+  ]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -558,6 +751,18 @@ export function ContentModal({
               >
                 Related
               </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setActiveTab("downloads")}
+                className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  activeTab === "downloads"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                Downloads
+              </Button>
             </div>
 
             {activeTab === "episodes" && isTV && (
@@ -725,6 +930,58 @@ export function ContentModal({
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "downloads" && (
+              <div>
+                {downloadsLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : downloadsError ? (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+                    <div className="flex items-center gap-2 text-sm text-red-300/90">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      {downloadsError}
+                    </div>
+                  </div>
+                ) : downloads.length > 0 ? (
+                  <div className="space-y-2">
+                    {downloads.map((download, idx) => (
+                      <a
+                        key={idx}
+                        href={download.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center justify-between rounded-xl border border-border/60 bg-muted/35 p-4 transition-colors hover:bg-muted/55 hover:border-border/80"
+                      >
+                        <div className="flex flex-1 items-center gap-3 min-w-0">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                            {download.direct ? (
+                              <Download className="h-5 w-5 text-primary" />
+                            ) : (
+                              <ExternalLink className="h-5 w-5 text-primary" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-1 text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                              {download.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground/70">{download.source}</p>
+                          </div>
+                        </div>
+                        <div className="ml-2 shrink-0">
+                          <Globe className="h-4 w-4 text-muted-foreground/60 transition-colors group-hover:text-primary" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="py-8 text-center text-xs text-muted-foreground">
+                    No downloads available
+                  </p>
                 )}
               </div>
             )}

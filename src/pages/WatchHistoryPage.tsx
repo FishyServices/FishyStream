@@ -85,12 +85,6 @@ export function WatchHistoryPage() {
         ) : (
           <>
             <div className="rounded-2xl border border-border/55 bg-card/28 p-3 sm:p-5">
-              <div className="mb-5 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-primary" />
-                <p className="text-sm text-muted-foreground">
-                  Pick up where you left off, or clear a title from your history.
-                </p>
-              </div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {visibleHistory.map((item) => (
                   <div key={item._id} className="group relative">
