@@ -34,10 +34,6 @@ interface CustomVideoPlayerProps {
   onInfoClick: () => void;
 }
 
-function clamp(v: number) {
-  return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
-}
-
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || !isFinite(seconds)) return "0:00";
   const h = Math.floor(seconds / 3600);
@@ -85,6 +81,11 @@ export function CustomVideoPlayer({
   const [showSettings, setShowSettings] = useState(false);
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPlayingRef = useRef(isPlaying);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   const triggerControls = () => {
     setShowControls(true);
@@ -92,7 +93,7 @@ export function CustomVideoPlayer({
       clearTimeout(controlsTimeoutRef.current);
     }
     controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) {
+      if (isPlayingRef.current) {
         setShowControls(false);
         setShowSettings(false);
       }
@@ -100,18 +101,51 @@ export function CustomVideoPlayer({
   };
 
   useEffect(() => {
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeElement = document.activeElement as HTMLElement | null;
       if (
-        document.activeElement?.tagName === "INPUT" ||
-        document.activeElement?.tagName === "SELECT" ||
-        document.activeElement?.tagName === "BUTTON"
+        activeElement?.tagName === "INPUT" ||
+        activeElement?.tagName === "SELECT" ||
+        activeElement?.tagName === "BUTTON" ||
+        activeElement?.isContentEditable
       ) {
         return;
       }
 
-      if (e.code === "Space") {
+      const video = videoRef.current;
+      if (!video) return;
+
+      if (e.code === "Space" || e.code === "KeyK") {
         e.preventDefault();
         togglePlay();
+        triggerControls();
+      } else if (e.code === "ArrowUp") {
+        e.preventDefault();
+        handleVolumeChange(Math.min(1, video.volume + 0.05));
+        triggerControls();
+      } else if (e.code === "ArrowDown") {
+        e.preventDefault();
+        handleVolumeChange(Math.max(0, video.volume - 0.05));
+        triggerControls();
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        handleSeek(Math.max(0, video.currentTime - 5));
+        triggerControls();
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        handleSeek(Math.min(video.duration || Infinity, video.currentTime + 5));
+        triggerControls();
+      } else if (e.code === "KeyM") {
+        e.preventDefault();
+        toggleMute();
         triggerControls();
       } else if (e.code === "KeyF") {
         e.preventDefault();
@@ -272,7 +306,7 @@ export function CustomVideoPlayer({
     if (!videoRef.current) return;
     videoRef.current.volume = value;
     setVolume(value);
-    if (value > 0 && isMuted) {
+    if (value > 0 && videoRef.current.muted) {
       videoRef.current.muted = false;
       setIsMuted(false);
     }
@@ -320,7 +354,7 @@ export function CustomVideoPlayer({
         ref={videoRef}
         onClick={togglePlay}
         onDoubleClick={toggleFullscreen}
-        className="w-full h-full object-contain cursor-pointer"
+        className={`w-full h-full object-contain ${showControls ? "cursor-pointer" : "cursor-none"}`}
         autoPlay
         playsInline
       >

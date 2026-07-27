@@ -700,7 +700,7 @@ export function VideoPlayer({
               handleNextEpisode({ fromClick: true });
             }}
             disabled={isNextEpisodeCooldown}
-            className="absolute bottom-23 left-4 right-4 gap-2 border-border/80 bg-card/90 text-foreground shadow-xl backdrop-blur-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 sm:left-auto"
+            className="absolute bottom-23 left-4 right-4 z-50 gap-2 border-border/80 bg-card/90 text-foreground shadow-xl backdrop-blur-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 sm:left-auto"
             aria-label="Play next episode"
           >
             <SkipForward className="w-4 h-4" />
