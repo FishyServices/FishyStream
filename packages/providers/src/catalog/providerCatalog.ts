@@ -425,6 +425,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://peachify.top",
     progress: { resumeParam: "startAt" },
+    supportsCustomUI: true,
     referrerPolicy: "no-referrer",
     params: {
       server: { type: "string" },
@@ -587,6 +588,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vidlux.xyz",
+    supportsCustomUI: true,
     params: {
       key: { type: "string" },
       color: { type: "hex" },

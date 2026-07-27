@@ -62,6 +62,7 @@ export function CustomVideoPlayer({
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
   const [subtitles, setSubtitles] = useState<any[]>([]);
   const [skipTimes, setSkipTimes] = useState<{
@@ -170,6 +171,7 @@ export function CustomVideoPlayer({
     if (!embedUrl) return;
 
     let isMounted = true;
+    const abortController = new AbortController();
     setIsScraping(true);
 
     const fetchRawStream = async () => {
@@ -177,13 +179,21 @@ export function CustomVideoPlayer({
         const scraperEndpoint = import.meta.env.DEV
           ? "http://localhost:4000/api/scrape"
           : "/api/scrape";
-        const res = await fetch(`${scraperEndpoint}?url=${encodeURIComponent(embedUrl)}`);
+        const res = await fetch(`${scraperEndpoint}?url=${encodeURIComponent(embedUrl)}`, {
+          signal: abortController.signal
+        });
         const data = await res.json();
         if (!isMounted) return;
 
         if (data.streamUrl && videoRef.current) {
+          hlsRef.current?.destroy();
+          hlsRef.current = null;
+
           if (data.tracks) setSubtitles(data.tracks);
           if (data.intro || data.outro) setSkipTimes({ intro: data.intro, outro: data.outro });
+
+          const mediaType =
+            data.mediaType ?? (String(data.streamUrl).includes(".m3u8") ? "hls" : "file");
 
           const getStartAtSeconds = () => {
             try {
@@ -197,8 +207,9 @@ export function CustomVideoPlayer({
             return 0;
           };
 
-          if (Hls.isSupported()) {
+          if (mediaType === "hls" && Hls.isSupported()) {
             const hls = new Hls();
+            hlsRef.current = hls;
             hls.loadSource(data.streamUrl);
             hls.attachMedia(videoRef.current);
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -208,7 +219,10 @@ export function CustomVideoPlayer({
               }
               videoRef.current?.play().catch(() => {});
             });
-          } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
+          } else if (
+            mediaType === "hls" &&
+            videoRef.current.canPlayType("application/vnd.apple.mpegurl")
+          ) {
             videoRef.current.src = data.streamUrl;
             const startSeconds = getStartAtSeconds();
             if (startSeconds > 0) {
@@ -223,6 +237,10 @@ export function CustomVideoPlayer({
             } else {
               videoRef.current.play().catch(() => {});
             }
+          } else if (mediaType === "file") {
+            videoRef.current.src = data.streamUrl;
+            videoRef.current.load();
+            videoRef.current.play().catch(() => {});
           }
         }
       } catch (e) {
@@ -236,6 +254,14 @@ export function CustomVideoPlayer({
     fetchRawStream();
     return () => {
       isMounted = false;
+      abortController.abort();
+      hlsRef.current?.destroy();
+      hlsRef.current = null;
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.removeAttribute("src");
+        videoRef.current.load();
+      }
     };
   }, [embedUrl]);
 
@@ -253,7 +279,9 @@ export function CustomVideoPlayer({
       setIsMuted(video.muted);
     };
     const handleDurationChange = () => {
-      setDuration(video.duration);
+      if (Number.isFinite(video.duration) && video.duration >= 0) {
+        setDuration(video.duration);
+      }
     };
 
     const handleTimeUpdate = () => {
@@ -274,6 +302,7 @@ export function CustomVideoPlayer({
     video.addEventListener("pause", handlePlayState);
     video.addEventListener("volumechange", handleVolumeState);
     video.addEventListener("durationchange", handleDurationChange);
+    video.addEventListener("loadedmetadata", handleDurationChange);
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("ended", handlePlayState);
 
@@ -282,6 +311,7 @@ export function CustomVideoPlayer({
       video.removeEventListener("pause", handlePlayState);
       video.removeEventListener("volumechange", handleVolumeState);
       video.removeEventListener("durationchange", handleDurationChange);
+      video.removeEventListener("loadedmetadata", handleDurationChange);
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("ended", handlePlayState);
     };
