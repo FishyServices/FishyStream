@@ -27,10 +27,6 @@
       "types": "./dist/anime/index.d.ts",
       "import": "./dist/anime/index.js"
     },
-    "./proxy": {
-      "types": "./dist/proxy/index.d.ts",
-      "import": "./dist/proxy/index.js"
-    },
     "./*": {
       "types": "./dist/*.d.ts",
       "import": "./dist/*.js"

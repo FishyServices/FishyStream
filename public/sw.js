@@ -28,12 +28,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (url.origin !== self.location.origin) return;
-  if (
-    url.pathname === "/api" ||
-    url.pathname.startsWith("/api/") ||
-    url.pathname === "/vidplays-proxy" ||
-    url.pathname.startsWith("/vidplays-proxy/")
-  ) {
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
     return;
   }
 

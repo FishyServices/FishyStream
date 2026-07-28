@@ -1,8 +1,3 @@
-import {
-  proxyProviderRequest,
-  resolveProviderProxyPathFromSegments
-} from "../../../packages/providers/src/proxy/providerProxy";
-
 type RouteParam = string | string[] | undefined;
 
 export interface PagesFunctionContext {
@@ -18,26 +13,6 @@ function getSegments(value: RouteParam) {
   if (Array.isArray(value)) return value.filter(Boolean);
   if (typeof value === "string") return value.split("/").filter(Boolean);
   return [];
-}
-
-export async function handleProviderProxyRequest(context: PagesFunctionContext, prefix?: string) {
-  const { request, params } = context;
-  const segments = prefix ? [prefix, ...getSegments(params.path)] : getSegments(params.path);
-  const providerProxyPath = resolveProviderProxyPathFromSegments(segments);
-
-  if (!providerProxyPath) {
-    return new Response("Unknown provider proxy", { status: 404 });
-  }
-
-  const providerProxyUrl = new URL(request.url);
-  providerProxyUrl.pathname = providerProxyPath;
-
-  return proxyProviderRequest({
-    url: providerProxyUrl,
-    method: request.method,
-    headers: request.headers,
-    body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined
-  });
 }
 
 import scraperApp from "@fishy/scraper";
@@ -62,11 +37,6 @@ export async function handleApiRequest(context: PagesFunctionContext) {
       },
       context as any
     );
-  }
-
-  const providerProxyPath = resolveProviderProxyPathFromSegments(path);
-  if (providerProxyPath) {
-    return handleProviderProxyRequest(context);
   }
 
   const siteUrl = env.VITE_CONVEX_SITE_URL ?? env.CONVEX_SITE_URL ?? "";

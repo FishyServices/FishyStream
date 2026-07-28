@@ -24,7 +24,6 @@ export type ProviderKey =
   | "vidking"
   | "vidlux"
   | "vidnest"
-  | "vidplays"
   | "vidplus-ads"
   | "vidrock"
   | "vidsrc"
@@ -635,17 +634,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) => `/anime/${id}/${episode}${dub ? "/dub" : "/sub"}`
-  }),
-  defineProvider({
-    key: "vidplays",
-    name: "VidPlays",
-    category: "other",
-    idType: "tmdb",
-    website: "/vidplays-proxy",
-    progress: { resumeParam: "startAt" },
-    referrerPolicy: "unsafe-url",
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
     key: "vidplus-ads",

@@ -8,11 +8,6 @@ describe("providerCatalog", () => {
     expect(provider?.unsafeWildcardOrigin).toBe(false);
   });
 
-  it("keeps relative proxy providers marked as unsafe wildcard origins", () => {
-    const provider = getProviderByKey("vidplays");
-    expect(provider?.origins).toEqual(["*"]);
-    expect(provider?.unsafeWildcardOrigin).toBe(true);
-  });
 
   it("finds a provider by explicit origin", () => {
     expect(getProviderByOrigin("https://vidcore.net")?.key).toBe("vidcore");
