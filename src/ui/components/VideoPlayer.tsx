@@ -719,7 +719,14 @@ export function VideoPlayer({
         }
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
-        onPlay={(_tmdbId, season, episode, source, dub, type) => {
+        onPlay={(
+          _tmdbId: string,
+          season?: number,
+          episode?: number,
+          source?: string,
+          dub?: boolean,
+          type?: any
+        ) => {
           setShowInfoModal(false);
           const nextSource = source ?? searchParams.get("source");
           const path = buildWatchPath({

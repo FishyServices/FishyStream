@@ -48,7 +48,12 @@ export async function handleApiRequest(context: PagesFunctionContext) {
   const path = getSegments(params.path);
   const subpath = path.join("/");
 
-  if (subpath === "scrape" || subpath === "m3u8-proxy" || subpath === "ts-proxy") {
+  if (
+    subpath === "scrape" ||
+    subpath === "m3u8-proxy" ||
+    subpath === "ts-proxy" ||
+    subpath.startsWith("download/")
+  ) {
     return scraperApp.fetch(
       request,
       {

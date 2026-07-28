@@ -194,7 +194,14 @@ export function SearchCard({
           }}
           isOpen={showModal}
           onClose={() => setShowModal(false)}
-          onPlay={(tmdbId, season, episode, source, dub, type) =>
+          onPlay={(
+            tmdbId: string,
+            season?: number,
+            episode?: number,
+            source?: string,
+            dub?: boolean,
+            type?: any
+          ) =>
             navigate(
               buildWatchPath({
                 tmdbId,
