@@ -8,10 +8,19 @@ export interface DownloadItem {
   headers?: Record<string, string>;
 }
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export async function fetchDownloads(
   resolvedContent: any,
   selectedSeason: number,
-  selectedEpisode: number
+  selectedEpisode: number,
+  episodeTitle?: string
 ): Promise<DownloadItem[]> {
   const scraperHost = import.meta.env.DEV ? "http://localhost:4000" : "";
 
@@ -49,6 +58,42 @@ export async function fetchDownloads(
     url: movieDownloaderUrl,
     direct: false
   });
+
+  // AnimeShrine
+  if (type === "tv") {
+    const titleSlug = slugify(resolvedContent.title || "");
+    const epString = String(currentEpisode);
+    const epStringFloat = `${currentEpisode}.0`;
+
+    results.push({
+      source: "AnimeShrine",
+      name: `Open Download Page (AnimeShrine - Ep ${currentEpisode})`,
+      url: `https://animeshrine.xyz/download/${titleSlug}/episode-${currentEpisode}/${tmdbId}-1:${currentSeason}:${epString}`,
+      direct: false
+    });
+    results.push({
+      source: "AnimeShrine",
+      name: `Open Download Page (AnimeShrine - Ep ${currentEpisode}.0)`,
+      url: `https://animeshrine.xyz/download/${titleSlug}/episode-${currentEpisode}/${tmdbId}-1:${currentSeason}:${epStringFloat}`,
+      direct: false
+    });
+
+    if (episodeTitle) {
+      const epTitleSlug = slugify(episodeTitle);
+      results.push({
+        source: "AnimeShrine",
+        name: `Open Download Page (AnimeShrine - Title - Ep ${currentEpisode})`,
+        url: `https://animeshrine.xyz/download/${titleSlug}/${epTitleSlug}/${tmdbId}-1:${currentSeason}:${epString}`,
+        direct: false
+      });
+      results.push({
+        source: "AnimeShrine",
+        name: `Open Download Page (AnimeShrine - Title - Ep ${currentEpisode}.0)`,
+        url: `https://animeshrine.xyz/download/${titleSlug}/${epTitleSlug}/${tmdbId}-1:${currentSeason}:${epStringFloat}`,
+        direct: false
+      });
+    }
+  }
 
   // StreamRip
   try {

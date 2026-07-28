@@ -305,7 +305,17 @@ export function ContentModal({
           setDownloadsError(null);
           setDownloads([]);
 
-          const results = await fetchDownloads(resolvedContent, selectedSeason, selectedEpisode);
+          const currentEpisodeObj = dbSeason?.episodes?.find(
+            (ep) => ep.episodeNumber === selectedEpisode
+          );
+          const episodeTitle = currentEpisodeObj?.name;
+
+          const results = await fetchDownloads(
+            resolvedContent,
+            selectedSeason,
+            selectedEpisode,
+            episodeTitle
+          );
 
           setDownloads(results);
         } catch (error) {
@@ -327,7 +337,8 @@ export function ContentModal({
     resolvedContent?.type,
     resolvedContent?.tmdbId,
     selectedSeason,
-    selectedEpisode
+    selectedEpisode,
+    dbSeason?.episodes
   ]);
 
   useEffect(() => {
@@ -809,34 +820,74 @@ export function ContentModal({
                   </div>
                 ) : downloads.length > 0 ? (
                   <div className="space-y-2">
-                    {downloads.map((download, idx) => (
-                      <a
-                        key={idx}
-                        href={download.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group flex items-center justify-between rounded-xl border border-border/60 bg-muted/35 p-4 transition-colors hover:bg-muted/55 hover:border-border/80"
-                      >
-                        <div className="flex flex-1 items-center gap-3 min-w-0">
+                    {downloads
+                      .filter((d) => d.source !== "AnimeShrine")
+                      .map((download, idx) => (
+                        <a
+                          key={idx}
+                          href={download.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-center justify-between rounded-xl border border-border/60 bg-muted/35 p-4 transition-colors hover:bg-muted/55 hover:border-border/80"
+                        >
+                          <div className="flex flex-1 items-center gap-3 min-w-0">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                              {download.direct ? (
+                                <Download className="h-5 w-5 text-primary" />
+                              ) : (
+                                <ExternalLink className="h-5 w-5 text-primary" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="line-clamp-1 text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                                {download.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground/70">{download.source}</p>
+                            </div>
+                          </div>
+                          <div className="ml-2 shrink-0">
+                            <Globe className="h-4 w-4 text-muted-foreground/60 transition-colors group-hover:text-primary" />
+                          </div>
+                        </a>
+                      ))}
+
+                    {downloads.filter((d) => d.source === "AnimeShrine").length > 0 && (
+                      <div className="group flex items-center justify-between rounded-xl border border-border/60 bg-muted/35 p-4 transition-colors hover:bg-muted/55">
+                        <div className="flex flex-1 items-center gap-3 min-w-0 mr-4">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                            {download.direct ? (
-                              <Download className="h-5 w-5 text-primary" />
-                            ) : (
-                              <ExternalLink className="h-5 w-5 text-primary" />
-                            )}
+                            <ExternalLink className="h-5 w-5 text-primary" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="line-clamp-1 text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                              {download.name}
+                            <p className="line-clamp-1 text-sm font-medium text-foreground">
+                              AnimeShrine Options
                             </p>
-                            <p className="text-xs text-muted-foreground/70">{download.source}</p>
+                            <p className="text-xs text-muted-foreground/70">AnimeShrine</p>
                           </div>
                         </div>
-                        <div className="ml-2 shrink-0">
-                          <Globe className="h-4 w-4 text-muted-foreground/60 transition-colors group-hover:text-primary" />
+                        <div className="w-45 shrink-0">
+                          <Select
+                            onValueChange={(val) => {
+                              if (val) window.open(val as string, "_blank", "noopener,noreferrer");
+                            }}
+                          >
+                            <SelectTrigger className="w-full text-xs">
+                              <SelectValue placeholder="Select Option..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {downloads
+                                .filter((d) => d.source === "AnimeShrine")
+                                .map((dl, idx) => (
+                                  <SelectItem key={idx} value={dl.url}>
+                                    {dl.name
+                                      .replace("Open Download Page (AnimeShrine - ", "")
+                                      .replace(")", "")}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                      </a>
-                    ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="py-8 text-center text-xs text-muted-foreground">
