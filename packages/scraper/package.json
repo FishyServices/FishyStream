@@ -16,18 +16,20 @@
     "build": "tsc",
     "dev": "bun run --hot src/dev.ts",
     "postinstall": "puppeteer browsers install chrome",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240701.0",
+    "@cloudflare/workers-types": "5.20260729.1",
     "@types/bun": "latest",
-    "puppeteer": "^25.3.0"
+    "puppeteer": "25.4.0",
+    "prettier": "3.9.6"
   },
   "peerDependencies": {
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@cloudflare/puppeteer": "1.1.0",
-    "hono": "^4.4.12"
+    "@cloudflare/puppeteer": "1.2.0",
+    "hono": "4.12.32"
   }
 }
