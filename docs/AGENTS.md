@@ -1,5 +1,15 @@
 # FishyStream repository instructions
 
+## AI Context & Design System Documentation
+
+All AI context, product specifications, and design system rules reside in the `docs/` directory:
+
+- **Product Specifications**: `docs/PRODUCT.md`
+- **Design System & Tokens**: `docs/DESIGN.md`
+- **Impeccable Sidecar Metadata**: `docs/.impeccable/design.json`
+
+AI agents should read `docs/PRODUCT.md` and `docs/DESIGN.md` before making UI/UX modifications or adding new features.
+
 ## Validation
 
 - Use `bun run lint` as the standard validation command.
