@@ -1,19 +1,31 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
-import { Sparkles, RefreshCw, Film, Tv } from "lucide-react";
+import { Sparkles, RefreshCw, Film, Tv, Folder, Check, SlidersHorizontal } from "lucide-react";
 import { Header } from "@/ui/components/Header";
 import { MovieCard } from "@/ui/components/MovieCard";
 import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
 import { useMyWatchlist } from "@/features/library/useWatchlist";
 import { useUser } from "@clerk/react";
 import { useRecommendations } from "@/features/catalog/queries/useContent";
+import { useRecommendationFolderScope } from "@/features/catalog/recommendationFolderScope";
 import { createPlayHandler } from "@/shared/navigation/watchNavigation";
-import { Button, Tabs, TabsList, TabsTrigger } from "@fishy/ui";
+import {
+  Button,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@fishy/ui";
 
 export function RecommendationsPage() {
   const navigate = useNavigate();
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const [typeFilter, setTypeFilter] = useState<"all" | "movie" | "tv">("all");
   const [refreshSeed, setRefreshSeed] = useState(0);
 
@@ -27,6 +39,27 @@ export function RecommendationsPage() {
 
   const watchlistData = useMyWatchlist();
   const hasHistoryOrWatchlist = !!(watchlistData && watchlistData.length > 0) || isSignedIn;
+  const { scope: folderScope, setScope: setFolderScope } = useRecommendationFolderScope(
+    user?.id ?? "guest"
+  );
+  const folderOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (watchlistData ?? [])
+            .map((item) => item.watchlistFolder?.trim())
+            .filter((folder): folder is string => !!folder)
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    [watchlistData]
+  );
+
+  const toggleFolder = (folder: string) => {
+    const folders = folderScope.folders.includes(folder)
+      ? folderScope.folders.filter((item) => item !== folder)
+      : [...folderScope.folders, folder].sort((a, b) => a.localeCompare(b));
+    setFolderScope({ ...folderScope, folders });
+  };
 
   const { recommendations, isLoading } = useRecommendations(
     36,
@@ -85,6 +118,81 @@ export function RecommendationsPage() {
                 </TabsList>
               </Tabs>
 
+              {folderOptions.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        className="min-h-11 rounded-xl border border-border/65 bg-card/60 px-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                        aria-label="Choose folders used for recommendations"
+                      />
+                    }
+                  >
+                    <Folder className="mr-2 h-4 w-4" />
+                    {folderScope.folders.length === 0
+                      ? "All folders"
+                      : `${folderScope.folders.length} folder${folderScope.folders.length === 1 ? "" : "s"}`}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-72 rounded-xl border border-border/70 bg-popover p-1 shadow-xl">
+                    <DropdownMenuLabel className="px-2 py-2 text-sm font-medium text-foreground">
+                      Recommendation sources
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem
+                      className="gap-2"
+                      onClick={() => setFolderScope({ ...folderScope, mode: "include" })}
+                    >
+                      {folderScope.mode === "include" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <span className="w-4" />
+                      )}
+                      Use selected folders only
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="gap-2"
+                      onClick={() => setFolderScope({ ...folderScope, mode: "exclude" })}
+                    >
+                      {folderScope.mode === "exclude" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <span className="w-4" />
+                      )}
+                      Exclude selected folders
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="my-1 bg-border/65" />
+                    {folderOptions.map((folder) => {
+                      const selected = folderScope.folders.includes(folder);
+                      return (
+                        <DropdownMenuItem
+                          key={folder}
+                          className="gap-2"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            toggleFolder(folder);
+                          }}
+                        >
+                          {selected ? (
+                            <Check className="h-4 w-4 text-primary" />
+                          ) : (
+                            <span className="w-4" />
+                          )}
+                          <span className="truncate">{folder}</span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                    <DropdownMenuSeparator className="my-1 bg-border/65" />
+                    <DropdownMenuItem
+                      disabled={folderScope.folders.length === 0}
+                      onClick={() => setFolderScope({ mode: "include", folders: [] })}
+                    >
+                      <SlidersHorizontal className="mr-2 h-4 w-4" />
+                      Clear folder filter
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -114,7 +222,11 @@ export function RecommendationsPage() {
             <div className="mb-5 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <p className="text-sm text-muted-foreground">
-                Based on your saved titles and viewing activity
+                {folderScope.folders.length > 0
+                  ? folderScope.mode === "include"
+                    ? "Based only on titles in your selected folders"
+                    : "Based on titles outside your excluded folders"
+                  : "Based on your saved titles and viewing activity"}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">

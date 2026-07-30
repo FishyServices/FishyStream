@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useMyWatchlist } from "@/features/library/useWatchlist";
 import { useMyWatchHistory, useContinueWatching } from "@/features/library/useWatchHistory";
+import { useUser } from "@clerk/react";
+import { useRecommendationFolderScope } from "@/features/catalog/recommendationFolderScope";
 import type {
   ContentCard,
   ContentId,
@@ -560,6 +562,8 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
   const watchlist = useMyWatchlist();
   const watchHistory = useMyWatchHistory();
   const continueWatching = useContinueWatching(enabled, 24);
+  const { user } = useUser();
+  const { scope } = useRecommendationFolderScope(user?.id ?? "guest");
 
   return useMemo(() => {
     const tmdbSeeds: TMDBRecommendationSeed[] = [];
@@ -595,19 +599,29 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
       }
     };
 
-    if (continueWatching) {
+    const hasFolderScope = scope.folders.length > 0;
+    const selectedFolders = new Set(scope.folders);
+    const scopedWatchlist = watchlist?.filter((item) => {
+      if (!hasFolderScope) return true;
+      const folder = item.watchlistFolder?.trim();
+      return scope.mode === "include"
+        ? !!folder && selectedFolders.has(folder)
+        : !folder || !selectedFolders.has(folder);
+    });
+
+    if (!hasFolderScope && continueWatching) {
       continueWatching.forEach((item, index) => {
         processItem(item, 1, Math.max(0.5, 1 - index * 0.05));
       });
     }
 
-    if (watchlist) {
-      watchlist.forEach((item, index) => {
+    if (scopedWatchlist) {
+      scopedWatchlist.forEach((item, index) => {
         processItem(item, 7, Math.max(0.3, 1 - index * 0.02));
       });
     }
 
-    if (watchHistory) {
+    if (!hasFolderScope && watchHistory) {
       watchHistory.forEach((item, index) => {
         processItem(item, 1, Math.max(0.1, 1 - index * 0.01));
       });
@@ -632,10 +646,11 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
       preferredType,
       genres
     };
-  }, [watchlist, watchHistory, continueWatching]);
+  }, [watchlist, watchHistory, continueWatching, scope]);
 }
 
-const REC_CACHE_KEY = "fishy_recs_cache_v1";
+const REC_CACHE_KEY = "fishy_recs_cache_v2";
+const REC_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 interface RecCacheEntry {
   timestamp: number;
@@ -649,7 +664,15 @@ interface RecCache {
 function loadRecCache(): RecCache {
   try {
     const raw = localStorage.getItem(REC_CACHE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const cache = JSON.parse(raw) as RecCache;
+      const oldestAllowed = Date.now() - REC_CACHE_TTL_MS;
+      for (const [key, entry] of Object.entries(cache)) {
+        if (!entry || !Array.isArray(entry.cards) || entry.timestamp < oldestAllowed)
+          delete cache[key];
+      }
+      return cache;
+    }
   } catch {}
   return {};
 }
@@ -657,8 +680,8 @@ function loadRecCache(): RecCache {
 function saveRecCache(cache: RecCache) {
   try {
     const keys = Object.keys(cache).sort((a, b) => cache[b]!.timestamp - cache[a]!.timestamp);
-    if (keys.length > 50) {
-      const toDelete = keys.slice(50);
+    if (keys.length > 80) {
+      const toDelete = keys.slice(80);
       for (const k of toDelete) {
         delete cache[k];
       }

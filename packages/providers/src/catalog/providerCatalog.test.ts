@@ -8,7 +8,6 @@ describe("providerCatalog", () => {
     expect(provider?.unsafeWildcardOrigin).toBe(false);
   });
 
-
   it("finds a provider by explicit origin", () => {
     expect(getProviderByOrigin("https://vidcore.net")?.key).toBe("vidcore");
   });
