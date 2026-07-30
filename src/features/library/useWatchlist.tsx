@@ -198,18 +198,30 @@ export function useMyWatchlistPagination(folder?: string | null) {
     for (const item of visibleItems ?? []) unique.set(item._id, item);
     return [...unique.values()];
   }, [guestItems, pagesByFolder, user, visibleItems]);
+  const requestLoadMore = useCallback(() => loadMore(PAGE_SIZE), [loadMore]);
   return {
     items: visibleItems,
     allItems,
     isLoading: status === "LoadingFirstPage" && !!user && !immediateItems.length,
     isLoadingMore: status === "LoadingMore",
     canLoadMore: status === "CanLoadMore",
-    loadMore: () => loadMore(PAGE_SIZE)
+    loadMore: requestLoadMore
   };
 }
 
 export function useMyWatchlist() {
   return useMyWatchlistPagination().items;
+}
+
+export function useAllMyWatchlist() {
+  const pagination = useMyWatchlistPagination();
+
+  useEffect(() => {
+    if (!pagination.canLoadMore || pagination.isLoadingMore) return;
+    pagination.loadMore();
+  }, [pagination.canLoadMore, pagination.isLoadingMore, pagination.loadMore]);
+
+  return pagination.allItems;
 }
 
 export function useWatchlistFolders() {

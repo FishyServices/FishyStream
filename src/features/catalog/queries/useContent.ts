@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from "react";
-import { useMyWatchlist } from "@/features/library/useWatchlist";
+import { useAllMyWatchlist } from "@/features/library/useWatchlist";
 import { useMyWatchHistory, useContinueWatching } from "@/features/library/useWatchHistory";
 import { useUser } from "@clerk/react";
 import { useRecommendationFolderScope } from "@/features/catalog/recommendationFolderScope";
@@ -559,7 +559,7 @@ export function usePaginatedContent(
 }
 
 export function usePersonalizedRecommendationSeed(enabled = true) {
-  const watchlist = useMyWatchlist();
+  const watchlist = useAllMyWatchlist();
   const watchHistory = useMyWatchHistory();
   const continueWatching = useContinueWatching(enabled, 24);
   const { user } = useUser();
@@ -651,6 +651,8 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
 
 const REC_CACHE_KEY = "fishy_recs_cache_v2";
 const REC_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const REC_DISPLAY_HISTORY_KEY = "fishy_recs_display_history_v1";
+const MAX_DISPLAY_HISTORY_ENTRIES = 80;
 
 interface RecCacheEntry {
   timestamp: number;
@@ -690,6 +692,65 @@ function saveRecCache(cache: RecCache) {
   } catch {}
 }
 
+type RecDisplayHistory = Record<string, Record<string, number>>;
+
+function loadRecDisplayHistory(): RecDisplayHistory {
+  try {
+    const raw = localStorage.getItem(REC_DISPLAY_HISTORY_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as RecDisplayHistory;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveRecDisplayHistory(history: RecDisplayHistory) {
+  try {
+    const entries = Object.entries(history);
+    if (entries.length > MAX_DISPLAY_HISTORY_ENTRIES) {
+      for (const [key] of entries.slice(0, entries.length - MAX_DISPLAY_HISTORY_ENTRIES)) {
+        delete history[key];
+      }
+    }
+    localStorage.setItem(REC_DISPLAY_HISTORY_KEY, JSON.stringify(history));
+  } catch {}
+}
+
+function chooseRecommendations(
+  cards: ContentCard[],
+  limit: number,
+  refreshSeed: number,
+  historyKey: string
+) {
+  const shuffled = shuffleWithSeed(cards, refreshSeed);
+  const history = loadRecDisplayHistory();
+  const previousStreaks = history[historyKey] ?? {};
+  const isBlocked = (card: ContentCard) =>
+    (previousStreaks[`${card.type}:${card.tmdbId}`] ?? 0) >= 2;
+
+  const preferred = shuffled.filter((card) => !isBlocked(card));
+  const selected = [...preferred.slice(0, limit)];
+  if (selected.length < limit) {
+    const selectedIds = new Set(selected.map((card) => `${card.type}:${card.tmdbId}`));
+    selected.push(
+      ...shuffled
+        .filter((card) => !selectedIds.has(`${card.type}:${card.tmdbId}`))
+        .slice(0, limit - selected.length)
+    );
+  }
+
+  const nextStreaks: Record<string, number> = {};
+  for (const card of selected) {
+    const key = `${card.type}:${card.tmdbId}`;
+    nextStreaks[key] = (previousStreaks[key] ?? 0) + 1;
+  }
+  history[historyKey] = nextStreaks;
+  saveRecDisplayHistory(history);
+
+  return selected;
+}
+
 export function useRecommendations(
   limit = 12,
   typeFilter: "all" | TMDBMediaType = "all",
@@ -724,9 +785,8 @@ export function useRecommendations(
     const allSeeds =
       activeSeed?.tmdbSeeds?.filter((s) => typeFilter === "all" || s.type === typeFilter) ?? [];
 
-    const topSeeds = allSeeds.slice(0, 30);
-    const shuffledTopSeeds = shuffleWithSeed(topSeeds, refreshSeed);
-    const seedItemsToFetch = shuffledTopSeeds.slice(0, 10);
+    const shuffledSeeds = shuffleWithSeed(allSeeds, refreshSeed);
+    const seedItemsToFetch = shuffledSeeds;
 
     const collect = (responses: Array<{ data: TMDBBrowseListResponse; type?: TMDBMediaType }>) =>
       collectTmdbCards(responses, { excludedIds, typeFilter }).map(tmdbCardToContentCard);
@@ -739,7 +799,7 @@ export function useRecommendations(
         const cachedCards: ContentCard[] = [];
         const missingSeeds: TMDBRecommendationSeed[] = [];
 
-        for (const s of topSeeds) {
+        for (const s of allSeeds) {
           const key = `${s.type}:${s.tmdbId}`;
           const entry = cache[key];
           if (entry) {
@@ -785,7 +845,8 @@ export function useRecommendations(
           const deduped = Array.from(
             new Map(allCards.map((c) => [`${c.type}:${c.tmdbId}`, c])).values()
           );
-          setRecommendations(shuffleWithSeed(deduped, refreshSeed).slice(0, limit));
+          const historyKey = `${typeFilter}:${seedSignature ?? "default"}`;
+          setRecommendations(chooseRecommendations(deduped, limit, refreshSeed, historyKey));
         }
       } catch {
         if (!controller.signal.aborted) setRecommendations([]);

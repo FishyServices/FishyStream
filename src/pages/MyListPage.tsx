@@ -2,10 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode
 import { useNavigate } from "react-router-dom";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
 import {
-  Sparkles,
-  RefreshCw,
   Film,
-  Tv,
   BookMarked,
   FolderPlus,
   Folder,
@@ -26,6 +23,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/ui/components/Header";
 import { MovieCard } from "@/ui/components/MovieCard";
+import { RecommendationsSection } from "@/ui/components/RecommendationsSection";
 import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
 import {
   useMyWatchlistPagination,
@@ -34,7 +32,6 @@ import {
   type WatchlistSnapshot
 } from "@/features/library/useWatchlist";
 import { useUser } from "@clerk/react";
-import { useRecommendations } from "@/features/catalog/queries/useContent";
 import { createPlayHandler } from "@/shared/navigation/watchNavigation";
 import {
   Button,
@@ -499,8 +496,6 @@ export function MyListPage() {
   const pendingFolderMoves = useRef<Map<ContentId, string | undefined>>(new Map());
   const updateFolder = useUpdateWatchlistFolder();
   const toggleWatchlistItem = useToggleWatchlist();
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [refreshSeed, setRefreshSeed] = useState(0);
   const [newFolderName, setNewFolderName] = useState("");
   const [pendingFolderLoad, setPendingFolderLoad] = useState<string | null>(null);
   const [customFolders, setCustomFolders] = useState<string[]>(() =>
@@ -536,13 +531,6 @@ export function MyListPage() {
   const [isRenamingFolder, setIsRenamingFolder] = useState(false);
 
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
-
-  const { recommendations, isLoading: recsLoading } = useRecommendations(
-    12,
-    typeFilter,
-    refreshSeed,
-    !!watchlistData?.length
-  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -698,8 +686,6 @@ export function MyListPage() {
   }, [canLoadMore, folderFilter, isLoadingMore, loadMore, pendingFolderLoad]);
 
   const handlePlay = createPlayHandler(navigate, "movie");
-
-  const handleRefresh = () => setRefreshSeed((prev) => prev + 1);
 
   const handleLoadMoreForFolder = (groupName: string) => {
     const targetFolder = groupName === "Unsorted" ? "unsorted" : groupName;
@@ -1277,65 +1263,7 @@ export function MyListPage() {
           </div>
         )}
 
-        {watchlist.length > 0 && (
-          <section className="mt-16 border-t border-border/60 pt-10">
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="flex flex-wrap items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                <div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">Recommended</h2>
-                </div>
-              </div>
-
-              <Tabs
-                value={typeFilter}
-                onValueChange={(value) => setTypeFilter(value as TypeFilter)}
-              >
-                <TabsList className="h-auto rounded-xl border border-border/65 bg-muted/45 p-1">
-                  <TabsTrigger
-                    value="all"
-                    className="rounded-lg data-selected:bg-primary data-selected:text-primary-foreground"
-                  >
-                    All
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="movie"
-                    className="rounded-lg data-selected:bg-primary data-selected:text-primary-foreground"
-                  >
-                    <Film className="h-3.5 w-3.5" />
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="tv"
-                    className="rounded-lg data-selected:bg-primary data-selected:text-primary-foreground"
-                  >
-                    <Tv className="h-3.5 w-3.5" />
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleRefresh}
-                disabled={recsLoading}
-                className="self-start rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground sm:ml-auto"
-                aria-label="Refresh recommendations"
-              >
-                <RefreshCw className={`h-4 w-4 ${recsLoading ? "animate-spin" : ""}`} />
-              </Button>
-            </div>
-
-            {recommendations.length > 0 ? (
-              <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                {recommendations.map((item) => (
-                  <MovieCard key={item._id} content={item} onPlay={handlePlay} layout="grid" />
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No recommendations yet</p>
-            )}
-          </section>
-        )}
+        {watchlist.length > 0 && <RecommendationsSection layout="section" onPlay={handlePlay} />}
       </main>
 
       {/* Floating bulk-action bar */}
