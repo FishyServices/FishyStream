@@ -183,8 +183,8 @@ export function ProviderSourceSelect({
                   <p
                     className={
                       isHeader
-                        ? "px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-                        : "px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-white/40"
+                        ? "px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                        : "px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/40"
                     }
                   >
                     {group.label}

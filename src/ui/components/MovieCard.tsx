@@ -197,7 +197,7 @@ export function MovieCard({
 
           <div className="absolute top-0 left-0 right-0 flex items-start justify-between p-2">
             {content.new && !hoverActive && (
-              <span className="rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground shadow-sm">
+              <span className="rounded-md bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground shadow-sm">
                 NEW
               </span>
             )}
@@ -205,7 +205,7 @@ export function MovieCard({
               content.seasonNumber &&
               content.episodeNumber &&
               !hoverActive && (
-                <span className="ml-auto rounded-md bg-background/80 px-1.5 py-0.5 text-[10px] font-bold text-foreground backdrop-blur-sm">
+                <span className="ml-auto rounded-md bg-background/80 px-1.5 py-0.5 text-[11px] font-bold text-foreground backdrop-blur-sm">
                   S{content.seasonNumber}·E{content.episodeNumber}
                 </span>
               )}
@@ -289,23 +289,23 @@ export function MovieCard({
             <div className="flex items-center gap-2">
               <Button
                 size="icon"
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+                className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={handlePlay}
                 aria-label={`Play ${content.title}`}
               >
-                <Play className="h-3.5 w-3.5 fill-current" />
+                <Play className="h-4 w-4 fill-current" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 rounded-lg border-border/70 bg-card/80 hover:bg-accent"
+                className="h-11 w-11 rounded-lg border-border/70 bg-card/80 hover:bg-accent"
                 onClick={handleWatchlist}
                 aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
               >
                 {isInWatchlist ? (
-                  <Check className="h-3.5 w-3.5 text-green-400" />
+                  <Check className="h-4 w-4 text-green-400" />
                 ) : (
-                  <Plus className="h-3.5 w-3.5 text-white" />
+                  <Plus className="h-4 w-4 text-white" />
                 )}
               </Button>
             </div>

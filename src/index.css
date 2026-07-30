@@ -262,7 +262,11 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 28%);
+    background: linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--color-foreground) 8%, transparent),
+      transparent 28%
+    );
     pointer-events: none;
   }
 
@@ -355,7 +359,7 @@
   }
 
   .kicker {
-    @apply text-[0.65rem] font-semibold uppercase tracking-[0.26em] text-white/46;
+    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-white/46;
   }
 
   .text-metadata {
@@ -433,7 +437,7 @@
 
 ::-webkit-scrollbar-thumb {
   background: color-mix(in oklab, var(--color-muted-foreground) 55%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-xl);
 }
 
 ::-webkit-scrollbar-thumb:hover {

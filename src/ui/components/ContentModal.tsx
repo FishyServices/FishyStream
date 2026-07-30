@@ -130,7 +130,7 @@ function EpisodePill({
         <div className="mb-0.5 flex items-center gap-2">
           <span className="text-xs font-bold text-muted-foreground">E{ep.episodeNumber}</span>
           {selected && (
-            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] font-bold text-primary">
               Now selected
             </span>
           )}
@@ -439,7 +439,7 @@ export function ContentModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="z-modal flex max-h-[min(96dvh,70rem)] w-[calc(100%-1rem)] max-w-4xl flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-0 text-card-foreground shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-10 [&>button]:w-10 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button]:p-0 [&>button]:backdrop-blur-sm [&>button:hover]:bg-accent">
+      <DialogContent className="z-modal flex max-h-[min(96dvh,70rem)] w-[calc(100%-1rem)] max-w-4xl flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-0 text-card-foreground shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button]:p-0 [&>button]:backdrop-blur-sm [&>button:hover]:bg-accent">
         {" "}
         <DialogTitle className="sr-only">{contentData.title}</DialogTitle>
         <div className="relative h-72 shrink-0 overflow-hidden sm:h-96">
@@ -713,10 +713,10 @@ export function ContentModal({
                               <User className="h-6 w-6 text-muted-foreground/60" />
                             </div>
                           )}
-                          <p className="line-clamp-2 text-[10px] font-medium text-foreground">
+                          <p className="line-clamp-2 text-[11px] font-medium text-foreground">
                             {actor.name}
                           </p>
-                          <p className="line-clamp-1 text-[9px] text-muted-foreground">
+                          <p className="line-clamp-1 text-[11px] text-muted-foreground">
                             {actor.character}
                           </p>
                         </div>
@@ -795,7 +795,7 @@ export function ContentModal({
                         <p className="line-clamp-1 text-xs font-medium text-foreground transition-colors group-hover:text-primary">
                           {item.title}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-[11px] text-muted-foreground">
                           {item.year} · {item.voteAverage?.toFixed(1)}
                         </p>
                       </div>

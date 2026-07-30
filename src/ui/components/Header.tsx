@@ -213,7 +213,7 @@ export function Header() {
           >
             <Search className="h-4.5 w-4.5 shrink-0" />
             <span className="hidden xl:inline">Search</span>
-            <kbd className="ml-auto hidden rounded border border-border/80 px-1.5 py-0.5 text-[10px] text-muted-foreground xl:inline">
+            <kbd className="ml-auto hidden rounded border border-border/80 px-1.5 py-0.5 text-[11px] text-muted-foreground xl:inline">
               ⌘K
             </kbd>
           </Button>
