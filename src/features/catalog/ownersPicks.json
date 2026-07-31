@@ -6,7 +6,8 @@
     { "tmdbId": "118340", "title": "Guardians of the Galaxy" },
     { "tmdbId": "615457", "title": "Nobody" },
     { "tmdbId": "136797", "title": "Need for Speed" },
-    { "tmdbId": "1830", "title": "Lord of War" }
+    { "tmdbId": "1830", "title": "Lord of War" },
+    { "tmdbId": "72105", "title": "Ted" }
   ],
   "tv": [
     { "tmdbId": "1425", "title": "House of Cards" },
