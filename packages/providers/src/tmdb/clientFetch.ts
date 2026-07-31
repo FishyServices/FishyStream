@@ -167,6 +167,8 @@ export async function fetchTmdbDetails(
       trailerKey: getTrailerKey(d.videos?.results),
       duration: type === "movie" ? formatRuntime(d.runtime) : undefined,
       seasons: type === "tv" ? d.number_of_seasons : undefined,
+      hasSpecials:
+        type === "tv" ? d.seasons?.some((season) => season.season_number === 0) : undefined,
       tagline: d.tagline ?? undefined,
       originalLanguage: d.original_language
     };
@@ -309,6 +311,8 @@ export async function fetchTmdbFullDetail(
       trailerKey: getTrailerKey(d.videos?.results),
       duration: type === "movie" ? formatRuntime(d.runtime) : undefined,
       seasons: type === "tv" ? d.number_of_seasons : undefined,
+      hasSpecials:
+        type === "tv" ? d.seasons?.some((season) => season.season_number === 0) : undefined,
       totalEpisodes: type === "tv" ? d.number_of_episodes : undefined,
       genre: genres,
       imdbId:

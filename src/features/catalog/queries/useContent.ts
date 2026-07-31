@@ -56,7 +56,8 @@ const playbackCatalog: ContentCatalogPlayback = {
       imdbId: detail.imdbId,
       anilistId: undefined,
       originalLanguage: detail.originalLanguage,
-      seasons: detail.seasons
+      seasons: detail.seasons,
+      hasSpecials: detail.hasSpecials
     };
   }
 };
@@ -178,6 +179,7 @@ export function useHomepageContent() {
                 trailerKey: details.trailerKey,
                 duration: details.duration,
                 seasons: details.seasons,
+                hasSpecials: details.hasSpecials,
                 trending: true,
                 tagline: details.tagline,
                 originalLanguage: details.originalLanguage

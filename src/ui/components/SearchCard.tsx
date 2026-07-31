@@ -184,6 +184,7 @@ export function SearchCard({
             trailerKey: tmdbDetail.trailerKey,
             duration: tmdbDetail.duration,
             seasons: tmdbDetail.seasons,
+            hasSpecials: tmdbDetail.hasSpecials,
             tagline: tmdbDetail.tagline,
             originalLanguage: tmdbDetail.originalLanguage,
             imdbId: tmdbDetail.imdbId,

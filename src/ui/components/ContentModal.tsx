@@ -182,6 +182,7 @@ export function ContentModal({
         trailerKey: tmdbDetail.trailerKey,
         duration: tmdbDetail.duration,
         seasons: tmdbDetail.seasons,
+        hasSpecials: tmdbDetail.hasSpecials,
         tagline: tmdbDetail.tagline,
         originalLanguage: tmdbDetail.originalLanguage,
         imdbId: tmdbDetail.imdbId,
@@ -248,6 +249,9 @@ export function ContentModal({
   );
 
   const knownSeasonCount = getSeasonCount(resolvedContent);
+  const hasSpecials =
+    resolvedContent?.type === "tv" &&
+    ("hasSpecials" in resolvedContent ? resolvedContent.hasSpecials === true : false);
 
   const { detail: relatedTmdbDetail } = useContentDetail(
     relatedModalItem ? String(relatedModalItem.tmdbId) : undefined,
@@ -283,6 +287,7 @@ export function ContentModal({
       trailerKey: relatedTmdbDetail.trailerKey,
       duration: relatedTmdbDetail.duration,
       seasons: relatedTmdbDetail.seasons,
+      hasSpecials: relatedTmdbDetail.hasSpecials,
       tagline: relatedTmdbDetail.tagline,
       originalLanguage: relatedTmdbDetail.originalLanguage,
       imdbId: relatedTmdbDetail.imdbId,
@@ -638,7 +643,7 @@ export function ContentModal({
 
             {activeTab === "episodes" && isTV && (
               <div>
-                {totalSeasons > 1 && (
+                {(totalSeasons > 1 || hasSpecials) && (
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <Select
                       value={String(selectedSeason)}
@@ -649,12 +654,17 @@ export function ContentModal({
                       }}
                     >
                       <SelectTrigger className="w-40 rounded-xl border-border/80 bg-background text-foreground">
-                        <SelectValue placeholder="Season">{`Season ${selectedSeason}`}</SelectValue>
+                        <SelectValue placeholder="Season">
+                          {selectedSeason === 0 ? "Specials" : `Season ${selectedSeason}`}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent className="border-border/80 bg-popover text-popover-foreground">
-                        {Array.from({ length: totalSeasons }, (_, i) => i + 1).map((s) => (
+                        {[
+                          ...(hasSpecials ? [0] : []),
+                          ...Array.from({ length: totalSeasons }, (_, i) => i + 1)
+                        ].map((s) => (
                           <SelectItem key={s} value={String(s)}>
-                            Season {s}
+                            {s === 0 ? "Specials" : `Season ${s}`}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -22,6 +22,7 @@ export interface ContentFeatured extends ContentCard {
   trailerKey?: string;
   duration?: string;
   seasons?: number;
+  hasSpecials?: boolean;
   trending: boolean;
   tagline?: string;
   originalLanguage?: string;
@@ -47,6 +48,7 @@ export interface ContentPlayback {
   anilistId?: string;
   originalLanguage?: string;
   seasons?: number;
+  hasSpecials?: boolean;
 }
 
 export interface WatchlistGridItem {

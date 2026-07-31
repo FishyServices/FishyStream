@@ -74,6 +74,10 @@ function rememberSessionAnimeSeasonSyncKey(key: string) {
   } catch {}
 }
 
+function safeSeason(v: number | null | undefined) {
+  return v != null && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 1;
+}
+
 function safeEp(v: number | null | undefined) {
   return v != null && Number.isFinite(v) ? Math.max(1, Math.floor(v)) : 1;
 }
@@ -86,7 +90,9 @@ function isMatchingEpisodeProgress(
 ) {
   if (content.type !== "tv") return true;
   if (!watchState) return false;
-  return safeEp(watchState.seasonNumber) === season && safeEp(watchState.episodeNumber) === episode;
+  return (
+    safeSeason(watchState.seasonNumber) === season && safeEp(watchState.episodeNumber) === episode
+  );
 }
 
 export function VideoPlayer({
@@ -332,7 +338,9 @@ export function VideoPlayer({
 
       if (hasExplicitInitials || hasSavedProgress) {
         const s =
-          initialSeason !== undefined ? safeEp(initialSeason) : safeEp(watchState.seasonNumber);
+          initialSeason !== undefined
+            ? safeSeason(initialSeason)
+            : safeSeason(watchState.seasonNumber);
         const e =
           initialEpisode !== undefined ? safeEp(initialEpisode) : safeEp(watchState.episodeNumber);
         if (tvTargetRef.current.season !== s || tvTargetRef.current.episode !== e) {

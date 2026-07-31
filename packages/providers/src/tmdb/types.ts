@@ -199,6 +199,7 @@ export interface TMDBDetailsResult {
   trailerKey?: string;
   duration?: string;
   seasons?: number;
+  hasSpecials?: boolean;
   tagline?: string;
   originalLanguage?: string;
 }
@@ -228,6 +229,7 @@ export interface TMDBFullDetail {
   trailerKey?: string;
   duration?: string;
   seasons?: number;
+  hasSpecials?: boolean;
   totalEpisodes?: number;
   genre: string[];
   imdbId?: string;

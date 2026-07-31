@@ -86,6 +86,10 @@ export interface UsePlaybackSessionArgs {
   updateProgress: UpdateProgress;
 }
 
+function safeSeason(v: number | null | undefined) {
+  return v != null && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 1;
+}
+
 function safeEp(v: number | null | undefined) {
   return v != null && Number.isFinite(v) ? Math.max(1, Math.floor(v)) : 1;
 }
@@ -98,7 +102,9 @@ function isMatchingEpisodeProgress(
 ) {
   if (content.type !== "tv") return true;
   if (!watchState) return false;
-  return safeEp(watchState.seasonNumber) === season && safeEp(watchState.episodeNumber) === episode;
+  return (
+    safeSeason(watchState.seasonNumber) === season && safeEp(watchState.episodeNumber) === episode
+  );
 }
 
 function pickResumePositionSeconds(
