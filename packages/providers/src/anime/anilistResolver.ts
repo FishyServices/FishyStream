@@ -22,6 +22,11 @@ interface AniListSearchMedia {
   } | null;
 }
 
+function getAniListApiError(status: number, body?: string) {
+  const detail = body?.trim() ? `: ${body.trim().slice(0, 180)}` : "";
+  return new Error(`AniList API request failed (${status})${detail}`);
+}
+
 export interface AniListEpisodeAddress {
   anilistId: string;
   episode: number;
@@ -266,15 +271,14 @@ function parseRomanSeasonSignal(candidate: string, baseTitle: string) {
 async function searchAniListCandidate(search: string): Promise<AniListSearchMedia[]> {
   if (!search) return [];
 
-  try {
-    const response = await fetch("https://graphql.anilist.co", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json"
-      },
-      body: JSON.stringify({
-        query: `
+  const response = await fetch("https://graphql.anilist.co", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      query: `
           query ($search: String) {
             Page(page: 1, perPage: 5) {
               media(search: $search, type: ANIME, sort: SEARCH_MATCH) {
@@ -295,35 +299,38 @@ async function searchAniListCandidate(search: string): Promise<AniListSearchMedi
             }
           }
         `,
-        variables: { search }
-      })
-    });
+      variables: { search }
+    })
+  });
 
-    if (!response.ok) return [];
-
-    const json = (await response.json()) as {
-      data?: { Page?: { media?: AniListSearchMedia[] | null } | null };
-    };
-
-    return json.data?.Page?.media ?? [];
-  } catch {
-    return [];
+  if (!response.ok) {
+    throw getAniListApiError(response.status, await response.text());
   }
+
+  const json = (await response.json()) as {
+    data?: { Page?: { media?: AniListSearchMedia[] | null } | null };
+    errors?: Array<{ message?: string }>;
+  };
+
+  if (json.errors?.length) {
+    throw new Error(`AniList API returned an error: ${json.errors[0]?.message ?? "unknown error"}`);
+  }
+
+  return json.data?.Page?.media ?? [];
 }
 
 async function fetchAniListYearCandidates(
   year: number,
   page: number
 ): Promise<AniListSearchMedia[]> {
-  try {
-    const response = await fetch("https://graphql.anilist.co", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json"
-      },
-      body: JSON.stringify({
-        query: `
+  const response = await fetch("https://graphql.anilist.co", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      query: `
           query ($seasonYear: Int, $page: Int, $perPage: Int) {
             Page(page: $page, perPage: $perPage) {
               media(type: ANIME, seasonYear: $seasonYear, sort: POPULARITY_DESC) {
@@ -344,24 +351,28 @@ async function fetchAniListYearCandidates(
             }
           }
         `,
-        variables: {
-          seasonYear: year,
-          page,
-          perPage: 50
-        }
-      })
-    });
+      variables: {
+        seasonYear: year,
+        page,
+        perPage: 50
+      }
+    })
+  });
 
-    if (!response.ok) return [];
-
-    const json = (await response.json()) as {
-      data?: { Page?: { media?: AniListSearchMedia[] | null } | null };
-    };
-
-    return json.data?.Page?.media ?? [];
-  } catch {
-    return [];
+  if (!response.ok) {
+    throw getAniListApiError(response.status, await response.text());
   }
+
+  const json = (await response.json()) as {
+    data?: { Page?: { media?: AniListSearchMedia[] | null } | null };
+    errors?: Array<{ message?: string }>;
+  };
+
+  if (json.errors?.length) {
+    throw new Error(`AniList API returned an error: ${json.errors[0]?.message ?? "unknown error"}`);
+  }
+
+  return json.data?.Page?.media ?? [];
 }
 
 const aniListMediaByIdCache = new Map<string, Promise<AniListSearchMedia | null>>();
@@ -390,15 +401,14 @@ async function fetchAniListMediaById(id: string): Promise<AniListSearchMedia | n
   if (cached) return cached;
 
   const pending = (async () => {
-    try {
-      const response = await fetch("https://graphql.anilist.co", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        },
-        body: JSON.stringify({
-          query: `
+    const response = await fetch("https://graphql.anilist.co", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
+      body: JSON.stringify({
+        query: `
             query ($id: Int) {
               Media(id: $id, type: ANIME) {
                 id
@@ -441,24 +451,35 @@ async function fetchAniListMediaById(id: string): Promise<AniListSearchMedia | n
               }
             }
           `,
-          variables: { id: Number(id) }
-        })
-      });
+        variables: { id: Number(id) }
+      })
+    });
 
-      if (!response.ok) return null;
-
-      const json = (await response.json()) as {
-        data?: { Media?: AniListSearchMedia | null };
-      };
-
-      return json.data?.Media ?? null;
-    } catch {
-      return null;
+    if (!response.ok) {
+      throw getAniListApiError(response.status, await response.text());
     }
+
+    const json = (await response.json()) as {
+      data?: { Media?: AniListSearchMedia | null };
+      errors?: Array<{ message?: string }>;
+    };
+
+    if (json.errors?.length) {
+      throw new Error(
+        `AniList API returned an error: ${json.errors[0]?.message ?? "unknown error"}`
+      );
+    }
+
+    return json.data?.Media ?? null;
   })();
 
   aniListMediaByIdCache.set(id, pending);
-  return pending;
+  try {
+    return await pending;
+  } catch (error) {
+    aniListMediaByIdCache.delete(id);
+    throw error;
+  }
 }
 
 async function resolveEpisodeInAniListChain(

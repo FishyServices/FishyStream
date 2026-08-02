@@ -228,8 +228,9 @@ export const getSeasonPlaybackMetaInternal = internalQuery({
       .first();
     if (!meta) return null;
 
+    let episodeMapping;
     if (episodeNumber != null) {
-      const mapping = await ctx.db
+      episodeMapping = await ctx.db
         .query("seasonEpisodeMappings")
         .withIndex("by_content_season_episode", (q) =>
           q
@@ -238,16 +239,31 @@ export const getSeasonPlaybackMetaInternal = internalQuery({
             .eq("episodeNumber", episodeNumber)
         )
         .first();
-      if (!mapping) return null;
+      if (!episodeMapping) return null;
     }
+
+    const mappings = await ctx.db
+      .query("seasonEpisodeMappings")
+      .withIndex("by_content_season", (q: any) =>
+        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
+      )
+      .collect();
 
     return {
       seasonNumber,
       name: meta.name,
       airDate: meta.airDate,
       episodeCount: meta.episodeCount,
-      anilistId: meta.anilistId,
-      anilistEpisodeMappingCount: meta.anilistEpisodeMappingCount
+      anilistId: episodeMapping?.anilistId ?? meta.anilistId,
+      anilistEpisodeMappingCount: meta.anilistEpisodeMappingCount,
+      anilistEpisodeMappings:
+        mappings.length > 0
+          ? mappings.map((row) => ({
+              episodeNumber: row.episodeNumber,
+              anilistId: row.anilistId,
+              anilistEpisodeNumber: row.anilistEpisodeNumber
+            }))
+          : undefined
     };
   }
 });
