@@ -104,7 +104,7 @@ export function ProviderSourceSelect({
           />
         ) : null}
         <ChevronDown
-          className={`shrink-0 opacity-60 transition-transform ${open ? "rotate-180" : ""} ${
+          className={`shrink-0 opacity-60 ${open ? "rotate-180" : ""} ${
             isHeader ? "w-4 h-4" : "w-3.5 h-3.5"
           }`}
         />
@@ -115,8 +115,8 @@ export function ProviderSourceSelect({
           role="listbox"
           className={
             isHeader
-              ? "absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-xl"
-              : "absolute bottom-full right-0 z-50 mb-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-neutral-950/95 text-white shadow-2xl backdrop-blur-md"
+              ? "absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-sm"
+              : "absolute bottom-full right-0 z-50 mb-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-neutral-950/95 text-white shadow-md "
           }
         >
           <div

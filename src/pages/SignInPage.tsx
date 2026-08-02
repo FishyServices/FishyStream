@@ -175,14 +175,14 @@ function NativeSignInCard() {
   };
 
   return (
-    <div className="media-surface w-full max-w-md rounded-2xl p-6 shadow-2xl sm:p-8">
+    <div className="media-surface w-full max-w-md rounded-xl p-6 shadow-md sm:p-8">
       <div className="mb-6">
-        <p className="eyebrow mb-2">Welcome back</p>
+        <p className="mb-2 text-sm font-medium text-muted-foreground">Welcome back</p>
         <h1 className="font-display text-3xl font-bold text-foreground">Sign in</h1>
       </div>
 
       {errorMessage && (
-        <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
           {errorMessage}
         </div>
       )}

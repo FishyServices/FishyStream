@@ -66,7 +66,7 @@ export function GridSkeleton({
           {Array.from({ length: 3 }).map((_, index) => (
             <section
               key={index}
-              className="rounded-2xl border border-border/55 bg-card/28 p-4 sm:p-5"
+              className="rounded-xl border border-border/55 bg-card/28 p-4 sm:p-5"
             >
               <div className="mb-5 flex items-center gap-3 border-b border-border/55 pb-4">
                 <div className="poster-skeleton h-9 w-9 shrink-0 rounded-xl border border-border/55 bg-card/60" />
@@ -91,7 +91,7 @@ export function GridSkeleton({
           <div className="poster-skeleton h-10 w-24 shrink-0 self-end rounded-xl border border-border/55 bg-card/60 sm:self-auto" />
         </div>
         <div className="space-y-8">
-          <section className="media-surface space-y-4 rounded-2xl border-border/65 bg-card/55 p-4 sm:p-5">
+          <section className="media-surface space-y-4 rounded-xl border-border/65 bg-card/55 p-4 sm:p-5">
             <div className="flex flex-wrap items-center gap-2">
               <div className="poster-skeleton h-9 w-20 rounded-xl border border-border/55 bg-card/60" />
               <div className="poster-skeleton h-9 w-24 rounded-xl border border-border/55 bg-card/60" />

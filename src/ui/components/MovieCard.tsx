@@ -173,9 +173,7 @@ export function MovieCard({
       >
         <div
           className={`relative aspect-2/3 overflow-hidden rounded-xl border border-border/55 bg-card shadow-sm transition-all duration-300 ${
-            hoverActive
-              ? "md:scale-[1.025] md:z-20 md:shadow-2xl md:shadow-primary/15 md:ring-1 md:ring-primary/50"
-              : "shadow-md"
+            hoverActive ? "md:z-20 md:shadow-md md:ring-1 md:ring-primary/50" : "shadow-md"
           }`}
         >
           {imgError ? (
@@ -205,7 +203,7 @@ export function MovieCard({
               content.seasonNumber &&
               content.episodeNumber &&
               !hoverActive && (
-                <span className="ml-auto rounded-md bg-background/80 px-1.5 py-0.5 text-[11px] font-bold text-foreground backdrop-blur-sm">
+                <span className="ml-auto rounded-md bg-background/80 px-1.5 py-0.5 text-[11px] font-bold text-foreground ">
                   S{content.seasonNumber}·E{content.episodeNumber}
                 </span>
               )}

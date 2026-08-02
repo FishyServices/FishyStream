@@ -52,7 +52,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
       to="/"
       className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-sm font-black text-primary-foreground shadow-lg shadow-primary/25">
+      <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-sm font-black text-primary-foreground shadow-sm ">
         F
       </span>
       {!compact && (
@@ -112,7 +112,7 @@ function SearchDialog({
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="media-surface w-[calc(100%-2rem)] max-w-2xl overflow-hidden rounded-2xl p-0">
+      <DialogContent className="media-surface w-[calc(100%-2rem)] max-w-2xl overflow-hidden rounded-xl p-0">
         <Command className="bg-transparent">
           <CommandInput
             ref={inputRef}
@@ -269,7 +269,7 @@ export function Header() {
           ))}
           <Button
             size="icon"
-            className="h-11 w-11 rounded-full shadow-lg shadow-primary/30"
+            className="h-11 w-11 rounded-full shadow-sm "
             onClick={() => setSearchOpen(true)}
             aria-label="Search"
           >

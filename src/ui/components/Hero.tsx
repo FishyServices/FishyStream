@@ -226,7 +226,7 @@ export function Hero({
           <div className="flex flex-wrap items-center gap-2 pt-2 sm:gap-3">
             <Button
               size="lg"
-              className="w-full rounded-xl bg-primary px-7 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 sm:w-auto"
+              className="w-full rounded-xl bg-primary px-7 text-base font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 sm:w-auto"
               onClick={handlePlay}
             >
               <Play className="mr-2 h-5 w-5 fill-current" />
@@ -235,7 +235,7 @@ export function Hero({
             <Button
               size="lg"
               variant="secondary"
-              className="flex-1 rounded-xl border-border/80 bg-card/75 px-5 text-base font-semibold text-foreground backdrop-blur-sm hover:bg-accent sm:flex-none sm:px-7"
+              className="flex-1 rounded-xl border-border/80 bg-card/75 px-5 text-base font-semibold text-foreground hover:bg-accent sm:flex-none sm:px-7"
               onClick={() => setShowModal(true)}
             >
               <Info className="mr-2 h-5 w-5" />
@@ -244,7 +244,7 @@ export function Hero({
             <Button
               size="icon"
               variant="ghost"
-              className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-foreground backdrop-blur-sm hover:bg-accent"
+              className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-foreground hover:bg-accent"
               onClick={handleWatchlist}
               aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
             >
@@ -255,7 +255,7 @@ export function Hero({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-muted-foreground backdrop-blur-sm hover:bg-accent hover:text-foreground"
+                className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-muted-foreground hover:bg-accent hover:text-foreground"
                 onClick={handleTrailerPlay}
                 aria-label="Play trailer"
               >
@@ -267,7 +267,7 @@ export function Hero({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-muted-foreground backdrop-blur-sm hover:bg-accent hover:text-foreground"
+                className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-muted-foreground hover:bg-accent hover:text-foreground"
                 onClick={() => setMuted(!muted)}
                 aria-label={muted ? "Unmute trailer" : "Mute trailer"}
               >

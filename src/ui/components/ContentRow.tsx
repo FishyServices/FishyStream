@@ -72,7 +72,7 @@ export function ContentRow({
         <Button
           variant="ghost"
           size="icon"
-          className="absolute left-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-r-2xl border border-l-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-lg transition-opacity hover:bg-accent xl:flex group-hover:opacity-100"
+          className="absolute left-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-r-2xl border border-l-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-accent xl:flex group-hover:opacity-100"
           onClick={() => scroll("left")}
           aria-label={`Scroll ${title} left`}
         >
@@ -82,7 +82,7 @@ export function ContentRow({
         <Button
           variant="ghost"
           size="icon"
-          className="absolute right-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-l-2xl border border-r-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-lg transition-opacity hover:bg-accent xl:flex group-hover:opacity-100"
+          className="absolute right-0 top-1/2 z-50 hidden h-[calc(100%-0.5rem)] w-14 -translate-y-1/2 rounded-l-2xl border border-r-0 border-border/60 bg-background/95 text-foreground opacity-0 shadow-sm transition-opacity hover:bg-accent xl:flex group-hover:opacity-100"
           onClick={() => scroll("right")}
           aria-label={`Scroll ${title} right`}
         >

@@ -444,7 +444,7 @@ export function ContentModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="z-modal flex max-h-[min(96dvh,70rem)] w-[calc(100%-1rem)] max-w-4xl flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-0 text-card-foreground shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button]:p-0 [&>button]:backdrop-blur-sm [&>button:hover]:bg-accent">
+      <DialogContent className="z-modal flex max-h-[min(96dvh,70rem)] w-[calc(100%-1rem)] max-w-4xl flex-col overflow-hidden rounded-xl border border-border/70 bg-card/95 p-0 text-card-foreground shadow-md [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button:hover]:bg-accent">
         {" "}
         <DialogTitle className="sr-only">{contentData.title}</DialogTitle>
         <div className="relative h-72 shrink-0 overflow-hidden sm:h-96">
@@ -461,7 +461,7 @@ export function ContentModal({
             />
           ) : (
             <div className="relative flex h-full w-full items-center overflow-hidden bg-muted/55">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,color-mix(in_oklab,var(--color-primary)_28%,transparent),transparent_36%),linear-gradient(135deg,var(--color-card),var(--color-background))]" />
+              <div className="absolute inset-0 bg-muted/60" />
               <Film className="relative ml-7 h-10 w-10 text-primary/55" />
             </div>
           )}
@@ -472,7 +472,7 @@ export function ContentModal({
               src={contentData.posterUrl}
               alt=""
               aria-hidden="true"
-              className="absolute bottom-0 right-8 hidden h-52 w-35 rounded-t-xl border border-b-0 border-border/70 bg-muted object-cover shadow-2xl lg:block"
+              className="absolute bottom-0 right-8 hidden h-52 w-35 rounded-t-xl border border-b-0 border-border/70 bg-muted object-cover shadow-md lg:block"
             />
           )}
           <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
@@ -481,7 +481,7 @@ export function ContentModal({
             </h2>
             <div className="flex items-center gap-3">
               <Button
-                className="rounded-xl bg-primary font-semibold text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90"
+                className="rounded-xl bg-primary font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
                 onClick={() => handlePlay()}
               >
                 <Play className="mr-2 h-4 w-4 fill-current" />
@@ -491,7 +491,7 @@ export function ContentModal({
               <Button
                 variant="ghost"
                 size="icon"
-                className="flex h-10 w-10 rounded-xl border-border/80 bg-background/70 text-foreground backdrop-blur-sm hover:bg-accent"
+                className="flex h-10 w-10 rounded-xl border-border/80 bg-background/70 text-foreground hover:bg-accent"
                 onClick={handleWatchlist}
                 aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
               >
@@ -763,11 +763,11 @@ export function ContentModal({
                           <img
                             src={`https://img.youtube.com/vi/${video.key}/mqdefault.jpg`}
                             alt={video.name}
-                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                            className="h-full w-full object-cover"
                             loading="lazy"
                           />
                           <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/10">
-                            <Play className="h-8 w-8 fill-white text-white drop-shadow-lg" />
+                            <Play className="h-8 w-8 fill-white text-white " />
                           </div>
                         </div>
                         <p className="line-clamp-1 text-xs font-medium text-foreground transition-colors group-hover:text-primary">
@@ -798,7 +798,7 @@ export function ContentModal({
                           <img
                             src={item.posterUrl}
                             alt={item.title}
-                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                            className="h-full w-full object-cover"
                             loading="lazy"
                           />
                         </div>

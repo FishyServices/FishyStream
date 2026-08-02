@@ -373,8 +373,8 @@ export function CustomVideoPlayer({
       className="relative h-full w-full bg-black flex items-center justify-center select-none overflow-hidden group/custom-player"
     >
       {isScraping && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-xl">
-          <div className="media-surface rounded-2xl p-8 text-center">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/95 ">
+          <div className="media-surface rounded-xl p-8 text-center">
             <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
             <p className="text-sm text-muted-foreground">Loading stream</p>
           </div>
@@ -410,7 +410,7 @@ export function CustomVideoPlayer({
             <Button
               variant="ghost"
               size="icon"
-              className="shrink-0 rounded-xl bg-background/65 text-foreground backdrop-blur-sm hover:bg-accent"
+              className="shrink-0 rounded-xl bg-background/65 text-foreground hover:bg-accent"
               onClick={() => navigate(-1)}
               aria-label="Back"
               title="Back"
@@ -431,7 +431,7 @@ export function CustomVideoPlayer({
         </div>
 
         <div
-          className="m-3 w-auto rounded-2xl border border-border/60 bg-background/72 p-4 backdrop-blur-xl sm:m-5"
+          className="m-3 w-auto rounded-xl border border-border/60 bg-background/72 p-4 sm:m-5"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="w-full flex items-center gap-2 group/scrubber">
@@ -457,7 +457,7 @@ export function CustomVideoPlayer({
                 variant="ghost"
                 size="icon"
                 onClick={togglePlay}
-                className="text-white hover:scale-110 active:scale-95 transition-transform p-1.5 bg-white/10 rounded-full hover:bg-white/20 h-9 w-9"
+                className="text-white p-1.5 bg-white/10 rounded-full hover:bg-white/20 h-9 w-9"
               >
                 {isPlaying ? (
                   <Pause className="w-6 h-6 fill-white" />
@@ -493,7 +493,7 @@ export function CustomVideoPlayer({
 
             <div className="flex items-center gap-2 relative">
               {showSettings && (
-                <div className="absolute bottom-12 right-0 bg-neutral-950/95 border border-white/10 rounded-lg p-3 w-64 flex flex-col gap-3 shadow-2xl backdrop-blur-md text-white z-50">
+                <div className="absolute bottom-12 right-0 bg-neutral-950/95 border border-white/10 rounded-lg p-3 w-64 flex flex-col gap-3 shadow-md text-white z-50">
                   <div className="text-xs font-semibold text-white/50 border-b border-white/10 pb-1.5">
                     Settings
                   </div>

@@ -546,7 +546,7 @@ export function VideoPlayer({
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="media-surface rounded-2xl p-8 text-center">
+        <div className="media-surface rounded-xl p-8 text-center">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
           <p className="text-sm text-muted-foreground">Finding the best source for you</p>
         </div>
@@ -557,8 +557,8 @@ export function VideoPlayer({
   if (error || !sources.length || !selectedSourceConfig) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="media-surface max-w-md rounded-2xl p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/15">
+        <div className="media-surface max-w-md rounded-xl p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-destructive/15">
             <AlertCircle className="w-8 h-8 text-destructive" />
           </div>
           <h2 className="mb-2 font-display text-2xl font-semibold text-foreground">
@@ -592,7 +592,7 @@ export function VideoPlayer({
   return (
     <div className="h-dvh w-screen bg-background flex flex-col overflow-hidden">
       {!useCustomPlayer && (
-        <div className="z-10 flex-none border-b border-border/65 bg-background/88 backdrop-blur-xl transition-all duration-300">
+        <div className="z-10 flex-none border-b border-border/65 bg-background/88 transition-all duration-300">
           <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
             <div className="flex items-center gap-3 min-w-0">
               <Button
@@ -708,7 +708,7 @@ export function VideoPlayer({
               handleNextEpisode({ fromClick: true });
             }}
             disabled={isNextEpisodeCooldown}
-            className="absolute bottom-23 left-4 right-4 z-50 gap-2 border-border/80 bg-card/90 text-foreground shadow-xl backdrop-blur-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 sm:left-auto"
+            className="absolute bottom-23 left-4 right-4 z-50 gap-2 border-border/80 bg-card/90 text-foreground shadow-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 sm:left-auto"
             aria-label="Play next episode"
           >
             <SkipForward className="w-4 h-4" />

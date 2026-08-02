@@ -84,9 +84,7 @@ export function SearchCard({
       >
         <div
           className={`relative aspect-2/3 rounded-lg overflow-hidden transition-all duration-300 ${
-            hovered
-              ? "md:scale-105 md:z-20 md:shadow-2xl md:shadow-black/70 md:ring-1 md:ring-white/20"
-              : "shadow-md"
+            hovered ? "md:z-20 md:shadow-md md:md:ring-1 md:ring-white/20" : "shadow-md"
           }`}
         >
           {imgError ? (

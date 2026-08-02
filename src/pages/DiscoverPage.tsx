@@ -80,7 +80,7 @@ function FeaturedDiscoverCarousel({
             <img
               src={active.logoUrl}
               alt={active.title}
-              className="max-h-24 max-w-[min(22rem,78vw)] object-contain object-left drop-shadow-2xl"
+              className="max-h-24 max-w-[min(22rem,78vw)] object-contain object-left "
             />
           ) : (
             <h1 className="max-w-2xl font-display text-4xl font-bold leading-[0.95] tracking-tight text-foreground sm:text-6xl">
@@ -104,7 +104,7 @@ function FeaturedDiscoverCarousel({
           ) : null}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
-              className="rounded-xl bg-primary px-6 text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90"
+              className="rounded-xl bg-primary px-6 text-primary-foreground shadow-sm hover:bg-primary/90"
               onClick={() =>
                 active.tmdbId &&
                 onPlay(
@@ -122,7 +122,7 @@ function FeaturedDiscoverCarousel({
             </Button>
             <Button
               variant="secondary"
-              className="rounded-xl border-border/75 bg-card/75 text-foreground backdrop-blur-sm hover:bg-accent"
+              className="rounded-xl border-border/75 bg-card/75 text-foreground hover:bg-accent"
               onClick={() => onDetails(active)}
             >
               <Info className="mr-2 h-4 w-4" />
@@ -137,7 +137,7 @@ function FeaturedDiscoverCarousel({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute left-4 top-1/2 z-20 h-12 w-12 -translate-y-1/2 rounded-xl border border-border/70 bg-background/70 text-foreground backdrop-blur-sm hover:bg-accent"
+            className="absolute left-4 top-1/2 z-20 h-12 w-12 -translate-y-1/2 rounded-xl border border-border/70 bg-background/70 text-foreground hover:bg-accent"
             onClick={() => move(-1)}
             aria-label="Previous featured title"
           >
@@ -146,7 +146,7 @@ function FeaturedDiscoverCarousel({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-4 top-1/2 z-20 h-12 w-12 -translate-y-1/2 rounded-xl border border-border/70 bg-background/70 text-foreground backdrop-blur-sm hover:bg-accent"
+            className="absolute right-4 top-1/2 z-20 h-12 w-12 -translate-y-1/2 rounded-xl border border-border/70 bg-background/70 text-foreground hover:bg-accent"
             onClick={() => move(1)}
             aria-label="Next featured title"
           >
@@ -251,7 +251,7 @@ function ScrollToTopButton() {
     <Button
       variant="secondary"
       size="icon"
-      className={`fixed bottom-5 right-5 z-50 h-11 w-11 rounded-xl border border-border/70 bg-background/88 text-foreground shadow-lg backdrop-blur-xl transition-all ${
+      className={`fixed bottom-5 right-5 z-50 h-11 w-11 rounded-xl border border-border/70 bg-background/88 text-foreground shadow-sm transition-all ${
         visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
       }`}
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -278,12 +278,12 @@ export function DiscoverContentMode({ onPlay }: { onPlay: PlayHandler }) {
     <>
       <div className="relative z-20 px-4 pb-6 pt-2 md:px-10">
         <div className="mx-auto flex max-w-7xl justify-center">
-          <div className="media-surface flex gap-2 rounded-2xl border-border/65 bg-card/85 p-1.5 shadow-2xl backdrop-blur-xl">
+          <div className="media-surface flex gap-2 rounded-xl border-border/65 bg-card/85 p-1.5 shadow-md ">
             {tabs.map((item) => (
               <Button
                 key={item.value}
                 variant="ghost"
-                className={`rounded-xl px-4 text-base font-bold transition-transform md:text-xl ${
+                className={`rounded-xl px-4 text-base font-bold md:text-xl ${
                   tab === item.value
                     ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"

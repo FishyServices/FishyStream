@@ -48,7 +48,7 @@ export function OwnersPicksPage() {
           {sections.map((sect) => (
             <section
               key={sect.title}
-              className="rounded-2xl border border-border/55 bg-card/28 p-4 sm:p-5"
+              className="rounded-xl border border-border/55 bg-card/28 p-4 sm:p-5"
             >
               <div className="mb-5 flex items-center gap-3 border-b border-border/55 pb-4">
                 <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/12">

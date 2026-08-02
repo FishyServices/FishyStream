@@ -197,7 +197,7 @@ function WatchlistCard({
 }: WatchlistCardProps) {
   const containerClass =
     layout === "grid"
-      ? `relative transition-transform duration-150 ${
+      ? `relative duration-150 ${
           selectionMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
         } ${isDragging ? "scale-[0.98] opacity-70" : ""} ${isMenuOpen ? "z-40" : ""} ${
           isSelected ? "rounded-lg ring-2 ring-primary" : ""
@@ -289,7 +289,7 @@ function WatchlistCard({
             <img
               src={item.posterUrl}
               alt={item.title}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover/listitem:scale-105"
+              className="h-full w-full object-cover duration-300 group-hover/listitem:scale-105"
             />
             {!selectionMode && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/45">
@@ -388,8 +388,8 @@ function FolderSection({
 }) {
   return (
     <section
-      className={`media-surface space-y-5 rounded-2xl border-border/60 bg-card/55 p-4 transition-colors sm:p-5 ${
-        isDropTarget ? "border-primary/60 bg-primary/8 shadow-lg shadow-primary/10" : ""
+      className={`media-surface space-y-5 rounded-xl border-border/60 bg-card/55 p-4 transition-colors sm:p-5 ${
+        isDropTarget ? "border-primary/60 bg-primary/8 shadow-sm " : ""
       }`}
       onDragOver={onDragOverSection}
       onDrop={onDropSection}
@@ -945,7 +945,7 @@ export function MyListPage() {
           />
         ) : (
           <div className="space-y-8">
-            <section className="media-surface space-y-4 rounded-2xl border-border/65 bg-card/55 p-4 sm:p-5">
+            <section className="media-surface space-y-4 rounded-xl border-border/65 bg-card/55 p-4 sm:p-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                   <BookMarked className="h-4 w-4 shrink-0 text-primary" />
@@ -1061,7 +1061,7 @@ export function MyListPage() {
               </div>
             </section>
 
-            <div className="sticky top-16 z-30 flex flex-col gap-3 rounded-2xl border border-border/65 bg-background/90 p-3 shadow-lg backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
+            <div className="sticky top-16 z-30 flex flex-col gap-3 rounded-xl border border-border/65 bg-background/90 p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative min-w-0 flex-1 sm:max-w-sm">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -1147,7 +1147,7 @@ export function MyListPage() {
                       </Button>
                     }
                   />
-                  <DropdownMenuContent className="mt-2 w-48 rounded-xl border-border/70 bg-popover p-1 shadow-xl">
+                  <DropdownMenuContent className="mt-2 w-48 rounded-xl border-border/70 bg-popover p-1 shadow-sm">
                     {SORT_OPTIONS.map((option) => (
                       <DropdownMenuItem
                         key={option.id}
@@ -1269,7 +1269,7 @@ export function MyListPage() {
       {/* Floating bulk-action bar */}
       {selectionMode && selectedIds.size > 0 && (
         <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
-          <div className="flex w-full max-w-xl items-center gap-2 rounded-xl border border-white/10 bg-[hsl(220,20%,10%)] p-2 shadow-2xl">
+          <div className="flex w-full max-w-xl items-center gap-2 rounded-xl border border-white/10 bg-[hsl(220,20%,10%)] p-2 shadow-md">
             <div className="flex items-center gap-2 pl-2 pr-1 text-sm font-medium text-white">
               {pluralize(selectedIds.size, "selected")}
             </div>

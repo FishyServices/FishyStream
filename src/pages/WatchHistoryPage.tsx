@@ -84,7 +84,7 @@ export function WatchHistoryPage() {
           />
         ) : (
           <>
-            <div className="rounded-2xl border border-border/55 bg-card/28 p-3 sm:p-5">
+            <div className="rounded-xl border border-border/55 bg-card/28 p-3 sm:p-5">
               <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {visibleHistory.map((item) => (
                   <div key={item._id} className="group relative">
@@ -92,7 +92,7 @@ export function WatchHistoryPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute right-2 top-2 z-20 h-8 w-8 rounded-xl border border-border/60 bg-background/85 text-muted-foreground opacity-100 shadow-lg backdrop-blur-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:opacity-0 md:group-hover:opacity-100"
+                      className="absolute right-2 top-2 z-20 h-8 w-8 rounded-xl border border-border/60 bg-background/85 text-muted-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:opacity-0 md:group-hover:opacity-100"
                       onClick={() => handleRemove(item._id)}
                       aria-label={`Remove ${item.title} from history`}
                     >

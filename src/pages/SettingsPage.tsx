@@ -79,7 +79,7 @@ function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <Card className="media-surface overflow-hidden rounded-2xl border-border/65 bg-card/78 p-5 sm:p-6">
+    <Card className="media-surface overflow-hidden rounded-xl border-border/65 bg-card/78 p-5 sm:p-6">
       <div className="mb-5 flex items-center gap-3">
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/12 text-primary">
           {icon}
@@ -143,7 +143,7 @@ function ProviderPicker({
           </Button>
         }
       />
-      <PopoverContent className="w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border-border/70 p-0 shadow-2xl">
+      <PopoverContent className="w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-xl border-border/70 p-0 shadow-md">
         <Command className="bg-popover">
           <CommandInput placeholder="Search providers" />
           <CommandList className="max-h-96">
@@ -209,7 +209,7 @@ export function SettingsPage() {
       <main className="page-shell page-stack">
         <div className="page-intro">
           <div>
-            <p className="eyebrow mb-2">Your FishyStream</p>
+            <p className="mb-2 text-sm font-medium text-muted-foreground">Your FishyStream</p>
             <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Settings
             </h1>

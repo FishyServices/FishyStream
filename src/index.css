@@ -143,18 +143,7 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background:
-      radial-gradient(
-        circle at 12% -10%,
-        color-mix(in oklab, var(--color-primary) 16%, transparent),
-        transparent 28rem
-      ),
-      radial-gradient(
-        circle at 94% 8%,
-        color-mix(in oklab, var(--color-primary) 8%, transparent),
-        transparent 22rem
-      ),
-      var(--color-background);
+    background: var(--color-background);
   }
 
   ::selection {
@@ -185,23 +174,19 @@
 @layer components {
   .app-canvas {
     min-height: 100dvh;
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--color-background) 78%, transparent),
-      var(--color-background) 38rem
-    );
+    background: var(--color-background);
   }
 
   .app-rail {
-    @apply fixed inset-y-0 left-0 z-header hidden border-r border-border/65 bg-background/78 backdrop-blur-xl md:flex md:w-18 xl:w-62;
+    @apply fixed inset-y-0 left-0 z-header hidden border-r border-border/65 bg-background md:flex md:w-18 xl:w-62;
   }
 
   .app-topbar {
-    @apply sticky top-0 z-header flex min-h-16 items-center justify-between border-b border-border/55 bg-background/78 px-4 backdrop-blur-xl md:hidden;
+    @apply sticky top-0 z-header flex min-h-16 items-center justify-between border-b border-border/55 bg-background px-4 md:hidden;
   }
 
   .app-bottom-nav {
-    @apply fixed inset-x-0 bottom-0 z-header border-t border-border/70 bg-background/94 px-2 pt-2 backdrop-blur-xl md:hidden;
+    @apply fixed inset-x-0 bottom-0 z-header border-t border-border/70 bg-background px-2 pt-2 md:hidden;
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
 
@@ -214,15 +199,11 @@
   }
 
   .media-surface {
-    @apply border border-border/65 bg-card/72 shadow-[0_18px_60px_color-mix(in_oklab,var(--color-background)_78%,transparent)] backdrop-blur-sm;
+    @apply border border-border/65 bg-card shadow-sm;
   }
 
   .page-intro {
     @apply mb-8 flex flex-col gap-4 border-b border-border/55 pb-6 sm:flex-row sm:items-end sm:justify-between;
-  }
-
-  .eyebrow {
-    @apply text-[0.68rem] font-bold uppercase tracking-[0.2em] text-primary;
   }
 
   .media-progress {
@@ -235,11 +216,6 @@
 
   .auth-canvas {
     @apply relative min-h-dvh overflow-hidden bg-background px-4 py-8;
-    background-image: radial-gradient(
-      circle at 15% 20%,
-      color-mix(in oklab, var(--color-primary) 26%, transparent),
-      transparent 28rem
-    );
   }
 
   .surface {
@@ -255,19 +231,7 @@
   }
 
   .home-panel {
-    @apply relative overflow-hidden rounded-lg border border-white/10 bg-white/4.5 shadow-sm;
-  }
-
-  .home-panel::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      145deg,
-      color-mix(in oklab, var(--color-foreground) 8%, transparent),
-      transparent 28%
-    );
-    pointer-events: none;
+    @apply relative overflow-hidden rounded-lg border border-border/65 bg-card shadow-sm;
   }
 
   .poster-skeleton {
@@ -292,20 +256,6 @@
 
   .carousel-fade {
     scrollbar-width: none;
-    -webkit-mask-image: linear-gradient(
-      90deg,
-      transparent,
-      black 1.5rem,
-      black calc(100% - 1.5rem),
-      transparent
-    );
-    mask-image: linear-gradient(
-      90deg,
-      transparent,
-      black 1.5rem,
-      black calc(100% - 1.5rem),
-      transparent
-    );
   }
 
   .carousel-fade::-webkit-scrollbar {
@@ -313,13 +263,7 @@
   }
 
   .home-discovery-strip {
-    background:
-      linear-gradient(
-        135deg,
-        color-mix(in oklab, var(--color-primary) 14%, transparent),
-        transparent 38%
-      ),
-      color-mix(in oklab, var(--color-background) 92%, black);
+    background: var(--color-card);
   }
 }
 
@@ -354,20 +298,12 @@
     margin-inline: auto;
   }
 
-  .text-label {
-    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80;
-  }
-
-  .kicker {
-    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-white/46;
-  }
-
   .text-metadata {
     @apply text-xs font-medium text-muted-foreground;
   }
 
   .interactive-scale {
-    @apply transition duration-150 active:scale-[0.985];
+    @apply transition-colors duration-150;
   }
 
   .focus-ring {
@@ -375,8 +311,8 @@
   }
 
   .touch-target {
-    min-height: 2.5rem;
-    min-width: 2.5rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
   }
 
   .metadata-row {

@@ -79,7 +79,7 @@ export function TVShowsPage() {
         />
 
         <FilterBar>
-          <div className="media-surface -mx-1 flex gap-2 overflow-x-auto rounded-2xl border-border/60 bg-card/48 p-2 scrollbar-hide">
+          <div className="media-surface -mx-1 flex gap-2 overflow-x-auto rounded-xl border-border/60 bg-card/48 p-2 scrollbar-hide">
             {GENRES.map((g) => (
               <Button
                 key={g}
@@ -100,7 +100,7 @@ export function TVShowsPage() {
           <EmptyState icon={<Tv2 className="h-10 w-10" />} title="No shows match this filter" />
         ) : (
           <>
-            <div className="rounded-2xl border border-border/55 bg-card/25 p-3 sm:p-5">
+            <div className="rounded-xl border border-border/55 bg-card/25 p-3 sm:p-5">
               <div className="mb-5 flex items-center gap-2">
                 <Tv2 className="h-4 w-4 text-primary" />
                 <p className="text-sm text-muted-foreground">
