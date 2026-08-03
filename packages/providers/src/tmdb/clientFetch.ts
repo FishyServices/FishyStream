@@ -371,6 +371,7 @@ export async function fetchTmdbSeasonEpisodes(
     overview?: string;
     stillUrl?: string;
     runtime?: number;
+    voteAverage: number;
   }>;
 } | null> {
   const url = buildTmdbUrl(`/tv/${tmdbId}/season/${seasonNumber}`, apiKey);
@@ -385,6 +386,7 @@ export async function fetchTmdbSeasonEpisodes(
         overview?: string;
         still_path?: string | null;
         runtime?: number | null;
+        vote_average?: number | null;
       }>;
     };
     return {
@@ -394,7 +396,8 @@ export async function fetchTmdbSeasonEpisodes(
         name: ep.name,
         overview: ep.overview || undefined,
         stillUrl: ep.still_path ? getPosterUrl(ep.still_path, "w300") : undefined,
-        runtime: ep.runtime ?? undefined
+        runtime: ep.runtime ?? undefined,
+        voteAverage: ep.vote_average ?? 0
       }))
     };
   } catch {

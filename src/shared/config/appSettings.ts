@@ -22,6 +22,7 @@ export interface AppSettings {
   showContinueWatchingRow: boolean;
   defaultAnimeLanguage: AnimeLanguagePreference;
   autoAdvanceEpisodes: boolean;
+  showEpisodeRatings: boolean;
 }
 
 export const MOVIE_SORT_OPTIONS: SortOption[] = [
@@ -51,7 +52,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   heroTrailerMuted: true,
   showContinueWatchingRow: true,
   defaultAnimeLanguage: "dub",
-  autoAdvanceEpisodes: false
+  autoAdvanceEpisodes: false,
+  showEpisodeRatings: true
 };
 
 export const APP_SETTINGS_STORAGE_KEY = "fishystream:settings";

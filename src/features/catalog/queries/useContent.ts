@@ -925,6 +925,7 @@ export function useSeasonEpisodes(
           overview?: string;
           stillUrl?: string;
           runtime?: number;
+          voteAverage: number;
         }>;
       }
     | null
@@ -966,4 +967,57 @@ export function useSeasonEpisodes(
   }, [tmdbId, seasonNumber, enabled]);
 
   return { season, isLoading };
+}
+
+export function useSeriesEpisodeRatings(
+  tmdbId: string | undefined,
+  seasonCount: number,
+  enabled = true
+) {
+  const [seasons, setSeasons] = useState<
+    Array<{
+      seasonNumber: number;
+      episodes: Array<{ episodeNumber: number; name: string; voteAverage: number }>;
+    }>
+  >([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || !tmdbId || seasonCount < 1) {
+      setSeasons([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+
+    void Promise.all(
+      Array.from({ length: seasonCount }, (_, index) => index + 1).map(async (seasonNumber) => {
+        const season = await fetchTmdbSeasonEpisodes(tmdbId, seasonNumber, getApiKey());
+        return {
+          seasonNumber,
+          episodes: (season?.episodes ?? []).map(({ episodeNumber, name, voteAverage }) => ({
+            episodeNumber,
+            name,
+            voteAverage
+          }))
+        };
+      })
+    )
+      .then((results) => {
+        if (!cancelled) setSeasons(results);
+      })
+      .catch(() => {
+        if (!cancelled) setSeasons([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, seasonCount, tmdbId]);
+
+  return { seasons, isLoading };
 }

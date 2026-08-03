@@ -363,6 +363,17 @@ export function SettingsPage() {
                   </Select>
                 }
               />
+              <SettingRow
+                label="Episode ratings"
+                description="Show scores and the ratings grid on TV shows"
+                control={
+                  <ToggleSettingControl
+                    id="episode-ratings"
+                    checked={settings.showEpisodeRatings}
+                    onCheckedChange={(checked) => updateSetting("showEpisodeRatings", checked)}
+                  />
+                }
+              />
             </SettingsSection>
 
             <SettingsSection icon={<MonitorPlay className="h-4 w-4" />} title="Playback">

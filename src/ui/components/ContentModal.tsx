@@ -39,13 +39,15 @@ import {
   useContentVideos,
   useRelatedContent,
   useContentDetail,
-  useSeasonEpisodes
+  useSeasonEpisodes,
+  useSeriesEpisodeRatings
 } from "@/features/catalog/queries/useContent";
 import type { TMDBItem } from "@/features/catalog/queries/useContent";
 import { getCanonicalSeasonCount } from "@fishy/providers/anime";
 import type { PlayHandler } from "@/shared/navigation/watchNavigation";
 import type { ContentDetail, ContentId, ContentType } from "@content/contentMetadata";
 import { fetchDownloads } from "@/shared/downloads";
+import { useAppSettings } from "@/features/settings/useAppSettings";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -91,7 +93,8 @@ function getSeasonCount(content: ModalContent | null): number | undefined {
 function EpisodePill({
   ep,
   selected,
-  onClick
+  onClick,
+  showRating
 }: {
   ep: {
     episodeNumber: number;
@@ -103,6 +106,7 @@ function EpisodePill({
   };
   selected: boolean;
   onClick: () => void;
+  showRating: boolean;
 }) {
   return (
     <Button
@@ -141,8 +145,139 @@ function EpisodePill({
         )}
         {ep.runtime && <p className="mt-1 text-[11px] text-muted-foreground/80">{ep.runtime}m</p>}
       </div>
+      {showRating && ep.voteAverage !== undefined && ep.voteAverage > 0 && (
+        <span className="mt-1 flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-300">
+          <Star className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+          {ep.voteAverage.toFixed(1)}
+        </span>
+      )}
       <Play className="mt-4 h-4 w-4 shrink-0 text-transparent transition-colors group-hover:text-primary" />
     </Button>
+  );
+}
+
+function getRatingColor(rating: number) {
+  if (rating >= 9) return "bg-emerald-500 text-emerald-950";
+  if (rating >= 8) return "bg-green-500 text-green-950";
+  if (rating >= 7) return "bg-yellow-300 text-yellow-950";
+  if (rating >= 6) return "bg-amber-400 text-amber-950";
+  if (rating >= 5) return "bg-red-400 text-red-950";
+  return "bg-purple-400 text-purple-950";
+}
+
+function EpisodeRatingsGrid({
+  seasons
+}: {
+  seasons: Array<{
+    seasonNumber: number;
+    episodes: Array<{ episodeNumber: number; name: string; voteAverage: number }>;
+  }>;
+}) {
+  const ratedEpisodes = seasons.flatMap((season) =>
+    season.episodes.filter((episode) => episode.voteAverage > 0)
+  );
+  if (ratedEpisodes.length === 0) {
+    return (
+      <p className="py-8 text-center text-xs text-muted-foreground">
+        Episode ratings are not available for this season.
+      </p>
+    );
+  }
+
+  const average =
+    ratedEpisodes.reduce((total, episode) => total + episode.voteAverage, 0) / ratedEpisodes.length;
+  const episodeCount = Math.max(...seasons.map((season) => season.episodes.length));
+
+  return (
+    <section aria-labelledby="episode-ratings-heading">
+      <div className="mb-4 flex items-baseline justify-between gap-3">
+        <h3 id="episode-ratings-heading" className="text-sm font-semibold text-foreground">
+          Episode ratings
+        </h3>
+      </div>
+      <div className="mb-5 flex flex-wrap gap-x-3 gap-y-2 text-[11px] text-muted-foreground">
+        {[
+          ["Awesome", "bg-emerald-500"],
+          ["Great", "bg-green-500"],
+          ["Good", "bg-yellow-300"],
+          ["Regular", "bg-amber-400"],
+          ["Bad", "bg-red-400"],
+          ["Garbage", "bg-purple-400"]
+        ].map(([label, color]) => (
+          <span key={label} className="flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full ${color}`} aria-hidden="true" />
+            {label}
+          </span>
+        ))}
+      </div>
+      <div className="overflow-x-auto">
+        <div
+          className="grid w-fit min-w-44 gap-x-1.5 gap-y-1.5"
+          style={{ gridTemplateColumns: `2.5rem repeat(${seasons.length}, 3.5rem)` }}
+        >
+          <span />
+          {seasons.map((season) => (
+            <span
+              key={season.seasonNumber}
+              className="pb-1 text-center text-xs font-semibold text-muted-foreground"
+            >
+              S{season.seasonNumber}
+            </span>
+          ))}
+          {Array.from({ length: episodeCount }, (_, index) => index + 1).map((episodeNumber) => (
+            <div className="contents" key={episodeNumber}>
+              <span className="self-center text-xs font-medium text-muted-foreground">
+                E{episodeNumber}
+              </span>
+              {seasons.map((season) => {
+                const episode = season.episodes.find(
+                  (item) => item.episodeNumber === episodeNumber
+                );
+                if (!episode) return <span key={season.seasonNumber} />;
+                return episode.voteAverage > 0 ? (
+                  <div
+                    key={season.seasonNumber}
+                    className={`flex h-9 w-12 items-center justify-center rounded-md text-base font-bold tabular-nums ${getRatingColor(
+                      episode.voteAverage
+                    )}`}
+                    title={`${episode.name}: ${episode.voteAverage.toFixed(1)} / 10`}
+                    aria-label={`${episode.name}: ${episode.voteAverage.toFixed(1)} out of 10`}
+                  >
+                    {episode.voteAverage.toFixed(1)}
+                  </div>
+                ) : (
+                  <div
+                    key={season.seasonNumber}
+                    className="flex h-9 w-12 items-center justify-center rounded-md bg-muted text-base font-bold text-muted-foreground"
+                    title={`${episode.name}: rating unavailable`}
+                    aria-label={`${episode.name}: rating unavailable`}
+                  >
+                    ?
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-5 flex items-end gap-4">
+        <span className="pb-1 text-xs font-semibold text-muted-foreground">AVG.</span>
+        {seasons.map((season) => {
+          const ratings = season.episodes.filter((episode) => episode.voteAverage > 0);
+          const seasonAverage =
+            ratings.reduce((total, episode) => total + episode.voteAverage, 0) / ratings.length;
+          return (
+            <span
+              key={season.seasonNumber}
+              className="border-b-2 border-yellow-300 pb-1 text-xl font-bold tabular-nums text-foreground"
+            >
+              {Number.isFinite(seasonAverage) ? seasonAverage.toFixed(1) : "—"}
+            </span>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">Ratings sourced from TMDB.</p>
+    </section>
   );
 }
 
@@ -155,8 +290,9 @@ export function ContentModal({
   compactCopy = true
 }: ContentModalProps) {
   const [activeTab, setActiveTab] = useState<
-    "episodes" | "cast" | "videos" | "related" | "downloads"
+    "episodes" | "ratings" | "cast" | "videos" | "related" | "downloads"
   >(initialTab ?? "episodes");
+  const { settings } = useAppSettings();
 
   const tmdbDetailEnabled = isOpen && !!content && !!content.tmdbId && !hasFullContent(content);
   const { detail: tmdbDetail } = useContentDetail(
@@ -209,6 +345,11 @@ export function ContentModal({
     isOpen && resolvedContent?.type === "tv" ? resolvedContent?.tmdbId : undefined,
     selectedSeason,
     isOpen && resolvedContent?.type === "tv"
+  );
+  const { seasons: ratingSeasons, isLoading: ratingsLoading } = useSeriesEpisodeRatings(
+    resolvedContent?.type === "tv" ? resolvedContent.tmdbId : undefined,
+    getSeasonCount(resolvedContent) ?? 1,
+    isOpen && activeTab === "ratings" && settings.showEpisodeRatings
   );
 
   const dbSeason = useMemo(() => {
@@ -358,6 +499,12 @@ export function ContentModal({
       setActiveTab(initialTab ?? (resolvedContent.type === "tv" ? "episodes" : "cast"));
     }
   }, [initialTab, isOpen, resolvedContent?.type]);
+
+  useEffect(() => {
+    if (!settings.showEpisodeRatings && activeTab === "ratings") {
+      setActiveTab("episodes");
+    }
+  }, [activeTab, settings.showEpisodeRatings]);
 
   const handleRelatedClick = (item: TMDBItem) => {
     setRelatedModalItem(item);
@@ -591,6 +738,20 @@ export function ContentModal({
                   Episodes
                 </Button>
               )}
+              {isTV && settings.showEpisodeRatings && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setActiveTab("ratings")}
+                  className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    activeTab === "ratings"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  }`}
+                >
+                  Ratings
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="ghost"
@@ -641,37 +802,37 @@ export function ContentModal({
               </Button>
             </div>
 
+            {isTV && activeTab === "episodes" && (totalSeasons > 1 || hasSpecials) && (
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <Select
+                  value={String(selectedSeason)}
+                  onValueChange={(value) => {
+                    const season = Number(value);
+                    handleSeasonChange(season);
+                    setEpisodeLoadError(null);
+                  }}
+                >
+                  <SelectTrigger className="w-40 rounded-xl border-border/80 bg-background text-foreground">
+                    <SelectValue placeholder="Season">
+                      {selectedSeason === 0 ? "Specials" : `Season ${selectedSeason}`}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="border-border/80 bg-popover text-popover-foreground">
+                    {[
+                      ...(hasSpecials ? [0] : []),
+                      ...Array.from({ length: totalSeasons }, (_, i) => i + 1)
+                    ].map((s) => (
+                      <SelectItem key={s} value={String(s)}>
+                        {s === 0 ? "Specials" : `Season ${s}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {activeTab === "episodes" && isTV && (
               <div>
-                {(totalSeasons > 1 || hasSpecials) && (
-                  <div className="mb-4 flex items-center justify-between gap-3">
-                    <Select
-                      value={String(selectedSeason)}
-                      onValueChange={(value) => {
-                        const season = Number(value);
-                        handleSeasonChange(season);
-                        setEpisodeLoadError(null);
-                      }}
-                    >
-                      <SelectTrigger className="w-40 rounded-xl border-border/80 bg-background text-foreground">
-                        <SelectValue placeholder="Season">
-                          {selectedSeason === 0 ? "Specials" : `Season ${selectedSeason}`}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="border-border/80 bg-popover text-popover-foreground">
-                        {[
-                          ...(hasSpecials ? [0] : []),
-                          ...Array.from({ length: totalSeasons }, (_, i) => i + 1)
-                        ].map((s) => (
-                          <SelectItem key={s} value={String(s)}>
-                            {s === 0 ? "Specials" : `Season ${s}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
                 {dbSeason?.overview && (
                   <p className="mb-3 text-sm text-muted-foreground">{dbSeason.overview}</p>
                 )}
@@ -687,6 +848,7 @@ export function ContentModal({
                         key={ep.episodeNumber}
                         ep={ep}
                         selected={ep.episodeNumber === selectedEpisode}
+                        showRating={settings.showEpisodeRatings}
                         onClick={() => {
                           handleEpisodeClick(ep.episodeNumber);
                           handlePlay(ep.episodeNumber);
@@ -699,6 +861,15 @@ export function ContentModal({
                 )}
               </div>
             )}
+
+            {activeTab === "ratings" &&
+              isTV &&
+              settings.showEpisodeRatings &&
+              (ratingsLoading ? (
+                <p className="py-8 text-center text-xs text-muted-foreground">Loading ratings</p>
+              ) : (
+                <EpisodeRatingsGrid seasons={ratingSeasons} />
+              ))}
 
             {activeTab === "cast" && (
               <div>
