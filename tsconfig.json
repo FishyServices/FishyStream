@@ -22,6 +22,7 @@
       "@providers/*": ["./packages/providers/src/*"],
       "@fishy/providers": ["./packages/providers/src/index.ts"],
       "@fishy/providers/tmdb": ["./packages/providers/src/tmdb/index.ts"],
+      "@fishy/providers/imdb": ["./packages/providers/src/imdb/index.ts"],
       "@fishy/providers/catalog": ["./packages/providers/src/catalog/index.ts"],
       "@fishy/providers/playback": ["./packages/providers/src/playback/index.ts"],
       "@fishy/providers/anime": ["./packages/providers/src/anime/index.ts"],

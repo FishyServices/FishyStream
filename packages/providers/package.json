@@ -15,6 +15,10 @@
       "types": "./dist/tmdb/index.d.ts",
       "import": "./dist/tmdb/index.js"
     },
+    "./imdb": {
+      "types": "./dist/imdb/index.d.ts",
+      "import": "./dist/imdb/index.js"
+    },
     "./catalog": {
       "types": "./dist/catalog/index.d.ts",
       "import": "./dist/catalog/index.js"
