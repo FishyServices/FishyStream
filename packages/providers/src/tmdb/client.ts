@@ -357,34 +357,83 @@ export async function fetchTmdbRelated(
     apiKey,
     signal ?? new AbortController().signal
   );
-  return (data.results ?? [])
-    .slice(0, limit)
-    .map((item) => ({
-      tmdbId: item.id,
-      title: mediaTitle(item, type),
-      posterUrl: image(item.poster_path),
-      year: year(type === "movie" ? item.release_date : item.first_air_date),
-      genre: mediaGenres(item),
-      rating: ageRating(item.vote_average),
-      voteAverage: item.vote_average,
-      type
-    }));
+  return (data.results ?? []).slice(0, limit).map((item) => ({
+    tmdbId: item.id,
+    title: mediaTitle(item, type),
+    posterUrl: image(item.poster_path),
+    year: year(type === "movie" ? item.release_date : item.first_air_date),
+    genre: mediaGenres(item),
+    rating: ageRating(item.vote_average),
+    voteAverage: item.vote_average,
+    type
+  }));
 }
 export async function fetchTmdbCredits(
-  _id: number,
-  _type: MediaType,
-  _apiKey: string,
-  _signal?: AbortSignal
+  id: number,
+  type: MediaType,
+  apiKey: string,
+  signal?: AbortSignal
 ): Promise<TMDBCreditResult | null> {
-  return null;
+  try {
+    const value = (await createTMDBRequest(apiKey)(`/${type}/${id}/credits`, {}, signal)) as {
+      cast?: Array<{
+        id: number;
+        name: string;
+        character?: string;
+        profile_path?: string | null;
+        order?: number;
+      }>;
+      crew?: Array<{ name: string; job: string }>;
+    };
+    return {
+      cast: (value.cast ?? []).slice(0, 20).map((actor, order) => ({
+        id: actor.id,
+        name: actor.name,
+        character: actor.character ?? "",
+        profileUrl: actor.profile_path ? image(actor.profile_path, "w185") : "",
+        order: actor.order ?? order
+      })),
+      directors: (value.crew ?? [])
+        .filter((member) => member.job === "Director")
+        .map((member) => member.name)
+    };
+  } catch {
+    return null;
+  }
 }
 export async function fetchTmdbVideos(
-  _id: number,
-  _type: MediaType,
-  _apiKey: string,
-  _signal?: AbortSignal
+  id: number,
+  type: MediaType,
+  apiKey: string,
+  signal?: AbortSignal
 ): Promise<TMDBVideoResult[]> {
-  return [];
+  try {
+    const value = (await createTMDBRequest(apiKey)(`/${type}/${id}/videos`, {}, signal)) as {
+      results?: Array<{
+        key?: string;
+        name?: string;
+        site?: string;
+        type?: string;
+        official?: boolean;
+      }>;
+    };
+    return (value.results ?? [])
+      .filter(
+        (video) =>
+          video.site === "YouTube" &&
+          !!video.key &&
+          !!video.name &&
+          (video.type === "Trailer" || video.type === "Teaser")
+      )
+      .map((video) => ({
+        key: video.key!,
+        name: video.name!,
+        type: video.type!,
+        official: video.official === true
+      }));
+  } catch {
+    return [];
+  }
 }
 export async function fetchTmdbSeasonEpisodes(
   id: string,
