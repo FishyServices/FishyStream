@@ -7,6 +7,7 @@ import {
   Film,
   History,
   Home,
+  LogOut,
   Menu,
   Search,
   Settings,
@@ -218,16 +219,26 @@ export function Header() {
             </kbd>
           </Button>
           {isSignedIn ? (
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/settings")}
-              className="h-11 w-full justify-center rounded-lg px-0 text-muted-foreground xl:justify-start xl:px-3"
-            >
-              <UserRound className="h-4.5 w-4.5 shrink-0" />
-              <span className="hidden max-w-36 truncate xl:inline">
-                {user?.firstName ?? "Account"}
-              </span>
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/settings")}
+                className="h-11 w-full justify-center rounded-lg px-0 text-muted-foreground xl:justify-start xl:px-3"
+              >
+                <UserRound className="h-4.5 w-4.5 shrink-0" />
+                <span className="hidden max-w-36 truncate xl:inline">
+                  {user?.firstName ?? "Account"}
+                </span>
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => signOut()}
+                className="h-11 w-full justify-center rounded-lg px-0 text-destructive hover:bg-destructive/10 hover:text-destructive xl:justify-start xl:px-3"
+              >
+                <LogOut className="h-4.5 w-4.5 shrink-0" />
+                <span className="hidden xl:inline">Sign out</span>
+              </Button>
+            </>
           ) : (
             <Button
               onClick={() => navigate("/sign-in")}
