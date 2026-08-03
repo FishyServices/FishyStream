@@ -2,7 +2,21 @@
 
 Providers api for https://github.com/FishyServices/FishyStream
 
-works with tmdb and anilist
+Works with TMDB, IMDb, and AniList.
+
+## Matching TMDB and IMDb client APIs
+
+TMDB and IMDb expose the same client methods: `getTitle`, `getTitleRating`,
+and `getEpisodePage`. Each takes a title-reference object and an optional abort
+signal. TMDB references must include a `type` (`"movie"` or `"tv"`), and
+TMDB episode references must include `seasonNumber`.
+
+```ts
+import { createTMDBClient, createTMDBRequest } from "@fishy/providers/tmdb";
+
+const tmdb = createTMDBClient(createTMDBRequest(apiKey));
+const title = await tmdb.getTitle({ id: "550", type: "movie" });
+```
 
 ## IMDb
 
@@ -17,5 +31,5 @@ same-origin proxy:
 import { createIMDbClient, createIMDbProxyRequest } from "@fishy/providers/imdb";
 
 const imdb = createIMDbClient(createIMDbProxyRequest("/api/imdb"));
-const rating = await imdb.getTitleRating("tt0944947");
+const rating = await imdb.getTitleRating({ id: "tt0944947", type: "tv" });
 ```
