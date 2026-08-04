@@ -66,8 +66,19 @@ const image = (path?: string | null, size = "w500") =>
 const year = (date?: string) => Number(date?.slice(0, 4)) || new Date().getFullYear();
 const mediaTitle = (item: TMDBBrowseListItem, type: MediaType) =>
   type === "movie" ? (item.title ?? "") : (item.name ?? "");
-const mediaGenres = (item: TMDBBrowseListItem) =>
-  (item.genre_ids ?? []).map((id) => genres[id]).filter((name): name is string => !!name);
+const mediaGenres = (
+  item: TMDBBrowseListItem & {
+    genres?: Array<{ id?: number; name?: string }>;
+  }
+) => {
+  if (item.genres?.length) {
+    return item.genres
+      .map((genre) => genre.name ?? genres[genre.id ?? -1])
+      .filter((name): name is string => !!name);
+  }
+
+  return (item.genre_ids ?? []).map((id) => genres[id]).filter((name): name is string => !!name);
+};
 const ageRating = (rating = 0) => (rating >= 7.5 ? "PG-13" : rating >= 5 ? "PG" : "G");
 
 export type TMDBRequest = (
@@ -448,6 +459,7 @@ export async function fetchTmdbSeasonEpisodes(
       signal
     )) as {
       overview?: string;
+      air_date?: string;
       episodes?: Array<{
         episode_number: number;
         name: string;
@@ -459,6 +471,7 @@ export async function fetchTmdbSeasonEpisodes(
     };
     return {
       overview: value.overview,
+      airDate: value.air_date,
       episodes: (value.episodes ?? []).map((episode) => ({
         episodeNumber: episode.episode_number,
         name: episode.name,
@@ -481,13 +494,14 @@ export function shuffleWithSeed<T>(items: T[], seed: number): T[] {
 export async function buildCanonicalSeasonPayload(tmdbId: string, seasonNumber: number) {
   const season = await fetchTmdbSeasonEpisodes(tmdbId, seasonNumber, TMDB_API_KEY);
   if (!season) return null;
+  const seasonYear = Number(season.airDate?.slice(0, 4));
   return {
     seasonNumber,
     name: `Season ${seasonNumber}`,
     overview: season.overview,
-    airDate: undefined,
+    airDate: season.airDate,
     episodeCount: season.episodes.length,
-    year: new Date().getFullYear(),
+    year: Number.isFinite(seasonYear) && seasonYear > 1900 ? seasonYear : undefined,
     episodes: season.episodes.map((episode) => ({ ...episode, airDate: undefined }))
   };
 }
