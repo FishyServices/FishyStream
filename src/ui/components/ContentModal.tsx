@@ -303,7 +303,8 @@ export function ContentModal({
   const { detail: tmdbDetail } = useContentDetail(
     tmdbDetailEnabled ? content?.tmdbId : undefined,
     tmdbDetailEnabled ? content?.type : undefined,
-    tmdbDetailEnabled
+    tmdbDetailEnabled,
+    false
   );
 
   const fullContent: ContentDetail | null | undefined = tmdbDetail
@@ -356,8 +357,7 @@ export function ContentModal({
   const { season: tmdbSeason, isLoading: tmdbSeasonLoading } = useSeasonEpisodes(
     isOpen && resolvedContent?.type === "tv" ? resolvedContent?.tmdbId : undefined,
     selectedSeason,
-    isOpen && resolvedContent?.type === "tv",
-    getImdbId(resolvedContent)
+    isOpen && resolvedContent?.type === "tv"
   );
   const { seasons: ratingSeasons, isLoading: ratingsLoading } = useSeriesEpisodeRatings(
     resolvedContent?.type === "tv" ? resolvedContent.tmdbId : undefined,
@@ -411,7 +411,8 @@ export function ContentModal({
   const { detail: relatedTmdbDetail } = useContentDetail(
     relatedModalItem ? String(relatedModalItem.tmdbId) : undefined,
     relatedModalItem?.type,
-    !!relatedModalItem
+    !!relatedModalItem,
+    false
   );
 
   const relatedSyncing = !!relatedModalItem && relatedTmdbDetail === undefined;

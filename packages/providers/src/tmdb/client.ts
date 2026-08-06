@@ -80,6 +80,17 @@ const mediaGenres = (
   return (item.genre_ids ?? []).map((id) => genres[id]).filter((name): name is string => !!name);
 };
 const ageRating = (rating = 0) => (rating >= 7.5 ? "PG-13" : rating >= 5 ? "PG" : "G");
+const certification = (value: Record<string, any>, type: MediaType) => {
+  if (type === "tv") {
+    return value.content_ratings?.results?.find(
+      (item: { iso_3166_1?: string; rating?: string }) => item.iso_3166_1 === "US" && item.rating
+    )?.rating;
+  }
+
+  return value.release_dates?.results
+    ?.find((item: { iso_3166_1?: string }) => item.iso_3166_1 === "US")
+    ?.release_dates?.find((item: { certification?: string }) => item.certification)?.certification;
+};
 
 export type TMDBRequest = (
   path: string,
@@ -269,7 +280,11 @@ async function detail(
   try {
     return (await createTMDBRequest(apiKey)(
       `/${type}/${id}`,
-      { append_to_response: "videos,images,external_ids" },
+      {
+        append_to_response: `videos,images,external_ids,${
+          type === "tv" ? "content_ratings" : "release_dates"
+        }`
+      },
       signal
     )) as TMDBBrowseListItem & Record<string, unknown>;
   } catch {
@@ -293,7 +308,7 @@ export async function fetchTmdbFullDetail(
     title,
     description: value.overview ?? "No description available",
     year: year(type === "movie" ? value.release_date : value.first_air_date),
-    rating: ageRating(value.vote_average),
+    rating: certification(data, type) || ageRating(value.vote_average),
     voteAverage: value.vote_average,
     posterUrl: image(value.poster_path),
     backdropUrl: value.backdrop_path ? image(value.backdrop_path, "original") : "",

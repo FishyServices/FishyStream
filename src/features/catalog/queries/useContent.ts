@@ -883,7 +883,8 @@ export function useRecommendations(
 export function useContentDetail(
   tmdbId: string | undefined,
   type: TMDBMediaType | undefined,
-  enabled = true
+  enabled = true,
+  includeImdb = true
 ) {
   const [detail, setDetail] = useState<TMDBFullDetail | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
@@ -908,16 +909,17 @@ export function useContentDetail(
         }
 
         const imdbId = result.imdbId;
-        const imdbDetail = imdbId
-          ? await fetchImdbFullDetail(imdbId, type, imdbRequest, controller.signal)
-          : null;
+        const imdbDetail =
+          includeImdb && imdbId
+            ? await fetchImdbFullDetail(imdbId, type, imdbRequest, controller.signal)
+            : null;
 
         if (!cancelRef.current) {
           setDetail({
             ...result,
             imdbId: imdbDetail?.imdbId ?? result.imdbId,
             rating: imdbDetail?.rating ?? result.rating,
-            voteAverage: imdbDetail?.voteAverage
+            voteAverage: imdbDetail?.voteAverage ?? result.voteAverage
           });
         }
       } catch {
@@ -931,7 +933,7 @@ export function useContentDetail(
       controller.abort();
       cancelRef.current = true;
     };
-  }, [tmdbId, type, enabled]);
+  }, [tmdbId, type, enabled, includeImdb]);
 
   return { detail, isLoading };
 }
@@ -959,6 +961,7 @@ export function useSeasonEpisodes(
   >(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const cancelRef = useRef(false);
+  const imdbRatingsRef = useRef(new Map<number, number>());
 
   useEffect(() => {
     if (!enabled || !tmdbId) {
@@ -966,27 +969,22 @@ export function useSeasonEpisodes(
       return;
     }
     cancelRef.current = false;
+    imdbRatingsRef.current.clear();
     setIsLoading(true);
     setSeason(undefined);
     const controller = new AbortController();
 
     void (async () => {
       try {
-        const [result, imdbSeason] = await Promise.all([
-          fetchTmdbSeasonEpisodes(tmdbId, seasonNumber, getApiKey(), controller.signal),
-          imdbId
-            ? fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
-            : Promise.resolve(null)
-        ]);
-        const imdbRatings = new Map(
-          (imdbSeason?.episodes ?? []).map((episode) => [
-            episode.episodeNumber,
-            episode.voteAverage
-          ])
+        const result = await fetchTmdbSeasonEpisodes(
+          tmdbId,
+          seasonNumber,
+          getApiKey(),
+          controller.signal
         );
         const episodes = (result?.episodes ?? []).map((episode) => ({
           ...episode,
-          voteAverage: imdbRatings.get(episode.episodeNumber) ?? 0
+          voteAverage: imdbRatingsRef.current.get(episode.episodeNumber) ?? 0
         }));
         if (!cancelRef.current && result) setSeason({ ...result, episodes });
       } catch {
@@ -999,6 +997,45 @@ export function useSeasonEpisodes(
     return () => {
       controller.abort();
       cancelRef.current = true;
+    };
+  }, [tmdbId, seasonNumber, enabled]);
+
+  useEffect(() => {
+    if (!enabled || !tmdbId || !imdbId) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    void fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
+      .then((imdbSeason) => {
+        if (cancelled || controller.signal.aborted) return;
+
+        const ratings = new Map(
+          (imdbSeason?.episodes ?? []).map((episode) => [
+            episode.episodeNumber,
+            episode.voteAverage
+          ])
+        );
+        imdbRatingsRef.current = ratings;
+        setSeason((current) =>
+          current
+            ? {
+                ...current,
+                episodes: current.episodes.map((episode) => ({
+                  ...episode,
+                  voteAverage: ratings.get(episode.episodeNumber) ?? 0
+                }))
+              }
+            : current
+        );
+      })
+      .catch(() => {
+        if (!cancelled && !controller.signal.aborted) imdbRatingsRef.current.clear();
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
     };
   }, [tmdbId, seasonNumber, enabled, imdbId]);
 
