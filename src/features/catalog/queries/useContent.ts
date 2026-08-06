@@ -662,6 +662,7 @@ const REC_CACHE_KEY = "fishy_recs_cache_v2";
 const REC_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const REC_DISPLAY_HISTORY_KEY = "fishy_recs_display_history_v1";
 const MAX_DISPLAY_HISTORY_ENTRIES = 80;
+const MAX_RECOMMENDATION_SEEDS = 10;
 
 interface RecCacheEntry {
   timestamp: number;
@@ -795,7 +796,7 @@ export function useRecommendations(
       activeSeed?.tmdbSeeds?.filter((s) => typeFilter === "all" || s.type === typeFilter) ?? [];
 
     const shuffledSeeds = shuffleWithSeed(allSeeds, refreshSeed);
-    const seedItemsToFetch = shuffledSeeds;
+    const seedItemsToFetch = shuffledSeeds.slice(0, MAX_RECOMMENDATION_SEEDS);
 
     const collect = (responses: Array<{ data: TMDBBrowseListResponse; type?: TMDBMediaType }>) =>
       collectTmdbCards(responses, { excludedIds, typeFilter }).map(tmdbCardToContentCard);
