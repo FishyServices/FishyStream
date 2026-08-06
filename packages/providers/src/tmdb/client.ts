@@ -465,7 +465,7 @@ export async function fetchTmdbSeasonEpisodes(
         name: string;
         overview?: string;
         still_path?: string;
-        runtime?: number;
+        runtime?: number | null;
         vote_average?: number;
       }>;
     };
@@ -477,7 +477,7 @@ export async function fetchTmdbSeasonEpisodes(
         name: episode.name,
         overview: episode.overview,
         stillUrl: episode.still_path ? image(episode.still_path, "w300") : undefined,
-        runtime: episode.runtime,
+        runtime: episode.runtime ?? undefined,
         voteAverage: episode.vote_average ?? 0
       }))
     };

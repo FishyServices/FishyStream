@@ -50,13 +50,17 @@ export const syncAnimeSeasonPlaybackMeta = action({
       seasonTitle: payload.name,
       year: payload.year
     });
+    const episodes = payload.episodes.map((episode) => ({
+      ...episode,
+      runtime: episode.runtime ?? undefined
+    }));
     const mappings = await buildAniListEpisodeMappings({
       anilistId,
       title: args.title,
       season: payload.seasonNumber,
       seasonTitle: payload.name,
       year: payload.year,
-      episodes: payload.episodes
+      episodes
     });
 
     await ctx.runMutation(internal.domains.seasons.seasons.upsertAnimeSeasonMeta, {
@@ -69,7 +73,7 @@ export const syncAnimeSeasonPlaybackMeta = action({
       episodeCount: payload.episodeCount,
       anilistId: anilistId ?? undefined,
       anilistEpisodeMappings: mappings,
-      episodes: payload.episodes
+      episodes
     });
 
     return {
