@@ -39,6 +39,26 @@ export async function handleApiRequest(context: PagesFunctionContext) {
     );
   }
 
+  if (subpath === "imdb") {
+    if (request.method !== "POST") {
+      return new Response("Method Not Allowed", {
+        status: 405,
+        headers: { Allow: "POST" }
+      });
+    }
+
+    return fetch("https://api.graphql.imdb.com/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://www.imdb.com",
+        Referer: "https://www.imdb.com/",
+        "User-Agent": request.headers.get("User-Agent") ?? "FishyStream/1.0"
+      },
+      body: request.body
+    });
+  }
+
   const siteUrl = env.VITE_CONVEX_SITE_URL ?? env.CONVEX_SITE_URL ?? "";
   if (!siteUrl) {
     return new Response(

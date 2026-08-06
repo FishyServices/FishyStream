@@ -75,6 +75,15 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
+        "/api/imdb": {
+          target: "https://api.graphql.imdb.com",
+          changeOrigin: true,
+          rewrite: () => "/",
+          headers: {
+            Origin: "https://www.imdb.com",
+            Referer: "https://www.imdb.com/"
+          }
+        },
         "/api": {
           target: convexSiteUrl,
           changeOrigin: true,

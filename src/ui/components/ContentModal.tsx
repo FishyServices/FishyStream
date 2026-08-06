@@ -90,6 +90,11 @@ function getSeasonCount(content: ModalContent | null): number | undefined {
   return typeof candidate?.seasons === "number" ? candidate.seasons : undefined;
 }
 
+function getImdbId(content: ModalContent | null): string | undefined {
+  if (!content || !("imdbId" in content)) return undefined;
+  return typeof content.imdbId === "string" ? content.imdbId : undefined;
+}
+
 function EpisodePill({
   ep,
   selected,
@@ -276,7 +281,7 @@ function EpisodeRatingsGrid({
           );
         })}
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">Ratings sourced from TMDB.</p>
+      <p className="mt-2 text-xs text-muted-foreground">Ratings sourced from IMDb.</p>
     </section>
   );
 }
@@ -294,7 +299,7 @@ export function ContentModal({
   >(initialTab ?? "episodes");
   const { settings } = useAppSettings();
 
-  const tmdbDetailEnabled = isOpen && !!content && !!content.tmdbId && !hasFullContent(content);
+  const tmdbDetailEnabled = isOpen && !!content && !!content.tmdbId;
   const { detail: tmdbDetail } = useContentDetail(
     tmdbDetailEnabled ? content?.tmdbId : undefined,
     tmdbDetailEnabled ? content?.type : undefined,
@@ -330,7 +335,14 @@ export function ContentModal({
     : tmdbDetail;
 
   const resolvedContent: ModalContent | null = fullContent
-    ? { ...fullContent, ...content, _id: fullContent._id }
+    ? {
+        ...fullContent,
+        ...content,
+        _id: fullContent._id,
+        rating: fullContent.rating,
+        voteAverage: fullContent.voteAverage,
+        imdbId: fullContent.imdbId
+      }
     : content;
 
   const detailContent = hasFullContent(resolvedContent) ? resolvedContent : null;
@@ -344,12 +356,14 @@ export function ContentModal({
   const { season: tmdbSeason, isLoading: tmdbSeasonLoading } = useSeasonEpisodes(
     isOpen && resolvedContent?.type === "tv" ? resolvedContent?.tmdbId : undefined,
     selectedSeason,
-    isOpen && resolvedContent?.type === "tv"
+    isOpen && resolvedContent?.type === "tv",
+    getImdbId(resolvedContent)
   );
   const { seasons: ratingSeasons, isLoading: ratingsLoading } = useSeriesEpisodeRatings(
     resolvedContent?.type === "tv" ? resolvedContent.tmdbId : undefined,
     getSeasonCount(resolvedContent) ?? 1,
-    isOpen && activeTab === "ratings" && settings.showEpisodeRatings
+    isOpen && activeTab === "ratings" && settings.showEpisodeRatings,
+    getImdbId(resolvedContent)
   );
 
   const dbSeason = useMemo(() => {

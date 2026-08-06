@@ -34,10 +34,17 @@ import {
   type TMDBBrowseListResponse,
   type TMDBFullDetail
 } from "@fishy/providers/tmdb";
+import {
+  createIMDbProxyRequest,
+  fetchImdbFullDetail,
+  fetchImdbSeasonEpisodes
+} from "@fishy/providers/imdb";
 import ownersPicksData from "../ownersPicks.json";
 import type { ContentCatalogPlayback } from "../model/catalog";
 
 export type { TMDBItem, TMDBFullDetail };
+
+const imdbRequest = createIMDbProxyRequest("/api/imdb");
 
 const playbackCatalog: ContentCatalogPlayback = {
   async getPlayback(id, type, signal) {
@@ -894,7 +901,24 @@ export function useContentDetail(
     void (async () => {
       try {
         const result = await fetchTmdbFullDetail(tmdbId, type, getApiKey(), controller.signal);
-        if (!cancelRef.current) setDetail(result);
+        if (!result) {
+          if (!cancelRef.current) setDetail(null);
+          return;
+        }
+
+        const imdbId = result.imdbId;
+        const imdbDetail = imdbId
+          ? await fetchImdbFullDetail(imdbId, type, imdbRequest, controller.signal)
+          : null;
+
+        if (!cancelRef.current) {
+          setDetail({
+            ...result,
+            imdbId: imdbDetail?.imdbId ?? result.imdbId,
+            rating: imdbDetail?.rating ?? result.rating,
+            voteAverage: imdbDetail?.voteAverage
+          });
+        }
       } catch {
         if (!cancelRef.current) setDetail(null);
       } finally {
@@ -914,7 +938,8 @@ export function useContentDetail(
 export function useSeasonEpisodes(
   tmdbId: string | undefined,
   seasonNumber: number,
-  enabled = true
+  enabled = true,
+  imdbId?: string
 ) {
   const [season, setSeason] = useState<
     | {
@@ -946,13 +971,23 @@ export function useSeasonEpisodes(
 
     void (async () => {
       try {
-        const result = await fetchTmdbSeasonEpisodes(
-          tmdbId,
-          seasonNumber,
-          getApiKey(),
-          controller.signal
+        const [result, imdbSeason] = await Promise.all([
+          fetchTmdbSeasonEpisodes(tmdbId, seasonNumber, getApiKey(), controller.signal),
+          imdbId
+            ? fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
+            : Promise.resolve(null)
+        ]);
+        const imdbRatings = new Map(
+          (imdbSeason?.episodes ?? []).map((episode) => [
+            episode.episodeNumber,
+            episode.voteAverage
+          ])
         );
-        if (!cancelRef.current) setSeason(result);
+        const episodes = (result?.episodes ?? []).map((episode) => ({
+          ...episode,
+          voteAverage: imdbRatings.get(episode.episodeNumber) ?? 0
+        }));
+        if (!cancelRef.current && result) setSeason({ ...result, episodes });
       } catch {
         if (!cancelRef.current) setSeason(null);
       } finally {
@@ -964,7 +999,7 @@ export function useSeasonEpisodes(
       controller.abort();
       cancelRef.current = true;
     };
-  }, [tmdbId, seasonNumber, enabled]);
+  }, [tmdbId, seasonNumber, enabled, imdbId]);
 
   return { season, isLoading };
 }
@@ -972,7 +1007,8 @@ export function useSeasonEpisodes(
 export function useSeriesEpisodeRatings(
   tmdbId: string | undefined,
   seasonCount: number,
-  enabled = true
+  enabled = true,
+  imdbId?: string
 ) {
   const [seasons, setSeasons] = useState<
     Array<{
@@ -993,7 +1029,9 @@ export function useSeriesEpisodeRatings(
 
     void Promise.all(
       Array.from({ length: seasonCount }, (_, index) => index + 1).map(async (seasonNumber) => {
-        const season = await fetchTmdbSeasonEpisodes(tmdbId, seasonNumber, getApiKey());
+        const season = imdbId
+          ? await fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest)
+          : null;
         return {
           seasonNumber,
           episodes: (season?.episodes ?? []).map(({ episodeNumber, name, voteAverage }) => ({
@@ -1017,7 +1055,7 @@ export function useSeriesEpisodeRatings(
     return () => {
       cancelled = true;
     };
-  }, [enabled, seasonCount, tmdbId]);
+  }, [enabled, seasonCount, tmdbId, imdbId]);
 
   return { seasons, isLoading };
 }

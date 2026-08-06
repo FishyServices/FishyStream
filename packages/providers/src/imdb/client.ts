@@ -24,7 +24,7 @@ import type {
 } from "./types.js";
 import { resolveAniListEpisodeAddress, resolveAniListId } from "../anime/anilistResolver.js";
 
-export const IMDB_GRAPHQL_ENDPOINT = "https://graphql.imdb.fishystream.workers.dev";
+export const IMDB_GRAPHQL_ENDPOINT = "https://api.graphql.imdb.com/";
 export const IMDB_PAGE_SIZE = 20;
 
 const image = (url?: string | null) =>
@@ -270,7 +270,7 @@ async function detail(
   try {
     const data = await executeIMDbQuery<IMDBDetailResponse>(
       request,
-      `query { title(id: "${id}") { ${cardFields} plot { plainText } runtime { seconds } certificate { rating } taglines { edges { node { text } } } spokenLanguages { spokenLanguages { text } } productionStatus { currentProductionStage { text } } episodes { seasons { number } totalEpisodes { total } } } }`,
+      `query { title(id: "${id}") { ${cardFields} plot { plotText { plainText } } runtime { seconds } certificate { rating } taglines { edges { node { text } } } spokenLanguages { spokenLanguages { text } } productionStatus { currentProductionStage { text } } episodes { seasons { number } episodes(first: 1) { total } } } }`,
       signal
     );
     return data.title ?? null;
@@ -292,7 +292,7 @@ export async function fetchImdbFullDetail(
     imdbId: id,
     type,
     title: text,
-    description: value.plot?.plainText ?? "No description available",
+    description: value.plot?.plotText?.plainText ?? "No description available",
     year: year(value),
     rating: ageRating(value),
     voteAverage: value.ratingsSummary?.aggregateRating ?? undefined,
@@ -300,7 +300,7 @@ export async function fetchImdbFullDetail(
     backdropUrl: image(value.primaryImage?.url),
     duration: type === "movie" ? durationText(value.runtime?.seconds) : undefined,
     seasons: type === "tv" ? value.episodes?.seasons?.length : undefined,
-    totalEpisodes: type === "tv" ? (value.episodes?.totalEpisodes?.total ?? undefined) : undefined,
+    totalEpisodes: type === "tv" ? (value.episodes?.episodes?.total ?? undefined) : undefined,
     hasSpecials:
       type === "tv" ? value.episodes?.seasons?.some((season) => season.number === 0) : undefined,
     genre: mediaGenres(value),
@@ -452,7 +452,7 @@ export async function fetchImdbSeasonEpisodes(
   try {
     const data = await executeIMDbQuery<IMDBSeasonEpisodesResponse>(
       request,
-      `query { title(id: "${id}") { episodes { episodes(first: 250, filter: { seasonNumber: ${seasonNumber} }) { edges { node { id titleText { text } plot { plainText } primaryImage { url } runtime { seconds } ratingsSummary { aggregateRating voteCount } series { episodeNumber { episodeNumber seasonNumber } } } } } } } }`,
+      `query { title(id: "${id}") { episodes { episodes(first: 250, filter: { seasonNumber: ${seasonNumber} }) { edges { node { id titleText { text } plot { plotText { plainText } } primaryImage { url } runtime { seconds } ratingsSummary { aggregateRating voteCount } series { episodeNumber { episodeNumber seasonNumber } } } } } } } }`,
       signal
     );
     const nodes = (data.title?.episodes?.episodes?.edges ?? [])
@@ -463,7 +463,7 @@ export async function fetchImdbSeasonEpisodes(
       episodes: nodes.map((node) => ({
         episodeNumber: node.series?.episodeNumber?.episodeNumber ?? 0,
         name: mediaTitle(node),
-        overview: node.plot?.plainText,
+        overview: node.plot?.plotText?.plainText,
         stillUrl: node.primaryImage?.url ? image(node.primaryImage.url) : undefined,
         runtime: node.runtime?.seconds ? Math.round(node.runtime.seconds / 60) : undefined,
         voteAverage: node.ratingsSummary?.aggregateRating ?? 0

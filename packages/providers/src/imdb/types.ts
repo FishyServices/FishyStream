@@ -52,7 +52,7 @@ export type IMDBTitleNode = {
   releaseDate?: { year?: number | null; month?: number | null; day?: number | null } | null;
   primaryImage?: { url?: string | null } | null;
   ratingsSummary?: { aggregateRating?: number | null; voteCount?: number | null } | null;
-  plot?: { plainText?: string | null } | null;
+  plot?: { plotText?: { plainText?: string | null } | null } | null;
   genres?: { genres?: Array<{ text?: string | null }> | null } | null;
   runtime?: { seconds?: number | null } | null;
   certificate?: { rating?: string | null } | null;
@@ -61,7 +61,7 @@ export type IMDBTitleNode = {
   productionStatus?: { currentProductionStage?: { text?: string | null } | null } | null;
   episodes?: {
     seasons?: Array<{ number?: number | null }> | null;
-    totalEpisodes?: { total?: number | null } | null;
+    episodes?: { total?: number | null } | null;
   } | null;
   series?: {
     episodeNumber?: { episodeNumber?: number | null; seasonNumber?: number | null } | null;
