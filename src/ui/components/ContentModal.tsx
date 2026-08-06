@@ -183,8 +183,8 @@ function EpisodeRatingsGrid({
   );
   if (ratedEpisodes.length === 0) {
     return (
-      <p className="py-8 text-center text-xs text-muted-foreground">
-        Episode ratings are not available for this season.
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        IMDb episode ratings are not available for this series.
       </p>
     );
   }

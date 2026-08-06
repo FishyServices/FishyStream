@@ -270,7 +270,7 @@ async function detail(
   try {
     const data = await executeIMDbQuery<IMDBDetailResponse>(
       request,
-      `query { title(id: "${id}") { ${cardFields} plot { plotText { plainText } } runtime { seconds } certificate { rating } taglines { edges { node { text } } } spokenLanguages { spokenLanguages { text } } productionStatus { currentProductionStage { text } } episodes { seasons { number } episodes(first: 1) { total } } } }`,
+      `query { title(id: "${id}") { ${cardFields} plot { plotText { plainText } } runtime { seconds } certificate { rating } taglines(first: 1) { edges { node { text } } } spokenLanguages { spokenLanguages { text } } productionStatus { currentProductionStage { text } } episodes { seasons { number } episodes(first: 1) { total } } } }`,
       signal
     );
     return data.title ?? null;
@@ -452,12 +452,16 @@ export async function fetchImdbSeasonEpisodes(
   try {
     const data = await executeIMDbQuery<IMDBSeasonEpisodesResponse>(
       request,
-      `query { title(id: "${id}") { episodes { episodes(first: 250, filter: { seasonNumber: ${seasonNumber} }) { edges { node { id titleText { text } plot { plotText { plainText } } primaryImage { url } runtime { seconds } ratingsSummary { aggregateRating voteCount } series { episodeNumber { episodeNumber seasonNumber } } } } } } } }`,
+      `query { title(id: "${id}") { episodes { episodes(first: 250) { edges { node { id titleText { text } plot { plotText { plainText } } primaryImage { url } runtime { seconds } ratingsSummary { aggregateRating voteCount } series { episodeNumber { episodeNumber seasonNumber } } } } } } } }`,
       signal
     );
     const nodes = (data.title?.episodes?.episodes?.edges ?? [])
       .map((edge) => edge.node)
-      .filter((node): node is IMDBTitleNode => !!node);
+      .filter((node): node is IMDBTitleNode => !!node)
+      .filter((node) => {
+        const episodeSeason = node.series?.episodeNumber?.seasonNumber;
+        return episodeSeason == null || episodeSeason === seasonNumber;
+      });
     return {
       overview: undefined as string | undefined,
       episodes: nodes.map((node) => ({

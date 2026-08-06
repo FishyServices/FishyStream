@@ -1026,12 +1026,13 @@ export function useSeriesEpisodeRatings(
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     setIsLoading(true);
 
     void Promise.all(
       Array.from({ length: seasonCount }, (_, index) => index + 1).map(async (seasonNumber) => {
         const season = imdbId
-          ? await fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest)
+          ? await fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
           : null;
         return {
           seasonNumber,
@@ -1044,17 +1045,18 @@ export function useSeriesEpisodeRatings(
       })
     )
       .then((results) => {
-        if (!cancelled) setSeasons(results);
+        if (!cancelled && !controller.signal.aborted) setSeasons(results);
       })
       .catch(() => {
-        if (!cancelled) setSeasons([]);
+        if (!cancelled && !controller.signal.aborted) setSeasons([]);
       })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled && !controller.signal.aborted) setIsLoading(false);
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [enabled, seasonCount, tmdbId, imdbId]);
 
