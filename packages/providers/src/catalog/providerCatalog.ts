@@ -5,7 +5,6 @@ import type { AniListEpisodeMapping } from "../types.js";
 export type ProviderKey =
   | "111movies"
   | "2embed"
-  | "autoembed"
   | "cinesrc"
   | "cinezo"
   | "direct" // for tvSeasonMappings.ts
@@ -24,13 +23,13 @@ export type ProviderKey =
   | "vidking"
   | "vidlux"
   | "vidnest"
-  | "vidplus-ads"
   | "vidrock"
   | "vidsrc"
   | "vidsrcpro"
   | "vidup"
   | "vidzee"
   | "vidzen"
+  | "vidlink"
   | "vixsrc";
 
 export type ProviderCategory = "primary" | "primary_anime" | "other";
@@ -219,16 +218,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
       `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
   }),
   defineProvider({
-    key: "autoembed",
-    name: "AutoEmbed",
-    category: "other",
-    idType: "tmdb",
-    website: "https://player.autoembed.cc",
-    referrerPolicy: "no-referrer",
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
     key: "cinesrc",
     name: "CineSrc",
     category: "other",
@@ -314,7 +303,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "FlickyStream",
     category: "other",
     idType: "tmdb",
-    website: "https://flickystream.su",
+    website: "https://flickystream.dad",
     progress: { resumeParam: "progress" },
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/player/movie/${id}`,
@@ -634,20 +623,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) => `/anime/${id}/${episode}${dub ? "/dub" : "/sub"}`
-  }),
-  defineProvider({
-    key: "vidplus-ads",
-    name: "VidPlus",
-    category: "other",
-    idType: "both",
-    website: "https://player.vidplus.to",
-    animeIdType: "anilist",
-    dubSupport: true,
-    referrerPolicy: "no-referrer",
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) =>
-      `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
   }),
   defineProvider({
     key: "vidrock",
