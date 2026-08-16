@@ -24,8 +24,11 @@ import {
 
 const PAGE_SIZE = 20;
 
-function folderCacheKey(folder: string | null | undefined) {
-  return folder === undefined ? "all" : folder === null ? "unsorted" : `folder:${folder}`;
+function folderCacheKey(folder: string | null | undefined, search = "") {
+  const folderKey =
+    folder === undefined ? "all" : folder === null ? "unsorted" : `folder:${folder}`;
+  const normalizedSearch = search.trim().toLowerCase();
+  return normalizedSearch ? `search:${normalizedSearch}:${folderKey}` : folderKey;
 }
 
 function mergePages(latest: WatchlistGridItem[], cached: WatchlistGridItem[] | undefined) {
@@ -138,29 +141,37 @@ export function useWatchlistHydrated() {
   return useWatchlistContext().hydrated;
 }
 
-export function useMyWatchlistPagination(folder?: string | null) {
+export function useMyWatchlistPagination(folder?: string | null, search = "") {
   const { user } = useUser();
-  const cacheKey = folderCacheKey(folder);
+  const cacheKey = folderCacheKey(folder, search);
   const [pagesByFolder, setPagesByFolder] = useState<Map<string, WatchlistGridItem[]>>(
     () => new Map()
   );
   const { results, status, loadMore } = usePaginatedQuery(
     api.domains.watchlist.watchlist.listWatchlist,
-    user ? { clerkUserId: user.id, ...(folder !== undefined ? { folder } : {}) } : "skip",
+    user
+      ? {
+          clerkUserId: user.id,
+          ...(folder !== undefined ? { folder } : {}),
+          ...(search.trim() ? { search: search.trim() } : {})
+        }
+      : "skip",
     { initialNumItems: PAGE_SIZE }
   );
   const serverItems = results as WatchlistGridItem[];
   const cachedItems = pagesByFolder.get(cacheKey);
   const cachedFolderItems = useMemo(() => {
+    if (search.trim()) return cachedItems ?? [];
     const unique = new Map<string, WatchlistGridItem>();
-    for (const page of pagesByFolder.values()) {
+    for (const [pageKey, page] of pagesByFolder) {
+      if (pageKey.startsWith("search:")) continue;
       for (const item of page) unique.set(item._id, item);
     }
     return [...unique.values()].filter((item) => {
       const itemFolder = item.watchlistFolder?.trim();
       return folder === undefined ? true : folder === null ? !itemFolder : itemFolder === folder;
     });
-  }, [folder, pagesByFolder]);
+  }, [cachedItems, folder, pagesByFolder, search]);
   const immediateItems = cachedItems ?? cachedFolderItems;
 
   useEffect(() => {

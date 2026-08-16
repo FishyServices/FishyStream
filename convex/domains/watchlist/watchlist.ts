@@ -9,6 +9,10 @@ function cleanFolder(name: string) {
   return name.trim().replace(/\s+/g, " ");
 }
 
+function normalizeTitle(value: string) {
+  return value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+}
+
 function toWatchlistItem(item: {
   contentId: string;
   title: string;
@@ -30,9 +34,11 @@ export const listWatchlist = query({
   args: {
     clerkUserId: v.string(),
     paginationOpts: paginationOptsValidator,
-    folder: v.optional(v.union(v.string(), v.null()))
+    folder: v.optional(v.union(v.string(), v.null())),
+    search: v.optional(v.string())
   },
-  handler: async (ctx, { clerkUserId, paginationOpts, folder }) => {
+  handler: async (ctx, { clerkUserId, paginationOpts, folder, search }) => {
+    const normalizedSearch = search?.trim() ? normalizeTitle(search) : "";
     const baseQuery = ctx.db
       .query("mediaState")
       .withIndex("by_clerk_watchlist_added", (q) =>
@@ -43,13 +49,29 @@ export const listWatchlist = query({
         ? baseQuery
         : baseQuery.filter((q) => q.eq(q.field("folder"), folder === null ? undefined : folder));
 
-    if (folder === undefined) {
+    if (folder === undefined || normalizedSearch) {
       const entries = await scopedQuery.order("desc").collect();
-      const representatives: typeof entries = [];
-      const seenFolders = new Set<string>();
-      const remaining: typeof entries = [];
+      const matchingEntries = normalizedSearch
+        ? entries.filter((entry) => normalizeTitle(entry.title).includes(normalizedSearch))
+        : entries;
 
-      for (const entry of entries) {
+      if (normalizedSearch) {
+        const start = paginationOpts.cursor === null ? 0 : Number(paginationOpts.cursor);
+        const safeStart = Number.isFinite(start) && start >= 0 ? start : 0;
+        const end = safeStart + paginationOpts.numItems;
+
+        return {
+          page: matchingEntries.slice(safeStart, end).map(toWatchlistItem),
+          isDone: end >= matchingEntries.length,
+          continueCursor: String(end)
+        };
+      }
+
+      const representatives: typeof matchingEntries = [];
+      const seenFolders = new Set<string>();
+      const remaining: typeof matchingEntries = [];
+
+      for (const entry of matchingEntries) {
         const entryFolder = entry.folder?.trim();
         if (entryFolder && !seenFolders.has(entryFolder)) {
           seenFolders.add(entryFolder);

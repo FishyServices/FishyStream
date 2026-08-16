@@ -33,6 +33,10 @@ function toHistoryItem(row: Doc<"mediaState">): WatchHistoryItemMeta {
   };
 }
 
+function normalizeTitle(value: string) {
+  return value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+}
+
 async function listHistory(
   ctx: QueryCtx,
   clerkUserId: string,
@@ -78,14 +82,32 @@ export const listWatchHistory = query({
 export const listWatchHistoryPage = query({
   args: {
     clerkUserId: v.string(),
-    paginationOpts: paginationOptsValidator
+    paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string())
   },
-  handler: async (ctx, { clerkUserId, paginationOpts }) => {
-    const result = await ctx.db
+  handler: async (ctx, { clerkUserId, paginationOpts, search }) => {
+    const normalizedSearch = search?.trim() ? normalizeTitle(search) : "";
+    const historyQuery = ctx.db
       .query("mediaState")
       .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId).gt("watchedAt", 0))
-      .order("desc")
-      .paginate(paginationOpts);
+      .order("desc");
+
+    if (normalizedSearch) {
+      const matches = (await historyQuery.collect()).filter((row) =>
+        normalizeTitle(row.title).includes(normalizedSearch)
+      );
+      const start = paginationOpts.cursor === null ? 0 : Number(paginationOpts.cursor);
+      const safeStart = Number.isFinite(start) && start >= 0 ? start : 0;
+      const end = safeStart + paginationOpts.numItems;
+
+      return {
+        page: matches.slice(safeStart, end).map(toHistoryItem),
+        isDone: end >= matches.length,
+        continueCursor: String(end)
+      };
+    }
+
+    const result = await historyQuery.paginate(paginationOpts);
 
     return {
       ...result,

@@ -475,6 +475,8 @@ export function MyListPage() {
   const navigate = useNavigate();
   const { user } = useUser();
   const [folderFilter, setFolderFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 180);
 
   useSeoMeta({
     title: "My List",
@@ -490,7 +492,8 @@ export function MyListPage() {
     isLoadingMore,
     loadMore
   } = useMyWatchlistPagination(
-    folderFilter === "all" ? undefined : folderFilter === "unsorted" ? null : folderFilter
+    folderFilter === "all" ? undefined : folderFilter === "unsorted" ? null : folderFilter,
+    debouncedSearchQuery
   );
   const [watchlist, setWatchlist] = useState<typeof watchlistData>(undefined);
   const pendingFolderMoves = useRef<Map<ContentId, string | undefined>>(new Map());
@@ -516,8 +519,6 @@ export function MyListPage() {
     readStoredPref(VIEW_PREF_KEY, "grid", ["grid", "list"] as const)
   );
   const [listTypeFilter, setListTypeFilter] = useState<TypeFilter>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearchQuery = useDebouncedValue(searchQuery, 180);
   const [canDragCards, setCanDragCards] = useState(false);
 
   const [selectionMode, setSelectionMode] = useState(false);
@@ -608,25 +609,28 @@ export function MyListPage() {
     return Array.from(options).sort((a, b) => a.localeCompare(b));
   }, [folderFilter, folderNames]);
 
-  useEffect(() => {
-    if (!debouncedSearchQuery.trim() || !canLoadMore || isLoadingMore) return;
-    loadMore();
-  }, [canLoadMore, debouncedSearchQuery, isLoadingMore, loadMore]);
-
   const filteredWatchlist = useMemo(() => {
     if (!watchlist) return [];
-    const normalizedQuery = debouncedSearchQuery.trim().toLowerCase();
-    const itemsToFilter = normalizedQuery ? allItems : watchlist;
-    return itemsToFilter.filter((item) => {
+    const normalizedQuery = debouncedSearchQuery
+      .trim()
+      .toLocaleLowerCase()
+      .replace(/[^\p{L}\p{N}]/gu, "");
+    return watchlist.filter((item) => {
       const matchesType = listTypeFilter === "all" || item.type === listTypeFilter;
       const itemFolder = item.watchlistFolder?.trim() || "";
       const matchesFolder =
         folderFilter === "all" ||
         (folderFilter === "unsorted" ? !itemFolder : itemFolder === folderFilter);
-      const matchesSearch = !normalizedQuery || item.title.toLowerCase().includes(normalizedQuery);
+      const matchesSearch =
+        user || !normalizedQuery
+          ? true
+          : item.title
+              .toLocaleLowerCase()
+              .replace(/[^\p{L}\p{N}]/gu, "")
+              .includes(normalizedQuery);
       return matchesType && matchesFolder && matchesSearch;
     });
-  }, [allItems, debouncedSearchQuery, folderFilter, listTypeFilter, watchlist]);
+  }, [debouncedSearchQuery, folderFilter, listTypeFilter, user, watchlist]);
 
   const sortedFilteredWatchlist = useMemo(() => {
     const filtered = filteredWatchlist;
@@ -913,7 +917,7 @@ export function MyListPage() {
     );
   }
 
-  const hasAnyItems = watchlist.length > 0;
+  const hasAnyItems = watchlist.length > 0 || allItems.length > 0 || Boolean(searchQuery.trim());
   const isFolderOnlyEmpty =
     filteredWatchlist.length === 0 &&
     folderFilter !== "all" &&

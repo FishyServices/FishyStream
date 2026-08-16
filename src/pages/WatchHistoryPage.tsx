@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
-import { Trash2 } from "lucide-react";
+import { Search, Trash2, X } from "lucide-react";
 import { Header } from "@/ui/components/Header";
 import { MovieCard } from "@/ui/components/MovieCard";
 import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
@@ -10,7 +10,7 @@ import {
   useRemoveFromHistory
 } from "@/features/library/useWatchHistory";
 import { createPlayHandler } from "@/shared/navigation/watchNavigation";
-import { Button, toast } from "@fishy/ui";
+import { Button, Input, toast } from "@fishy/ui";
 
 export function WatchHistoryPage() {
   const navigate = useNavigate();
@@ -22,12 +22,25 @@ export function WatchHistoryPage() {
     noIndex: true
   });
 
-  const { history, isLoading, isLoadingMore, canLoadMore, loadMore } =
-    useMyWatchHistoryPagination();
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const { history, isLoading, isLoadingMore, canLoadMore, loadMore } =
+    useMyWatchHistoryPagination(searchQuery);
   const removeFromHistory = useRemoveFromHistory();
 
   const visibleHistory = history.filter((item) => !removedIds.has(item._id));
+  const normalizedQuery = searchQuery
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, "");
+  const filteredHistory = normalizedQuery
+    ? visibleHistory.filter((item) =>
+        item.title
+          .toLocaleLowerCase()
+          .replace(/[^\p{L}\p{N}]/gu, "")
+          .includes(normalizedQuery)
+      )
+    : visibleHistory;
 
   const handlePlay = createPlayHandler(navigate);
 
@@ -73,6 +86,34 @@ export function WatchHistoryPage() {
           }
         />
 
+        {visibleHistory.length > 0 && (
+          <div className="mb-6 max-w-xl">
+            <div className="media-surface relative rounded-xl border-border/65 bg-card/72 p-1.5 shadow-sm">
+              <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
+              <Input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search your history"
+                aria-label="Search your history"
+                className="h-12 w-full rounded-xl border-0 bg-transparent py-3.5 pl-11 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
+              />
+              {searchQuery && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                  aria-label="Clear history search"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         {visibleHistory.length === 0 ? (
           <EmptyState
             title="Nothing watched yet"
@@ -82,11 +123,21 @@ export function WatchHistoryPage() {
               </Button>
             }
           />
+        ) : filteredHistory.length === 0 ? (
+          <EmptyState
+            icon={<Search className="h-12 w-12" />}
+            title={`No history matches “${searchQuery.trim()}”`}
+            action={
+              <Button variant="secondary" className="rounded-xl" onClick={() => setSearchQuery("")}>
+                Clear search
+              </Button>
+            }
+          />
         ) : (
           <>
             <div className="rounded-xl border border-border/55 bg-card/28 p-3 sm:p-5">
               <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                {visibleHistory.map((item) => (
+                {filteredHistory.map((item) => (
                   <div key={item._id} className="group relative">
                     <MovieCard content={item} onPlay={handlePlay} layout="grid" />
                     <Button
