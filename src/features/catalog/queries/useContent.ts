@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useAllMyWatchlist } from "@/features/library/useWatchlist";
 import { useMyWatchHistory, useContinueWatching } from "@/features/library/useWatchHistory";
 import { useUser } from "@clerk/react";
@@ -478,23 +478,42 @@ export function useContentVideos(
 export function useSearchAll(query: string) {
   const [results, setResults] = useState<TMDBItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const searchGenerationRef = useRef(0);
 
   useEffect(() => {
+    const searchGeneration = ++searchGenerationRef.current;
+    const normalizedQuery = query.trim();
     if (!query.trim()) {
       setResults([]);
       setLoading(false);
+      setLoadingMore(false);
+      setPage(0);
+      setTotalPages(0);
       setError(null);
       return;
     }
     setLoading(true);
+    setLoadingMore(false);
     setError(null);
 
     const controller = new AbortController();
     const t = setTimeout(async () => {
       try {
-        const { movies, shows } = await fetchTmdbSearch(query, getApiKey(), controller.signal);
-        if (!controller.signal.aborted) setResults([...movies, ...shows]);
+        const { movies, shows, movieTotalPages, showTotalPages } = await fetchTmdbSearch(
+          normalizedQuery,
+          getApiKey(),
+          controller.signal,
+          1
+        );
+        if (!controller.signal.aborted) {
+          setResults([...movies, ...shows]);
+          setPage(1);
+          setTotalPages(Math.max(movieTotalPages, showTotalPages));
+        }
       } catch (e) {
         if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Search failed");
       } finally {
@@ -508,7 +527,43 @@ export function useSearchAll(query: string) {
     };
   }, [query]);
 
-  return { results, loading, error };
+  const loadMore = useCallback(async () => {
+    const normalizedQuery = query.trim();
+    const nextPage = page + 1;
+    const searchGeneration = searchGenerationRef.current;
+    if (!normalizedQuery || loading || loadingMore || nextPage > totalPages) return;
+
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const { movies, shows, movieTotalPages, showTotalPages } = await fetchTmdbSearch(
+        normalizedQuery,
+        getApiKey(),
+        undefined,
+        nextPage
+      );
+      if (searchGeneration === searchGenerationRef.current) {
+        setResults((current) => [...current, ...movies, ...shows]);
+        setPage(nextPage);
+        setTotalPages(Math.max(movieTotalPages, showTotalPages));
+      }
+    } catch (e) {
+      if (searchGeneration === searchGenerationRef.current) {
+        setError(e instanceof Error ? e.message : "Search failed");
+      }
+    } finally {
+      if (searchGeneration === searchGenerationRef.current) setLoadingMore(false);
+    }
+  }, [loading, loadingMore, page, query, totalPages]);
+
+  return {
+    results,
+    loading,
+    loadingMore,
+    canLoadMore: page > 0 && page < totalPages,
+    loadMore,
+    error
+  };
 }
 
 /* ─── Browse ─────────────────────────────────────────────────────────────────── */

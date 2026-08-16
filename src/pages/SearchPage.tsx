@@ -66,7 +66,7 @@ export function SearchPage() {
   const typeLabel = TYPE_FILTERS.find((filter) => filter.value === typeFilter)?.label ?? "Type";
   const sortLabel = SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort";
   const [input, setInput] = useState(query);
-  const { results, loading, error } = useSearchAll(query);
+  const { results, loading, loadingMore, canLoadMore, loadMore, error } = useSearchAll(query);
 
   const movieCount = results.filter((r) => r.type === "movie").length;
   const showCount = results.filter((r) => r.type === "tv").length;
@@ -263,15 +263,31 @@ export function SearchPage() {
                 title={`No ${typeFilter === "movie" ? "movies" : "shows"} match this filter`}
               />
             ) : (
-              <div className="rounded-xl border border-border/55 bg-card/25 p-3 sm:p-5">
-                <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 stagger-children">
-                  {filteredResults.map((item) => (
-                    <div key={`${item.type}-${item.tmdbId}`} className="animate-fade-in-up">
-                      <SearchCard item={item} layout="grid" />
-                    </div>
-                  ))}
+              <>
+                <div className="rounded-xl border border-border/55 bg-card/25 p-3 sm:p-5">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 stagger-children">
+                    {filteredResults.map((item) => (
+                      <div key={`${item.type}-${item.tmdbId}`} className="animate-fade-in-up">
+                        <SearchCard item={item} layout="grid" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+
+                {canLoadMore && (
+                  <div className="flex justify-center pt-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="rounded-xl"
+                      onClick={loadMore}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? "Loading…" : "Load more items"}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

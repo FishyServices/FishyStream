@@ -227,8 +227,14 @@ export function collectTmdbCards(
 export async function fetchTmdbSearch(
   query: string,
   apiKey: string,
-  signal?: AbortSignal
-): Promise<{ movies: TMDBItem[]; shows: TMDBItem[] }> {
+  signal?: AbortSignal,
+  page = 1
+): Promise<{
+  movies: TMDBItem[];
+  shows: TMDBItem[];
+  movieTotalPages: number;
+  showTotalPages: number;
+}> {
   const abort = signal ?? new AbortController().signal;
   const map = (items: TMDBBrowseListItem[], type: MediaType): TMDBItem[] =>
     items.map((item) => ({
@@ -242,10 +248,15 @@ export async function fetchTmdbSearch(
       type
     }));
   const [movies, shows] = await Promise.all([
-    fetchTmdbListOrEmpty("/search/movie", apiKey, abort, { query }),
-    fetchTmdbListOrEmpty("/search/tv", apiKey, abort, { query })
+    fetchTmdbListOrEmpty("/search/movie", apiKey, abort, { query, page }),
+    fetchTmdbListOrEmpty("/search/tv", apiKey, abort, { query, page })
   ]);
-  return { movies: map(movies.results ?? [], "movie"), shows: map(shows.results ?? [], "tv") };
+  return {
+    movies: map(movies.results ?? [], "movie"),
+    shows: map(shows.results ?? [], "tv"),
+    movieTotalPages: movies.total_pages ?? 1,
+    showTotalPages: shows.total_pages ?? 1
+  };
 }
 export async function fetchTmdbDiscover(
   type: MediaType,
