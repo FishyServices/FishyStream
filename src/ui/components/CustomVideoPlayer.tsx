@@ -21,6 +21,7 @@ import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
 
 interface CustomVideoPlayerProps {
   embedUrl: string;
+  localFile?: File;
   content: ContentPlayback;
   tvTarget: { season: number; episode: number };
   animeContent: boolean;
@@ -47,6 +48,7 @@ function formatTime(seconds: number): string {
 
 export function CustomVideoPlayer({
   embedUrl,
+  localFile,
   content,
   tvTarget,
   animeContent,
@@ -80,6 +82,7 @@ export function CustomVideoPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPlayingRef = useRef(isPlaying);
@@ -168,20 +171,59 @@ export function CustomVideoPlayer({
   }, []);
 
   useEffect(() => {
-    if (!embedUrl) return;
+    if (!embedUrl && !localFile) return;
 
     let isMounted = true;
     const abortController = new AbortController();
+    let localObjectUrl: string | null = null;
     setIsScraping(true);
+    setMediaError(null);
+
+    const loadVideoSource = (sourceUrl: string, mediaType: "hls" | "file", startAtSeconds = 0) => {
+      const video = videoRef.current;
+      if (!video || !isMounted) return;
+
+      if (mediaType === "hls" && Hls.isSupported()) {
+        const hls = new Hls();
+        hlsRef.current = hls;
+        hls.loadSource(sourceUrl);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          if (startAtSeconds > 0) video.currentTime = startAtSeconds;
+          video.play().catch(() => {});
+        });
+        return;
+      }
+
+      video.src = sourceUrl;
+      video.load();
+      if (startAtSeconds > 0) {
+        const handleLoaded = () => {
+          video.currentTime = startAtSeconds;
+          video.removeEventListener("loadedmetadata", handleLoaded);
+          video.play().catch(() => {});
+        };
+        video.addEventListener("loadedmetadata", handleLoaded);
+      } else {
+        video.play().catch(() => {});
+      }
+    };
 
     const fetchRawStream = async () => {
       try {
+        if (localFile) {
+          localObjectUrl = URL.createObjectURL(localFile);
+          loadVideoSource(localObjectUrl, "file");
+          return;
+        }
+
         const scraperEndpoint = import.meta.env.DEV
           ? "http://localhost:4000/api/scrape"
           : "/api/scrape";
         const res = await fetch(`${scraperEndpoint}?url=${encodeURIComponent(embedUrl)}`, {
           signal: abortController.signal
         });
+        if (!res.ok) throw new Error("Unable to load the stream.");
         const data = await res.json();
         if (!isMounted) return;
 
@@ -207,43 +249,21 @@ export function CustomVideoPlayer({
             return 0;
           };
 
-          if (mediaType === "hls" && Hls.isSupported()) {
-            const hls = new Hls();
-            hlsRef.current = hls;
-            hls.loadSource(data.streamUrl);
-            hls.attachMedia(videoRef.current);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-              const startSeconds = getStartAtSeconds();
-              if (startSeconds > 0 && videoRef.current) {
-                videoRef.current.currentTime = startSeconds;
-              }
-              videoRef.current?.play().catch(() => {});
-            });
-          } else if (
-            mediaType === "hls" &&
-            videoRef.current.canPlayType("application/vnd.apple.mpegurl")
-          ) {
-            videoRef.current.src = data.streamUrl;
-            const startSeconds = getStartAtSeconds();
-            if (startSeconds > 0) {
-              const handleLoaded = () => {
-                if (videoRef.current) {
-                  videoRef.current.currentTime = startSeconds;
-                }
-                videoRef.current?.removeEventListener("loadedmetadata", handleLoaded);
-                videoRef.current?.play().catch(() => {});
-              };
-              videoRef.current.addEventListener("loadedmetadata", handleLoaded);
-            } else {
-              videoRef.current.play().catch(() => {});
+          const startAtSeconds = getStartAtSeconds();
+
+          if (mediaType === "hls" && !Hls.isSupported()) {
+            const video = videoRef.current;
+            if (video.canPlayType("application/vnd.apple.mpegurl")) {
+              loadVideoSource(data.streamUrl, mediaType, startAtSeconds);
             }
-          } else if (mediaType === "file") {
-            videoRef.current.src = data.streamUrl;
-            videoRef.current.load();
-            videoRef.current.play().catch(() => {});
+          } else {
+            loadVideoSource(data.streamUrl, mediaType, startAtSeconds);
           }
         }
-      } catch (e) {
+      } catch (error) {
+        if (isMounted && !abortController.signal.aborted) {
+          setMediaError(error instanceof Error ? error.message : "Unable to load this video.");
+        }
       } finally {
         if (isMounted) {
           setIsScraping(false);
@@ -262,8 +282,9 @@ export function CustomVideoPlayer({
         videoRef.current.removeAttribute("src");
         videoRef.current.load();
       }
+      if (localObjectUrl) URL.revokeObjectURL(localObjectUrl);
     };
-  }, [embedUrl]);
+  }, [embedUrl, localFile]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -365,6 +386,16 @@ export function CustomVideoPlayer({
   const isOutro =
     skipTimes.outro && currentTime >= skipTimes.outro.start && currentTime <= skipTimes.outro.end;
 
+  const handleMediaError = () => {
+    if (!localFile) return;
+    const isMkv = /\.mkv$/i.test(localFile.name);
+    setMediaError(
+      isMkv
+        ? "This browser cannot decode MKV files here. Convert it to MP4 (H.264/AAC) or WebM, then try again."
+        : "This video could not be decoded by your browser. Try MP4 (H.264/AAC) or WebM."
+    );
+  };
+
   return (
     <div
       ref={containerRef}
@@ -376,7 +407,9 @@ export function CustomVideoPlayer({
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/95 ">
           <div className="media-surface rounded-xl p-8 text-center">
             <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground">Loading stream</p>
+            <p className="text-sm text-muted-foreground">
+              {localFile ? `Loading ${localFile.name}` : "Loading stream"}
+            </p>
           </div>
         </div>
       )}
@@ -384,6 +417,7 @@ export function CustomVideoPlayer({
         ref={videoRef}
         onClick={togglePlay}
         onDoubleClick={toggleFullscreen}
+        onError={handleMediaError}
         className={`w-full h-full object-contain ${showControls ? "cursor-pointer" : "cursor-none"}`}
         autoPlay
         playsInline
@@ -405,7 +439,7 @@ export function CustomVideoPlayer({
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        <div className="w-full p-4 flex items-center justify-between">
+        <div className="w-full p-4 flex items-center">
           <div className="flex items-center gap-3 min-w-0">
             <Button
               variant="ghost"
@@ -584,6 +618,16 @@ export function CustomVideoPlayer({
           </div>
         </div>
       </div>
+
+      {mediaError && (
+        <div className="absolute inset-x-4 top-1/2 z-50 -translate-y-1/2 rounded-lg border border-destructive/50 bg-background/95 p-5 text-center sm:inset-x-1/4">
+          <p className="font-display font-semibold text-foreground">Video unavailable</p>
+          <p className="mt-2 text-sm text-muted-foreground">{mediaError}</p>
+          <Button size="sm" className="mt-4" onClick={() => navigate("/")}>
+            Choose another file from Home
+          </Button>
+        </div>
+      )}
 
       {(isIntro || isOutro) && (
         <Button

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Header } from "@/ui/components/Header";
+import { LocalFilePicker } from "@/ui/components/LocalFilePicker";
 import { useAppSettings } from "@/features/settings/useAppSettings";
 import {
   DEFAULT_APP_SETTINGS,
@@ -305,6 +306,7 @@ export function SettingsPage() {
 
           <div className="space-y-6">
             <SettingsSection icon={<PlayCircle className="h-4 w-4" />} title="Home">
+              <LocalFilePicker />
               <SettingRow
                 label="Continue watching row"
                 control={

@@ -11,6 +11,7 @@ import { App } from "./App";
 import { SignInPage } from "../pages/SignInPage";
 import { SignUpPage } from "../pages/SignUpPage";
 import { WatchPage } from "../pages/WatchPage";
+import { LocalWatchPage } from "../pages/LocalWatchPage";
 import { MoviesPage } from "../pages/MoviesPage";
 import { TVShowsPage } from "../pages/TVShowsPage";
 import { OwnersPicksPage } from "../pages/OwnersPicksPage";
@@ -117,6 +118,7 @@ function AppShell() {
                 <Route path="/sign-in/*" element={<SignInPage />} />
                 <Route path="/sign-up/*" element={<SignUpPage />} />
                 <Route path="/watch/:id" element={<WatchPage />} />
+                <Route path="/watch/local" element={<LocalWatchPage />} />
                 <Route path="/movies" element={<MoviesPage />} />
                 <Route path="/tv-shows" element={<TVShowsPage />} />
                 <Route path="/best" element={<OwnersPicksPage />} />
