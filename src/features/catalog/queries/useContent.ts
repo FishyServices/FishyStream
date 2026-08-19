@@ -40,6 +40,7 @@ export type { TMDBItem, TMDBFullDetail };
 
 const imdbRequest = createIMDbProxyRequest("/api/imdb");
 const curatedCache = new Map<string, TMDBContentCard>();
+const queryCache = new Map<string, unknown>();
 
 export interface BrowsePageResult {
   items: ContentCard[];
@@ -117,7 +118,8 @@ function useCancellableLoad<T>(
   enabled: boolean,
   dependencies: readonly unknown[],
   load: (signal: AbortSignal) => Promise<T>,
-  initial: T
+  initial: T,
+  cacheKey?: string
 ): { value: T; isLoading: boolean; error: string | null } {
   const [value, setValue] = useState<T>(initial);
   const [isLoading, setIsLoading] = useState(enabled);
@@ -131,11 +133,20 @@ function useCancellableLoad<T>(
       return;
     }
     const controller = new AbortController();
+    if (cacheKey && queryCache.has(cacheKey)) {
+      setValue(queryCache.get(cacheKey) as T);
+      setIsLoading(false);
+      setError(null);
+      return () => controller.abort();
+    }
     setIsLoading(true);
     setError(null);
     void load(controller.signal)
       .then((next) => {
-        if (!controller.signal.aborted) setValue(next);
+        if (!controller.signal.aborted) {
+          if (cacheKey) queryCache.set(cacheKey, next);
+          setValue(next);
+        }
       })
       .catch((reason: unknown) => {
         if (!controller.signal.aborted && !aborted(reason))
@@ -296,7 +307,8 @@ export function useRelatedContent(
       tmdbId === undefined || type === undefined
         ? Promise.resolve([])
         : fetchTmdbRelated(tmdbId, type, apiKey(), limit, signal),
-    [] as TMDBItem[]
+    [] as TMDBItem[],
+    tmdbId !== undefined && type !== undefined ? `related:${type}:${tmdbId}:${limit}` : undefined
   );
   return { related: result.value, isLoading: result.isLoading };
 }
@@ -313,7 +325,8 @@ export function useContentCredits(
       tmdbId === undefined || type === undefined
         ? Promise.resolve(null)
         : fetchTmdbCredits(tmdbId, type, apiKey(), signal),
-    null as TMDBCreditResult | null
+    null as TMDBCreditResult | null,
+    tmdbId !== undefined && type !== undefined ? `credits:${type}:${tmdbId}` : undefined
   );
   return { credits: result.value, isLoading: result.isLoading };
 }
@@ -330,7 +343,8 @@ export function useContentVideos(
       tmdbId === undefined || type === undefined
         ? Promise.resolve([])
         : fetchTmdbVideos(tmdbId, type, apiKey(), signal),
-    [] as TMDBVideoResult[]
+    [] as TMDBVideoResult[],
+    tmdbId !== undefined && type !== undefined ? `videos:${type}:${tmdbId}` : undefined
   );
   return { videos: result.value, isLoading: result.isLoading };
 }
@@ -666,19 +680,30 @@ export function useSeasonEpisodes(
       return;
     }
     const controller = new AbortController();
+    const cacheKey = `season:${tmdbId}:${seasonNumber}`;
+    if (queryCache.has(cacheKey)) {
+      setSeason(queryCache.get(cacheKey) as Season | null);
+      setIsLoading(false);
+      return () => controller.abort();
+    }
     setSeason(undefined);
     setIsLoading(true);
     ratings.current.clear();
     void fetchTmdbSeasonEpisodes(tmdbId, seasonNumber, apiKey(), controller.signal)
       .then((value) => {
-        if (!controller.signal.aborted && value)
-          setSeason({
-            overview: value.overview,
-            episodes: value.episodes.map((episode) => ({
-              ...episode,
-              voteAverage: ratings.current.get(episode.episodeNumber) ?? 0
-            }))
-          });
+        if (!controller.signal.aborted) {
+          const next = value
+            ? {
+                overview: value.overview,
+                episodes: value.episodes.map((episode) => ({
+                  ...episode,
+                  voteAverage: ratings.current.get(episode.episodeNumber) ?? 0
+                }))
+              }
+            : null;
+          queryCache.set(cacheKey, next);
+          setSeason(next);
+        }
       })
       .catch(() => {
         if (!controller.signal.aborted) setSeason(null);
@@ -698,17 +723,18 @@ export function useSeasonEpisodes(
           (value?.episodes ?? []).map((episode) => [episode.episodeNumber, episode.voteAverage])
         );
         ratings.current = next;
-        setSeason((old) =>
-          old
-            ? {
-                ...old,
-                episodes: old.episodes.map((episode) => ({
-                  ...episode,
-                  voteAverage: next.get(episode.episodeNumber) ?? 0
-                }))
-              }
-            : old
-        );
+        setSeason((old) => {
+          if (!old) return old;
+          const nextSeason = {
+            ...old,
+            episodes: old.episodes.map((episode) => ({
+              ...episode,
+              voteAverage: next.get(episode.episodeNumber) ?? 0
+            }))
+          };
+          queryCache.set(`season:${tmdbId}:${seasonNumber}`, nextSeason);
+          return nextSeason;
+        });
       })
       .catch(() => undefined);
     return () => controller.abort();
@@ -736,6 +762,12 @@ export function useSeriesEpisodeRatings(
       return;
     }
     const controller = new AbortController();
+    const cacheKey = `ratings:${tmdbId}:${imdbId}:${seasonCount}`;
+    if (queryCache.has(cacheKey)) {
+      setSeasons(queryCache.get(cacheKey) as typeof seasons);
+      setIsLoading(false);
+      return () => controller.abort();
+    }
     setIsLoading(true);
     void Promise.all(
       Array.from({ length: seasonCount }, (_, index) => index + 1).map(async (seasonNumber) => ({
@@ -751,7 +783,10 @@ export function useSeriesEpisodeRatings(
       }))
     )
       .then((value) => {
-        if (!controller.signal.aborted) setSeasons(value);
+        if (!controller.signal.aborted) {
+          queryCache.set(cacheKey, value);
+          setSeasons(value);
+        }
       })
       .catch(() => {
         if (!controller.signal.aborted) setSeasons([]);
