@@ -3,11 +3,4 @@
 User-agent: *
 Allow: /
 
-Disallow: /sign-in
-Disallow: /sign-up
-Disallow: /my-list
-Disallow: /history
-Disallow: /settings
-Disallow: /watch/
-
 Sitemap: https://master.fishystream-app.pages.dev/sitemap.xml

@@ -1,38 +1,33 @@
-import { useCallback, useEffect, useState, useRef, useMemo } from "react";
-import { useAllMyWatchlist } from "@/features/library/useWatchlist";
-import { useMyWatchHistory, useContinueWatching } from "@/features/library/useWatchHistory";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/react";
+import { useAllMyWatchlist } from "@/features/library/useWatchlist";
+import { useContinueWatching, useMyWatchHistory } from "@/features/library/useWatchHistory";
 import { useRecommendationFolderScope } from "@/features/catalog/recommendationFolderScope";
-import type {
-  ContentCard,
-  ContentId,
-  ContentFeatured,
-  ContentPlayback
-} from "@content/contentMetadata";
+import type { ContentCard, ContentFeatured, ContentPlayback } from "@content/contentMetadata";
 import { makeContentId } from "@content/contentMetadata";
 import {
-  TMDB_DISCOVER_GENRES,
   TMDB_API_KEY,
-  shuffleWithSeed,
-  fetchTmdbListOrEmpty,
-  fetchTmdbCredits,
-  fetchTmdbVideos,
-  fetchTmdbRelated,
-  fetchTmdbDetails,
-  fetchTmdbCardDetail,
-  fetchTmdbFullDetail,
-  fetchTmdbSeasonEpisodes,
-  fetchTmdbSearch,
-  fetchTmdbDiscover,
+  TMDB_DISCOVER_GENRES,
   collectTmdbCards,
+  fetchTmdbCardDetail,
+  fetchTmdbCredits,
+  fetchTmdbDetails,
+  fetchTmdbDiscover,
+  fetchTmdbFullDetail,
+  fetchTmdbListOrEmpty,
+  fetchTmdbRelated,
+  fetchTmdbSearch,
+  fetchTmdbSeasonEpisodes,
+  fetchTmdbVideos,
+  shuffleWithSeed,
   toTMDBContentCard,
-  type TMDBMediaType,
+  type TMDBBrowseListResponse,
   type TMDBContentCard,
   type TMDBCreditResult,
-  type TMDBVideoResult,
+  type TMDBFullDetail,
   type TMDBItem,
-  type TMDBBrowseListResponse,
-  type TMDBFullDetail
+  type TMDBMediaType,
+  type TMDBVideoResult
 } from "@fishy/providers/tmdb";
 import {
   createIMDbProxyRequest,
@@ -40,34 +35,11 @@ import {
   fetchImdbSeasonEpisodes
 } from "@fishy/providers/imdb";
 import ownersPicksData from "../ownersPicks.json";
-import type { ContentCatalogPlayback } from "../model/catalog";
 
 export type { TMDBItem, TMDBFullDetail };
 
 const imdbRequest = createIMDbProxyRequest("/api/imdb");
-
-const playbackCatalog: ContentCatalogPlayback = {
-  async getPlayback(id, type, signal) {
-    const detail = await fetchTmdbFullDetail(id, type, getApiKey(), signal);
-    if (!detail) return null;
-
-    return {
-      _id: makeContentId(detail.type, detail.tmdbId),
-      title: detail.title,
-      type: detail.type,
-      genre: detail.genre,
-      year: detail.year,
-      posterUrl: detail.posterUrl,
-      voteAverage: detail.voteAverage,
-      tmdbId: detail.tmdbId,
-      imdbId: detail.imdbId,
-      anilistId: undefined,
-      originalLanguage: detail.originalLanguage,
-      seasons: detail.seasons,
-      hasSpecials: detail.hasSpecials
-    };
-  }
-};
+const curatedCache = new Map<string, TMDBContentCard>();
 
 export interface BrowsePageResult {
   items: ContentCard[];
@@ -81,24 +53,49 @@ export interface BrowsePageResult {
   goPrevious: () => void;
 }
 
-type TMDBRecommendationSeed = {
-  tmdbId: string;
-  type: TMDBMediaType;
-  genres?: string[];
-};
+export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
+export type RecommendationSeed = { tmdbId: string; type: TMDBMediaType; genres?: string[] };
 
-function clientTmdbContentId(type: TMDBMediaType, tmdbId: number | string): ContentId {
-  return makeContentId(type, tmdbId);
+function apiKey(): string {
+  const configured = import.meta.env.VITE_TMDB_KEY;
+  return typeof configured === "string" && configured.trim() ? configured : TMDB_API_KEY;
 }
 
-function toClientContentCard(
-  item: Parameters<typeof toTMDBContentCard>[0],
-  typeHint?: TMDBMediaType
+function cardKey(value: Pick<ContentCard, "type" | "tmdbId">): string {
+  return `${value.type}:${value.tmdbId ?? ""}`;
+}
+
+function message(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function aborted(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function cardFromProvider(
+  value: Parameters<typeof toTMDBContentCard>[0],
+  hint?: TMDBMediaType
 ): ContentCard | null {
-  const card = toTMDBContentCard(item, typeHint);
-  if (!card) return null;
+  const card = toTMDBContentCard(value, hint);
+  return card
+    ? {
+        _id: makeContentId(card.type, card.tmdbId),
+        title: card.title,
+        type: card.type,
+        genre: card.genre,
+        year: card.year,
+        voteAverage: card.voteAverage,
+        posterUrl: card.posterUrl,
+        tmdbId: card.tmdbId,
+        new: card.isNew
+      }
+    : null;
+}
+
+function cardFromTmdb(card: TMDBContentCard): ContentCard {
   return {
-    _id: clientTmdbContentId(card.type, card.tmdbId),
+    _id: makeContentId(card.type, card.tmdbId),
     title: card.title,
     type: card.type,
     genre: card.genre,
@@ -110,147 +107,99 @@ function toClientContentCard(
   };
 }
 
-function tmdbCardToContentCard(card: TMDBContentCard): ContentCard {
-  return {
-    _id: clientTmdbContentId(card.type, card.tmdbId),
-    title: card.title,
-    type: card.type,
-    genre: card.genre,
-    year: card.year,
-    voteAverage: card.voteAverage,
-    posterUrl: card.posterUrl,
-    tmdbId: card.tmdbId,
-    new: card.isNew
-  };
+function cardsFromList(response: TMDBBrowseListResponse, type: TMDBMediaType): ContentCard[] {
+  return (response.results ?? [])
+    .map((item) => cardFromProvider(item, type))
+    .filter((item): item is ContentCard => item !== null);
 }
 
-function getApiKey(): string {
-  return (import.meta.env.VITE_TMDB_KEY as string | undefined) ?? TMDB_API_KEY;
+function useCancellableLoad<T>(
+  enabled: boolean,
+  dependencies: readonly unknown[],
+  load: (signal: AbortSignal) => Promise<T>,
+  initial: T
+): { value: T; isLoading: boolean; error: string | null } {
+  const [value, setValue] = useState<T>(initial);
+  const [isLoading, setIsLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      setValue(initial);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+    const controller = new AbortController();
+    setIsLoading(true);
+    setError(null);
+    void load(controller.signal)
+      .then((next) => {
+        if (!controller.signal.aborted) setValue(next);
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted && !aborted(reason))
+          setError(message(reason, "Request failed"));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false);
+      });
+    return () => controller.abort();
+  }, dependencies);
+
+  return { value, isLoading, error };
 }
-
-const curatedCardCache = new Map<string, TMDBContentCard>();
-
-/* ─── Homepage ───────────────────────────────────────────────────────────────── */
 
 export function useHomepageContent() {
-  const [homepage, setHomepage] = useState<
-    | {
-        featured: ContentFeatured[];
-        categories: Array<{ id: string; title: string; content: ContentCard[] }>;
-      }
-    | undefined
-  >(undefined);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const apiKey = getApiKey();
-
-    async function load() {
-      try {
-        const [moviesRes, tvRes, newRes] = await Promise.all([
-          fetchTmdbListOrEmpty("/movie/popular", apiKey, controller.signal),
-          fetchTmdbListOrEmpty("/tv/popular", apiKey, controller.signal),
-          fetchTmdbListOrEmpty("/movie/now_playing", apiKey, controller.signal)
-        ]);
-
-        const popularMovies = (moviesRes.results ?? [])
-          .map((item) => toClientContentCard(item, "movie"))
-          .filter((item): item is ContentCard => !!item);
-
-        const popularTv = (tvRes.results ?? [])
-          .map((item) => toClientContentCard(item, "tv"))
-          .filter((item): item is ContentCard => !!item);
-
-        const newReleases = (newRes.results ?? [])
-          .map((item) => toClientContentCard(item, "movie"))
-          .filter((item): item is ContentCard => !!item);
-
-        const featuredCandidates = [...popularMovies.slice(0, 2), ...popularTv.slice(0, 2)];
-
-        const featuredDetails = await Promise.all(
-          featuredCandidates.map(async (card) => {
-            try {
-              const details = await fetchTmdbDetails(
-                card.tmdbId!,
-                card.type,
-                apiKey,
-                controller.signal
-              );
-              if (!details) return null;
-              return {
-                ...card,
-                description: details.description,
-                backdropUrl: details.backdropUrl || card.posterUrl,
-                rating: details.rating,
-                logoUrl: details.logoUrl,
-                trailerKey: details.trailerKey,
-                duration: details.duration,
-                seasons: details.seasons,
-                hasSpecials: details.hasSpecials,
-                trending: true,
-                tagline: details.tagline,
-                originalLanguage: details.originalLanguage
-              } as ContentFeatured;
-            } catch {
-              return null;
-            }
-          })
-        );
-
-        if (!controller.signal.aborted) {
-          setHomepage({
-            featured: featuredDetails.filter((item): item is ContentFeatured => !!item),
-            categories: [
-              { id: "movies", title: "Popular Movies", content: popularMovies },
-              { id: "tvshows", title: "Popular TV Shows", content: popularTv },
-              { id: "new", title: "New Releases", content: newReleases }
-            ]
-          });
-        }
-      } catch {
-        if (!controller.signal.aborted) {
-          setHomepage({ featured: [], categories: [] });
-        }
-      }
-    }
-
-    void load();
-    return () => controller.abort();
-  }, []);
-
-  return homepage;
+  const result = useCancellableLoad(
+    true,
+    [],
+    async (signal) => {
+      const [movies, shows, releases] = await Promise.all([
+        fetchTmdbListOrEmpty("/movie/popular", apiKey(), signal),
+        fetchTmdbListOrEmpty("/tv/popular", apiKey(), signal),
+        fetchTmdbListOrEmpty("/movie/now_playing", apiKey(), signal)
+      ]);
+      const popularMovies = cardsFromList(movies, "movie");
+      const popularTv = cardsFromList(shows, "tv");
+      const newReleases = cardsFromList(releases, "movie");
+      const featured = await Promise.all(
+        [...popularMovies.slice(0, 2), ...popularTv.slice(0, 2)].map(
+          async (card): Promise<ContentFeatured | null> => {
+            const detail = await fetchTmdbDetails(card.tmdbId ?? "", card.type, apiKey(), signal);
+            return detail
+              ? ({
+                  ...card,
+                  ...detail,
+                  backdropUrl: detail.backdropUrl || card.posterUrl,
+                  trending: true
+                } satisfies ContentFeatured)
+              : null;
+          }
+        )
+      );
+      return {
+        featured: featured.filter((item): item is ContentFeatured => item !== null),
+        categories: [
+          { id: "movies", title: "Popular Movies", content: popularMovies },
+          { id: "tvshows", title: "Popular TV Shows", content: popularTv },
+          { id: "new", title: "New Releases", content: newReleases }
+        ]
+      };
+    },
+    undefined
+  );
+  return result.value;
 }
 
-/* ─── New releases ───────────────────────────────────────────────────────────── */
-
 export function useNewReleases() {
-  const [newReleases, setNewReleases] = useState<ContentCard[] | undefined>(undefined);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function load() {
-      try {
-        const res = await fetchTmdbListOrEmpty(
-          "/movie/now_playing",
-          getApiKey(),
-          controller.signal
-        );
-        const cards = (res.results ?? [])
-          .map((item) => toClientContentCard(item, "movie"))
-          .filter((item): item is ContentCard => !!item);
-
-        if (!controller.signal.aborted) setNewReleases(cards);
-      } catch {
-        if (!controller.signal.aborted) setNewReleases([]);
-      }
-    }
-
-    void load();
-    return () => controller.abort();
-  }, []);
-
-  return newReleases;
+  return useCancellableLoad(
+    true,
+    [],
+    async (signal) =>
+      cardsFromList(await fetchTmdbListOrEmpty("/movie/now_playing", apiKey(), signal), "movie"),
+    undefined
+  ).value;
 }
 
 export function useCuratedPicks() {
@@ -259,116 +208,80 @@ export function useCuratedPicks() {
     tv: ContentCard[];
     anime: ContentCard[];
     isLoading: boolean;
-  }>({
-    movies: [],
-    tv: [],
-    anime: [],
-    isLoading: true
-  });
-
+  }>({ movies: [], tv: [], anime: [], isLoading: true });
   useEffect(() => {
     const controller = new AbortController();
-    const apiKey = getApiKey();
-
-    const movieItems = [...ownersPicksData.movies];
-    const tvItems = [...ownersPicksData.tv];
-    const animeItems = [...ownersPicksData.anime];
-
-    const movieIds = movieItems.map((item) => item.tmdbId);
-    const tvIds = tvItems.map((item) => item.tmdbId);
-    const animeIds = animeItems.map((item) => item.tmdbId);
-
-    const cardCache = curatedCardCache;
-
-    async function load() {
-      const fetchGroup = async (
-        ids: string[],
-        type: TMDBMediaType,
-        group: "movies" | "tv" | "anime"
-      ) => {
-        const results = await Promise.all(
-          ids.map(async (id) => {
-            const key = `${type}:${id}`;
-            let card: TMDBContentCard | null | undefined = cardCache.get(key);
-            if (card === undefined) {
-              card = await fetchTmdbCardDetail(id, type, apiKey, controller.signal);
-              if (card) cardCache.set(key, card);
-            }
-            if (!card) return null;
-            return {
-              _id: makeContentId(card.type, card.tmdbId),
-              title: card.title,
-              type: card.type,
-              genre: card.genre,
-              year: card.year,
-              voteAverage: card.voteAverage,
-              posterUrl: card.posterUrl,
-              tmdbId: card.tmdbId,
-              new: card.isNew
-            } as ContentCard;
-          })
-        );
-        if (!controller.signal.aborted) {
-          setPicks((current) => ({
-            ...current,
-            [group]: results.filter((item): item is ContentCard => !!item),
-            isLoading: false
-          }));
-        }
-      };
-
-      void fetchGroup(movieIds, "movie", "movies");
-      void fetchGroup(tvIds, "tv", "tv");
-      void fetchGroup(animeIds, "tv", "anime");
-    }
-
-    void load();
+    const groups = [
+      ["movies", ownersPicksData.movies, "movie"],
+      ["tv", ownersPicksData.tv, "tv"],
+      ["anime", ownersPicksData.anime, "tv"]
+    ] as const;
+    void Promise.all(
+      groups.map(async ([group, items, type]) => {
+        const cards = (
+          await Promise.all(
+            items.map(async (item) => {
+              const key = `${type}:${item.tmdbId}`;
+              let providerCard = curatedCache.get(key);
+              if (!providerCard) {
+                providerCard =
+                  (await fetchTmdbCardDetail(item.tmdbId, type, apiKey(), controller.signal)) ??
+                  undefined;
+                if (providerCard) curatedCache.set(key, providerCard);
+              }
+              return providerCard ? cardFromTmdb(providerCard) : null;
+            })
+          )
+        ).filter((item): item is ContentCard => item !== null);
+        return [group, cards] as const;
+      })
+    )
+      .then((results) => {
+        if (controller.signal.aborted) return;
+        setPicks({
+          movies: results.find(([key]) => key === "movies")?.[1] ?? [],
+          tv: results.find(([key]) => key === "tv")?.[1] ?? [],
+          anime: results.find(([key]) => key === "anime")?.[1] ?? [],
+          isLoading: false
+        });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setPicks((current) => ({ ...current, isLoading: false }));
+      });
     return () => controller.abort();
   }, []);
-
   return picks;
 }
 
-/* Playback */
-
 export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?: TMDBMediaType) {
-  const [content, setContent] = useState<ContentPlayback | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (!tmdbId) {
-      setContent(null);
-      return;
-    }
-    let cancelled = false;
-    const controller = new AbortController();
-    setContent(undefined);
-
-    async function load() {
-      const types: TMDBMediaType[] = typeHint ? [typeHint] : ["movie", "tv"];
-      for (const type of types) {
-        const playback = await playbackCatalog.getPlayback(tmdbId!, type, controller.signal);
-        if (!playback) continue;
-        if (cancelled) return;
-        setContent(playback);
-        return;
+  const result = useCancellableLoad(
+    !!tmdbId,
+    [tmdbId, typeHint],
+    async (signal) => {
+      for (const type of typeHint ? [typeHint] : (["movie", "tv"] as const)) {
+        const detail = await fetchTmdbFullDetail(tmdbId!, type, apiKey(), signal);
+        if (detail)
+          return {
+            _id: makeContentId(type, detail.tmdbId),
+            title: detail.title,
+            type,
+            genre: detail.genre,
+            year: detail.year,
+            posterUrl: detail.posterUrl,
+            voteAverage: detail.voteAverage,
+            tmdbId: detail.tmdbId,
+            imdbId: detail.imdbId,
+            originalLanguage: detail.originalLanguage,
+            seasons: detail.seasons,
+            hasSpecials: detail.hasSpecials
+          } satisfies ContentPlayback;
       }
-      if (!cancelled) setContent(null);
-    }
-
-    void load().catch(() => {
-      if (!cancelled) setContent(null);
-    });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [tmdbId, typeHint]);
-
-  return content;
+      return null;
+    },
+    undefined as ContentPlayback | null | undefined
+  );
+  return tmdbId ? result.value : null;
 }
-
-/* ─── Related / Credits / Videos ────────────────────────────────────────────── */
 
 export function useRelatedContent(
   tmdbId: number | undefined,
@@ -376,33 +289,16 @@ export function useRelatedContent(
   limit = 10,
   enabled = true
 ) {
-  const [related, setRelated] = useState<TMDBItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const cancelRef = useRef(false);
-
-  useEffect(() => {
-    if (!enabled || !tmdbId || !type) {
-      setRelated([]);
-      return;
-    }
-    cancelRef.current = false;
-    setIsLoading(true);
-    const controller = new AbortController();
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetchTmdbRelated(tmdbId, type, getApiKey(), limit, controller.signal);
-        if (!cancelRef.current) setRelated(res);
-      } catch {}
-      if (!cancelRef.current) setIsLoading(false);
-    }, 100);
-    return () => {
-      clearTimeout(t);
-      controller.abort();
-      cancelRef.current = true;
-    };
-  }, [tmdbId, type, limit, enabled]);
-
-  return { related, isLoading };
+  const result = useCancellableLoad(
+    enabled && tmdbId !== undefined && type !== undefined,
+    [tmdbId, type, limit, enabled],
+    (signal) =>
+      tmdbId === undefined || type === undefined
+        ? Promise.resolve([])
+        : fetchTmdbRelated(tmdbId, type, apiKey(), limit, signal),
+    [] as TMDBItem[]
+  );
+  return { related: result.value, isLoading: result.isLoading };
 }
 
 export function useContentCredits(
@@ -410,33 +306,16 @@ export function useContentCredits(
   type: TMDBMediaType | undefined,
   enabled = true
 ) {
-  const [credits, setCredits] = useState<TMDBCreditResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const cancelRef = useRef(false);
-
-  useEffect(() => {
-    if (!enabled || !tmdbId || !type) {
-      setCredits(null);
-      return;
-    }
-    cancelRef.current = false;
-    setIsLoading(true);
-    const controller = new AbortController();
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetchTmdbCredits(tmdbId, type, getApiKey(), controller.signal);
-        if (!cancelRef.current) setCredits(res);
-      } catch {}
-      if (!cancelRef.current) setIsLoading(false);
-    }, 150);
-    return () => {
-      clearTimeout(t);
-      controller.abort();
-      cancelRef.current = true;
-    };
-  }, [tmdbId, type, enabled]);
-
-  return { credits, isLoading };
+  const result = useCancellableLoad(
+    enabled && tmdbId !== undefined && type !== undefined,
+    [tmdbId, type, enabled],
+    (signal) =>
+      tmdbId === undefined || type === undefined
+        ? Promise.resolve(null)
+        : fetchTmdbCredits(tmdbId, type, apiKey(), signal),
+    null as TMDBCreditResult | null
+  );
+  return { credits: result.value, isLoading: result.isLoading };
 }
 
 export function useContentVideos(
@@ -444,118 +323,89 @@ export function useContentVideos(
   type: TMDBMediaType | undefined,
   enabled = true
 ) {
-  const [videos, setVideos] = useState<TMDBVideoResult[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const cancelRef = useRef(false);
-
-  useEffect(() => {
-    if (!enabled || !tmdbId || !type) {
-      setVideos([]);
-      return;
-    }
-    cancelRef.current = false;
-    setIsLoading(true);
-    const controller = new AbortController();
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetchTmdbVideos(tmdbId, type, getApiKey(), controller.signal);
-        if (!cancelRef.current) setVideos(res);
-      } catch {}
-      if (!cancelRef.current) setIsLoading(false);
-    }, 200);
-    return () => {
-      clearTimeout(t);
-      controller.abort();
-      cancelRef.current = true;
-    };
-  }, [tmdbId, type, enabled]);
-
-  return { videos, isLoading };
+  const result = useCancellableLoad(
+    enabled && tmdbId !== undefined && type !== undefined,
+    [tmdbId, type, enabled],
+    (signal) =>
+      tmdbId === undefined || type === undefined
+        ? Promise.resolve([])
+        : fetchTmdbVideos(tmdbId, type, apiKey(), signal),
+    [] as TMDBVideoResult[]
+  );
+  return { videos: result.value, isLoading: result.isLoading };
 }
 
-/* ─── Search ─────────────────────────────────────────────────────────────────── */
-
 export function useSearchAll(query: string) {
+  const normalized = query.trim();
   const [results, setResults] = useState<TMDBItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const searchGenerationRef = useRef(0);
-
+  const generation = useRef(0);
+  const moreController = useRef<AbortController | null>(null);
   useEffect(() => {
-    const searchGeneration = ++searchGenerationRef.current;
-    const normalizedQuery = query.trim();
-    if (!query.trim()) {
+    const current = ++generation.current;
+    moreController.current?.abort();
+    if (!normalized) {
       setResults([]);
-      setLoading(false);
-      setLoadingMore(false);
       setPage(0);
       setTotalPages(0);
+      setLoading(false);
+      setLoadingMore(false);
       setError(null);
       return;
     }
+    const controller = new AbortController();
     setLoading(true);
     setLoadingMore(false);
     setError(null);
-
-    const controller = new AbortController();
-    const t = setTimeout(async () => {
-      try {
-        const { movies, shows, movieTotalPages, showTotalPages } = await fetchTmdbSearch(
-          normalizedQuery,
-          getApiKey(),
-          controller.signal,
-          1
-        );
-        if (!controller.signal.aborted) {
-          setResults([...movies, ...shows]);
-          setPage(1);
-          setTotalPages(Math.max(movieTotalPages, showTotalPages));
-        }
-      } catch (e) {
-        if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Search failed");
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }, 350);
-
+    const timer = window.setTimeout(
+      () =>
+        void fetchTmdbSearch(normalized, apiKey(), controller.signal, 1)
+          .then((data) => {
+            if (current !== generation.current) return;
+            setResults([...data.movies, ...data.shows]);
+            setPage(1);
+            setTotalPages(Math.max(data.movieTotalPages, data.showTotalPages));
+          })
+          .catch((reason: unknown) => {
+            if (!controller.signal.aborted && current === generation.current)
+              setError(message(reason, "Search failed"));
+          })
+          .finally(() => {
+            if (!controller.signal.aborted && current === generation.current) setLoading(false);
+          }),
+      350
+    );
     return () => {
-      clearTimeout(t);
+      window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
-
+  }, [normalized]);
   const loadMore = useCallback(async () => {
-    const normalizedQuery = query.trim();
-    const nextPage = page + 1;
-    const searchGeneration = searchGenerationRef.current;
-    if (!normalizedQuery || loading || loadingMore || nextPage > totalPages) return;
-
+    if (!normalized || loading || loadingMore || page >= totalPages) return;
+    const current = generation.current;
+    const controller = new AbortController();
+    moreController.current?.abort();
+    moreController.current = controller;
     setLoadingMore(true);
     setError(null);
     try {
-      const { movies, shows, movieTotalPages, showTotalPages } = await fetchTmdbSearch(
-        normalizedQuery,
-        getApiKey(),
-        undefined,
-        nextPage
-      );
-      if (searchGeneration === searchGenerationRef.current) {
-        setResults((current) => [...current, ...movies, ...shows]);
-        setPage(nextPage);
-        setTotalPages(Math.max(movieTotalPages, showTotalPages));
+      const data = await fetchTmdbSearch(normalized, apiKey(), controller.signal, page + 1);
+      if (current === generation.current) {
+        setResults((old) => [...old, ...data.movies, ...data.shows]);
+        setPage((old) => old + 1);
+        setTotalPages(Math.max(data.movieTotalPages, data.showTotalPages));
       }
-    } catch (e) {
-      if (searchGeneration === searchGenerationRef.current) {
-        setError(e instanceof Error ? e.message : "Search failed");
-      }
+    } catch (reason: unknown) {
+      if (!controller.signal.aborted && current === generation.current)
+        setError(message(reason, "Search failed"));
     } finally {
-      if (searchGeneration === searchGenerationRef.current) setLoadingMore(false);
+      if (current === generation.current) setLoadingMore(false);
     }
-  }, [loading, loadingMore, page, query, totalPages]);
-
+  }, [loading, loadingMore, normalized, page, totalPages]);
   return {
     results,
     loading,
@@ -566,254 +416,132 @@ export function useSearchAll(query: string) {
   };
 }
 
-/* ─── Browse ─────────────────────────────────────────────────────────────────── */
-
-export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
-
 export function usePaginatedContent(
   type: TMDBMediaType,
   genre: string | undefined,
   sortBy: ContentSort,
-  _limit = 24,
+  limit = 24,
   page = 1
 ): BrowsePageResult {
   const [result, setResult] = useState<Omit<BrowsePageResult, "goNext" | "goPrevious">>({
     items: [],
     currentPage: page,
     hasNextPage: false,
-    canGoBack: false,
+    canGoBack: page > 1,
     isLoading: true
   });
-
   useEffect(() => {
     const controller = new AbortController();
-
-    async function load() {
-      setResult((prev) => ({ ...prev, isLoading: true }));
-      try {
-        const genreId = genre ? TMDB_DISCOVER_GENRES[genre.toLowerCase()] : undefined;
-        const { items, totalPages, totalResults } = await fetchTmdbDiscover(
-          type,
-          getApiKey(),
-          controller.signal,
-          { page, sortBy, genreId, minVoteCount: sortBy === "rating" ? 100 : 25 }
-        );
-
-        if (!controller.signal.aborted) {
+    setResult((old) => ({ ...old, currentPage: page, isLoading: true }));
+    void fetchTmdbDiscover(type, apiKey(), controller.signal, {
+      page,
+      sortBy,
+      genreId: genre ? TMDB_DISCOVER_GENRES[genre.toLowerCase()] : undefined,
+      minVoteCount: sortBy === "rating" ? 100 : 25
+    })
+      .then((data) => {
+        if (!controller.signal.aborted)
           setResult({
-            items: items.map(tmdbCardToContentCard),
+            items: data.items.slice(0, Math.max(0, limit)).map(cardFromTmdb),
             currentPage: page,
-            totalPages,
-            totalCount: totalResults,
-            hasNextPage: page < totalPages,
+            totalPages: data.totalPages,
+            totalCount: data.totalResults,
+            hasNextPage: page < data.totalPages,
             canGoBack: page > 1,
             isLoading: false
           });
-        }
-      } catch {
-        if (!controller.signal.aborted) setResult((prev) => ({ ...prev, isLoading: false }));
-      }
-    }
-
-    void load();
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setResult((old) => ({ ...old, isLoading: false }));
+      });
     return () => controller.abort();
-  }, [type, genre, sortBy, page]);
-
-  return { ...result, goNext: () => {}, goPrevious: () => {} };
+  }, [genre, limit, page, sortBy, type]);
+  return { ...result, goNext: () => undefined, goPrevious: () => undefined };
 }
 
 export function usePersonalizedRecommendationSeed(enabled = true) {
   const watchlist = useAllMyWatchlist();
-  const watchHistory = useMyWatchHistory();
+  const history = useMyWatchHistory();
   const continueWatching = useContinueWatching(enabled, 24);
   const { user } = useUser();
   const { scope } = useRecommendationFolderScope(user?.id ?? "guest");
-
   return useMemo(() => {
-    const tmdbSeeds: TMDBRecommendationSeed[] = [];
-    const seedWeights = new Map<string, number>();
-    const typeCounts = new Map<"movie" | "tv", number>();
-    const genreCounts = new Map<string, number>();
-
-    const processItem = (
-      item: { tmdbId?: string; type: "movie" | "tv"; genre?: string[] },
-      weight = 1,
-      decay = 1
+    const weights = new Map<string, number>();
+    const genres = new Map<string, number>();
+    const seeds = new Map<string, RecommendationSeed>();
+    const add = (
+      item: { tmdbId?: string; type: TMDBMediaType; genre?: string[] },
+      weight: number
     ) => {
       if (!item.tmdbId) return;
-      const finalWeight = weight * decay;
-
       const key = `${item.type}:${item.tmdbId}`;
-      seedWeights.set(key, (seedWeights.get(key) ?? 0) + finalWeight);
-
-      const seedExists = tmdbSeeds.some((s) => s.tmdbId === item.tmdbId && s.type === item.type);
-      if (!seedExists) {
-        tmdbSeeds.push({
-          tmdbId: item.tmdbId,
-          type: item.type,
-          genres: item.genre
-        });
-      }
-
-      typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + finalWeight);
-      if (item.genre) {
-        for (const g of item.genre) {
-          genreCounts.set(g, (genreCounts.get(g) ?? 0) + finalWeight);
-        }
-      }
+      weights.set(key, (weights.get(key) ?? 0) + weight);
+      seeds.set(key, { tmdbId: item.tmdbId, type: item.type, genres: item.genre });
+      for (const genre of item.genre ?? []) genres.set(genre, (genres.get(genre) ?? 0) + weight);
     };
-
-    const hasFolderScope = scope.folders.length > 0;
-    const selectedFolders = new Set(scope.folders);
-    const scopedWatchlist = watchlist?.filter((item) => {
-      if (!hasFolderScope) return true;
-      const folder = item.watchlistFolder?.trim();
-      return scope.mode === "include"
-        ? !!folder && selectedFolders.has(folder)
-        : !folder || !selectedFolders.has(folder);
-    });
-
-    if (!hasFolderScope && continueWatching) {
-      continueWatching.forEach((item, index) => {
-        processItem(item, 1, Math.max(0.5, 1 - index * 0.05));
-      });
-    }
-
-    if (scopedWatchlist) {
-      scopedWatchlist.forEach((item, index) => {
-        processItem(item, 7, Math.max(0.3, 1 - index * 0.02));
-      });
-    }
-
-    if (!hasFolderScope && watchHistory) {
-      watchHistory.forEach((item, index) => {
-        processItem(item, 1, Math.max(0.1, 1 - index * 0.01));
-      });
-    }
-
-    tmdbSeeds.sort((a, b) => {
-      const wa = seedWeights.get(`${a.type}:${a.tmdbId}`) ?? 0;
-      const wb = seedWeights.get(`${b.type}:${b.tmdbId}`) ?? 0;
-      return wb - wa;
-    });
-
-    const preferredType =
-      Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "movie";
-
-    const genres = Array.from(genreCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([genre]) => genre);
-
+    const scoped = watchlist?.filter(
+      (item) =>
+        scope.folders.length === 0 ||
+        (scope.mode === "include"
+          ? !!item.watchlistFolder && scope.folders.includes(item.watchlistFolder)
+          : !item.watchlistFolder || !scope.folders.includes(item.watchlistFolder))
+    );
+    if (scope.folders.length === 0)
+      continueWatching?.forEach((item, index) => add(item, Math.max(0.5, 1 - index * 0.05)));
+    scoped?.forEach((item, index) => add(item, 7 * Math.max(0.3, 1 - index * 0.02)));
+    if (scope.folders.length === 0)
+      history?.forEach((item, index) => add(item, Math.max(0.1, 1 - index * 0.01)));
+    const ordered = [...seeds.entries()]
+      .sort((a, b) => (weights.get(b[0]) ?? 0) - (weights.get(a[0]) ?? 0))
+      .map(([, seed]) => seed);
     return {
-      tmdbSeeds,
-      preferredType,
-      genres
+      tmdbSeeds: ordered,
+      preferredType: "movie" as TMDBMediaType,
+      genres: [...genres.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([genre]) => genre)
     };
-  }, [watchlist, watchHistory, continueWatching, scope]);
+  }, [continueWatching, history, scope, watchlist]);
 }
 
-const REC_CACHE_KEY = "fishy_recs_cache_v2";
-const REC_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const REC_DISPLAY_HISTORY_KEY = "fishy_recs_display_history_v1";
-const MAX_DISPLAY_HISTORY_ENTRIES = 80;
-const MAX_RECOMMENDATION_SEEDS = 10;
-
-interface RecCacheEntry {
-  timestamp: number;
-  cards: ContentCard[];
+const REC_CACHE = "fishy_recs_cache_v3";
+type CacheEntry = { timestamp: number; cards: ContentCard[] };
+type Cache = Record<string, CacheEntry>;
+function isCachedCard(value: unknown): value is ContentCard {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const card = value as Record<string, unknown>;
+  return (
+    typeof card._id === "string" &&
+    typeof card.title === "string" &&
+    (card.type === "movie" || card.type === "tv") &&
+    typeof card.posterUrl === "string" &&
+    typeof card.new === "boolean"
+  );
 }
-
-interface RecCache {
-  [seedKey: string]: RecCacheEntry;
-}
-
-function loadRecCache(): RecCache {
+function readCache(): Cache {
   try {
-    const raw = localStorage.getItem(REC_CACHE_KEY);
-    if (raw) {
-      const cache = JSON.parse(raw) as RecCache;
-      const oldestAllowed = Date.now() - REC_CACHE_TTL_MS;
-      for (const [key, entry] of Object.entries(cache)) {
-        if (!entry || !Array.isArray(entry.cards) || entry.timestamp < oldestAllowed)
-          delete cache[key];
-      }
-      return cache;
+    const value: unknown = JSON.parse(localStorage.getItem(REC_CACHE) ?? "{}");
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    const cache: Cache = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const candidate = entry as { timestamp?: unknown; cards?: unknown };
+      if (typeof candidate.timestamp !== "number" || !Array.isArray(candidate.cards)) continue;
+      const cards = candidate.cards.filter(isCachedCard);
+      if (cards.length) cache[key] = { timestamp: candidate.timestamp, cards };
     }
-  } catch {}
-  return {};
-}
-
-function saveRecCache(cache: RecCache) {
-  try {
-    const keys = Object.keys(cache).sort((a, b) => cache[b]!.timestamp - cache[a]!.timestamp);
-    if (keys.length > 80) {
-      const toDelete = keys.slice(80);
-      for (const k of toDelete) {
-        delete cache[k];
-      }
-    }
-    localStorage.setItem(REC_CACHE_KEY, JSON.stringify(cache));
-  } catch {}
-}
-
-type RecDisplayHistory = Record<string, Record<string, number>>;
-
-function loadRecDisplayHistory(): RecDisplayHistory {
-  try {
-    const raw = localStorage.getItem(REC_DISPLAY_HISTORY_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as RecDisplayHistory;
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return cache;
   } catch {
     return {};
   }
 }
-
-function saveRecDisplayHistory(history: RecDisplayHistory) {
+function writeCache(value: Cache): void {
   try {
-    const entries = Object.entries(history);
-    if (entries.length > MAX_DISPLAY_HISTORY_ENTRIES) {
-      for (const [key] of entries.slice(0, entries.length - MAX_DISPLAY_HISTORY_ENTRIES)) {
-        delete history[key];
-      }
-    }
-    localStorage.setItem(REC_DISPLAY_HISTORY_KEY, JSON.stringify(history));
-  } catch {}
-}
-
-function chooseRecommendations(
-  cards: ContentCard[],
-  limit: number,
-  refreshSeed: number,
-  historyKey: string
-) {
-  const shuffled = shuffleWithSeed(cards, refreshSeed);
-  const history = loadRecDisplayHistory();
-  const previousStreaks = history[historyKey] ?? {};
-  const isBlocked = (card: ContentCard) =>
-    (previousStreaks[`${card.type}:${card.tmdbId}`] ?? 0) >= 2;
-
-  const preferred = shuffled.filter((card) => !isBlocked(card));
-  const selected = [...preferred.slice(0, limit)];
-  if (selected.length < limit) {
-    const selectedIds = new Set(selected.map((card) => `${card.type}:${card.tmdbId}`));
-    selected.push(
-      ...shuffled
-        .filter((card) => !selectedIds.has(`${card.type}:${card.tmdbId}`))
-        .slice(0, limit - selected.length)
-    );
+    localStorage.setItem(REC_CACHE, JSON.stringify(value));
+  } catch {
+    /* optional */
   }
-
-  const nextStreaks: Record<string, number> = {};
-  for (const card of selected) {
-    const key = `${card.type}:${card.tmdbId}`;
-    nextStreaks[key] = (previousStreaks[key] ?? 0) + 1;
-  }
-  history[historyKey] = nextStreaks;
-  saveRecDisplayHistory(history);
-
-  return selected;
 }
 
 export function useRecommendations(
@@ -821,117 +549,64 @@ export function useRecommendations(
   typeFilter: "all" | TMDBMediaType = "all",
   refreshSeed = 0,
   enabled = true,
-  seed?: {
-    tmdbSeeds?: TMDBRecommendationSeed[];
-    preferredType: TMDBMediaType;
-    genres: string[];
-  }
+  seed?: { tmdbSeeds?: RecommendationSeed[]; preferredType: TMDBMediaType; genres: string[] }
 ) {
-  const personalizedSeed = usePersonalizedRecommendationSeed(enabled);
-  const activeSeed = seed !== undefined ? seed : personalizedSeed;
+  const personal = usePersonalizedRecommendationSeed(enabled);
+  const active = seed ?? personal;
   const [recommendations, setRecommendations] = useState<ContentCard[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const seedSignature = activeSeed?.tmdbSeeds
-    ?.map((item) => `${item.type}:${item.tmdbId}`)
-    .sort()
-    .join("|");
-
+  const signature = active.tmdbSeeds?.map(cardKey).sort().join("|") ?? "default";
   useEffect(() => {
     if (!enabled) {
       setRecommendations([]);
       setIsLoading(false);
       return;
     }
-
     const controller = new AbortController();
-    const apiKey = getApiKey();
-    const excludedIds = new Set(activeSeed?.tmdbSeeds?.map((s) => `${s.type}:${s.tmdbId}`));
-
-    const allSeeds =
-      activeSeed?.tmdbSeeds?.filter((s) => typeFilter === "all" || s.type === typeFilter) ?? [];
-
-    const shuffledSeeds = shuffleWithSeed(allSeeds, refreshSeed);
-    const seedItemsToFetch = shuffledSeeds.slice(0, MAX_RECOMMENDATION_SEEDS);
-
-    const collect = (responses: Array<{ data: TMDBBrowseListResponse; type?: TMDBMediaType }>) =>
-      collectTmdbCards(responses, { excludedIds, typeFilter }).map(tmdbCardToContentCard);
-
-    async function load() {
-      setIsLoading(true);
-      try {
-        const cache = loadRecCache();
-        const now = Date.now();
-        const cachedCards: ContentCard[] = [];
-        const missingSeeds: TMDBRecommendationSeed[] = [];
-
-        for (const s of allSeeds) {
-          const key = `${s.type}:${s.tmdbId}`;
-          const entry = cache[key];
-          if (entry) {
-            cachedCards.push(...entry.cards);
-          } else {
-            if (seedItemsToFetch.some((f) => f.tmdbId === s.tmdbId && f.type === s.type)) {
-              missingSeeds.push(s);
-            }
-          }
-        }
-
-        let newCards: ContentCard[] = [];
-
-        if (missingSeeds.length > 0) {
-          const recResponses = await Promise.all(
-            missingSeeds.flatMap((s) => [
-              fetchTmdbListOrEmpty(
-                `/${s.type}/${s.tmdbId}/recommendations`,
-                apiKey,
-                controller.signal,
-                { page: 1 }
-              ).then((data) => ({ data, type: s.type })),
-              fetchTmdbListOrEmpty(`/${s.type}/${s.tmdbId}/similar`, apiKey, controller.signal, {
-                page: 1
-              }).then((data) => ({ data, type: s.type }))
-            ])
-          );
-
-          for (let i = 0; i < missingSeeds.length; i++) {
-            const s = missingSeeds[i]!;
-            const seedResponses = [recResponses[i * 2]!, recResponses[i * 2 + 1]!];
-            const cardsForSeed = collect(seedResponses);
-            cache[`${s.type}:${s.tmdbId}`] = { timestamp: now, cards: cardsForSeed };
-            newCards.push(...cardsForSeed);
-          }
-
-          saveRecCache(cache);
-        }
-
-        const allCards = [...cachedCards, ...newCards];
-
-        if (!controller.signal.aborted) {
-          const deduped = Array.from(
-            new Map(allCards.map((c) => [`${c.type}:${c.tmdbId}`, c])).values()
-          );
-          const historyKey = `${typeFilter}:${seedSignature ?? "default"}`;
-          setRecommendations(chooseRecommendations(deduped, limit, refreshSeed, historyKey));
-        }
-      } catch {
+    const seeds = (active.tmdbSeeds ?? [])
+      .filter((item) => typeFilter === "all" || item.type === typeFilter)
+      .slice(0, 10);
+    setIsLoading(true);
+    void Promise.all(
+      seeds.map(async (seedItem) => {
+        const key = `${seedItem.type}:${seedItem.tmdbId}`;
+        const cache = readCache();
+        const cached = cache[key];
+        if (cached && Date.now() - cached.timestamp < 6 * 60 * 60 * 1000) return cached.cards;
+        const responses = await Promise.all([
+          fetchTmdbListOrEmpty(
+            `/${seedItem.type}/${seedItem.tmdbId}/recommendations`,
+            apiKey(),
+            controller.signal
+          ),
+          fetchTmdbListOrEmpty(
+            `/${seedItem.type}/${seedItem.tmdbId}/similar`,
+            apiKey(),
+            controller.signal
+          )
+        ]);
+        const cards = collectTmdbCards(
+          responses.map((data) => ({ data, type: seedItem.type })),
+          { typeFilter, excludedIds: new Set(active.tmdbSeeds?.map(cardKey)) }
+        ).map(cardFromTmdb);
+        cache[key] = { timestamp: Date.now(), cards };
+        writeCache(cache);
+        return cards;
+      })
+    )
+      .then((groups) => {
+        if (controller.signal.aborted) return;
+        const unique = [...new Map(groups.flat().map((card) => [cardKey(card), card])).values()];
+        setRecommendations(shuffleWithSeed(unique, refreshSeed).slice(0, Math.max(0, limit)));
+      })
+      .catch(() => {
         if (!controller.signal.aborted) setRecommendations([]);
-      } finally {
+      })
+      .finally(() => {
         if (!controller.signal.aborted) setIsLoading(false);
-      }
-    }
-
-    void load();
+      });
     return () => controller.abort();
-  }, [
-    enabled,
-    limit,
-    typeFilter,
-    refreshSeed,
-    activeSeed?.preferredType,
-    seedSignature,
-    activeSeed?.genres?.join("|")
-  ]);
-
+  }, [active.tmdbSeeds, enabled, limit, refreshSeed, signature, typeFilter]);
   return { recommendations, isLoading };
 }
 
@@ -941,159 +616,103 @@ export function useContentDetail(
   enabled = true,
   includeImdb = true
 ) {
-  const [detail, setDetail] = useState<TMDBFullDetail | null | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(false);
-  const cancelRef = useRef(false);
-
-  useEffect(() => {
-    if (!enabled || !tmdbId || !type) {
-      setDetail(undefined);
-      return;
-    }
-    cancelRef.current = false;
-    setIsLoading(true);
-    setDetail(undefined);
-    const controller = new AbortController();
-
-    void (async () => {
-      try {
-        const result = await fetchTmdbFullDetail(tmdbId, type, getApiKey(), controller.signal);
-        if (!result) {
-          if (!cancelRef.current) setDetail(null);
-          return;
-        }
-
-        const imdbId = result.imdbId;
-        const imdbDetail =
-          includeImdb && imdbId
-            ? await fetchImdbFullDetail(imdbId, type, imdbRequest, controller.signal)
-            : null;
-
-        if (!cancelRef.current) {
-          setDetail({
-            ...result,
-            imdbId: imdbDetail?.imdbId ?? result.imdbId,
-            rating: imdbDetail?.rating ?? result.rating,
-            voteAverage: imdbDetail?.voteAverage ?? result.voteAverage
-          });
-        }
-      } catch {
-        if (!cancelRef.current) setDetail(null);
-      } finally {
-        if (!cancelRef.current) setIsLoading(false);
-      }
-    })();
-
-    return () => {
-      controller.abort();
-      cancelRef.current = true;
-    };
-  }, [tmdbId, type, enabled, includeImdb]);
-
-  return { detail, isLoading };
+  const result = useCancellableLoad(
+    enabled && !!tmdbId && !!type,
+    [enabled, includeImdb, tmdbId, type],
+    async (signal) => {
+      if (!tmdbId || !type) return null;
+      const tmdb = await fetchTmdbFullDetail(tmdbId, type, apiKey(), signal);
+      if (!tmdb) return null;
+      const imdb =
+        includeImdb && tmdb.imdbId
+          ? await fetchImdbFullDetail(tmdb.imdbId, type, imdbRequest, signal)
+          : null;
+      return {
+        ...tmdb,
+        imdbId: imdb?.imdbId ?? tmdb.imdbId,
+        rating: imdb?.rating ?? tmdb.rating,
+        voteAverage: imdb?.voteAverage ?? tmdb.voteAverage
+      };
+    },
+    undefined as TMDBFullDetail | null | undefined
+  );
+  return { detail: result.value, isLoading: result.isLoading };
 }
 
+type Season = {
+  overview?: string;
+  episodes: Array<{
+    episodeNumber: number;
+    name: string;
+    overview?: string;
+    stillUrl?: string;
+    runtime?: number;
+    voteAverage: number;
+  }>;
+};
 export function useSeasonEpisodes(
   tmdbId: string | undefined,
   seasonNumber: number,
   enabled = true,
   imdbId?: string
 ) {
-  const [season, setSeason] = useState<
-    | {
-        overview?: string;
-        episodes: Array<{
-          episodeNumber: number;
-          name: string;
-          overview?: string;
-          stillUrl?: string;
-          runtime?: number;
-          voteAverage: number;
-        }>;
-      }
-    | null
-    | undefined
-  >(undefined);
+  const [season, setSeason] = useState<Season | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
-  const cancelRef = useRef(false);
-  const imdbRatingsRef = useRef(new Map<number, number>());
-
+  const ratings = useRef(new Map<number, number>());
   useEffect(() => {
     if (!enabled || !tmdbId) {
       setSeason(undefined);
+      setIsLoading(false);
       return;
     }
-    cancelRef.current = false;
-    imdbRatingsRef.current.clear();
-    setIsLoading(true);
+    const controller = new AbortController();
     setSeason(undefined);
-    const controller = new AbortController();
-
-    void (async () => {
-      try {
-        const result = await fetchTmdbSeasonEpisodes(
-          tmdbId,
-          seasonNumber,
-          getApiKey(),
-          controller.signal
-        );
-        const episodes = (result?.episodes ?? []).map((episode) => ({
-          ...episode,
-          voteAverage: imdbRatingsRef.current.get(episode.episodeNumber) ?? 0
-        }));
-        if (!cancelRef.current && result) setSeason({ ...result, episodes });
-      } catch {
-        if (!cancelRef.current) setSeason(null);
-      } finally {
-        if (!cancelRef.current) setIsLoading(false);
-      }
-    })();
-
-    return () => {
-      controller.abort();
-      cancelRef.current = true;
-    };
-  }, [tmdbId, seasonNumber, enabled]);
-
-  useEffect(() => {
-    if (!enabled || !tmdbId || !imdbId) return;
-
-    let cancelled = false;
-    const controller = new AbortController();
-
-    void fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
-      .then((imdbSeason) => {
-        if (cancelled || controller.signal.aborted) return;
-
-        const ratings = new Map(
-          (imdbSeason?.episodes ?? []).map((episode) => [
-            episode.episodeNumber,
-            episode.voteAverage
-          ])
-        );
-        imdbRatingsRef.current = ratings;
-        setSeason((current) =>
-          current
-            ? {
-                ...current,
-                episodes: current.episodes.map((episode) => ({
-                  ...episode,
-                  voteAverage: ratings.get(episode.episodeNumber) ?? 0
-                }))
-              }
-            : current
-        );
+    setIsLoading(true);
+    ratings.current.clear();
+    void fetchTmdbSeasonEpisodes(tmdbId, seasonNumber, apiKey(), controller.signal)
+      .then((value) => {
+        if (!controller.signal.aborted && value)
+          setSeason({
+            overview: value.overview,
+            episodes: value.episodes.map((episode) => ({
+              ...episode,
+              voteAverage: ratings.current.get(episode.episodeNumber) ?? 0
+            }))
+          });
       })
       .catch(() => {
-        if (!cancelled && !controller.signal.aborted) imdbRatingsRef.current.clear();
+        if (!controller.signal.aborted) setSeason(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false);
       });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [tmdbId, seasonNumber, enabled, imdbId]);
-
+    return () => controller.abort();
+  }, [enabled, seasonNumber, tmdbId]);
+  useEffect(() => {
+    if (!enabled || !imdbId) return;
+    const controller = new AbortController();
+    void fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
+      .then((value) => {
+        if (controller.signal.aborted) return;
+        const next = new Map(
+          (value?.episodes ?? []).map((episode) => [episode.episodeNumber, episode.voteAverage])
+        );
+        ratings.current = next;
+        setSeason((old) =>
+          old
+            ? {
+                ...old,
+                episodes: old.episodes.map((episode) => ({
+                  ...episode,
+                  voteAverage: next.get(episode.episodeNumber) ?? 0
+                }))
+              }
+            : old
+        );
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [enabled, imdbId, seasonNumber]);
   return { season, isLoading };
 }
 
@@ -1110,47 +729,37 @@ export function useSeriesEpisodeRatings(
     }>
   >([]);
   const [isLoading, setIsLoading] = useState(false);
-
   useEffect(() => {
-    if (!enabled || !tmdbId || seasonCount < 1) {
+    if (!enabled || !tmdbId || !imdbId || seasonCount < 1) {
       setSeasons([]);
+      setIsLoading(false);
       return;
     }
-
-    let cancelled = false;
     const controller = new AbortController();
     setIsLoading(true);
-
     void Promise.all(
-      Array.from({ length: seasonCount }, (_, index) => index + 1).map(async (seasonNumber) => {
-        const season = imdbId
-          ? await fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
-          : null;
-        return {
-          seasonNumber,
-          episodes: (season?.episodes ?? []).map(({ episodeNumber, name, voteAverage }) => ({
+      Array.from({ length: seasonCount }, (_, index) => index + 1).map(async (seasonNumber) => ({
+        seasonNumber,
+        episodes:
+          (
+            await fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
+          )?.episodes.map(({ episodeNumber, name, voteAverage }) => ({
             episodeNumber,
             name,
             voteAverage
-          }))
-        };
-      })
+          })) ?? []
+      }))
     )
-      .then((results) => {
-        if (!cancelled && !controller.signal.aborted) setSeasons(results);
+      .then((value) => {
+        if (!controller.signal.aborted) setSeasons(value);
       })
       .catch(() => {
-        if (!cancelled && !controller.signal.aborted) setSeasons([]);
+        if (!controller.signal.aborted) setSeasons([]);
       })
       .finally(() => {
-        if (!cancelled && !controller.signal.aborted) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [enabled, seasonCount, tmdbId, imdbId]);
-
+    return () => controller.abort();
+  }, [enabled, imdbId, seasonCount, tmdbId]);
   return { seasons, isLoading };
 }
