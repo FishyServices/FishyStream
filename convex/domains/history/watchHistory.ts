@@ -182,3 +182,31 @@ export const removeWatchHistoryEntry = mutation({
     return true;
   }
 });
+
+export const clearWatchHistory = mutation({
+  args: { clerkUserId: v.string() },
+  handler: async (ctx, { clerkUserId }): Promise<number> => {
+    const entries = await ctx.db
+      .query("mediaState")
+      .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId).gt("watchedAt", 0))
+      .collect();
+
+    for (const entry of entries) {
+      if (entry.watchlistAddedAt) {
+        await ctx.db.patch(entry._id, {
+          positionSeconds: undefined,
+          durationSeconds: undefined,
+          seasonNumber: undefined,
+          episodeNumber: undefined,
+          source: undefined,
+          dub: undefined,
+          watchedAt: undefined
+        });
+      } else {
+        await ctx.db.delete(entry._id);
+      }
+    }
+
+    return entries.length;
+  }
+});

@@ -70,6 +70,8 @@ type TypeFilter = "all" | "movie" | "tv";
 
 const SORT_PREF_KEY = "mylist:sort";
 const VIEW_PREF_KEY = "mylist:view";
+const COLLAPSED_FOLDERS_PREF_KEY = "mylist:collapsed-folders";
+const FILTER_PREF_KEY = "mylist:filters";
 
 function itemToSnapshot(item: WatchlistGridItem): WatchlistSnapshot {
   return {
@@ -88,6 +90,38 @@ function readStoredPref<T extends string>(key: string, fallback: T, allowed: rea
   if (typeof window === "undefined") return fallback;
   const stored = window.localStorage.getItem(key);
   return stored && (allowed as readonly string[]).includes(stored) ? (stored as T) : fallback;
+}
+
+function getCollapsedFolders(userId: string): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const stored = window.localStorage.getItem(`${COLLAPSED_FOLDERS_PREF_KEY}:${userId}`);
+    const folders = stored ? (JSON.parse(stored) as unknown) : [];
+    return new Set(
+      Array.isArray(folders) ? folders.filter((folder) => typeof folder === "string") : []
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function getStoredFilters(): {
+  folder: string;
+  search: string;
+  type: TypeFilter;
+} {
+  if (typeof window === "undefined") return { folder: "all", search: "", type: "all" };
+  try {
+    const stored = window.sessionStorage.getItem(FILTER_PREF_KEY);
+    const value = stored ? (JSON.parse(stored) as Partial<Record<string, unknown>>) : {};
+    return {
+      folder: typeof value.folder === "string" ? value.folder : "all",
+      search: typeof value.search === "string" ? value.search : "",
+      type: value.type === "movie" || value.type === "tv" ? value.type : "all"
+    };
+  } catch {
+    return { folder: "all", search: "", type: "all" };
+  }
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -474,8 +508,9 @@ function FolderSection({
 export function MyListPage() {
   const navigate = useNavigate();
   const { user } = useUser();
-  const [folderFilter, setFolderFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const initialFilters = getStoredFilters();
+  const [folderFilter, setFolderFilter] = useState(initialFilters.folder);
+  const [searchQuery, setSearchQuery] = useState(initialFilters.search);
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 180);
 
   useSeoMeta({
@@ -518,11 +553,18 @@ export function MyListPage() {
   const [viewLayout, setViewLayout] = useState<ViewLayout>(() =>
     readStoredPref(VIEW_PREF_KEY, "grid", ["grid", "list"] as const)
   );
-  const [listTypeFilter, setListTypeFilter] = useState<TypeFilter>("all");
+  const [listTypeFilter, setListTypeFilter] = useState<TypeFilter>(initialFilters.type);
   const [canDragCards, setCanDragCards] = useState(false);
 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<ContentId>>(() => new Set());
+  const [dismissedWatchlistIds, setDismissedWatchlistIds] = useState<Set<ContentId>>(
+    () => new Set()
+  );
+  const [undoWatchlistId, setUndoWatchlistId] = useState<ContentId | null>(null);
+  const pendingWatchlistRemovals = useRef(
+    new Map<ContentId, { item: WatchlistGridItem; timer: number }>()
+  );
   const [isBulkMoving, setIsBulkMoving] = useState(false);
   const [pendingBulkRemove, setPendingBulkRemove] = useState(false);
   const [isBulkRemoving, setIsBulkRemoving] = useState(false);
@@ -531,7 +573,9 @@ export function MyListPage() {
   const [renameFolderValue, setRenameFolderValue] = useState("");
   const [isRenamingFolder, setIsRenamingFolder] = useState(false);
 
-  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() =>
+    getCollapsedFolders(user?.id ?? "guest")
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -541,6 +585,23 @@ export function MyListPage() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(VIEW_PREF_KEY, viewLayout);
   }, [viewLayout]);
+  useEffect(() => {
+    setCollapsedFolders(getCollapsedFolders(user?.id ?? "guest"));
+  }, [user?.id]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      `${COLLAPSED_FOLDERS_PREF_KEY}:${user?.id ?? "guest"}`,
+      JSON.stringify([...collapsedFolders])
+    );
+  }, [collapsedFolders, user?.id]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      FILTER_PREF_KEY,
+      JSON.stringify({ folder: folderFilter, search: searchQuery, type: listTypeFilter })
+    );
+  }, [folderFilter, listTypeFilter, searchQuery, user?.id]);
 
   useEffect(() => {
     if (!watchlistData) {
@@ -580,6 +641,15 @@ export function MyListPage() {
     });
   }, [watchlist]);
 
+  useEffect(
+    () => () => {
+      for (const pending of pendingWatchlistRemovals.current.values()) {
+        window.clearTimeout(pending.timer);
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && selectionMode) exitSelectionMode();
@@ -616,6 +686,7 @@ export function MyListPage() {
       .toLocaleLowerCase()
       .replace(/[^\p{L}\p{N}]/gu, "");
     return watchlist.filter((item) => {
+      if (dismissedWatchlistIds.has(item._id)) return false;
       const matchesType = listTypeFilter === "all" || item.type === listTypeFilter;
       const itemFolder = item.watchlistFolder?.trim() || "";
       const matchesFolder =
@@ -630,7 +701,7 @@ export function MyListPage() {
               .includes(normalizedQuery);
       return matchesType && matchesFolder && matchesSearch;
     });
-  }, [debouncedSearchQuery, folderFilter, listTypeFilter, user, watchlist]);
+  }, [debouncedSearchQuery, dismissedWatchlistIds, folderFilter, listTypeFilter, user, watchlist]);
 
   const sortedFilteredWatchlist = useMemo(() => {
     const filtered = filteredWatchlist;
@@ -794,13 +865,42 @@ export function MyListPage() {
     setDraggedContentId(null);
   };
 
-  const handleRemoveItem = async (item: WatchlistGridItem) => {
-    try {
-      await toggleWatchlistItem(item._id, itemToSnapshot(item));
-      toast.success(`Removed "${item.title}" from your list`);
-    } catch {
-      toast.error("Couldn't remove that title");
-    }
+  const handleRemoveItem = (item: WatchlistGridItem) => {
+    const existing = pendingWatchlistRemovals.current.get(item._id);
+    if (existing) window.clearTimeout(existing.timer);
+    setDismissedWatchlistIds((current) => new Set(current).add(item._id));
+    const timer = window.setTimeout(() => {
+      pendingWatchlistRemovals.current.delete(item._id);
+      setUndoWatchlistId((current) => (current === item._id ? null : current));
+      void toggleWatchlistItem(item._id, itemToSnapshot(item)).then(
+        () => toast.success(`Removed "${item.title}" from your list`),
+        () => {
+          setDismissedWatchlistIds((current) => {
+            const next = new Set(current);
+            next.delete(item._id);
+            return next;
+          });
+          toast.error("Couldn't remove that title");
+        }
+      );
+    }, 5000);
+    pendingWatchlistRemovals.current.set(item._id, { item, timer });
+    setUndoWatchlistId(item._id);
+  };
+
+  const handleUndoWatchlistRemoval = () => {
+    if (!undoWatchlistId) return;
+    const pending = pendingWatchlistRemovals.current.get(undoWatchlistId);
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingWatchlistRemovals.current.delete(undoWatchlistId);
+    setDismissedWatchlistIds((current) => {
+      const next = new Set(current);
+      next.delete(undoWatchlistId);
+      return next;
+    });
+    setUndoWatchlistId(null);
+    toast.success("Restored to My List");
   };
 
   function exitSelectionMode() {
@@ -1197,7 +1297,20 @@ export function MyListPage() {
               </div>
             </div>
 
-            {isFolderOnlyEmpty ? null : filteredWatchlist.length === 0 ? (
+            {isFolderOnlyEmpty ? (
+              <EmptyState
+                title={`No titles in ${folderFilter === "unsorted" ? "Unsorted" : folderFilter}`}
+                action={
+                  <Button
+                    variant="secondary"
+                    className="rounded-md"
+                    onClick={() => setFolderFilter("all")}
+                  >
+                    Show all titles
+                  </Button>
+                }
+              />
+            ) : filteredWatchlist.length === 0 ? (
               <EmptyState
                 title={
                   searchQuery ? `No titles match "${searchQuery}"` : "No titles match these filters"
@@ -1268,6 +1381,20 @@ export function MyListPage() {
         )}
 
         {watchlist.length > 0 && <RecommendationsSection layout="section" onPlay={handlePlay} />}
+
+        {undoWatchlistId && pendingWatchlistRemovals.current.get(undoWatchlistId) && (
+          <div className="fixed inset-x-4 bottom-6 z-50 flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-md sm:left-auto sm:right-6 sm:w-80">
+            <span>Removed from My List</span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleUndoWatchlistRemoval}
+            >
+              Undo
+            </Button>
+          </div>
+        )}
       </main>
 
       {/* Floating bulk-action bar */}

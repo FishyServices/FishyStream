@@ -381,12 +381,12 @@ export function ContentModal({
       ? resolvedContent.tmdbId
       : parseInt(resolvedContent.tmdbId, 10) || undefined
     : undefined;
-  const { credits } = useContentCredits(
+  const { credits, isLoading: creditsLoading } = useContentCredits(
     tmdbIdNum,
     resolvedContent?.type,
     isOpen && activeTab === "cast"
   );
-  const { videos } = useContentVideos(
+  const { videos, isLoading: videosLoading } = useContentVideos(
     tmdbIdNum,
     resolvedContent?.type,
     isOpen && activeTab === "videos"
@@ -460,6 +460,8 @@ export function ContentModal({
 
   useEffect(() => {
     if (isOpen && activeTab === "downloads" && resolvedContent) {
+      let cancelled = false;
+
       const loadDownloads = async () => {
         try {
           setDownloadsLoading(true);
@@ -478,17 +480,21 @@ export function ContentModal({
             episodeTitle
           );
 
-          setDownloads(results);
+          if (!cancelled) setDownloads(results);
         } catch (error) {
+          if (cancelled) return;
           console.error("Download loading failed:", error);
           setDownloadsError("Failed to load download options. Please try again later.");
           setDownloads([]);
         } finally {
-          setDownloadsLoading(false);
+          if (!cancelled) setDownloadsLoading(false);
         }
       };
 
       loadDownloads();
+      return () => {
+        cancelled = true;
+      };
     }
   }, [
     isOpen,
@@ -914,11 +920,11 @@ export function ContentModal({
 
             {activeTab === "cast" && (
               <div>
-                {!credits ? (
+                {creditsLoading ? (
                   <div className="flex items-center justify-center py-10">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                ) : credits.cast.length > 0 ? (
+                ) : credits && credits.cast.length > 0 ? (
                   <>
                     <div className="scrollbar-thin flex gap-4 overflow-x-auto pb-2">
                       {credits.cast.slice(0, 10).map((actor) => (
@@ -959,7 +965,11 @@ export function ContentModal({
 
             {activeTab === "videos" && (
               <div>
-                {videos.length === 0 ? (
+                {videosLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : videos.length === 0 ? (
                   <p className="py-8 text-center text-xs text-muted-foreground">No trailers</p>
                 ) : (
                   <div className="scrollbar-thin flex gap-3 overflow-x-auto pb-2">

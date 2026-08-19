@@ -167,3 +167,13 @@ export function useRemoveFromHistory() {
     [user, mutation]
   );
 }
+
+export function useClearWatchHistory() {
+  const { user } = useUser();
+  const mutation = useMutation(api.domains.history.watchHistory.clearWatchHistory);
+
+  return useCallback(() => {
+    if (!user) return Promise.resolve(0);
+    return mutation({ clerkUserId: user.id });
+  }, [mutation, user]);
+}
