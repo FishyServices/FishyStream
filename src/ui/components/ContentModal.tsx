@@ -738,83 +738,109 @@ export function ContentModal({
               </div>
             )}
 
-            <div className="flex gap-1 overflow-x-auto rounded-xl border border-border/65 bg-muted/35 p-1">
-              {isTV && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setActiveTab("episodes")}
-                  className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    activeTab === "episodes"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                  }`}
-                >
-                  Episodes
-                </Button>
-              )}
-              {isTV && settings.showEpisodeRatings && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setActiveTab("ratings")}
-                  className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    activeTab === "ratings"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                  }`}
-                >
-                  Ratings
-                </Button>
-              )}
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setActiveTab("cast")}
-                className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  activeTab === "cast"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                Cast
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setActiveTab("videos")}
-                className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  activeTab === "videos"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                Trailers
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setActiveTab("related")}
-                className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  activeTab === "related"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                Related
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setActiveTab("downloads")}
-                className={`h-auto shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  activeTab === "downloads"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                Downloads
-              </Button>
+            <div role="tablist" aria-label="Content details" className="min-w-0 overflow-x-auto">
+              <div className="overflow-x-auto border-b border-border/65">
+                <div className="flex w-max min-w-full gap-5">
+                  {isTV && (
+                    <Button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === "episodes"}
+                      value="episodes"
+                      onClick={() => setActiveTab("episodes")}
+                      variant="ghost"
+                      className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
+                        activeTab === "episodes"
+                          ? "border-primary text-foreground"
+                          : "border-transparent"
+                      }`}
+                    >
+                      <Tv className="h-4 w-4" aria-hidden="true" />
+                      Episodes
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "cast"}
+                    value="cast"
+                    onClick={() => setActiveTab("cast")}
+                    variant="ghost"
+                    className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
+                      activeTab === "cast" ? "border-primary text-foreground" : "border-transparent"
+                    }`}
+                  >
+                    <User className="h-4 w-4" aria-hidden="true" />
+                    Cast
+                  </Button>
+                  <Button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "videos"}
+                    value="videos"
+                    onClick={() => setActiveTab("videos")}
+                    variant="ghost"
+                    className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
+                      activeTab === "videos"
+                        ? "border-primary text-foreground"
+                        : "border-transparent"
+                    }`}
+                  >
+                    <Play className="h-4 w-4" aria-hidden="true" />
+                    Trailers
+                  </Button>
+                  <Button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "related"}
+                    value="related"
+                    onClick={() => setActiveTab("related")}
+                    variant="ghost"
+                    className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
+                      activeTab === "related"
+                        ? "border-primary text-foreground"
+                        : "border-transparent"
+                    }`}
+                  >
+                    <Film className="h-4 w-4" aria-hidden="true" />
+                    Related
+                  </Button>
+                  {isTV && settings.showEpisodeRatings && (
+                    <Button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === "ratings"}
+                      value="ratings"
+                      onClick={() => setActiveTab("ratings")}
+                      variant="ghost"
+                      className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
+                        activeTab === "ratings"
+                          ? "border-primary text-foreground"
+                          : "border-transparent"
+                      }`}
+                    >
+                      <Star className="h-4 w-4" aria-hidden="true" />
+                      Ratings
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "downloads"}
+                    value="downloads"
+                    onClick={() => setActiveTab("downloads")}
+                    variant="ghost"
+                    className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
+                      activeTab === "downloads"
+                        ? "border-primary text-foreground"
+                        : "border-transparent"
+                    }`}
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Downloads
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {isTV && activeTab === "episodes" && (totalSeasons > 1 || hasSpecials) && (
