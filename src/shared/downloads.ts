@@ -1,4 +1,4 @@
-import type { ContentDetail } from "@content/contentMetadata";
+import type { ContentId, ContentType } from "@content/contentMetadata";
 
 export interface DownloadItem {
   source: string;
@@ -6,6 +6,35 @@ export interface DownloadItem {
   url: string;
   direct: boolean;
   headers?: Record<string, string>;
+}
+
+type DownloadContent = {
+  title: string;
+  type: ContentType;
+  tmdbId?: string;
+  anilistId?: string;
+  _id: ContentId;
+};
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function records(value: unknown): JsonRecord[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function headersValue(value: unknown): Record<string, string> | undefined {
+  if (!isRecord(value)) return undefined;
+  const entries = Object.entries(value).filter((entry): entry is [string, string] => {
+    return typeof entry[1] === "string";
+  });
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
 function slugify(text: string): string {
@@ -17,7 +46,7 @@ function slugify(text: string): string {
 }
 
 export async function fetchDownloads(
-  resolvedContent: any,
+  resolvedContent: DownloadContent,
   selectedSeason: number,
   selectedEpisode: number,
   episodeTitle?: string
@@ -25,7 +54,7 @@ export async function fetchDownloads(
   const scraperHost = import.meta.env.DEV ? "http://localhost:4000" : "";
 
   const tmdbId = resolvedContent.tmdbId || resolvedContent._id.split(":").at(-1) || "";
-  const type = resolvedContent.type;
+  const type: ContentType = resolvedContent.type;
   const currentSeason = selectedSeason;
   const currentEpisode = selectedEpisode;
 
@@ -100,14 +129,14 @@ export async function fetchDownloads(
     const streamripUrl = `${scraperHost}/api/download/streamrip?type=${type}&id=${tmdbId}&season=${currentSeason}&episode=${currentEpisode}`;
     const res = await fetch(streamripUrl);
     if (res.ok) {
-      const data = await res.json();
-      if (data.downloads && Array.isArray(data.downloads)) {
-        data.downloads.forEach((dl: any) => {
+      const data: unknown = await res.json();
+      if (isRecord(data)) {
+        records(data.downloads).forEach((dl) => {
           results.push({
             source: "StreamRip",
-            name: `${dl.server} - ${dl.quality}p (${dl.size || "Unknown size"})`,
-            url: dl.url,
-            headers: dl._headers || dl.headers,
+            name: `${stringValue(dl.server)} - ${stringValue(dl.quality)}p (${stringValue(dl.size, "Unknown size")})`,
+            url: stringValue(dl.url),
+            headers: headersValue(dl._headers) ?? headersValue(dl.headers),
             direct: true
           });
         });
@@ -119,18 +148,17 @@ export async function fetchDownloads(
 
   // AniSnatch
   try {
-    const aniId =
-      ("anilistId" in resolvedContent ? (resolvedContent as any).anilistId : undefined) || tmdbId;
+    const aniId = resolvedContent.anilistId || tmdbId;
     const anisnatchUrl = `${scraperHost}/api/download/anisnatch?id=${aniId}&episode=${currentEpisode}`;
     const res = await fetch(anisnatchUrl);
     if (res.ok) {
-      const data = await res.json();
-      if (data.downloads && Array.isArray(data.downloads)) {
-        data.downloads.forEach((dl: any) => {
+      const data: unknown = await res.json();
+      if (isRecord(data)) {
+        records(data.downloads).forEach((dl) => {
           results.push({
             source: "AniSnatch",
-            name: dl.name,
-            url: dl.url,
+            name: stringValue(dl.name),
+            url: stringValue(dl.url),
             direct: true
           });
         });
@@ -146,21 +174,24 @@ export async function fetchDownloads(
     const animexUrl = `${scraperHost}/api/download/animex?q=${encodeURIComponent(query)}`;
     const res = await fetch(animexUrl);
     if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const resolvePromises = data.slice(0, 2).map(async (item: any) => {
+      const data: unknown = await res.json();
+      const items = records(data);
+      if (items.length > 0) {
+        const resolvePromises = items.slice(0, 2).map(async (item) => {
+          const itemId = stringValue(item.id);
+          if (!itemId) return null;
           try {
             const resolveRes = await fetch(
-              `${scraperHost}/api/download/animex?id=${encodeURIComponent(item.id)}`
+              `${scraperHost}/api/download/animex?id=${encodeURIComponent(itemId)}`
             );
             if (resolveRes.ok) {
-              const resolveData = await resolveRes.json();
-              if (resolveData.downloads && Array.isArray(resolveData.downloads)) {
-                return resolveData.downloads;
+              const resolveData: unknown = await resolveRes.json();
+              if (isRecord(resolveData)) {
+                return records(resolveData.downloads);
               }
             }
           } catch (e) {
-            console.error("Animex resolve failed for", item.id, e);
+            console.error("Animex resolve failed for", itemId, e);
           }
           return null;
         });
@@ -170,11 +201,11 @@ export async function fetchDownloads(
 
         resolvedBundles.forEach((bundle) => {
           if (bundle) {
-            bundle.forEach((dl: any) => {
+            bundle.forEach((dl) => {
               results.push({
                 source: "Animex",
-                name: dl.text,
-                url: dl.url,
+                name: stringValue(dl.text),
+                url: stringValue(dl.url),
                 direct: true
               });
               addedAny = true;
@@ -183,11 +214,12 @@ export async function fetchDownloads(
         });
 
         if (!addedAny) {
-          data.forEach((dl: any) => {
+          items.forEach((dl) => {
+            const itemId = stringValue(dl.id);
             results.push({
               source: "Animex",
-              name: dl.title,
-              url: `https://animex.one/community/download?id=${dl.id}`,
+              name: stringValue(dl.title),
+              url: `https://animex.one/community/download?id=${encodeURIComponent(itemId)}`,
               direct: false
             });
           });

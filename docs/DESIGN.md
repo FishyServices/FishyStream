@@ -204,7 +204,7 @@ Responsive Layout Rules:
 
 ### Do:
 
-- **Do** place all persistent AI context files in `docs/` (`docs/PRODUCT.md`, `docs/DESIGN.md`).
+- **Do** place persistent AI context files in `docs/` and point to them from `AGENTS.md`.
 - **Do** honor touch target sizes (minimum 44x44px `.touch-target`) on mobile viewports.
 - **Do** use `env(safe-area-inset-bottom)` on fixed mobile navigation bars to support native Android / iOS bottom gesture bars.
 - **Do** apply `Space Grotesk` font family for section titles and hero headlines.

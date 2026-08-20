@@ -50,8 +50,6 @@ export interface BrowsePageResult {
   hasNextPage: boolean;
   canGoBack: boolean;
   isLoading: boolean;
-  goNext: () => void;
-  goPrevious: () => void;
 }
 
 export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
@@ -437,7 +435,7 @@ export function usePaginatedContent(
   limit = 24,
   page = 1
 ): BrowsePageResult {
-  const [result, setResult] = useState<Omit<BrowsePageResult, "goNext" | "goPrevious">>({
+  const [result, setResult] = useState<BrowsePageResult>({
     items: [],
     currentPage: page,
     hasNextPage: false,
@@ -470,7 +468,7 @@ export function usePaginatedContent(
       });
     return () => controller.abort();
   }, [genre, limit, page, sortBy, type]);
-  return { ...result, goNext: () => undefined, goPrevious: () => undefined };
+  return result;
 }
 
 export function usePersonalizedRecommendationSeed(enabled = true) {

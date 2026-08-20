@@ -17,6 +17,13 @@ import { logProviderInfo, logProviderWarning } from "./model/providerDiagnostics
 import type { ContentPlayback } from "@content/contentMetadata";
 import type { ProgressState, useUpdateProgress } from "@/features/library/useWatchProgress";
 import { providerSourceResolver } from "@fishy/providers/playback";
+import {
+  clampProgress,
+  getEffectiveAnimeDub,
+  isMatchingEpisodeProgress,
+  pickResumePositionSeconds,
+  setAnimeDubSearchParam
+} from "./model/playbackState";
 
 type UpdateProgress = ReturnType<typeof useUpdateProgress>;
 
@@ -86,57 +93,7 @@ export interface UsePlaybackSessionArgs {
   updateProgress: UpdateProgress;
 }
 
-function safeSeason(v: number | null | undefined) {
-  return v != null && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 1;
-}
-
-function safeEp(v: number | null | undefined) {
-  return v != null && Number.isFinite(v) ? Math.max(1, Math.floor(v)) : 1;
-}
-
-function isMatchingEpisodeProgress(
-  content: ContentPlayback,
-  watchState: ProgressState | undefined,
-  season: number,
-  episode: number
-) {
-  if (content.type !== "tv") return true;
-  if (!watchState) return false;
-  return (
-    safeSeason(watchState.seasonNumber) === season && safeEp(watchState.episodeNumber) === episode
-  );
-}
-
-function pickResumePositionSeconds(
-  content: ContentPlayback,
-  watchState: ProgressState | undefined,
-  lastSyncedPosition: number,
-  season: number,
-  episode: number
-) {
-  if (!isMatchingEpisodeProgress(content, watchState, season, episode)) return 0;
-  const storedPosition = Math.max(0, watchState?.positionSeconds ?? 0);
-  return Math.floor(Math.max(storedPosition, Math.max(0, lastSyncedPosition)));
-}
-
-function clampProgress(value: number) {
-  return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
-}
-
-export function getEffectiveAnimeDub(searchParams: URLSearchParams, prefersDub: boolean) {
-  if (searchParams.get("dub") === "true") return true;
-  if (searchParams.get("dub") === "false") return false;
-  return prefersDub;
-}
-
-export function setAnimeDubSearchParam(
-  params: URLSearchParams,
-  enabled: boolean,
-  prefersDub: boolean
-) {
-  if (enabled || prefersDub) params.set("dub", String(enabled));
-  else params.delete("dub");
-}
+export { getEffectiveAnimeDub, setAnimeDubSearchParam } from "./model/playbackState";
 
 export function usePlaybackSession({
   content,

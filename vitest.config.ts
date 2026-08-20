@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@\/(.*)$/, replacement: `${r("./src")}/$1` },
+      { find: /^@content\/(.*)$/, replacement: `${r("./shared/content")}/$1` },
       { find: /^@fishy\/providers$/, replacement: r("./packages/providers/src/index.ts") },
       {
         find: /^@fishy\/providers\/tmdb$/,

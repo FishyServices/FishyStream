@@ -1,33 +1,29 @@
-# FishyStream architecture
+# Architecture map
 
-FishyStream is organized around feature modules and explicit seams.
+FishyStream has four practical module groups.
 
-## Dependency direction
+## App and UI
 
-```text
-pages / UI
-  -> feature queries and model modules
-  -> shared domain types and navigation
-  -> provider, Convex, storage, and runtime adapters
-```
+`src/app/` starts the React tree, authentication, Convex, routing, settings, and analytics. `src/pages/` composes route-level views. `src/ui/components/` renders reusable views such as cards, rows, the content detail modal, and video players.
 
-Pages and UI modules must not import provider implementation files, generated Convex files,
-or browser storage directly. Feature modules own those integrations through narrow interfaces.
+## Catalog
 
-The `shared/content` module is the cross-runtime content domain. It contains wire-compatible
-types and conversions used by the browser and Convex. Generated Convex files are framework
-outputs and must never be edited by hand.
+`src/features/catalog/queries/` reads TMDB and IMDb data through `packages/providers/`, normalizes provider results into shared content types, and serves discovery hooks. `src/features/catalog/model/` holds catalog-facing types and policy.
 
-The `@fishy/providers` package owns external catalog, playback, anime mapping, and proxy policy.
-The edge functions only adapt runtime requests to the provider proxy seam.
+## Playback
 
-## Naming
+`src/features/playback/` owns the playback session and diagnostics. `packages/providers/src/playback/` resolves stream sources, groups providers, chooses a source, and builds embed URLs. `src/ui/components/VideoPlayer.tsx` and `CustomVideoPlayer.tsx` consume the session.
 
-- `model`: domain types and pure policy.
-- `queries`: async data acquisition and query orchestration.
-- `persistence`: storage adapters and synchronization.
-- `ui`: feature-specific presentation.
-- `adapter`: runtime or external-system implementation of a seam.
+## Viewer state
 
-Avoid broad barrel exports. Public package exports are limited to the package root and the
-catalog, playback, anime, proxy, and TMDB entrypoints.
+`src/features/library/` owns React access to watchlist, history, and progress. `convex/domains/` owns the persisted signed-in state. `src/shared/storage/` owns device-only settings, folders, and caches.
+
+## Seam rules
+
+- Keep provider-specific URL and response details behind `packages/providers/`.
+- Keep Convex function details behind library hooks.
+- Keep browser storage behind storage modules.
+- A seam earns its cost when two adapters or two test implementations need the same interface.
+- Tests should cross the module interface. Helpers stay private unless callers need them.
+
+For current file ownership, inspect the source tree and package scripts. This map records reasons and seams, not a second copy of every export.

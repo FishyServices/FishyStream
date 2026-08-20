@@ -46,8 +46,9 @@ import type { TMDBItem } from "@/features/catalog/queries/useContent";
 import { getCanonicalSeasonCount } from "@fishy/providers/anime";
 import type { PlayHandler } from "@/shared/navigation/watchNavigation";
 import type { ContentDetail, ContentId, ContentType } from "@content/contentMetadata";
-import { fetchDownloads } from "@/shared/downloads";
+import { fetchDownloads, type DownloadItem } from "@/shared/downloads";
 import { useAppSettings } from "@/features/settings/useAppSettings";
+import { contentDetailFromTmdb } from "@/features/catalog/model/contentDetails";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -308,31 +309,7 @@ export function ContentModal({
   );
 
   const fullContent: ContentDetail | null | undefined = tmdbDetail
-    ? ({
-        _id: content!._id,
-        title: tmdbDetail.title,
-        type: tmdbDetail.type,
-        year: tmdbDetail.year,
-        posterUrl: tmdbDetail.posterUrl,
-        backdropUrl: tmdbDetail.backdropUrl,
-        description: tmdbDetail.description,
-        rating: tmdbDetail.rating,
-        voteAverage: tmdbDetail.voteAverage,
-        genre: tmdbDetail.genre,
-        tmdbId: tmdbDetail.tmdbId,
-        logoUrl: tmdbDetail.logoUrl,
-        trailerKey: tmdbDetail.trailerKey,
-        duration: tmdbDetail.duration,
-        seasons: tmdbDetail.seasons,
-        hasSpecials: tmdbDetail.hasSpecials,
-        tagline: tmdbDetail.tagline,
-        originalLanguage: tmdbDetail.originalLanguage,
-        imdbId: tmdbDetail.imdbId,
-        totalEpisodes: tmdbDetail.totalEpisodes,
-        status: tmdbDetail.status,
-        trending: tmdbDetail.trending,
-        new: tmdbDetail.isNew
-      } as ContentDetail)
+    ? contentDetailFromTmdb(tmdbDetail, content!._id)
     : tmdbDetail;
 
   const resolvedContent: ModalContent | null = fullContent
@@ -427,34 +404,10 @@ export function ContentModal({
       setRelatedDbContent(null);
       return;
     }
-    setRelatedDbContent({
-      _id: `tmdb:${relatedTmdbDetail.type}:${relatedTmdbDetail.tmdbId}` as ContentId,
-      title: relatedTmdbDetail.title,
-      type: relatedTmdbDetail.type,
-      year: relatedTmdbDetail.year,
-      posterUrl: relatedTmdbDetail.posterUrl,
-      backdropUrl: relatedTmdbDetail.backdropUrl,
-      description: relatedTmdbDetail.description,
-      rating: relatedTmdbDetail.rating,
-      voteAverage: relatedTmdbDetail.voteAverage,
-      genre: relatedTmdbDetail.genre,
-      tmdbId: relatedTmdbDetail.tmdbId,
-      logoUrl: relatedTmdbDetail.logoUrl,
-      trailerKey: relatedTmdbDetail.trailerKey,
-      duration: relatedTmdbDetail.duration,
-      seasons: relatedTmdbDetail.seasons,
-      hasSpecials: relatedTmdbDetail.hasSpecials,
-      tagline: relatedTmdbDetail.tagline,
-      originalLanguage: relatedTmdbDetail.originalLanguage,
-      imdbId: relatedTmdbDetail.imdbId,
-      totalEpisodes: relatedTmdbDetail.totalEpisodes,
-      status: relatedTmdbDetail.status,
-      trending: relatedTmdbDetail.trending,
-      new: relatedTmdbDetail.isNew
-    } as ContentDetail);
+    setRelatedDbContent(contentDetailFromTmdb(relatedTmdbDetail));
   }, [relatedTmdbDetail, relatedModalItem]);
 
-  const [downloads, setDownloads] = useState<any[]>([]);
+  const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const [downloadsLoading, setDownloadsLoading] = useState(false);
   const [downloadsError, setDownloadsError] = useState<string | null>(null);
 

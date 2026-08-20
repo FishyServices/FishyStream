@@ -1,15 +1,16 @@
-# Repository Instructions for AI Agents
+# Repository instructions for AI agents
 
-All AI instructions, product context, and design specs are maintained in the `docs/` folder:
+Read the relevant document before changing the matching part of the repository:
 
-- **Product Truth & Strategy**: [docs/PRODUCT.md](docs/PRODUCT.md)
-- **Design System Spec & Tokens**: [docs/DESIGN.md](docs/DESIGN.md)
-- **Impeccable Metadata**: `docs/.impeccable/design.json`
+- Product behaviour and scope: [docs/PRODUCT.md](docs/PRODUCT.md)
+- Domain terms and ownership: [docs/CONTEXT.md](docs/CONTEXT.md)
+- Visual rules and tokens: [docs/DESIGN.md](docs/DESIGN.md)
+- Module map and seams: [docs/architecture/README.md](docs/architecture/README.md)
 
 - Do not preserve backwards compatibility. Remove obsolete paths instead of adding compatibility layers, fallbacks, or migrations.
 - Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstraction, configuration, and indirection.
 - Lean on the dependencies already in the project before writing your own implementation or adding packages. Do not assume a library lacks a capability without checking its documentation and types
-- dont use commands in node_modules
+- Do not run commands from `node_modules`.
 
 ## Validation
 
