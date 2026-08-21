@@ -26,6 +26,8 @@ export async function handleApiRequest(context: PagesFunctionContext) {
   if (
     subpath === "scrape" ||
     subpath === "m3u8-proxy" ||
+    subpath === "media-proxy" ||
+    subpath === "subtitle-proxy" ||
     subpath === "ts-proxy" ||
     subpath.startsWith("download/")
   ) {

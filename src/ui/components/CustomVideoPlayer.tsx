@@ -12,12 +12,18 @@ import {
   Maximize,
   Minimize,
   Loader2,
-  Settings
+  Settings,
+  Download
 } from "lucide-react";
 import { Button } from "@fishy/ui";
 import { ProviderSourceSelect, type ProviderUiMode } from "@/ui/components/ProviderSourceSelect";
 import type { ContentPlayback } from "@content/contentMetadata";
 import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
+import {
+  getStoredDownload,
+  removeStoredDownload,
+  setStoredDownload
+} from "@/shared/storage/downloadStore";
 
 interface CustomVideoPlayerProps {
   embedUrl: string;
@@ -44,6 +50,49 @@ function formatTime(seconds: number): string {
     return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   }
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+type DownloadState =
+  | { status: "idle" }
+  | { status: "downloading"; received: number; total: number }
+  | { status: "paused"; received: number; total: number }
+  | { status: "completed" }
+  | { status: "error"; message: string };
+
+type HlsPlaylist =
+  | { kind: "master"; variants: Array<{ url: string; bandwidth: number }> }
+  | { kind: "media"; parts: string[]; encrypted: boolean };
+
+function parseHlsPlaylist(text: string, baseUrl: string): HlsPlaylist {
+  const lines = text.split(/\r?\n/).map((line) => line.trim());
+  const variants: Array<{ url: string; bandwidth: number }> = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line === undefined || !line.startsWith("#EXT-X-STREAM-INF:")) continue;
+    const bandwidth = Number(line.match(/BANDWIDTH=(\d+)/)?.[1] ?? 0);
+    const variantUrl = lines
+      .slice(index + 1)
+      .find((candidate) => candidate && !candidate.startsWith("#"));
+    if (variantUrl) variants.push({ url: new URL(variantUrl, baseUrl).href, bandwidth });
+  }
+
+  if (variants.length > 0) return { kind: "master", variants };
+
+  const encrypted = lines.some(
+    (line) => line.startsWith("#EXT-X-KEY:") && !/METHOD=NONE/i.test(line)
+  );
+  const parts: string[] = [];
+  const mapLine = lines.find((line) => line.startsWith("#EXT-X-MAP:"));
+  const mapUrl = mapLine?.match(/URI="([^"]+)"/)?.[1];
+  if (mapUrl) parts.push(new URL(mapUrl, baseUrl).href);
+
+  for (const line of lines) {
+    if (!line || line.startsWith("#")) continue;
+    parts.push(new URL(line, baseUrl).href);
+  }
+
+  return { kind: "media", parts, encrypted };
 }
 
 export function CustomVideoPlayer({
@@ -83,9 +132,35 @@ export function CustomVideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadState, setDownloadState] = useState<DownloadState>({ status: "idle" });
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPlayingRef = useRef(isPlaying);
+  const downloadAbortRef = useRef<AbortController | null>(null);
+  const downloadChunksRef = useRef<Blob[]>([]);
+  const downloadReceivedRef = useRef(0);
+  const downloadTotalRef = useRef(0);
+  const downloadContentTypeRef = useRef("video/mp4");
+  const downloadLastPersistedRef = useRef(0);
+  const downloadModeRef = useRef<"file" | "hls">("file");
+  const downloadStorageKey = `${content._id}:${tvTarget.season}:${tvTarget.episode}:${selectedSource}`;
+
+  const persistDownload = async (url: string, filename: string) => {
+    if (localFile || downloadReceivedRef.current <= 0) return;
+
+    await setStoredDownload({
+      key: downloadStorageKey,
+      kind: downloadModeRef.current,
+      url,
+      filename,
+      chunks: downloadChunksRef.current,
+      received: downloadReceivedRef.current,
+      total: downloadTotalRef.current,
+      contentType: downloadContentTypeRef.current,
+      updatedAt: Date.now()
+    });
+  };
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -109,6 +184,7 @@ export function CustomVideoPlayer({
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
+      downloadAbortRef.current?.abort();
     };
   }, []);
 
@@ -178,6 +254,14 @@ export function CustomVideoPlayer({
     let localObjectUrl: string | null = null;
     setIsScraping(true);
     setMediaError(null);
+    setDownloadUrl(null);
+    setDownloadState({ status: "idle" });
+    downloadModeRef.current = "file";
+    downloadAbortRef.current?.abort();
+    downloadChunksRef.current = [];
+    downloadReceivedRef.current = 0;
+    downloadTotalRef.current = 0;
+    downloadLastPersistedRef.current = 0;
 
     const loadVideoSource = (sourceUrl: string, mediaType: "hls" | "file", startAtSeconds = 0) => {
       const video = videoRef.current;
@@ -213,6 +297,7 @@ export function CustomVideoPlayer({
       try {
         if (localFile) {
           localObjectUrl = URL.createObjectURL(localFile);
+          setDownloadUrl(localObjectUrl);
           loadVideoSource(localObjectUrl, "file");
           return;
         }
@@ -236,6 +321,60 @@ export function CustomVideoPlayer({
 
           const mediaType =
             data.mediaType ?? (String(data.streamUrl).includes(".m3u8") ? "hls" : "file");
+
+          if (mediaType === "file" && typeof data.streamUrl === "string") {
+            const downloadUrl = new URL(data.streamUrl, window.location.origin);
+            const filename = `${content.title}${content.type === "tv" ? ` - S${tvTarget.season}E${tvTarget.episode}` : ""}.mp4`;
+            downloadUrl.searchParams.set("download", "1");
+            downloadUrl.searchParams.set("filename", filename);
+            setDownloadUrl(downloadUrl.href);
+            downloadModeRef.current = "file";
+            void getStoredDownload(downloadStorageKey)
+              .then((stored) => {
+                if (
+                  !stored ||
+                  stored.kind !== downloadModeRef.current ||
+                  stored.url !== downloadUrl.href ||
+                  stored.received <= 0
+                )
+                  return;
+                downloadChunksRef.current = stored.chunks;
+                downloadReceivedRef.current = stored.received;
+                downloadTotalRef.current = stored.total;
+                downloadContentTypeRef.current = stored.contentType;
+                downloadLastPersistedRef.current = stored.received;
+                setDownloadState({
+                  status: "paused",
+                  received: stored.received,
+                  total: stored.total
+                });
+              })
+              .catch(() => {});
+          } else if (mediaType === "hls" && typeof data.streamUrl === "string") {
+            setDownloadUrl(data.streamUrl);
+            downloadModeRef.current = "hls";
+            void getStoredDownload(downloadStorageKey)
+              .then((stored) => {
+                if (
+                  !stored ||
+                  stored.kind !== "hls" ||
+                  stored.url !== data.streamUrl ||
+                  stored.received <= 0
+                )
+                  return;
+                downloadChunksRef.current = stored.chunks;
+                downloadReceivedRef.current = stored.received;
+                downloadTotalRef.current = stored.total;
+                downloadContentTypeRef.current = stored.contentType;
+                downloadLastPersistedRef.current = stored.received;
+                setDownloadState({
+                  status: "paused",
+                  received: stored.received,
+                  total: stored.total
+                });
+              })
+              .catch(() => {});
+          }
 
           const getStartAtSeconds = () => {
             try {
@@ -396,6 +535,224 @@ export function CustomVideoPlayer({
     );
   };
 
+  const startHlsDownload = (args: {
+    controller: AbortController;
+    startAt: number;
+    filename: string;
+  }) => {
+    if (!downloadUrl) return;
+
+    void (async () => {
+      try {
+        const masterResponse = await fetch(downloadUrl, { signal: args.controller.signal });
+        if (!masterResponse.ok) throw new Error(`Download failed (${masterResponse.status}).`);
+        const masterPlaylist = parseHlsPlaylist(await masterResponse.text(), downloadUrl);
+        const mediaUrl =
+          masterPlaylist.kind === "master"
+            ? [...masterPlaylist.variants].sort((a, b) => b.bandwidth - a.bandwidth)[0]?.url
+            : downloadUrl;
+        if (!mediaUrl) throw new Error("The HLS stream has no playable variant.");
+
+        const mediaResponse = await fetch(mediaUrl, { signal: args.controller.signal });
+        if (!mediaResponse.ok) throw new Error(`Download failed (${mediaResponse.status}).`);
+        const mediaPlaylist = parseHlsPlaylist(await mediaResponse.text(), mediaUrl);
+        if (mediaPlaylist.kind !== "media" || mediaPlaylist.parts.length === 0) {
+          throw new Error("The HLS stream has no media segments.");
+        }
+        if (mediaPlaylist.encrypted) {
+          throw new Error("This HLS stream is encrypted and cannot be downloaded here.");
+        }
+        if (args.startAt > mediaPlaylist.parts.length) {
+          throw new Error("The saved download no longer matches this stream.");
+        }
+
+        downloadTotalRef.current = mediaPlaylist.parts.length;
+        setDownloadState({
+          status: "downloading",
+          received: args.startAt,
+          total: mediaPlaylist.parts.length
+        });
+
+        for (let index = args.startAt; index < mediaPlaylist.parts.length; index += 1) {
+          const segmentUrl = mediaPlaylist.parts[index];
+          if (segmentUrl === undefined) throw new Error("The HLS segment list changed.");
+
+          const segmentResponse = await fetch(segmentUrl, {
+            signal: args.controller.signal
+          });
+          if (!segmentResponse.ok) {
+            throw new Error(`Segment download failed (${segmentResponse.status}).`);
+          }
+
+          downloadChunksRef.current.push(await segmentResponse.blob());
+          downloadReceivedRef.current = index + 1;
+          setDownloadState({
+            status: "downloading",
+            received: downloadReceivedRef.current,
+            total: downloadTotalRef.current
+          });
+          await persistDownload(downloadUrl, args.filename);
+        }
+
+        const blob = new Blob(downloadChunksRef.current, { type: "video/mp4" });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = args.filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+        await removeStoredDownload(downloadStorageKey);
+        setDownloadState({ status: "completed" });
+      } catch (error) {
+        if (args.controller.signal.aborted) {
+          await persistDownload(downloadUrl, args.filename).catch(() => {});
+          setDownloadState({
+            status: "paused",
+            received: downloadReceivedRef.current,
+            total: downloadTotalRef.current
+          });
+        } else {
+          await persistDownload(downloadUrl, args.filename).catch(() => {});
+          setDownloadState({
+            status: "error",
+            message: error instanceof Error ? error.message : "Download failed."
+          });
+        }
+      } finally {
+        if (downloadAbortRef.current === args.controller) downloadAbortRef.current = null;
+      }
+    })();
+  };
+
+  const handleDownload = () => {
+    if (!downloadUrl) return;
+
+    if (downloadState.status === "downloading") {
+      downloadAbortRef.current?.abort();
+      return;
+    }
+
+    if (downloadState.status === "completed" || downloadState.status === "error") {
+      downloadChunksRef.current = [];
+      downloadReceivedRef.current = 0;
+      downloadTotalRef.current = 0;
+      downloadLastPersistedRef.current = 0;
+    }
+
+    const controller = new AbortController();
+    downloadAbortRef.current = controller;
+    const startAt = downloadReceivedRef.current;
+    const filename = `${content.title}${content.type === "tv" ? ` - S${tvTarget.season}E${tvTarget.episode}` : ""}.mp4`;
+
+    setDownloadState({
+      status: "downloading",
+      received: startAt,
+      total: downloadTotalRef.current
+    });
+
+    if (downloadModeRef.current === "hls") {
+      startHlsDownload({ controller, startAt, filename });
+      return;
+    }
+
+    void (async () => {
+      try {
+        const response = await fetch(downloadUrl, {
+          headers: startAt > 0 ? { Range: `bytes=${startAt}-` } : undefined,
+          signal: controller.signal
+        });
+        if (!response.ok) throw new Error(`Download failed (${response.status}).`);
+        if (startAt > 0 && response.status !== 206) {
+          throw new Error("This stream does not support resuming downloads.");
+        }
+
+        const contentRange = response.headers.get("content-range");
+        const rangeTotal = contentRange?.match(/\/(\d+)$/)?.[1];
+        const contentLength = Number(response.headers.get("content-length"));
+        const total = rangeTotal
+          ? Number(rangeTotal)
+          : Number.isFinite(contentLength)
+            ? contentLength + startAt
+            : startAt;
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("The download did not return a readable file.");
+
+        downloadContentTypeRef.current = response.headers.get("content-type") ?? "video/mp4";
+        downloadTotalRef.current = total;
+        setDownloadState({ status: "downloading", received: startAt, total });
+
+        while (true) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          if (!chunk.value) continue;
+
+          downloadChunksRef.current.push(new Blob([chunk.value]));
+          downloadReceivedRef.current += chunk.value.byteLength;
+          setDownloadState({
+            status: "downloading",
+            received: downloadReceivedRef.current,
+            total: downloadTotalRef.current
+          });
+
+          if (downloadReceivedRef.current - downloadLastPersistedRef.current >= 1024 * 1024) {
+            await persistDownload(downloadUrl, filename);
+            downloadLastPersistedRef.current = downloadReceivedRef.current;
+          }
+        }
+
+        const blob = new Blob(downloadChunksRef.current, {
+          type: downloadContentTypeRef.current
+        });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+        await removeStoredDownload(downloadStorageKey);
+        setDownloadState({ status: "completed" });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          await persistDownload(downloadUrl, filename).catch(() => {});
+          setDownloadState({
+            status: "paused",
+            received: downloadReceivedRef.current,
+            total: downloadTotalRef.current
+          });
+        } else {
+          await persistDownload(downloadUrl, filename).catch(() => {});
+          setDownloadState({
+            status: "error",
+            message: error instanceof Error ? error.message : "Download failed."
+          });
+        }
+      } finally {
+        if (downloadAbortRef.current === controller) downloadAbortRef.current = null;
+      }
+    })();
+  };
+
+  const downloadProgress =
+    downloadState.status === "downloading" || downloadState.status === "paused"
+      ? downloadState.total > 0
+        ? Math.round((downloadState.received / downloadState.total) * 100)
+        : 0
+      : null;
+
+  const downloadActionLabel =
+    downloadState.status === "downloading"
+      ? "Pause download"
+      : downloadState.status === "paused"
+        ? "Resume download"
+        : downloadState.status === "error"
+          ? "Retry download"
+          : "Start download";
+  const hasDownloadControl = !!downloadUrl || (!localFile && !isScraping);
+
   return (
     <div
       ref={containerRef}
@@ -439,7 +796,7 @@ export function CustomVideoPlayer({
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        <div className="w-full p-4 flex items-center">
+        <div className="w-full p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Button
               variant="ghost"
@@ -461,6 +818,32 @@ export function CustomVideoPlayer({
                   : `TV Series · ${content.year} · S${tvTarget.season} E${tvTarget.episode}`}
               </p>
             </div>
+
+            {hasDownloadControl && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!downloadUrl}
+                className="shrink-0 gap-2 rounded-xl bg-background/65 text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (downloadUrl) handleDownload();
+                }}
+                aria-label={downloadUrl ? downloadActionLabel : "Download unavailable for HLS"}
+                title={downloadUrl ? downloadActionLabel : "Download unavailable for HLS"}
+              >
+                {downloadUrl && downloadState.status === "downloading" ? (
+                  <Pause className="w-4 h-4" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {downloadUrl
+                  ? downloadProgress === null
+                    ? "Download"
+                    : `${downloadProgress}%`
+                  : "HLS unavailable"}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -578,6 +961,38 @@ export function CustomVideoPlayer({
                       }}
                       variant="panel"
                     />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 border-t border-white/10 pt-2">
+                    <label className="text-xs text-white/50">Download</label>
+                    {downloadUrl ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start gap-2 text-xs text-white hover:bg-white/10"
+                        onClick={handleDownload}
+                      >
+                        {downloadState.status === "downloading" ? (
+                          <Pause className="w-3.5 h-3.5" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}
+                        {downloadState.status === "downloading"
+                          ? `Pause download${downloadProgress === null ? "" : ` · ${downloadProgress}%`}`
+                          : downloadState.status === "paused"
+                            ? `Resume download${downloadProgress === null ? "" : ` · ${downloadProgress}%`}`
+                            : downloadState.status === "error"
+                              ? "Retry download"
+                              : "Start download"}
+                      </Button>
+                    ) : (
+                      <p className="text-[11px] text-white/50">
+                        Download is unavailable for this HLS stream.
+                      </p>
+                    )}
+                    {downloadState.status === "error" && (
+                      <p className="text-[11px] text-destructive">{downloadState.message}</p>
+                    )}
                   </div>
 
                   <Button

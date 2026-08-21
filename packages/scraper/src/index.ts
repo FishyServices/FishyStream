@@ -51,6 +51,11 @@ function getMediaType(url: string): "hls" | "file" | null {
   return null;
 }
 
+function sanitizeFilename(value: string | undefined): string {
+  const filename = (value || "fishystream-video.mp4").replace(/[\\/\"\r\n]/g, "").trim();
+  return filename || "fishystream-video.mp4";
+}
+
 function findPlayableMediaInObject(obj: any): { url: string; mediaType: "hls" | "file" } | null {
   if (typeof obj === "string") {
     const mediaType = getMediaType(obj);
@@ -169,7 +174,8 @@ async function fetchWithBrowserFallback(
 
     const response = await page.goto(url, {
       waitUntil: "domcontentloaded",
-      timeout: 20_000
+      timeout: 20_000,
+      ...(headers.Referer ? { referer: headers.Referer } : {})
     });
 
     if (!response || response.status() < 200 || response.status() >= 300) {
@@ -360,6 +366,12 @@ app.get("/api/scrape", async (c) => {
     if (!result) return c.json({ error: "Could not find a playable stream" }, 404);
 
     const found: StreamResult = result;
+    const sessionCookies = (await page.cookies(targetUrl, found.url))
+      .map((cookie: { name: string; value: string }) => `${cookie.name}=${cookie.value}`)
+      .join("; ");
+    const proxyHeaders: StreamHeaders = sessionCookies
+      ? { ...found.headers, Cookie: sessionCookies }
+      : found.headers;
 
     const host = c.req.header("host") ?? "localhost:4000";
     const protocol = host.includes("localhost") ? "http" : "https";
@@ -369,14 +381,24 @@ app.get("/api/scrape", async (c) => {
       base,
       found.mediaType === "hls" ? "/api/m3u8-proxy" : "/api/media-proxy",
       found.url,
-      found.headers
+      proxyHeaders
     );
+    const proxiedTracks = Array.isArray(found.tracks)
+      ? found.tracks.map((track: any) =>
+          typeof track?.file === "string"
+            ? {
+                ...track,
+                file: buildProxyUrl(base, "/api/subtitle-proxy", track.file, proxyHeaders)
+              }
+            : track
+        )
+      : found.tracks;
     console.log(`[Scraper] Success — stream proxied`);
 
     return c.json({
       streamUrl: proxyUrl,
       mediaType: found.mediaType,
-      tracks: found.tracks ?? null,
+      tracks: proxiedTracks ?? null,
       intro: found.intro ?? null,
       outro: found.outro ?? null
     });
@@ -385,6 +407,46 @@ app.get("/api/scrape", async (c) => {
     return c.json({ error: "Scraping failed", details: err.message }, 500);
   } finally {
     if (browser) await browser.close();
+  }
+});
+
+app.get("/api/subtitle-proxy", async (c) => {
+  const url = c.req.query("url");
+  const headersParam = c.req.query("headers");
+  if (!url) return c.text("URL parameter is required", 400);
+
+  let extraHeaders: StreamHeaders = {};
+  try {
+    extraHeaders = headersParam ? JSON.parse(headersParam) : {};
+  } catch {
+    return c.text("Invalid headers format", 400);
+  }
+
+  try {
+    const response = await fetchWithReferrerFallback(url, extraHeaders);
+    if (response.ok) {
+      return c.text(await response.text(), 200, {
+        "Content-Type": response.headers.get("content-type") ?? "text/vtt",
+        "Access-Control-Allow-Origin": "*"
+      });
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      const browserResponse = await fetchWithBrowserFallback(
+        url,
+        extraHeaders,
+        c.env.launchBrowser
+      );
+      return c.body(browserResponse.body, 200, {
+        "Content-Type": browserResponse.contentType || "text/vtt",
+        "Access-Control-Allow-Origin": "*"
+      });
+    }
+
+    return c.text(`Failed to fetch subtitles: ${response.status}`, 502);
+  } catch (err: any) {
+    console.error("[Subtitle Proxy] Error:", err);
+    return c.text(err.message, 500);
   }
 });
 
@@ -404,10 +466,21 @@ app.get("/api/m3u8-proxy", async (c) => {
 
   try {
     const response = await fetchWithReferrerFallback(url, extraHeaders);
+    let m3u8Content: string;
 
-    if (!response.ok) throw new Error(`Failed to fetch M3U8: ${response.status}`);
-
-    const m3u8Content = await response.text();
+    if (response.ok) {
+      m3u8Content = await response.text();
+    } else if (response.status === 401 || response.status === 403) {
+      console.log(`[M3U8 Proxy] Upstream returned ${response.status}; retrying through Chromium`);
+      const browserResponse = await fetchWithBrowserFallback(
+        url,
+        extraHeaders,
+        c.env.launchBrowser
+      );
+      m3u8Content = new TextDecoder().decode(browserResponse.body);
+    } else {
+      throw new Error(`Failed to fetch M3U8: ${response.status}`);
+    }
     const isMaster = /#EXT-X-STREAM-INF/i.test(m3u8Content);
 
     const host = c.req.header("host") ?? "localhost:4000";
@@ -416,8 +489,7 @@ app.get("/api/m3u8-proxy", async (c) => {
     const m3u8Url: string = url;
     const nestedHeaders: StreamHeaders = {
       ...extraHeaders,
-      ...getOriginHeaders(m3u8Url),
-      Referer: m3u8Url
+      ...(!extraHeaders.Origin && !extraHeaders.Referer ? getOriginHeaders(m3u8Url) : {})
     };
     const encodedHeaders = encodeURIComponent(JSON.stringify(nestedHeaders));
 
@@ -460,6 +532,8 @@ app.get("/api/m3u8-proxy", async (c) => {
 app.get("/api/media-proxy", async (c) => {
   const url = c.req.query("url");
   const headersParam = c.req.query("headers");
+  const shouldDownload = c.req.query("download") === "1";
+  const requestedFilename = c.req.query("filename");
   if (!url) return c.text("URL parameter is required", 400);
 
   let extraHeaders: StreamHeaders = {};
@@ -489,14 +563,19 @@ app.get("/api/media-proxy", async (c) => {
         c.env.launchBrowser
       );
 
-      return c.body(browserResponse.body, 200, {
+      const responseHeaders: Record<string, string> = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Headers": "*",
         "Access-Control-Expose-Headers":
           "Accept-Ranges, Content-Length, Content-Range, Content-Type",
         "Content-Type": browserResponse.contentType || "video/mp4",
         "Cache-Control": "no-cache, no-store, must-revalidate"
-      });
+      };
+      if (shouldDownload) {
+        responseHeaders["Content-Disposition"] =
+          `attachment; filename="${sanitizeFilename(requestedFilename)}"`;
+      }
+      return c.body(browserResponse.body, 200, responseHeaders);
     }
 
     if (!response.ok && response.status !== 206) {
@@ -511,6 +590,13 @@ app.get("/api/media-proxy", async (c) => {
       "Cache-Control": "no-cache, no-store, must-revalidate",
       "Content-Type": response.headers.get("content-type") ?? "video/mp4"
     });
+
+    if (shouldDownload) {
+      responseHeaders.set(
+        "Content-Disposition",
+        `attachment; filename="${sanitizeFilename(requestedFilename)}"`
+      );
+    }
 
     for (const name of ["content-length", "content-range"]) {
       const value = response.headers.get(name);
