@@ -73,6 +73,7 @@ export interface PlaybackSession {
   setSourceByUrl(url: string, params?: URLSearchParams): Promise<void>;
   setDub(enabled: boolean): void;
   goToEpisode(target: PlaybackTarget): void;
+  getEpisodeEmbedUrl(target: PlaybackTarget): Promise<string | null>;
   retry(): void;
   tryNextSource(reason?: string): void;
 }
@@ -341,6 +342,42 @@ export function usePlaybackSession({
       ? `<!doctype html><html><head><meta name="referrer" content="no-referrer"></head><body><script>location.replace(${JSON.stringify(embedUrl)})<\/script></body></html>`
       : undefined;
 
+  const getEpisodeEmbedUrl = useCallback(
+    async (target: PlaybackTarget): Promise<string | null> => {
+      if (content.type !== "tv" || !selectedSource) return null;
+
+      const targetSeasonData =
+        currentSeasonData?.seasonNumber === target.season ? currentSeasonData : undefined;
+      const fetched = await providerSourceResolver.buildTvSources({
+        imdbId: content.imdbId ?? undefined,
+        tmdbId: content.tmdbId ?? undefined,
+        anilistId:
+          targetSeasonData?.anilistId ??
+          (target.season === 1 ? content.anilistId : undefined) ??
+          undefined,
+        anilistEpisodeMappings: targetSeasonData?.anilistEpisodeMappings,
+        isAnime: animeContent,
+        title: content.title,
+        seasonTitle: targetSeasonData?.name,
+        year: providerSourceResolver.getSeasonYear(targetSeasonData?.airDate) ?? content.year,
+        season: target.season,
+        episode: target.episode,
+        dub: animeContent ? isDub : undefined
+      });
+      const source =
+        fetched.find((candidate) => candidate.key === selectedSource.key) ?? fetched[0];
+      if (!source) return null;
+
+      return createProviderEmbedUrl({
+        sourceUrl: source.url,
+        provider: providerSourceResolver.getProvider(source.key),
+        contentType: content.type as ProviderContentType,
+        baseUrl: window.location.origin
+      });
+    },
+    [animeContent, content, currentSeasonData, isDub, selectedSource]
+  );
+
   const setSourceByUrl = useCallback(
     async (nextUrl: string, params?: URLSearchParams) => {
       const nextSource = sources.find((source) => source.url === nextUrl);
@@ -497,6 +534,7 @@ export function usePlaybackSession({
     setSourceByUrl,
     setDub,
     goToEpisode,
+    getEpisodeEmbedUrl,
     retry,
     tryNextSource
   };

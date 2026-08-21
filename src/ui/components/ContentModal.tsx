@@ -78,6 +78,8 @@ interface ContentModalProps {
   initialTab?: "episodes" | "cast" | "videos" | "related";
   compactCopy?: boolean;
   onPlay: PlayHandler;
+  episodeSelectionMode?: boolean;
+  onDownloadEpisodes?: (season: number, episodes: number[]) => void;
 }
 
 function hasFullContent(
@@ -100,7 +102,8 @@ function EpisodePill({
   ep,
   selected,
   onClick,
-  showRating
+  showRating,
+  selectionMode = false
 }: {
   ep: {
     episodeNumber: number;
@@ -113,6 +116,7 @@ function EpisodePill({
   selected: boolean;
   onClick: () => void;
   showRating: boolean;
+  selectionMode?: boolean;
 }) {
   return (
     <Button
@@ -141,7 +145,7 @@ function EpisodePill({
           <span className="text-xs font-bold text-muted-foreground">E{ep.episodeNumber}</span>
           {selected && (
             <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] font-bold text-primary">
-              Now selected
+              {selectionMode ? "Selected" : "Now selected"}
             </span>
           )}
         </div>
@@ -157,7 +161,13 @@ function EpisodePill({
           {ep.voteAverage.toFixed(1)}
         </span>
       )}
-      <Play className="mt-4 h-4 w-4 shrink-0 text-transparent transition-colors group-hover:text-primary" />
+      {selectionMode ? (
+        <Check
+          className={`mt-4 h-4 w-4 shrink-0 ${selected ? "text-primary" : "text-transparent"}`}
+        />
+      ) : (
+        <Play className="mt-4 h-4 w-4 shrink-0 text-transparent transition-colors group-hover:text-primary" />
+      )}
     </Button>
   );
 }
@@ -293,7 +303,9 @@ export function ContentModal({
   onClose,
   onPlay,
   initialTab,
-  compactCopy = true
+  compactCopy = true,
+  episodeSelectionMode = false,
+  onDownloadEpisodes
 }: ContentModalProps) {
   const [activeTab, setActiveTab] = useState<
     "episodes" | "ratings" | "cast" | "videos" | "related" | "downloads"
@@ -328,6 +340,7 @@ export function ContentModal({
   const { isSignedIn } = useUser();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
+  const [selectedDownloadEpisodes, setSelectedDownloadEpisodes] = useState<number[]>([]);
 
   const isInWatchlist = useIsInWatchlist(resolvedContent?._id);
   const toggleWatchlist = useToggleWatchlist();
@@ -524,6 +537,14 @@ export function ContentModal({
     seasonCountOverride ?? knownSeasonCount ?? knownSeasonsFromTmdb
   );
   const episodes = dbSeason?.episodes ?? [];
+
+  useEffect(() => {
+    if (isOpen && episodeSelectionMode) {
+      setSelectedDownloadEpisodes([]);
+    } else if (!isOpen) {
+      setSelectedDownloadEpisodes([]);
+    }
+  }, [episodeSelectionMode, isOpen, selectedSeason]);
   const ratingLabel: string | undefined = detailContent?.rating;
 
   const handleWatchlist = async () => {
@@ -847,14 +868,47 @@ export function ContentModal({
                       <EpisodePill
                         key={ep.episodeNumber}
                         ep={ep}
-                        selected={ep.episodeNumber === selectedEpisode}
+                        selected={
+                          episodeSelectionMode
+                            ? selectedDownloadEpisodes.includes(ep.episodeNumber)
+                            : ep.episodeNumber === selectedEpisode
+                        }
                         showRating={settings.showEpisodeRatings}
+                        selectionMode={episodeSelectionMode}
                         onClick={() => {
-                          handleEpisodeClick(ep.episodeNumber);
-                          handlePlay(ep.episodeNumber);
+                          if (episodeSelectionMode) {
+                            setSelectedDownloadEpisodes((current) =>
+                              current.includes(ep.episodeNumber)
+                                ? current.filter((value) => value !== ep.episodeNumber)
+                                : [...current, ep.episodeNumber]
+                            );
+                          } else {
+                            handleEpisodeClick(ep.episodeNumber);
+                            handlePlay(ep.episodeNumber);
+                          }
                         }}
                       />
                     ))}
+                    {episodeSelectionMode && (
+                      <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-3">
+                        <span className="text-xs text-muted-foreground">
+                          {selectedDownloadEpisodes.length} episode
+                          {selectedDownloadEpisodes.length === 1 ? "" : "s"} selected
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={selectedDownloadEpisodes.length === 0}
+                          onClick={() => {
+                            onDownloadEpisodes?.(selectedSeason, selectedDownloadEpisodes);
+                            onClose();
+                          }}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Download selected
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="py-8 text-center text-xs text-muted-foreground">No episodes</p>

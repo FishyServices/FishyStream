@@ -120,6 +120,11 @@ export function VideoPlayer({
   const nextEpisodeCooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isNextEpisodeCooldown, setIsNextEpisodeCooldown] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [episodeDownloadPickerOpen, setEpisodeDownloadPickerOpen] = useState(false);
+  const [downloadRequest, setDownloadRequest] = useState<{
+    season: number;
+    episodes: number[];
+  } | null>(null);
   const [animeSeasonReloadKey, setAnimeSeasonReloadKey] = useState(0);
   const animeSeasonSyncingRef = useRef<Set<string>>(new Set());
   const animeSeasonFailedRef = useRef<Set<string>>(new Set());
@@ -226,6 +231,7 @@ export function VideoPlayer({
     iframeSrcDoc,
     canTryNextSource,
     goToEpisode,
+    getEpisodeEmbedUrl,
     currentProgress,
     reportPlaybackEvent
   } = session;
@@ -678,6 +684,13 @@ export function VideoPlayer({
             embedUrl={embedUrl}
             content={content}
             tvTarget={tvTarget}
+            getEpisodeEmbedUrl={getEpisodeEmbedUrl}
+            onDownloadRequestConsumed={() => setDownloadRequest(null)}
+            onOpenEpisodePicker={() => {
+              setEpisodeDownloadPickerOpen(true);
+              setShowInfoModal(true);
+            }}
+            downloadRequest={downloadRequest}
             animeContent={animeContent}
             isDub={isDub}
             onPlaybackEvent={reportPlaybackEvent}
@@ -726,7 +739,15 @@ export function VideoPlayer({
           } as Parameters<typeof ContentModal>[0]["content"]
         }
         isOpen={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
+        onClose={() => {
+          setShowInfoModal(false);
+          setEpisodeDownloadPickerOpen(false);
+        }}
+        episodeSelectionMode={episodeDownloadPickerOpen}
+        onDownloadEpisodes={(season, episodes) => {
+          setDownloadRequest({ season, episodes });
+          setEpisodeDownloadPickerOpen(false);
+        }}
         onPlay={(
           _tmdbId: string,
           season?: number,

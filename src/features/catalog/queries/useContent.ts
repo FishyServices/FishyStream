@@ -263,7 +263,7 @@ export function useCuratedPicks() {
 }
 
 export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?: TMDBMediaType) {
-  const result = useCancellableLoad(
+  const result = useCancellableLoad<ContentPlayback | null | undefined>(
     !!tmdbId,
     [tmdbId, typeHint],
     async (signal) => {
@@ -287,7 +287,7 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
       }
       return null;
     },
-    undefined as ContentPlayback | null | undefined
+    undefined
   );
   return tmdbId ? result.value : null;
 }
