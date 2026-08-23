@@ -20,11 +20,7 @@ import { Button } from "@fishy/ui";
 import { ProviderSourceSelect, type ProviderUiMode } from "@/ui/components/ProviderSourceSelect";
 import type { ContentPlayback } from "@content/contentMetadata";
 import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
-import {
-  getStoredDownload,
-  removeStoredDownload,
-  setStoredDownload
-} from "@/shared/storage/downloadStore";
+import { useVideoDownloads } from "@/ui/components/custom-video-player/downloads";
 
 interface CustomVideoPlayerProps {
   embedUrl: string;
@@ -55,62 +51,6 @@ function formatTime(seconds: number): string {
     return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   }
   return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-type DownloadState =
-  | { status: "idle" }
-  | { status: "downloading"; received: number; total: number }
-  | { status: "paused"; received: number; total: number }
-  | { status: "completed" }
-  | { status: "error"; message: string };
-
-type HlsPlaylist =
-  | { kind: "master"; variants: Array<{ url: string; bandwidth: number }> }
-  | { kind: "media"; parts: string[]; encrypted: boolean };
-
-const STORED_DOWNLOAD_TTL_MS = 30_000;
-
-function saveDownloadPart(blob: Blob, filename: string) {
-  const objectUrl = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = objectUrl;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(objectUrl);
-}
-
-function parseHlsPlaylist(text: string, baseUrl: string): HlsPlaylist {
-  const lines = text.split(/\r?\n/).map((line) => line.trim());
-  const variants: Array<{ url: string; bandwidth: number }> = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (line === undefined || !line.startsWith("#EXT-X-STREAM-INF:")) continue;
-    const bandwidth = Number(line.match(/BANDWIDTH=(\d+)/)?.[1] ?? 0);
-    const variantUrl = lines
-      .slice(index + 1)
-      .find((candidate) => candidate && !candidate.startsWith("#"));
-    if (variantUrl) variants.push({ url: new URL(variantUrl, baseUrl).href, bandwidth });
-  }
-
-  if (variants.length > 0) return { kind: "master", variants };
-
-  const encrypted = lines.some(
-    (line) => line.startsWith("#EXT-X-KEY:") && !/METHOD=NONE/i.test(line)
-  );
-  const parts: string[] = [];
-  const mapLine = lines.find((line) => line.startsWith("#EXT-X-MAP:"));
-  const mapUrl = mapLine?.match(/URI="([^"]+)"/)?.[1];
-  if (mapUrl) parts.push(new URL(mapUrl, baseUrl).href);
-
-  for (const line of lines) {
-    if (!line || line.startsWith("#")) continue;
-    parts.push(new URL(line, baseUrl).href);
-  }
-
-  return { kind: "media", parts, encrypted };
 }
 
 export function CustomVideoPlayer({
@@ -154,186 +94,36 @@ export function CustomVideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [downloadState, setDownloadState] = useState<DownloadState>({ status: "idle" });
-  const [selectedBatchEpisodes, setSelectedBatchEpisodes] = useState<number[]>([]);
-  const [batchDownloadState, setBatchDownloadState] = useState<
-    | { status: "idle" }
-    | { status: "downloading"; completed: number; total: number; progress: number }
-    | { status: "completed"; completed: number; total: number }
-    | { status: "error"; message: string }
-  >({ status: "idle" });
-  const batchDownloadAbortRef = useRef<AbortController | null>(null);
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPlayingRef = useRef(isPlaying);
-  const downloadAbortRef = useRef<AbortController | null>(null);
-  const downloadChunksRef = useRef<Blob[]>([]);
-  const downloadReceivedRef = useRef(0);
-  const downloadTotalRef = useRef(0);
-  const downloadContentTypeRef = useRef("video/mp4");
-  const downloadLastPersistedRef = useRef(0);
-  const downloadModeRef = useRef<"file" | "hls">("file");
-  const downloadPartsRef = useRef(false);
-  const downloadStorageKey = `${content._id}:${tvTarget.season}:${tvTarget.episode}:${selectedSource}`;
 
-  useEffect(() => {
-    setSelectedBatchEpisodes([]);
-  }, [tvTarget.season]);
-
-  useEffect(() => {
-    return () => batchDownloadAbortRef.current?.abort();
-  }, []);
-
-  const persistDownload = async (url: string, filename: string) => {
-    if (localFile || downloadReceivedRef.current <= 0) return;
-
-    await setStoredDownload({
-      key: downloadStorageKey,
-      kind: downloadModeRef.current,
-      url,
-      filename,
-      chunks: downloadChunksRef.current,
-      received: downloadReceivedRef.current,
-      total: downloadTotalRef.current,
-      contentType: downloadContentTypeRef.current,
-      updatedAt: Date.now()
-    });
-  };
-
-  const downloadBatchEpisode = async (
-    target: { season: number; episode: number },
-    signal: AbortSignal,
-    onProgress: (progress: number) => void
-  ) => {
-    if (!getEpisodeEmbedUrl) throw new Error("Episode downloads are unavailable.");
-    const embedUrlForEpisode = await getEpisodeEmbedUrl(target);
-    if (!embedUrlForEpisode) throw new Error(`No stream found for episode ${target.episode}.`);
-
-    const scraperEndpoint = import.meta.env.DEV
-      ? "http://localhost:4000/api/scrape"
-      : "/api/scrape";
-    const scrapeResponse = await fetch(
-      `${scraperEndpoint}?url=${encodeURIComponent(embedUrlForEpisode)}`,
-      { signal }
-    );
-    if (!scrapeResponse.ok) throw new Error(`Could not load episode ${target.episode}.`);
-
-    const data = (await scrapeResponse.json()) as { streamUrl?: unknown; mediaType?: unknown };
-    if (typeof data.streamUrl !== "string" || !data.streamUrl) {
-      throw new Error(`No downloadable stream found for episode ${target.episode}.`);
-    }
-
-    const filename = `${content.title} - S${target.season}E${target.episode}.mp4`;
-    if (data.mediaType !== "hls" && !data.streamUrl.includes(".m3u8")) {
-      const response = await fetch(data.streamUrl, { signal });
-      if (!response.ok) throw new Error(`Episode ${target.episode} download failed.`);
-      saveDownloadPart(await response.blob(), filename);
-      onProgress(1);
-      return;
-    }
-
-    const masterResponse = await fetch(data.streamUrl, { signal });
-    if (!masterResponse.ok) throw new Error(`Episode ${target.episode} playlist failed.`);
-    const playlist = parseHlsPlaylist(await masterResponse.text(), data.streamUrl);
-    const mediaUrl =
-      playlist.kind === "master"
-        ? ([...playlist.variants].sort((a, b) => b.bandwidth - a.bandwidth)[0]?.url ?? null)
-        : data.streamUrl;
-    if (!mediaUrl) throw new Error(`Episode ${target.episode} has no video variant.`);
-
-    const mediaResponse =
-      playlist.kind === "master" ? await fetch(mediaUrl, { signal }) : masterResponse;
-    if (!mediaResponse.ok) throw new Error(`Episode ${target.episode} media playlist failed.`);
-    const mediaPlaylist =
-      playlist.kind === "master"
-        ? parseHlsPlaylist(await mediaResponse.text(), mediaUrl)
-        : playlist;
-    if (mediaPlaylist.kind !== "media" || mediaPlaylist.encrypted) {
-      throw new Error(`Episode ${target.episode} uses an unsupported encrypted stream.`);
-    }
-
-    const parts: Blob[] = [];
-    for (const [index, partUrl] of mediaPlaylist.parts.entries()) {
-      const response = await fetch(partUrl, { signal });
-      if (!response.ok) throw new Error(`Episode ${target.episode} segment failed.`);
-      parts.push(await response.blob());
-      onProgress((index + 1) / mediaPlaylist.parts.length);
-    }
-    saveDownloadPart(new Blob(parts, { type: "video/mp4" }), filename);
-  };
-
-  const handleBatchDownload = (requestedEpisodes = selectedBatchEpisodes) => {
-    if (!getEpisodeEmbedUrl || content.type !== "tv") return;
-    if (batchDownloadState.status === "downloading") return;
-
-    const currentDownloadActive = ["downloading", "paused", "completed"].includes(
-      downloadState.status
-    );
-    const targets = [...new Set(requestedEpisodes)]
-      .filter((episode) => !(episode === tvTarget.episode && currentDownloadActive))
-      .sort((a, b) => a - b)
-      .map((episode) => ({
-        season: tvTarget.season,
-        episode
-      }));
-    if (targets.length === 0) return;
-    const controller = new AbortController();
-    batchDownloadAbortRef.current = controller;
-    setBatchDownloadState({
-      status: "downloading",
-      completed: 0,
-      total: targets.length,
-      progress: 0
-    });
-
-    void (async () => {
-      for (const [index, target] of targets.entries()) {
-        await downloadBatchEpisode(target, controller.signal, (episodeProgress) => {
-          setBatchDownloadState((current) =>
-            current.status === "downloading"
-              ? {
-                  ...current,
-                  progress: ((index + episodeProgress) / targets.length) * 100
-                }
-              : current
-          );
-        });
-        setBatchDownloadState((current) =>
-          current.status === "downloading"
-            ? { ...current, completed: index + 1, progress: ((index + 1) / targets.length) * 100 }
-            : current
-        );
-      }
-    })()
-      .then(() => {
-        setBatchDownloadState({
-          status: "completed",
-          completed: targets.length,
-          total: targets.length
-        });
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) {
-          setBatchDownloadState({ status: "idle" });
-          return;
-        }
-        setBatchDownloadState({
-          status: "error",
-          message: error instanceof Error ? error.message : "Some episodes could not be downloaded."
-        });
-      })
-      .finally(() => {
-        if (batchDownloadAbortRef.current === controller) batchDownloadAbortRef.current = null;
-      });
-  };
-
-  useEffect(() => {
-    if (!downloadRequest || downloadRequest.season !== tvTarget.season) return;
-    onDownloadRequestConsumed?.();
-    setSelectedBatchEpisodes(downloadRequest.episodes);
-    handleBatchDownload(downloadRequest.episodes);
-  }, [downloadRequest, onDownloadRequestConsumed, tvTarget.season]);
+  const {
+    downloadUrl,
+    downloadState,
+    batchDownloadState,
+    downloadProgress,
+    batchDownloadProgress,
+    downloadActionLabel,
+    hasDownloadControl,
+    selectedBatchEpisodes,
+    setSelectedBatchEpisodes,
+    prepareDownload,
+    resetDownload,
+    handleDownload,
+    handleBatchDownload
+  } = useVideoDownloads({
+    contentId: content._id,
+    contentTitle: content.title,
+    contentType: content.type,
+    tvTarget,
+    selectedSource,
+    localFile,
+    downloadReady: !isScraping,
+    getEpisodeEmbedUrl,
+    downloadRequest,
+    onDownloadRequestConsumed
+  });
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -357,7 +147,6 @@ export function CustomVideoPlayer({
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
-      downloadAbortRef.current?.abort();
     };
   }, []);
 
@@ -427,14 +216,7 @@ export function CustomVideoPlayer({
     let localObjectUrl: string | null = null;
     setIsScraping(true);
     setMediaError(null);
-    setDownloadUrl(null);
-    setDownloadState({ status: "idle" });
-    downloadModeRef.current = "file";
-    downloadAbortRef.current?.abort();
-    downloadChunksRef.current = [];
-    downloadReceivedRef.current = 0;
-    downloadTotalRef.current = 0;
-    downloadLastPersistedRef.current = 0;
+    resetDownload();
 
     const loadVideoSource = (sourceUrl: string, mediaType: "hls" | "file", startAtSeconds = 0) => {
       const video = videoRef.current;
@@ -470,7 +252,7 @@ export function CustomVideoPlayer({
       try {
         if (localFile) {
           localObjectUrl = URL.createObjectURL(localFile);
-          setDownloadUrl(localObjectUrl);
+          prepareDownload({ url: localObjectUrl, mode: "file", persist: false });
           loadVideoSource(localObjectUrl, "file");
           return;
         }
@@ -500,63 +282,9 @@ export function CustomVideoPlayer({
             const filename = `${content.title}${content.type === "tv" ? ` - S${tvTarget.season}E${tvTarget.episode}` : ""}.mp4`;
             downloadUrl.searchParams.set("download", "1");
             downloadUrl.searchParams.set("filename", filename);
-            setDownloadUrl(downloadUrl.href);
-            downloadModeRef.current = "file";
-            if (content.type === "movie")
-              void getStoredDownload(downloadStorageKey)
-                .then((stored) => {
-                  if (stored && Date.now() - stored.updatedAt > STORED_DOWNLOAD_TTL_MS) {
-                    void removeStoredDownload(downloadStorageKey);
-                    return;
-                  }
-                  if (
-                    !stored ||
-                    stored.kind !== downloadModeRef.current ||
-                    stored.url !== downloadUrl.href ||
-                    stored.received <= 0
-                  )
-                    return;
-                  downloadChunksRef.current = stored.chunks;
-                  downloadReceivedRef.current = stored.received;
-                  downloadTotalRef.current = stored.total;
-                  downloadContentTypeRef.current = stored.contentType;
-                  downloadLastPersistedRef.current = stored.received;
-                  setDownloadState({
-                    status: "paused",
-                    received: stored.received,
-                    total: stored.total
-                  });
-                })
-                .catch(() => {});
+            prepareDownload({ url: downloadUrl.href, mode: "file", persist: true });
           } else if (mediaType === "hls" && typeof data.streamUrl === "string") {
-            setDownloadUrl(data.streamUrl);
-            downloadModeRef.current = "hls";
-            if (content.type === "movie")
-              void getStoredDownload(downloadStorageKey)
-                .then((stored) => {
-                  if (stored && Date.now() - stored.updatedAt > STORED_DOWNLOAD_TTL_MS) {
-                    void removeStoredDownload(downloadStorageKey);
-                    return;
-                  }
-                  if (
-                    !stored ||
-                    stored.kind !== "hls" ||
-                    stored.url !== data.streamUrl ||
-                    stored.received <= 0
-                  )
-                    return;
-                  downloadChunksRef.current = stored.chunks;
-                  downloadReceivedRef.current = stored.received;
-                  downloadTotalRef.current = stored.total;
-                  downloadContentTypeRef.current = stored.contentType;
-                  downloadLastPersistedRef.current = stored.received;
-                  setDownloadState({
-                    status: "paused",
-                    received: stored.received,
-                    total: stored.total
-                  });
-                })
-                .catch(() => {});
+            prepareDownload({ url: data.streamUrl, mode: "hls", persist: true });
           }
 
           const getStartAtSeconds = () => {
@@ -718,239 +446,7 @@ export function CustomVideoPlayer({
     );
   };
 
-  const startHlsDownload = (args: {
-    controller: AbortController;
-    startAt: number;
-    filename: string;
-    downloadParts?: boolean;
-  }) => {
-    if (!downloadUrl) return;
-
-    void (async () => {
-      try {
-        const masterResponse = await fetch(downloadUrl, { signal: args.controller.signal });
-        if (!masterResponse.ok) throw new Error(`Download failed (${masterResponse.status}).`);
-        const masterPlaylist = parseHlsPlaylist(await masterResponse.text(), downloadUrl);
-        const mediaUrl =
-          masterPlaylist.kind === "master"
-            ? [...masterPlaylist.variants].sort((a, b) => b.bandwidth - a.bandwidth)[0]?.url
-            : downloadUrl;
-        if (!mediaUrl) throw new Error("The HLS stream has no playable variant.");
-
-        const mediaResponse = await fetch(mediaUrl, { signal: args.controller.signal });
-        if (!mediaResponse.ok) throw new Error(`Download failed (${mediaResponse.status}).`);
-        const mediaPlaylist = parseHlsPlaylist(await mediaResponse.text(), mediaUrl);
-        if (mediaPlaylist.kind !== "media" || mediaPlaylist.parts.length === 0) {
-          throw new Error("The HLS stream has no media segments.");
-        }
-        if (mediaPlaylist.encrypted) {
-          throw new Error("This HLS stream is encrypted and cannot be downloaded here.");
-        }
-        if (args.startAt > mediaPlaylist.parts.length) {
-          throw new Error("The saved download no longer matches this stream.");
-        }
-
-        downloadTotalRef.current = mediaPlaylist.parts.length;
-        setDownloadState({
-          status: "downloading",
-          received: args.startAt,
-          total: mediaPlaylist.parts.length
-        });
-
-        for (let index = args.startAt; index < mediaPlaylist.parts.length; index += 1) {
-          const segmentUrl = mediaPlaylist.parts[index];
-          if (segmentUrl === undefined) throw new Error("The HLS segment list changed.");
-
-          const segmentResponse = await fetch(segmentUrl, {
-            signal: args.controller.signal
-          });
-          if (!segmentResponse.ok) {
-            throw new Error(`Segment download failed (${segmentResponse.status}).`);
-          }
-
-          const segmentBlob = await segmentResponse.blob();
-          downloadChunksRef.current.push(segmentBlob);
-          if (args.downloadParts) {
-            saveDownloadPart(
-              segmentBlob,
-              `${args.filename.replace(/\.mp4$/i, "")}.part-${String(index + 1).padStart(3, "0")}.ts`
-            );
-          }
-          downloadReceivedRef.current = index + 1;
-          setDownloadState({
-            status: "downloading",
-            received: downloadReceivedRef.current,
-            total: downloadTotalRef.current
-          });
-          await persistDownload(downloadUrl, args.filename);
-        }
-
-        if (!args.downloadParts) {
-          saveDownloadPart(
-            new Blob(downloadChunksRef.current, { type: "video/mp4" }),
-            args.filename
-          );
-        }
-        await removeStoredDownload(downloadStorageKey);
-        setDownloadState({ status: "completed" });
-      } catch (error) {
-        if (args.controller.signal.aborted) {
-          await persistDownload(downloadUrl, args.filename).catch(() => {});
-          setDownloadState({
-            status: "paused",
-            received: downloadReceivedRef.current,
-            total: downloadTotalRef.current
-          });
-        } else {
-          await persistDownload(downloadUrl, args.filename).catch(() => {});
-          setDownloadState({
-            status: "error",
-            message: error instanceof Error ? error.message : "Download failed."
-          });
-        }
-      } finally {
-        if (downloadAbortRef.current === args.controller) downloadAbortRef.current = null;
-      }
-    })();
-  };
-
-  const handleDownload = (downloadParts = false) => {
-    if (!downloadUrl) return;
-
-    if (downloadState.status === "downloading") {
-      downloadAbortRef.current?.abort();
-      return;
-    }
-
-    if (downloadState.status === "completed" || downloadState.status === "error") {
-      downloadChunksRef.current = [];
-      downloadReceivedRef.current = 0;
-      downloadTotalRef.current = 0;
-      downloadLastPersistedRef.current = 0;
-    }
-
-    const controller = new AbortController();
-    downloadAbortRef.current = controller;
-    const startAt = downloadReceivedRef.current;
-    const filename = `${content.title}${content.type === "tv" ? ` - S${tvTarget.season}E${tvTarget.episode}` : ""}.mp4`;
-    downloadPartsRef.current = downloadParts;
-
-    setDownloadState({
-      status: "downloading",
-      received: startAt,
-      total: downloadTotalRef.current
-    });
-
-    if (downloadModeRef.current === "hls") {
-      startHlsDownload({
-        controller,
-        startAt,
-        filename,
-        downloadParts: downloadPartsRef.current
-      });
-      return;
-    }
-
-    void (async () => {
-      try {
-        const response = await fetch(downloadUrl, {
-          headers: startAt > 0 ? { Range: `bytes=${startAt}-` } : undefined,
-          signal: controller.signal
-        });
-        if (!response.ok) throw new Error(`Download failed (${response.status}).`);
-        if (startAt > 0 && response.status !== 206) {
-          throw new Error("This stream does not support resuming downloads.");
-        }
-
-        const contentRange = response.headers.get("content-range");
-        const rangeTotal = contentRange?.match(/\/(\d+)$/)?.[1];
-        const contentLength = Number(response.headers.get("content-length"));
-        const total = rangeTotal
-          ? Number(rangeTotal)
-          : Number.isFinite(contentLength)
-            ? contentLength + startAt
-            : startAt;
-        const reader = response.body?.getReader();
-        if (!reader) throw new Error("The download did not return a readable file.");
-
-        downloadContentTypeRef.current = response.headers.get("content-type") ?? "video/mp4";
-        downloadTotalRef.current = total;
-        setDownloadState({ status: "downloading", received: startAt, total });
-
-        while (true) {
-          const chunk = await reader.read();
-          if (chunk.done) break;
-          if (!chunk.value) continue;
-
-          downloadChunksRef.current.push(new Blob([chunk.value]));
-          downloadReceivedRef.current += chunk.value.byteLength;
-          setDownloadState({
-            status: "downloading",
-            received: downloadReceivedRef.current,
-            total: downloadTotalRef.current
-          });
-
-          if (downloadReceivedRef.current - downloadLastPersistedRef.current >= 1024 * 1024) {
-            await persistDownload(downloadUrl, filename);
-            downloadLastPersistedRef.current = downloadReceivedRef.current;
-          }
-        }
-
-        const blob = new Blob(downloadChunksRef.current, {
-          type: downloadContentTypeRef.current
-        });
-        const objectUrl = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = objectUrl;
-        link.download = filename;
-        document.body.append(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(objectUrl);
-        await removeStoredDownload(downloadStorageKey);
-        setDownloadState({ status: "completed" });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          await persistDownload(downloadUrl, filename).catch(() => {});
-          setDownloadState({
-            status: "paused",
-            received: downloadReceivedRef.current,
-            total: downloadTotalRef.current
-          });
-        } else {
-          await persistDownload(downloadUrl, filename).catch(() => {});
-          setDownloadState({
-            status: "error",
-            message: error instanceof Error ? error.message : "Download failed."
-          });
-        }
-      } finally {
-        if (downloadAbortRef.current === controller) downloadAbortRef.current = null;
-      }
-    })();
-  };
-
-  const downloadProgress =
-    downloadState.status === "downloading" || downloadState.status === "paused"
-      ? downloadState.total > 0
-        ? Math.round((downloadState.received / downloadState.total) * 100)
-        : 0
-      : null;
-
-  const downloadActionLabel =
-    downloadState.status === "downloading"
-      ? "Pause download"
-      : downloadState.status === "paused"
-        ? "Resume download"
-        : downloadState.status === "error"
-          ? "Retry download"
-          : "Download movie";
-  const hasDownloadControl = !!downloadUrl || (!localFile && !isScraping);
   const showEpisodePicker = content.type === "tv" && !!onOpenEpisodePicker;
-  const batchDownloadProgress =
-    batchDownloadState.status === "downloading" && batchDownloadState.total > 0
-      ? Math.round(batchDownloadState.progress)
-      : null;
 
   return (
     <div
