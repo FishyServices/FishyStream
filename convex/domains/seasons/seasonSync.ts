@@ -22,6 +22,10 @@ type SeasonPlaybackMetaResult = {
   }>;
 };
 
+function isAniListError(error: unknown): error is Error {
+  return error instanceof Error && error.message.startsWith("AniList API");
+}
+
 export const syncAnimeSeasonPlaybackMeta = action({
   args: {
     contentId: v.string(),
@@ -44,24 +48,32 @@ export const syncAnimeSeasonPlaybackMeta = action({
     const payload = await buildCanonicalSeasonPayload(args.tmdbId, args.seasonNumber);
     if (!payload) return null;
 
-    const anilistId = await resolveSeasonAniListId({
-      title: args.title,
-      seasonNumber: payload.seasonNumber,
-      seasonTitle: payload.name,
-      year: payload.year
-    });
     const episodes = payload.episodes.map((episode) => ({
       ...episode,
       runtime: episode.runtime ?? undefined
     }));
-    const mappings = await buildAniListEpisodeMappings({
-      anilistId,
-      title: args.title,
-      season: payload.seasonNumber,
-      seasonTitle: payload.name,
-      year: payload.year,
-      episodes
-    });
+    let anilistId: string | null;
+    let mappings: Awaited<ReturnType<typeof buildAniListEpisodeMappings>>;
+
+    try {
+      anilistId = await resolveSeasonAniListId({
+        title: args.title,
+        seasonNumber: payload.seasonNumber,
+        seasonTitle: payload.name,
+        year: payload.year
+      });
+      mappings = await buildAniListEpisodeMappings({
+        anilistId,
+        title: args.title,
+        season: payload.seasonNumber,
+        seasonTitle: payload.name,
+        year: payload.year,
+        episodes
+      });
+    } catch (error) {
+      if (isAniListError(error)) return null;
+      throw error;
+    }
 
     await ctx.runMutation(internal.domains.seasons.seasons.upsertAnimeSeasonMeta, {
       contentId: args.contentId,
