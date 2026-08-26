@@ -98,7 +98,8 @@ export function isAnimeProviderContent(content: AnimeContentLike) {
   if (content.type !== "tv") return false;
 
   const genres = new Set((content.genre ?? []).map((genre) => genre.toLowerCase()));
-  return genres.has("animation") && content.originalLanguage?.toLowerCase() === "ja";
+  const originalLanguage = content.originalLanguage?.toLowerCase();
+  return genres.has("animation") && ["ja", "zh"].includes(originalLanguage ?? "");
 }
 
 export function shouldWaitForAnimeSeasonMetadata(args: {
