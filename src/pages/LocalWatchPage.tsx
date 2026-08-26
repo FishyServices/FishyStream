@@ -31,6 +31,8 @@ export function LocalWatchPage() {
         handleDubToggle={() => {}}
         selectedSource="local-file"
         onSelectProvider={() => {}}
+        providerIdType="anilist"
+        onProviderIdTypeChange={() => {}}
         groupedSources={[]}
         onInfoClick={() => {}}
       />
