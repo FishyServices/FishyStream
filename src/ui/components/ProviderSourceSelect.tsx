@@ -1,7 +1,14 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Globe, MonitorPlay, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Globe, MonitorPlay, Settings2, Sparkles } from "lucide-react";
 import { getProviderByKey } from "@fishy/providers/catalog";
-import { Button } from "@fishy/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@fishy/ui";
 
 export interface ProviderSourceOption {
   key: string;
@@ -16,6 +23,7 @@ export interface ProviderSourceGroup {
 }
 
 export type ProviderUiMode = "custom" | "embedded";
+export type ProviderIdType = "anilist" | "mal";
 
 export interface ProviderSourceSelectProps {
   groupedSources: ProviderSourceGroup[];
@@ -25,6 +33,8 @@ export interface ProviderSourceSelectProps {
   triggerLabel?: string;
   variant?: "header" | "panel";
   className?: string;
+  providerIdType?: ProviderIdType;
+  onProviderIdTypeChange?: (idType: ProviderIdType) => void;
 }
 
 function filterGroupsBySupportsCustomUI(groups: ProviderSourceGroup[]): ProviderSourceGroup[] {
@@ -43,7 +53,9 @@ export function ProviderSourceSelect({
   onSelect,
   triggerLabel,
   variant = "header",
-  className
+  className,
+  providerIdType = "anilist",
+  onProviderIdTypeChange
 }: ProviderSourceSelectProps) {
   const isHeader = variant === "header";
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,6 +64,7 @@ export function ProviderSourceSelect({
   const hasCustomOption = customGroups.length > 0;
 
   const [open, setOpen] = useState(false);
+  const [settingsProviderKey, setSettingsProviderKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProviderUiMode>(
     useCustomPlayer && hasCustomOption ? "custom" : "embedded"
   );
@@ -215,7 +228,26 @@ export function ProviderSourceSelect({
                         }
                       >
                         <span className="truncate">{source.name}</span>
-                        {isSelected ? <Check className="w-3.5 h-3.5 shrink-0" /> : null}
+                        <span className="flex shrink-0 items-center gap-1">
+                          {getProviderByKey(source.key)?.getMalAnimeTVUrl &&
+                          onProviderIdTypeChange ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`${source.name} settings`}
+                              title={`${source.name} settings`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSettingsProviderKey(source.key);
+                              }}
+                              className={`h-6 w-6 ${isSelected ? "text-primary" : "opacity-60"}`}
+                            >
+                              <Settings2 className="h-3.5 w-3.5" />
+                            </Button>
+                          ) : null}
+                          {isSelected ? <Check className="w-3.5 h-3.5" /> : null}
+                        </span>
                       </Button>
                     );
                   })}
@@ -225,6 +257,37 @@ export function ProviderSourceSelect({
           </div>
         </div>
       ) : null}
+
+      <Dialog
+        open={settingsProviderKey !== null}
+        onOpenChange={(isOpen) => !isOpen && setSettingsProviderKey(null)}
+      >
+        <DialogContent className="border-border/80 bg-card text-card-foreground">
+          <DialogHeader>
+            <DialogTitle>
+              {settingsProviderKey ? getProviderByKey(settingsProviderKey)?.name : "Provider"}{" "}
+              settings
+            </DialogTitle>
+            <DialogDescription>Choose which anime ID this provider should use.</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2">
+            {(["anilist", "mal"] as const).map((idType) => (
+              <Button
+                key={idType}
+                type="button"
+                variant={providerIdType === idType ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => {
+                  onProviderIdTypeChange?.(idType);
+                  setSettingsProviderKey(null);
+                }}
+              >
+                {idType === "anilist" ? "AniList" : "MyAnimeList (MAL)"}
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

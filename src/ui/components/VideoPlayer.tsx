@@ -232,6 +232,8 @@ export function VideoPlayer({
     canTryNextSource,
     goToEpisode,
     getEpisodeEmbedUrl,
+    providerIdType,
+    setProviderIdType,
     currentProgress,
     reportPlaybackEvent
   } = session;
@@ -660,6 +662,8 @@ export function VideoPlayer({
                 selectedSource={selectedSource}
                 useCustomPlayer={useCustomPlayer}
                 onSelect={handleProviderSelect}
+                providerIdType={providerIdType}
+                onProviderIdTypeChange={setProviderIdType}
                 variant="header"
                 className="sm:w-55"
               />
@@ -698,6 +702,8 @@ export function VideoPlayer({
             handleDubToggle={handleDubToggle}
             selectedSource={selectedSource}
             onSelectProvider={handleProviderSelect}
+            providerIdType={providerIdType}
+            onProviderIdTypeChange={setProviderIdType}
             groupedSources={groupedSources}
             onInfoClick={() => setShowInfoModal(true)}
           />

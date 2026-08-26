@@ -17,7 +17,11 @@ import {
   ListVideo
 } from "lucide-react";
 import { Button } from "@fishy/ui";
-import { ProviderSourceSelect, type ProviderUiMode } from "@/ui/components/ProviderSourceSelect";
+import {
+  ProviderSourceSelect,
+  type ProviderIdType,
+  type ProviderUiMode
+} from "@/ui/components/ProviderSourceSelect";
 import type { ContentPlayback } from "@content/contentMetadata";
 import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
 import { useVideoDownloads } from "@/ui/components/custom-video-player/downloads";
@@ -38,6 +42,8 @@ interface CustomVideoPlayerProps {
   handleDubToggle: (isDub: boolean) => void;
   selectedSource: string;
   onSelectProvider: (nextUrl: string, mode: ProviderUiMode) => void;
+  providerIdType: ProviderIdType;
+  onProviderIdTypeChange: (idType: ProviderIdType) => void;
   groupedSources: any[];
   onInfoClick: () => void;
 }
@@ -69,6 +75,8 @@ export function CustomVideoPlayer({
   handleDubToggle,
   selectedSource,
   onSelectProvider,
+  providerIdType,
+  onProviderIdTypeChange,
   groupedSources,
   onInfoClick
 }: CustomVideoPlayerProps) {
@@ -660,6 +668,8 @@ export function CustomVideoPlayer({
                         onSelectProvider(url, mode);
                         setShowSettings(false);
                       }}
+                      providerIdType={providerIdType}
+                      onProviderIdTypeChange={onProviderIdTypeChange}
                       variant="panel"
                     />
                   </div>

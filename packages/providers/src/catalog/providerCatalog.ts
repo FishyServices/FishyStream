@@ -87,6 +87,13 @@ export interface ProviderCatalogEntry<TParams extends ProviderParamsDef = Provid
     dub?: boolean,
     params?: Partial<{ [K in keyof TParams]: any }>
   ) => string;
+  getMalAnimeTVUrl?: (
+    id: string,
+    season: number,
+    episode: number,
+    dub?: boolean,
+    params?: Partial<{ [K in keyof TParams]: any }>
+  ) => string;
 }
 
 export interface StreamSource {
@@ -97,12 +104,18 @@ export interface StreamSource {
 
 type ProviderDefinition<TParams extends ProviderParamsDef> = Omit<
   ProviderCatalogEntry<TParams>,
-  "getMovieUrl" | "getTVUrl" | "getAnimeTVUrl" | "origins" | "unsafeWildcardOrigin"
+  | "getMovieUrl"
+  | "getTVUrl"
+  | "getAnimeTVUrl"
+  | "getMalAnimeTVUrl"
+  | "origins"
+  | "unsafeWildcardOrigin"
 > & {
   origins?: string[];
   moviePath: (id: string) => string;
   tvPath: (id: string, season: number, episode: number) => string;
   animePath?: (id: string, season: number, episode: number, dub?: boolean) => string;
+  malAnimePath?: (id: string, season: number, episode: number, dub?: boolean) => string;
 };
 
 function providerOriginFromWebsite(website?: string) {
@@ -121,6 +134,7 @@ function defineProvider<TParams extends ProviderParamsDef>(
     moviePath,
     tvPath,
     animePath,
+    malAnimePath,
     website,
     params,
     origins: rawOrigins,
@@ -173,6 +187,9 @@ function defineProvider<TParams extends ProviderParamsDef>(
     getTVUrl: (id, season, episode, p) => resolveUrl(tvPath(id, season, episode), p),
     getAnimeTVUrl: animePath
       ? (id, season, episode, dub, p) => resolveUrl(animePath(id, season, episode, dub), p)
+      : undefined,
+    getMalAnimeTVUrl: malAnimePath
+      ? (id, season, episode, dub, p) => resolveUrl(malAnimePath(id, season, episode, dub), p)
       : undefined
   };
 }
@@ -402,9 +419,11 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     dubSupport: true,
     progress: { resumeParam: "startAt" },
     supportsCustomUI: true,
-    moviePath: (id) => `/stream/ani/${id}/1/sub`,
-    tvPath: (id, _season, episode) => `/stream/ani/${id}/${episode}/sub`,
-    animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`
+    moviePath: (id) => `/stream/ani/${id}/1/dub`,
+    tvPath: (id, _season, episode) => `/stream/ani/${id}/${episode}/dub`,
+    animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`,
+    malAnimePath: (id, _season, episode, dub) =>
+      `/stream/mal/${id}/${episode}/${dub ? "dub" : "sub"}`
   }),
   defineProvider({
     key: "peachify",
@@ -852,6 +871,7 @@ export async function buildTvSources(args: {
   year?: number;
   tmdbId?: string;
   anilistId?: string;
+  providerIdType?: "anilist" | "mal";
   anilistEpisodeMappings?: AniListEpisodeMapping[];
   dub?: boolean;
 }): Promise<StreamSource[]> {
@@ -859,6 +879,7 @@ export async function buildTvSources(args: {
     imdbId,
     tmdbId,
     anilistId,
+    providerIdType = "anilist",
     anilistEpisodeMappings,
     season,
     episode,
@@ -889,8 +910,9 @@ export async function buildTvSources(args: {
   const getAniListAddress = () => {
     if (!aniListAddressPromise) {
       aniListAddressPromise = storedAniListAddress
-        ? Promise.resolve({
+        ? resolveAniListEpisodeAddress({
             anilistId: storedAniListAddress.anilistId,
+            season,
             episode: storedAniListAddress.anilistEpisodeNumber
           })
         : resolveAniListEpisodeAddress({ anilistId, title, season, seasonTitle, year, episode });
@@ -905,17 +927,28 @@ export async function buildTvSources(args: {
     const fallbackId = getProviderId(provider, imdbId, tmdbId);
     const usesAniList = isAnime && !!provider.getAnimeTVUrl && provider.animeIdType === "anilist";
     const aniListAddress = usesAniList ? await getAniListAddress() : undefined;
-    const animeId = usesAniList ? (aniListAddress?.anilistId ?? null) : null;
+    const useMalId = !!provider.getMalAnimeTVUrl && providerIdType === "mal";
+    const animeId = usesAniList
+      ? useMalId
+        ? (aniListAddress?.malId ?? null)
+        : (aniListAddress?.anilistId ?? null)
+      : null;
 
     const id = animeId ?? fallbackId;
     if (!id) continue;
 
-    const isAnimeMatch = isAnime && !!provider.getAnimeTVUrl && !!animeId;
+    const isAnimeMatch =
+      isAnime && (!!provider.getAnimeTVUrl || !!provider.getMalAnimeTVUrl) && !!animeId;
     const mapped = isAnimeMatch
       ? { season, episode: aniListAddress?.episode ?? episode }
       : mapCanonicalToProviderOrder(tmdbId, provider.name, { season, episode });
     const url = isAnimeMatch
-      ? provider.getAnimeTVUrl!(id, mapped.season, mapped.episode, dub ?? false)
+      ? (useMalId ? provider.getMalAnimeTVUrl : provider.getAnimeTVUrl)!(
+          id,
+          mapped.season,
+          mapped.episode,
+          dub ?? false
+        )
       : provider.getTVUrl(id, mapped.season, mapped.episode);
 
     sources.push({

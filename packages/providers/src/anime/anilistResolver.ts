@@ -1,5 +1,6 @@
 interface AniListSearchMedia {
   id: number;
+  idMal?: number | null;
   episodes?: number | null;
   type?: string | null;
   startDate?: {
@@ -29,6 +30,7 @@ function getAniListApiError(status: number, body?: string) {
 
 export interface AniListEpisodeAddress {
   anilistId: string;
+  malId?: string;
   episode: number;
 }
 
@@ -412,6 +414,7 @@ async function fetchAniListMediaById(id: string): Promise<AniListSearchMedia | n
             query ($id: Int) {
               Media(id: $id, type: ANIME) {
                 id
+                idMal
                 type
                 format
                 episodes
@@ -492,7 +495,11 @@ async function resolveEpisodeInAniListChain(
 
   const ownEpisodeCount = getAniListEpisodeCount(media);
   if (ownEpisodeCount === undefined || episode <= ownEpisodeCount) {
-    return { anilistId: String(media.id), episode };
+    return {
+      anilistId: String(media.id),
+      malId: media.idMal ? String(media.idMal) : undefined,
+      episode
+    };
   }
 
   let remainingEpisode = episode - ownEpisodeCount;
@@ -506,7 +513,11 @@ async function resolveEpisodeInAniListChain(
     const sequelEpisodeCount = getAniListEpisodeCount(fullSequel);
 
     if (sequelEpisodeCount === undefined || remainingEpisode <= sequelEpisodeCount) {
-      return { anilistId: String(fullSequel.id), episode: remainingEpisode };
+      return {
+        anilistId: String(fullSequel.id),
+        malId: fullSequel.idMal ? String(fullSequel.idMal) : undefined,
+        episode: remainingEpisode
+      };
     }
 
     const nested = await resolveEpisodeInAniListChain(fullSequel, remainingEpisode, visited);
@@ -517,7 +528,11 @@ async function resolveEpisodeInAniListChain(
     remainingEpisode -= sequelEpisodeCount;
   }
 
-  return { anilistId: String(media.id), episode };
+  return {
+    anilistId: String(media.id),
+    malId: media.idMal ? String(media.idMal) : undefined,
+    episode
+  };
 }
 
 export async function resolveAniListId(args: {
@@ -590,12 +605,16 @@ export async function resolveAniListEpisodeAddress(args: {
 
   const media = await fetchAniListMediaById(anilistId);
   if (!media) {
-    return { anilistId, episode: localEpisode };
+    return {
+      anilistId,
+      episode: localEpisode
+    };
   }
 
   return (
     (await resolveEpisodeInAniListChain(media, localEpisode, new Set<number>())) ?? {
       anilistId,
+      malId: media.idMal ? String(media.idMal) : undefined,
       episode: localEpisode
     }
   );

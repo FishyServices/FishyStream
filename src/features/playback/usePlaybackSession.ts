@@ -26,6 +26,7 @@ import {
 } from "./model/playbackState";
 
 type UpdateProgress = ReturnType<typeof useUpdateProgress>;
+export type ProviderIdType = "anilist" | "mal";
 
 export interface PlaybackEvent {
   event: "timeupdate" | "play" | "pause" | "ended" | "seeked" | "playerstatus";
@@ -72,6 +73,8 @@ export interface PlaybackSession {
   reportPlaybackEvent(event: PlaybackEvent): void;
   setSourceByUrl(url: string, params?: URLSearchParams): Promise<void>;
   setDub(enabled: boolean): void;
+  providerIdType: ProviderIdType;
+  setProviderIdType(idType: ProviderIdType): void;
   goToEpisode(target: PlaybackTarget): void;
   getEpisodeEmbedUrl(target: PlaybackTarget): Promise<string | null>;
   retry(): void;
@@ -114,6 +117,7 @@ export function usePlaybackSession({
   const animeContent = isAnimeProviderContent(content);
   const [sources, setSources] = useState<StreamSource[]>([]);
   const [selectedSourceUrl, setSelectedSourceUrl] = useState("");
+  const [providerIdType, setProviderIdTypeState] = useState<ProviderIdType>("anilist");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -225,6 +229,7 @@ export function usePlaybackSession({
                   (season === 1 ? content.anilistId : undefined) ??
                   undefined,
                 anilistEpisodeMappings: targetSeasonData?.anilistEpisodeMappings,
+                providerIdType,
                 isAnime: animeContent,
                 title: content.title,
                 seasonTitle: targetSeasonData?.name,
@@ -301,6 +306,7 @@ export function usePlaybackSession({
       prefersDub,
       searchParams,
       settings.defaultProvider,
+      providerIdType,
       waitingForAnimeSeasonMetadata,
       watchState
     ]
@@ -356,6 +362,7 @@ export function usePlaybackSession({
           (target.season === 1 ? content.anilistId : undefined) ??
           undefined,
         anilistEpisodeMappings: targetSeasonData?.anilistEpisodeMappings,
+        providerIdType,
         isAnime: animeContent,
         title: content.title,
         seasonTitle: targetSeasonData?.name,
@@ -375,7 +382,7 @@ export function usePlaybackSession({
         baseUrl: window.location.origin
       });
     },
-    [animeContent, content, currentSeasonData, isDub, selectedSource]
+    [animeContent, content, currentSeasonData, isDub, providerIdType, selectedSource]
   );
 
   const setSourceByUrl = useCallback(
@@ -422,6 +429,15 @@ export function usePlaybackSession({
     },
     [isDub, prefersDub, searchParams, setSearchParams]
   );
+
+  const setProviderIdType = useCallback((idType: ProviderIdType) => {
+    setProviderIdTypeState(idType);
+    sourceRequestIdRef.current += 1;
+    setSources([]);
+    setSelectedSourceUrl("");
+    setLoading(true);
+    setError(null);
+  }, []);
 
   const goToEpisode = useCallback(
     (next: PlaybackTarget) => {
@@ -533,6 +549,8 @@ export function usePlaybackSession({
     reportPlaybackEvent,
     setSourceByUrl,
     setDub,
+    providerIdType,
+    setProviderIdType,
     goToEpisode,
     getEpisodeEmbedUrl,
     retry,
