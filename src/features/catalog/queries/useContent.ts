@@ -35,6 +35,7 @@ import {
   fetchImdbSeasonEpisodes
 } from "@fishy/providers/imdb";
 import ownersPicksData from "../ownersPicks.json";
+import { isBlockedContent } from "../model/contentPolicy";
 
 export type { TMDBItem, TMDBFullDetail };
 
@@ -77,6 +78,7 @@ function cardFromProvider(
   hint?: TMDBMediaType
 ): ContentCard | null {
   const card = toTMDBContentCard(value, hint);
+  if (card && isBlockedContent({ tmdbId: card.tmdbId, type: card.type })) return null;
   return card
     ? {
         _id: makeContentId(card.type, card.tmdbId),
@@ -92,7 +94,8 @@ function cardFromProvider(
     : null;
 }
 
-function cardFromTmdb(card: TMDBContentCard): ContentCard {
+function cardFromTmdb(card: TMDBContentCard): ContentCard | null {
+  if (isBlockedContent({ tmdbId: card.tmdbId, type: card.type })) return null;
   return {
     _id: makeContentId(card.type, card.tmdbId),
     title: card.title,
@@ -267,9 +270,10 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
     !!tmdbId,
     [tmdbId, typeHint],
     async (signal) => {
+      if (isBlockedContent({ tmdbId, type: typeHint })) return null;
       for (const type of typeHint ? [typeHint] : (["movie", "tv"] as const)) {
         const detail = await fetchTmdbFullDetail(tmdbId!, type, apiKey(), signal);
-        if (detail)
+        if (detail && !isBlockedContent({ tmdbId: detail.tmdbId, type, imdbId: detail.imdbId }))
           return {
             _id: makeContentId(type, detail.tmdbId),
             title: detail.title,
@@ -304,7 +308,9 @@ export function useRelatedContent(
     (signal) =>
       tmdbId === undefined || type === undefined
         ? Promise.resolve([])
-        : fetchTmdbRelated(tmdbId, type, apiKey(), limit, signal),
+        : fetchTmdbRelated(tmdbId, type, apiKey(), limit, signal).then((items) =>
+            items.filter((item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type }))
+          ),
     [] as TMDBItem[],
     tmdbId !== undefined && type !== undefined ? `related:${type}:${tmdbId}:${limit}` : undefined
   );
@@ -378,7 +384,11 @@ export function useSearchAll(query: string) {
         void fetchTmdbSearch(normalized, apiKey(), controller.signal, 1)
           .then((data) => {
             if (current !== generation.current) return;
-            setResults([...data.movies, ...data.shows]);
+            setResults(
+              [...data.movies, ...data.shows].filter(
+                (item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type })
+              )
+            );
             setPage(1);
             setTotalPages(Math.max(data.movieTotalPages, data.showTotalPages));
           })
@@ -407,7 +417,12 @@ export function useSearchAll(query: string) {
     try {
       const data = await fetchTmdbSearch(normalized, apiKey(), controller.signal, page + 1);
       if (current === generation.current) {
-        setResults((old) => [...old, ...data.movies, ...data.shows]);
+        setResults((old) => [
+          ...old,
+          ...[...data.movies, ...data.shows].filter(
+            (item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type })
+          )
+        ]);
         setPage((old) => old + 1);
         setTotalPages(Math.max(data.movieTotalPages, data.showTotalPages));
       }
@@ -454,7 +469,11 @@ export function usePaginatedContent(
       .then((data) => {
         if (!controller.signal.aborted)
           setResult({
-            items: data.items.slice(0, Math.max(0, limit)).map(cardFromTmdb),
+            items: data.items
+              .filter((item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type }))
+              .slice(0, Math.max(0, limit))
+              .map(cardFromTmdb)
+              .filter((item): item is ContentCard => item !== null),
             currentPage: page,
             totalPages: data.totalPages,
             totalCount: data.totalResults,
@@ -540,7 +559,9 @@ function readCache(): Cache {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
       const candidate = entry as { timestamp?: unknown; cards?: unknown };
       if (typeof candidate.timestamp !== "number" || !Array.isArray(candidate.cards)) continue;
-      const cards = candidate.cards.filter(isCachedCard);
+      const cards = candidate.cards
+        .filter(isCachedCard)
+        .filter((card) => !isBlockedContent({ tmdbId: card.tmdbId, type: card.type }));
       if (cards.length) cache[key] = { timestamp: candidate.timestamp, cards };
     }
     return cache;
@@ -600,7 +621,9 @@ export function useRecommendations(
         const cards = collectTmdbCards(
           responses.map((data) => ({ data, type: seedItem.type })),
           { typeFilter, excludedIds: new Set(active.tmdbSeeds?.map(cardKey)) }
-        ).map(cardFromTmdb);
+        )
+          .map(cardFromTmdb)
+          .filter((card): card is ContentCard => card !== null);
         cache[key] = { timestamp: Date.now(), cards };
         writeCache(cache);
         return cards;
@@ -632,9 +655,10 @@ export function useContentDetail(
     enabled && !!tmdbId && !!type,
     [enabled, includeImdb, tmdbId, type],
     async (signal) => {
-      if (!tmdbId || !type) return null;
+      if (!tmdbId || !type || isBlockedContent({ tmdbId, type })) return null;
       const tmdb = await fetchTmdbFullDetail(tmdbId, type, apiKey(), signal);
-      if (!tmdb) return null;
+      if (!tmdb || isBlockedContent({ tmdbId: tmdb.tmdbId, type, imdbId: tmdb.imdbId }))
+        return null;
       const imdb =
         includeImdb && tmdb.imdbId
           ? await fetchImdbFullDetail(tmdb.imdbId, type, imdbRequest, signal)

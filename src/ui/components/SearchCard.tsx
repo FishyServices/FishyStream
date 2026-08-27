@@ -6,6 +6,7 @@ import { ContentModal } from "./ContentModal";
 import { Button } from "@fishy/ui";
 import { TMDB_API_KEY, fetchTmdbFullDetail } from "@fishy/providers/tmdb";
 import { buildWatchPath } from "@/shared/navigation/watchNavigation";
+import { isBlockedContent } from "@/features/catalog/model/contentPolicy";
 
 interface SearchCardProps {
   item: TMDBItem;
@@ -21,6 +22,8 @@ export function SearchCard({
   layout = "rail",
   showMobileActions = true
 }: SearchCardProps) {
+  if (isBlockedContent({ tmdbId: item.tmdbId, type: item.type })) return null;
+
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
