@@ -16,7 +16,7 @@ Built to be fast, simple, and modern without unnecessary clutter.
 Clone the repo
 
 ```bash
-git clone https://github.com/official-notfishvr/FishyStream.git
+git clone https://github.com/FishyServices/FishyStream.git
 cd FishyStream
 ```
 
