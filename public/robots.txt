@@ -3,4 +3,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://master.fishystream-app.pages.dev/sitemap.xml
+Sitemap: https://fishystream-app.pages.dev/sitemap.xml

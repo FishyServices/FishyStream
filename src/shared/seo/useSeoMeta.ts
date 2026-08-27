@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 const SITE_NAME = "FishyStream";
-const SITE_URL = "https://master.fishystream-app.pages.dev";
+const SITE_URL = "https://fishystream-app.pages.dev";
 const DEFAULT_IMAGE = `${SITE_URL}/icons/pwa-512x512.png`;
 
 interface SeoMetaOptions {
