@@ -45,6 +45,11 @@ export const syncAnimeSeasonPlaybackMeta = action({
     );
     if (cached) return cached;
 
+    await ctx.runMutation(internal.domains.seasons.seasons.deleteAnimeSeasonMeta, {
+      contentId: args.contentId,
+      seasonNumber: args.seasonNumber
+    });
+
     const payload = await buildCanonicalSeasonPayload(args.tmdbId, args.seasonNumber);
     if (!payload) return null;
 

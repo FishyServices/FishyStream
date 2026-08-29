@@ -253,6 +253,24 @@ function scoreAniListCandidate(
   return score;
 }
 
+function hasStrongAniListTitleMatch(media: AniListSearchMedia, title: string, season: number) {
+  const baseTitle = normalizeAniListText(title);
+  return [
+    media.title?.romaji,
+    media.title?.english,
+    media.title?.native,
+    ...(media.synonyms ?? [])
+  ].some((value) => {
+    const candidate = normalizeAniListText(value);
+    if (!(candidate === baseTitle || candidate.startsWith(`${baseTitle} `))) return false;
+    if (season <= 1) return true;
+    const { explicitSeasonNumbers } = getSeasonSignals(candidate);
+    return (
+      explicitSeasonNumbers.has(season) || parseRomanSeasonSignal(candidate, baseTitle) === season
+    );
+  });
+}
+
 function parseRomanSeasonSignal(candidate: string, baseTitle: string) {
   if (!candidate.startsWith(baseTitle)) return undefined;
 
@@ -558,6 +576,10 @@ export async function resolveAniListId(args: {
         bestMatch = media;
       }
     }
+  }
+
+  if (bestMatch && (bestScore >= 30 || hasStrongAniListTitleMatch(bestMatch, title, season))) {
+    return String(bestMatch.id);
   }
 
   if (year) {

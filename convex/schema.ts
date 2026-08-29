@@ -44,6 +44,7 @@ export default defineSchema({
     storedEpisodeCount: v.number(),
     anilistId: v.optional(v.string()),
     anilistEpisodeMappingCount: v.optional(v.number()),
+    mappingVersion: v.optional(v.number()),
     seasonEpisodePayloadHash: v.optional(v.string())
   }).index("by_content_season", ["contentId", "seasonNumber"]),
 

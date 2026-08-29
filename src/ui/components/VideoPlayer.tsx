@@ -48,7 +48,7 @@ interface VideoPlayerProps {
 }
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
-const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:anime-season-sync-keys:v2";
+const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:anime-season-sync-keys:v3";
 
 function clamp(v: number) {
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;

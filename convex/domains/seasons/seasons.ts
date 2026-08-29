@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "../../_generated/server";
 import type { MutationCtx } from "../../_generated/server";
 
+const CURRENT_ANIME_MAPPING_VERSION = 2;
+
 const mappingValidator = v.object({
   episodeNumber: v.number(),
   anilistId: v.string(),
@@ -160,12 +162,44 @@ export const upsertAnimeSeasonMeta = internalMutation({
       storedEpisodeCount: storedEpisodes.length,
       anilistId: args.anilistId,
       anilistEpisodeMappingCount: args.anilistEpisodeMappings?.length,
+      mappingVersion: CURRENT_ANIME_MAPPING_VERSION,
       seasonEpisodePayloadHash: payloadHash
     };
     if (existingMeta) {
       await ctx.db.patch(existingMeta._id, metaPayload);
     } else {
       await ctx.db.insert("seasonPlaybackMeta", metaPayload);
+    }
+  }
+});
+
+export const deleteAnimeSeasonMeta = internalMutation({
+  args: {
+    contentId: v.string(),
+    seasonNumber: v.number()
+  },
+  handler: async (ctx, { contentId, seasonNumber }) => {
+    const seasonRows = await ctx.db
+      .query("seasonEpisodes")
+      .withIndex("by_content_season", (q) =>
+        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
+      )
+      .collect();
+    const mappingRows = await ctx.db
+      .query("seasonEpisodeMappings")
+      .withIndex("by_content_season", (q: any) =>
+        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
+      )
+      .collect();
+    const metaRows = await ctx.db
+      .query("seasonPlaybackMeta")
+      .withIndex("by_content_season", (q) =>
+        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
+      )
+      .collect();
+
+    for (const row of [...seasonRows, ...mappingRows, ...metaRows]) {
+      await ctx.db.delete(row._id);
     }
   }
 });
@@ -184,6 +218,7 @@ export const getSeasonPlaybackMeta = query({
       )
       .first();
     if (!meta) return null;
+    if (meta.mappingVersion !== CURRENT_ANIME_MAPPING_VERSION) return null;
 
     const mappings = await ctx.db
       .query("seasonEpisodeMappings")
@@ -227,6 +262,7 @@ export const getSeasonPlaybackMetaInternal = internalQuery({
       )
       .first();
     if (!meta) return null;
+    if (meta.mappingVersion !== CURRENT_ANIME_MAPPING_VERSION) return null;
 
     let episodeMapping;
     if (episodeNumber != null) {
