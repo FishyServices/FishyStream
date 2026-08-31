@@ -602,7 +602,9 @@ export async function resolveAniListId(args: {
     }
   }
 
-  return bestMatch ? String(bestMatch.id) : null;
+  if (!bestMatch || bestScore < 30) return null;
+
+  return String(bestMatch.id);
 }
 
 export async function resolveAniListEpisodeAddress(args: {

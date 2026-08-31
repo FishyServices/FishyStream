@@ -16,7 +16,6 @@ export type ProviderKey =
   | "superembed"
   | "tryembed"
   | "vaplayer"
-  | "vidcodin"
   | "vidcore"
   | "videasy"
   | "vidfast"
@@ -514,16 +513,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
       overlay: { type: "boolean", default: true },
       thumbnails: { type: "string" }
     },
-    moviePath: (id) => `/embed/movie/${id}`,
-    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
-  }),
-  defineProvider({
-    key: "vidcodin",
-    name: "VidCodin",
-    category: "other",
-    idType: "tmdb",
-    website: "https://vidcodin.net",
-    referrerPolicy: "no-referrer",
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
