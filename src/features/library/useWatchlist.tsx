@@ -265,7 +265,7 @@ export function useUpdateWatchlistFolder() {
     ) => {
       const contentId = typeof input === "string" ? input : input.contentId;
       const folder = typeof input === "string" ? requestedFolder : input.folder;
-      if (!user) return guestWatchlistPersistence.setFolder("guest", contentId, folder);
+      if (!user) return guestWatchlistPersistence.setFolder(contentId, folder);
       return mutation({ clerkUserId: user.id, contentId, folder });
     },
     [mutation, user]

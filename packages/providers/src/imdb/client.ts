@@ -1,5 +1,4 @@
 import type {
-  Episode,
   IMDbGraphQLResponse,
   IMDbRequest,
   IMDBBrowseResponse,
@@ -16,12 +15,16 @@ import type {
   IMDBSeasonEpisodesResponse,
   IMDBTitleNode,
   IMDBVideoResult,
-  IMDBVideosResponse,
+  IMDBVideosResponse
+} from "./types.js";
+import type {
+  Episode,
   MediaType,
   MetadataClient,
   Rating,
-  Title
-} from "./types.js";
+  Title,
+  TitleReference
+} from "../types.js";
 import { resolveAniListEpisodeAddress, resolveAniListId } from "../anime/anilistResolver.js";
 
 export const IMDB_GRAPHQL_ENDPOINT = "https://api.graphql.imdb.com/";

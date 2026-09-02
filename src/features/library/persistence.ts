@@ -6,19 +6,8 @@ import {
   setWatchlistSnapshots
 } from "@/shared/storage/localStorageStore";
 
-export interface WatchlistPersistence {
-  list(userId: string): Promise<WatchlistGridItem[]>;
-  toggle(userId: string, contentId: ContentId): Promise<void>;
-  setFolder(userId: string, contentId: ContentId, folder?: string): Promise<void>;
-}
-
-export interface ProgressPersistence {
-  load(userId: string, contentId: ContentId): Promise<unknown>;
-  save(userId: string, contentId: ContentId, value: unknown): Promise<void>;
-}
-
-export const guestWatchlistPersistence: Pick<WatchlistPersistence, "setFolder"> = {
-  async setFolder(_userId, contentId, folder) {
+export const guestWatchlistPersistence = {
+  setFolder(contentId: ContentId, folder?: string): void {
     const snapshots = getWatchlistSnapshots();
     const snapshot = snapshots[contentId];
     if (!snapshot) return;
@@ -34,7 +23,7 @@ export function listGuestWatchlist(): WatchlistGridItem[] {
       const snapshot = snapshots[id];
       if (!snapshot) return null;
       return {
-        _id: id as ContentId,
+        _id: id,
         title: snapshot.title,
         type: snapshot.type,
         posterUrl: snapshot.posterUrl,
