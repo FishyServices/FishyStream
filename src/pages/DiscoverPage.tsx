@@ -1,23 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowUp, ChevronLeft, ChevronRight, Film, Info, Play, Tv } from "lucide-react";
+import { ArrowUp, ChevronLeft, ChevronRight, Film, Info, Play, Sparkles, Tv } from "lucide-react";
 import { Header } from "@/ui/components/Header";
 import { ContentRow } from "@/ui/components/ContentRow";
-import { GridSkeleton } from "@/ui/components/UXPrimitives";
 import { useHomepageContent, usePaginatedContent } from "@/features/catalog/queries/useContent";
 import { createPlayHandler, type PlayHandler } from "@/shared/navigation/watchNavigation";
 import { Button } from "@fishy/ui";
 import type { ContentCard, ContentFeatured } from "@content/contentMetadata";
+import { ANIME_GENRES, MOVIE_GENRES, TV_GENRES } from "@/shared/config/mediaGenres";
 
-type DiscoverTab = "movies" | "tv";
+type DiscoverTab = "movies" | "tv" | "anime";
 
 const tabs: Array<{ value: DiscoverTab; label: string; icon: typeof Film }> = [
   { value: "movies", label: "Movies", icon: Film },
-  { value: "tv", label: "TV Shows", icon: Tv }
+  { value: "tv", label: "TV Shows", icon: Tv },
+  { value: "anime", label: "Anime", icon: Sparkles }
 ];
 
 function parseTab(value: string | null): DiscoverTab {
-  if (value === "movies" || value === "tv") return value;
+  if (value === "movies" || value === "tv" || value === "anime") return value;
   return "movies";
 }
 
@@ -172,67 +173,75 @@ function FeaturedDiscoverCarousel({
 function DiscoverRail({
   title,
   items,
-  onPlay
+  onPlay,
+  viewAllHref
 }: {
   title: string;
   items: ContentCard[];
   onPlay: PlayHandler;
+  viewAllHref?: string;
 }) {
-  return <ContentRow title={title} content={items} onPlay={onPlay} />;
+  return <ContentRow title={title} content={items} onPlay={onPlay} viewAllHref={viewAllHref} />;
+}
+
+function AnimeDiscoverContent({ onPlay }: { onPlay: PlayHandler }) {
+  return (
+    <div className="space-y-2">
+      {ANIME_GENRES.map((genre) => (
+        <AnimeGenreRail key={genre.slug} genre={genre} onPlay={onPlay} />
+      ))}
+    </div>
+  );
+}
+
+function AnimeGenreRail({
+  genre,
+  onPlay
+}: {
+  genre: (typeof ANIME_GENRES)[number];
+  onPlay: PlayHandler;
+}) {
+  const paginated = usePaginatedContent("tv", genre.query, "popular", 6, 1, "imdb");
+
+  return (
+    <DiscoverRail
+      title={genre.label}
+      items={paginated.items}
+      onPlay={onPlay}
+      viewAllHref={`/anime/genre/${genre.slug}`}
+    />
+  );
+}
+
+function MediaGenreRail({
+  type,
+  genre,
+  onPlay
+}: {
+  type: "movie" | "tv";
+  genre: { label: string; query: string | undefined; href: string };
+  onPlay: PlayHandler;
+}) {
+  const paginated = usePaginatedContent(type, genre.query, "popular", 6, 1);
+
+  return (
+    <DiscoverRail
+      title={genre.label}
+      items={paginated.items}
+      onPlay={onPlay}
+      viewAllHref={genre.href}
+    />
+  );
 }
 
 function MediaDiscoverContent({ type, onPlay }: { type: "movie" | "tv"; onPlay: PlayHandler }) {
-  const trending = usePaginatedContent(type, undefined, "trending", 20, 1);
-  const popular = usePaginatedContent(type, undefined, "popular", 20, 1);
-  const latest = usePaginatedContent(type, undefined, "new", 20, 1);
-  const topRated = usePaginatedContent(type, undefined, "rating", 20, 1);
-  const action = usePaginatedContent(type, "Action", "popular", 20, 1);
-  const comedy = usePaginatedContent(type, "Comedy", "popular", 20, 1);
-  const drama = usePaginatedContent(type, "Drama", "popular", 20, 1);
-  const horror = usePaginatedContent(type, "Horror", "popular", 20, 1);
-  const hasAny =
-    trending.items.length ||
-    popular.items.length ||
-    latest.items.length ||
-    topRated.items.length ||
-    action.items.length ||
-    comedy.items.length ||
-    drama.items.length ||
-    horror.items.length;
-
-  if (
-    !hasAny &&
-    (trending.isLoading || popular.isLoading || latest.isLoading || topRated.isLoading)
-  ) {
-    return (
-      <div className="page-shell-wide">
-        <GridSkeleton count={12} />
-      </div>
-    );
-  }
+  const genres = type === "movie" ? MOVIE_GENRES : TV_GENRES;
 
   return (
-    <div className="space-y-8">
-      <DiscoverRail
-        title={type === "tv" ? "For You" : "For You"}
-        items={trending.items}
-        onPlay={onPlay}
-      />
-      <DiscoverRail
-        title={type === "tv" ? "Popular Shows" : "Popular Movies"}
-        items={popular.items}
-        onPlay={onPlay}
-      />
-      <DiscoverRail
-        title={type === "tv" ? "On Air" : "Latest Releases"}
-        items={latest.items}
-        onPlay={onPlay}
-      />
-      <DiscoverRail title="Top Rated" items={topRated.items} onPlay={onPlay} />
-      <DiscoverRail title="Action" items={action.items} onPlay={onPlay} />
-      <DiscoverRail title="Comedy" items={comedy.items} onPlay={onPlay} />
-      <DiscoverRail title="Drama" items={drama.items} onPlay={onPlay} />
-      <DiscoverRail title="Horror" items={horror.items} onPlay={onPlay} />
+    <div className="space-y-2">
+      {genres.map((genre) => (
+        <MediaGenreRail key={genre.slug} type={type} genre={genre} onPlay={onPlay} />
+      ))}
     </div>
   );
 }
@@ -301,6 +310,8 @@ export function DiscoverContentMode({ onPlay }: { onPlay: PlayHandler }) {
       <div className="relative z-20 space-y-1 pb-20 pt-2">
         {tab === "tv" ? (
           <MediaDiscoverContent type="tv" onPlay={onPlay} />
+        ) : tab === "anime" ? (
+          <AnimeDiscoverContent onPlay={onPlay} />
         ) : (
           <MediaDiscoverContent type="movie" onPlay={onPlay} />
         )}

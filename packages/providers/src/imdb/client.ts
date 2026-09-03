@@ -46,8 +46,7 @@ const ageRating = (node?: IMDBTitleNode | null) =>
 const durationText = (seconds?: number | null) =>
   seconds ? `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m` : undefined;
 const titleTypeFor = (type: MediaType) => (type === "movie" ? "MOVIE" : "TV_SERIES");
-const cursorForPage = (page: number, pageSize: number) =>
-  btoa(JSON.stringify({ offset: Math.max(0, page - 1) * pageSize }));
+const advancedTitleTypeFor = (type: MediaType) => (type === "movie" ? "movie" : "tvSeries");
 
 type Node = {
   id?: string;
@@ -245,16 +244,33 @@ export async function fetchImdbDiscover(
   type: MediaType,
   request: IMDbRequest,
   signal: AbortSignal | undefined,
-  options: { page?: number; sortBy?: string; genre?: string; minVoteCount?: number } = {}
+  options: {
+    page?: number;
+    sortBy?: string;
+    genre?: string;
+    genres?: readonly string[];
+    minVoteCount?: number;
+  } = {}
 ): Promise<IMDBDiscoverResult> {
   const page = options.page ?? 1;
   const sortField = options.sortBy === "rating" ? "USER_RATING" : "POPULARITY";
   const sortOrder = options.sortBy === "rating" ? "DESC" : "ASC";
-  const genreConstraint = options.genre
-    ? `genreConstraint: { allGenreIds: ["${options.genre}"] }`
+  const genres = options.genres ?? (options.genre ? [options.genre] : []);
+  const genreConstraint = genres.length
+    ? `genreConstraint: { allGenreIds: [${genres.map((genre) => `"${genre}"`).join(", ")}] }`
     : "";
-  const query = `query { advancedTitleSearch(first: ${IMDB_PAGE_SIZE}, after: "${cursorForPage(page, IMDB_PAGE_SIZE)}", constraints: { titleTypeConstraint: { anyTitleTypeIds: ["${titleTypeFor(type)}"] } ${genreConstraint} ratingsCountConstraint: { aggregateRatingCountMin: ${options.minVoteCount ?? 25} } }, sortBy: ${sortField}, sortOrder: ${sortOrder}) { total edges { node { title { ${cardFields} } } } } }`;
-  const data = await executeIMDbQueryOrDefault<IMDBBrowseResponse>(request, query, {}, signal);
+  let after: string | undefined;
+  let data: IMDBBrowseResponse = {};
+  for (let currentPage = 1; currentPage <= page; currentPage += 1) {
+    const afterClause = after ? `, after: "${after}"` : "";
+    const query = `query { advancedTitleSearch(first: ${IMDB_PAGE_SIZE}${afterClause}, constraints: { titleTypeConstraint: { anyTitleTypeIds: ["${advancedTitleTypeFor(type)}"] } ${genreConstraint} }, sort: { sortBy: ${sortField}, sortOrder: ${sortOrder} }) { total edges { node { title { ${cardFields} } } } pageInfo { endCursor hasNextPage } } }`;
+    data = await executeIMDbQueryOrDefault<IMDBBrowseResponse>(request, query, {}, signal);
+    if (currentPage < page) {
+      const nextCursor = data.advancedTitleSearch?.pageInfo?.endCursor;
+      if (!nextCursor || !data.advancedTitleSearch?.pageInfo?.hasNextPage) break;
+      after = nextCursor;
+    }
+  }
   const nodes = (data.advancedTitleSearch?.edges ?? []).map((edge) => edge.node?.title);
   return {
     items: nodes

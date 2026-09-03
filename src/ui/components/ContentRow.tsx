@@ -53,7 +53,18 @@ export function ContentRow({
             className="truncate font-display text-xl font-bold text-foreground sm:text-2xl"
             title={title}
           >
-            {title}
+            {viewAllHref ? (
+              <Button
+                variant="ghost"
+                className="h-auto max-w-full truncate rounded-lg p-0 text-inherit hover:bg-transparent hover:text-primary"
+                onClick={() => navigate(viewAllHref)}
+                aria-label={`View all ${title}`}
+              >
+                {title}
+              </Button>
+            ) : (
+              title
+            )}
           </h2>
         </div>
         {viewAllHref && (

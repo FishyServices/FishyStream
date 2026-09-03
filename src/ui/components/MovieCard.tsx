@@ -27,6 +27,7 @@ type CardLikeContent = {
   year?: number;
   posterUrl: string;
   tmdbId?: string;
+  imdbId?: string;
   voteAverage?: number;
   genre?: string[];
   new?: boolean;
@@ -67,8 +68,8 @@ export function MovieCard({
 
     if (
       modalParam &&
-      content.tmdbId &&
-      modalParam === content.tmdbId &&
+      (content.tmdbId || content.imdbId) &&
+      modalParam === (content.tmdbId ?? content.imdbId) &&
       typeParam === content.type
     ) {
       didOpenFromUrl.current = true;
@@ -79,11 +80,11 @@ export function MovieCard({
   const handleModalChange = (open: boolean) => {
     setShowModal(open);
 
-    if (open && content.tmdbId) {
+    if (open && (content.tmdbId || content.imdbId)) {
       setSearchParams(
         (prev) => {
           const newParams = new URLSearchParams(prev);
-          newParams.set("modal", content.tmdbId!);
+          newParams.set("modal", content.tmdbId ?? content.imdbId!);
           newParams.set("type", content.type);
           return newParams;
         },
@@ -125,9 +126,10 @@ export function MovieCard({
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (content.tmdbId) {
+    const contentId = content.tmdbId ?? content.imdbId;
+    if (contentId) {
       onPlay?.(
-        content.tmdbId,
+        contentId,
         content.type === "tv" ? (content.seasonNumber ?? 1) : undefined,
         content.type === "tv" ? (content.episodeNumber ?? 1) : undefined,
         content.source,

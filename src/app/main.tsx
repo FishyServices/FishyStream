@@ -12,8 +12,7 @@ import { SignInPage } from "../pages/SignInPage";
 import { SignUpPage } from "../pages/SignUpPage";
 import { WatchPage } from "../pages/WatchPage";
 import { LocalWatchPage } from "../pages/LocalWatchPage";
-import { MoviesPage } from "../pages/MoviesPage";
-import { TVShowsPage } from "../pages/TVShowsPage";
+import { MediaBrowsePage } from "../pages/MediaBrowsePage";
 import { OwnersPicksPage } from "../pages/OwnersPicksPage";
 import { MyListPage } from "../pages/MyListPage";
 import { WatchHistoryPage } from "../pages/WatchHistoryPage";
@@ -119,8 +118,9 @@ function AppShell() {
                 <Route path="/sign-up/*" element={<SignUpPage />} />
                 <Route path="/watch/:id" element={<WatchPage />} />
                 <Route path="/watch/local" element={<LocalWatchPage />} />
-                <Route path="/movies" element={<MoviesPage />} />
-                <Route path="/tv-shows" element={<TVShowsPage />} />
+                <Route path="/movies" element={<MediaBrowsePage mode="movie" />} />
+                <Route path="/tv-shows" element={<MediaBrowsePage mode="tv" />} />
+                <Route path="/anime/genre/:genre" element={<MediaBrowsePage mode="anime" />} />
                 <Route path="/best" element={<OwnersPicksPage />} />
                 <Route path="/my-list" element={<MyListPage />} />
                 <Route path="/history" element={<WatchHistoryPage />} />

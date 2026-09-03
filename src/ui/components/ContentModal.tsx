@@ -64,6 +64,7 @@ type LeanModalContent = {
   year?: number;
   posterUrl: string;
   tmdbId?: string;
+  imdbId?: string;
   voteAverage?: number;
   genre?: string[];
   new?: boolean;
@@ -312,9 +313,10 @@ export function ContentModal({
   >(initialTab ?? "episodes");
   const { settings } = useAppSettings();
 
-  const tmdbDetailEnabled = isOpen && !!content && !!content.tmdbId;
+  const contentIdentifier = content?.tmdbId ?? content?.imdbId;
+  const tmdbDetailEnabled = isOpen && !!content && !!contentIdentifier;
   const { detail: tmdbDetail } = useContentDetail(
-    tmdbDetailEnabled ? content?.tmdbId : undefined,
+    tmdbDetailEnabled ? contentIdentifier : undefined,
     tmdbDetailEnabled ? content?.type : undefined,
     tmdbDetailEnabled,
     false
@@ -329,9 +331,10 @@ export function ContentModal({
         ...fullContent,
         ...content,
         _id: fullContent._id,
+        tmdbId: fullContent.tmdbId,
         rating: fullContent.rating,
         voteAverage: fullContent.voteAverage,
-        imdbId: fullContent.imdbId
+        imdbId: fullContent.imdbId ?? content?.imdbId
       }
     : content;
 
@@ -345,7 +348,9 @@ export function ContentModal({
   const isInWatchlist = useIsInWatchlist(resolvedContent?._id);
   const toggleWatchlist = useToggleWatchlist();
   const { season: tmdbSeason, isLoading: tmdbSeasonLoading } = useSeasonEpisodes(
-    isOpen && resolvedContent?.type === "tv" ? resolvedContent?.tmdbId : undefined,
+    isOpen && resolvedContent?.type === "tv" && !resolvedContent.tmdbId?.startsWith("tt")
+      ? resolvedContent.tmdbId
+      : undefined,
     selectedSeason,
     isOpen && resolvedContent?.type === "tv"
   );
@@ -553,7 +558,7 @@ export function ContentModal({
         title: contentData.title,
         type: contentData.type,
         posterUrl: contentData.posterUrl,
-        tmdbId: contentData.tmdbId ?? contentData._id.split(":").at(-1) ?? "",
+        tmdbId: contentData.tmdbId ?? contentData.imdbId ?? contentData._id.split(":").at(-1) ?? "",
         genre: contentData.genre,
         year: contentData.year,
         voteAverage: contentData.voteAverage
@@ -566,10 +571,11 @@ export function ContentModal({
   };
 
   const handlePlay = (ep?: number) => {
-    if (contentData.tmdbId) {
+    const contentId = contentData.tmdbId ?? contentData.imdbId;
+    if (contentId) {
       onClose();
       onPlay(
-        contentData.tmdbId,
+        contentId,
         isTV ? selectedSeason : undefined,
         isTV ? (ep ?? selectedEpisode) : undefined,
         undefined,

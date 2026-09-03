@@ -8,12 +8,14 @@ import { makeContentId } from "@content/contentMetadata";
 import {
   TMDB_API_KEY,
   TMDB_DISCOVER_GENRES,
+  TMDB_TV_DISCOVER_GENRES,
   collectTmdbCards,
   fetchTmdbCardDetail,
   fetchTmdbCredits,
   fetchTmdbDetails,
   fetchTmdbDiscover,
   fetchTmdbFullDetail,
+  fetchTmdbIdByImdbId,
   fetchTmdbListOrEmpty,
   fetchTmdbRelated,
   fetchTmdbSearch,
@@ -31,6 +33,7 @@ import {
 } from "@fishy/providers/tmdb";
 import {
   createIMDbProxyRequest,
+  fetchImdbDiscover,
   fetchImdbFullDetail,
   fetchImdbSeasonEpisodes
 } from "@fishy/providers/imdb";
@@ -270,6 +273,16 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
     !!tmdbId,
     [tmdbId, typeHint],
     async (signal) => {
+      if (tmdbId?.startsWith("tt")) {
+        const resolvedTmdbId = await fetchTmdbIdByImdbId(
+          tmdbId,
+          typeHint ?? "tv",
+          apiKey(),
+          signal
+        );
+        if (!resolvedTmdbId) return null;
+        tmdbId = resolvedTmdbId;
+      }
       if (isBlockedContent({ tmdbId, type: typeHint })) return null;
       for (const type of typeHint ? [typeHint] : (["movie", "tv"] as const)) {
         const detail = await fetchTmdbFullDetail(tmdbId!, type, apiKey(), signal);
@@ -445,10 +458,11 @@ export function useSearchAll(query: string) {
 
 export function usePaginatedContent(
   type: TMDBMediaType,
-  genre: string | undefined,
+  genre: string | null | undefined,
   sortBy: ContentSort,
   limit = 24,
-  page = 1
+  page = 1,
+  source: "tmdb" | "imdb" = "tmdb"
 ): BrowsePageResult {
   const [result, setResult] = useState<BrowsePageResult>({
     items: [],
@@ -459,21 +473,69 @@ export function usePaginatedContent(
   });
   useEffect(() => {
     const controller = new AbortController();
+    if (genre === null) {
+      setResult({
+        items: [],
+        currentPage: page,
+        hasNextPage: false,
+        canGoBack: false,
+        isLoading: false
+      });
+      return () => controller.abort();
+    }
     setResult((old) => ({ ...old, currentPage: page, isLoading: true }));
-    void fetchTmdbDiscover(type, apiKey(), controller.signal, {
-      page,
-      sortBy,
-      genreId: genre ? TMDB_DISCOVER_GENRES[genre.toLowerCase()] : undefined,
-      minVoteCount: sortBy === "rating" ? 100 : 25
-    })
+    const load = async () => {
+      if (source === "imdb") {
+        const data = await fetchImdbDiscover(type, imdbRequest, controller.signal, {
+          page,
+          sortBy,
+          genres: genre?.split(",")
+        });
+        const items = data.items.map(
+          (item): ContentCard =>
+            ({
+              _id: makeContentId(type, item.imdbId),
+              title: item.title,
+              type,
+              genre: item.genre,
+              year: item.year,
+              voteAverage: item.voteAverage,
+              posterUrl: item.posterUrl,
+              imdbId: item.imdbId,
+              new: item.isNew
+            }) satisfies ContentCard
+        );
+        return { items, totalPages: data.totalPages, totalResults: data.totalResults };
+      }
+
+      const data = await fetchTmdbDiscover(type, apiKey(), controller.signal, {
+        page,
+        sortBy,
+        genreId: genre
+          ?.split(",")
+          .map((name) => {
+            const normalized = name.trim().toLowerCase();
+            return (type === "tv" ? TMDB_TV_DISCOVER_GENRES : TMDB_DISCOVER_GENRES)[normalized];
+          })
+          .filter((id): id is number => id !== undefined)
+          .join(","),
+        minVoteCount: sortBy === "rating" ? 100 : 25
+      });
+      return {
+        items: data.items
+          .filter((item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type }))
+          .map(cardFromTmdb)
+          .filter((item): item is ContentCard => item !== null),
+        totalPages: data.totalPages,
+        totalResults: data.totalResults
+      };
+    };
+
+    void load()
       .then((data) => {
         if (!controller.signal.aborted)
           setResult({
-            items: data.items
-              .filter((item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type }))
-              .slice(0, Math.max(0, limit))
-              .map(cardFromTmdb)
-              .filter((item): item is ContentCard => item !== null),
+            items: data.items.slice(0, Math.max(0, limit)),
             currentPage: page,
             totalPages: data.totalPages,
             totalCount: data.totalResults,
@@ -486,7 +548,7 @@ export function usePaginatedContent(
         if (!controller.signal.aborted) setResult((old) => ({ ...old, isLoading: false }));
       });
     return () => controller.abort();
-  }, [genre, limit, page, sortBy, type]);
+  }, [genre, limit, page, sortBy, source, type]);
   return result;
 }
 
@@ -655,8 +717,12 @@ export function useContentDetail(
     enabled && !!tmdbId && !!type,
     [enabled, includeImdb, tmdbId, type],
     async (signal) => {
-      if (!tmdbId || !type || isBlockedContent({ tmdbId, type })) return null;
-      const tmdb = await fetchTmdbFullDetail(tmdbId, type, apiKey(), signal);
+      if (!tmdbId || !type) return null;
+      const resolvedTmdbId = tmdbId.startsWith("tt")
+        ? await fetchTmdbIdByImdbId(tmdbId, type, apiKey(), signal)
+        : tmdbId;
+      if (!resolvedTmdbId || isBlockedContent({ tmdbId: resolvedTmdbId, type })) return null;
+      const tmdb = await fetchTmdbFullDetail(resolvedTmdbId, type, apiKey(), signal);
       if (!tmdb || isBlockedContent({ tmdbId: tmdb.tmdbId, type, imdbId: tmdb.imdbId }))
         return null;
       const imdb =

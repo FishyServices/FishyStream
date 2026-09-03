@@ -11,6 +11,7 @@ export interface ContentCard {
   voteAverage?: number;
   posterUrl: string;
   tmdbId?: string;
+  imdbId?: string;
   new: boolean;
 }
 

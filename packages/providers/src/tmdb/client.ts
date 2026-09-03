@@ -35,6 +35,25 @@ export const TMDB_DISCOVER_GENRES: Record<string, number> = {
   war: 10752,
   western: 37
 };
+export const TMDB_TV_DISCOVER_GENRES: Record<string, number> = {
+  action: 10759,
+  adventure: 10759,
+  animation: 16,
+  comedy: 35,
+  crime: 80,
+  documentary: 99,
+  drama: 18,
+  family: 10751,
+  fantasy: 10765,
+  horror: 10765,
+  mystery: 9648,
+  romance: 10766,
+  "science fiction": 10765,
+  "sci-fi": 10765,
+  thriller: 10765,
+  war: 10768,
+  western: 37
+};
 const genres: Record<number, string> = {
   28: "Action",
   12: "Adventure",
@@ -258,7 +277,7 @@ export async function fetchTmdbDiscover(
   type: MediaType,
   apiKey: string,
   signal: AbortSignal,
-  options: { page?: number; sortBy?: string; genreId?: number; minVoteCount?: number } = {}
+  options: { page?: number; sortBy?: string; genreId?: number | string; minVoteCount?: number } = {}
 ): Promise<TMDBDiscoverResult> {
   const path =
     options.sortBy === "trending" && !options.genreId
@@ -277,6 +296,24 @@ export async function fetchTmdbDiscover(
     totalPages: data.total_pages ?? 1,
     totalResults: data.total_results ?? 0
   };
+}
+export async function fetchTmdbIdByImdbId(
+  imdbId: string,
+  type: MediaType,
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<string | null> {
+  const data = (await fetchTmdbListOrEmpty(
+    `/find/${imdbId}`,
+    apiKey,
+    signal ?? new AbortController().signal,
+    { external_source: "imdb_id" }
+  )) as TMDBBrowseListResponse & {
+    tv_results?: TMDBBrowseListItem[];
+    movie_results?: TMDBBrowseListItem[];
+  };
+  const result = (type === "tv" ? data.tv_results : data.movie_results)?.[0];
+  return result ? String(result.id) : null;
 }
 async function detail(
   id: string,

@@ -57,7 +57,11 @@ export type IMDBSearchResponse = { mainSearch?: { edges?: IMDBSearchEdge[] | nul
 
 export type IMDBBrowseEdge = { node?: { title?: IMDBTitleNode | null } | null };
 export type IMDBBrowseResponse = {
-  advancedTitleSearch?: { edges?: IMDBBrowseEdge[] | null; total?: number | null } | null;
+  advancedTitleSearch?: {
+    edges?: IMDBBrowseEdge[] | null;
+    total?: number | null;
+    pageInfo?: { endCursor?: string | null; hasNextPage?: boolean | null } | null;
+  } | null;
 };
 
 export type IMDBRelatedResponse = {
