@@ -9,7 +9,12 @@ import {
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
 import type { PlayHandler } from "@/shared/navigation/watchNavigation";
-import type { ContentCard, ContentId, ContentType } from "@content/contentMetadata";
+import {
+  makeContentId,
+  type ContentCard,
+  type ContentId,
+  type ContentType
+} from "@content/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -41,6 +46,7 @@ interface MovieCardProps {
   suppressHoverEffects?: boolean;
   density?: "compact" | "comfortable";
   showMobileActions?: boolean;
+  showWatchlistAction?: boolean;
 }
 
 export function MovieCard({
@@ -49,14 +55,17 @@ export function MovieCard({
   size = "md",
   layout = "rail",
   suppressHoverEffects = false,
-  showMobileActions = true
+  showMobileActions = true,
+  showWatchlistAction = false
 }: MovieCardProps) {
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const isInWatchlist = useIsInWatchlist(content._id);
+  const tmdbId = content.tmdbId && /^\d+$/.test(content.tmdbId) ? content.tmdbId : undefined;
+  const watchlistContentId = tmdbId ? makeContentId(content.type, tmdbId) : undefined;
+  const isInWatchlist = useIsInWatchlist(watchlistContentId);
   const toggleWatchlist = useToggleWatchlist();
   const didOpenFromUrl = useRef(false);
 
@@ -106,17 +115,18 @@ export function MovieCard({
   const handleWatchlist = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    if (!watchlistContentId || !tmdbId) return;
     try {
       const snapshot: WatchlistSnapshot = {
         title: content.title,
         type: content.type,
         posterUrl: content.posterUrl,
-        tmdbId: content.tmdbId ?? content._id.split(":").at(-1) ?? "",
+        tmdbId,
         genre: content.genre,
         year: content.year,
         voteAverage: content.voteAverage
       };
-      await toggleWatchlist(content._id, snapshot);
+      await toggleWatchlist(watchlistContentId, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Failed to update watchlist");
@@ -235,19 +245,21 @@ export function MovieCard({
                 >
                   <Play className="ml-0.5 h-4 w-4 fill-current" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 rounded-lg border-border/80 bg-background/70 hover:bg-accent"
-                  onClick={handleWatchlist}
-                  aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
-                >
-                  {isInWatchlist ? (
-                    <Check className="w-3.5 h-3.5 text-green-400" />
-                  ) : (
-                    <Plus className="w-3.5 h-3.5 text-white" />
-                  )}
-                </Button>
+                {showWatchlistAction && watchlistContentId && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 rounded-lg border-border/80 bg-background/70 hover:bg-accent"
+                    onClick={handleWatchlist}
+                    aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
+                  >
+                    {isInWatchlist ? (
+                      <Check className="w-3.5 h-3.5 text-green-400" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5 text-white" />
+                    )}
+                  </Button>
+                )}
                 {score && score > 0 && (
                   <span className="ml-auto flex items-center gap-0.5 text-xs text-foreground/80">
                     <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
@@ -295,19 +307,21 @@ export function MovieCard({
               >
                 <Play className="h-4 w-4 fill-current" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-11 w-11 rounded-lg border-border/70 bg-card/80 hover:bg-accent"
-                onClick={handleWatchlist}
-                aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
-              >
-                {isInWatchlist ? (
-                  <Check className="h-4 w-4 text-green-400" />
-                ) : (
-                  <Plus className="h-4 w-4 text-white" />
-                )}
-              </Button>
+              {showWatchlistAction && watchlistContentId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11 rounded-lg border-border/70 bg-card/80 hover:bg-accent"
+                  onClick={handleWatchlist}
+                  aria-label={isInWatchlist ? "Remove from list" : "Add to list"}
+                >
+                  {isInWatchlist ? (
+                    <Check className="h-4 w-4 text-green-400" />
+                  ) : (
+                    <Plus className="h-4 w-4 text-white" />
+                  )}
+                </Button>
+              )}
             </div>
           )}
         </div>

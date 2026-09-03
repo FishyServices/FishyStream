@@ -60,7 +60,7 @@ export function RecommendationsSection({
     limit,
     typeFilter,
     refreshSeed,
-    hasHistoryOrWatchlist
+    !!isSignedIn
   );
   const playHandler = onPlay ?? createPlayHandler(navigate);
 

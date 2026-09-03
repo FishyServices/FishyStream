@@ -33,6 +33,7 @@ import {
   useToggleWatchlist,
   type WatchlistSnapshot
 } from "@/features/library/useWatchlist";
+import { makeContentId } from "@content/contentMetadata";
 import { toast } from "@fishy/ui";
 import {
   useContentCredits,
@@ -345,7 +346,15 @@ export function ContentModal({
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [selectedDownloadEpisodes, setSelectedDownloadEpisodes] = useState<number[]>([]);
 
-  const isInWatchlist = useIsInWatchlist(resolvedContent?._id);
+  const watchlistTmdbId =
+    resolvedContent?.tmdbId && /^\d+$/.test(resolvedContent.tmdbId)
+      ? resolvedContent.tmdbId
+      : undefined;
+  const watchlistContentId =
+    watchlistTmdbId && resolvedContent
+      ? makeContentId(resolvedContent.type, watchlistTmdbId)
+      : undefined;
+  const isInWatchlist = useIsInWatchlist(watchlistContentId);
   const toggleWatchlist = useToggleWatchlist();
   const { season: tmdbSeason, isLoading: tmdbSeasonLoading } = useSeasonEpisodes(
     isOpen && resolvedContent?.type === "tv" && !resolvedContent.tmdbId?.startsWith("tt")
@@ -553,17 +562,18 @@ export function ContentModal({
   const ratingLabel: string | undefined = detailContent?.rating;
 
   const handleWatchlist = async () => {
+    if (!watchlistContentId || !watchlistTmdbId) return;
     try {
       const snapshot: WatchlistSnapshot = {
         title: contentData.title,
         type: contentData.type,
         posterUrl: contentData.posterUrl,
-        tmdbId: contentData.tmdbId ?? contentData.imdbId ?? contentData._id.split(":").at(-1) ?? "",
+        tmdbId: watchlistTmdbId,
         genre: contentData.genre,
         year: contentData.year,
         voteAverage: contentData.voteAverage
       };
-      await toggleWatchlist(contentData._id, snapshot);
+      await toggleWatchlist(watchlistContentId, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Failed to update list");
@@ -636,19 +646,21 @@ export function ContentModal({
                 {contentData.progress && contentData.progress > 0 ? "Resume" : "Play"}
                 {isTV ? ` S${selectedSeason} E${selectedEpisode}` : ""}
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="flex h-10 w-10 rounded-xl border-border/80 bg-background/70 text-foreground hover:bg-accent"
-                onClick={handleWatchlist}
-                aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
-              >
-                {isInWatchlist ? (
-                  <Check className="h-5 w-5 text-green-400" />
-                ) : (
-                  <Plus className="h-5 w-5 text-foreground" />
-                )}
-              </Button>
+              {watchlistContentId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="flex h-10 w-10 rounded-xl border-border/80 bg-background/70 text-foreground hover:bg-accent"
+                  onClick={handleWatchlist}
+                  aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
+                >
+                  {isInWatchlist ? (
+                    <Check className="h-5 w-5 text-green-400" />
+                  ) : (
+                    <Plus className="h-5 w-5 text-foreground" />
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>

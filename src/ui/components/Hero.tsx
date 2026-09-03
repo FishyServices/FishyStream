@@ -19,7 +19,7 @@ import {
 } from "@/features/library/useWatchlist";
 import { toast } from "@fishy/ui";
 import type { PlayHandler } from "@/shared/navigation/watchNavigation";
-import type { ContentFeatured } from "@content/contentMetadata";
+import { makeContentId, type ContentFeatured } from "@content/contentMetadata";
 
 interface HeroProps {
   contents: ContentFeatured[];
@@ -58,7 +58,11 @@ export function Hero({
 
   const activeContent = contents[currentIndex] || null;
 
-  const isInWatchlist = useIsInWatchlist(activeContent?._id);
+  const tmdbId =
+    activeContent?.tmdbId && /^\d+$/.test(activeContent.tmdbId) ? activeContent.tmdbId : undefined;
+  const watchlistContentId =
+    tmdbId && activeContent ? makeContentId(activeContent.type, tmdbId) : undefined;
+  const isInWatchlist = useIsInWatchlist(watchlistContentId);
   const toggleWatchlist = useToggleWatchlist();
 
   useEffect(() => {
@@ -100,17 +104,18 @@ export function Hero({
   if (!activeContent) return null;
 
   const handleWatchlist = async () => {
+    if (!watchlistContentId || !tmdbId) return;
     try {
       const snapshot: WatchlistSnapshot = {
         title: activeContent.title,
         type: activeContent.type,
         posterUrl: activeContent.posterUrl,
-        tmdbId: activeContent.tmdbId ?? activeContent._id.split(":").at(-1) ?? "",
+        tmdbId,
         genre: activeContent.genre,
         year: activeContent.year,
         voteAverage: activeContent.voteAverage
       };
-      await toggleWatchlist(activeContent._id, snapshot);
+      await toggleWatchlist(watchlistContentId, snapshot);
       toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
     } catch {
       toast.error("Something went wrong");
@@ -241,15 +246,21 @@ export function Hero({
               <Info className="mr-2 h-5 w-5" />
               Details
             </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-foreground hover:bg-accent"
-              onClick={handleWatchlist}
-              aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
-            >
-              {isInWatchlist ? <Check className="w-5 text-green-400" /> : <Plus className="w-5" />}
-            </Button>
+            {watchlistContentId && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-foreground hover:bg-accent"
+                onClick={handleWatchlist}
+                aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
+              >
+                {isInWatchlist ? (
+                  <Check className="w-5 text-green-400" />
+                ) : (
+                  <Plus className="w-5" />
+                )}
+              </Button>
+            )}
 
             {activeContent.trailerKey && !showTrailer && (
               <Button

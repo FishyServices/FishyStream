@@ -68,6 +68,10 @@ function cardKey(value: Pick<ContentCard, "type" | "tmdbId">): string {
   return `${value.type}:${value.tmdbId ?? ""}`;
 }
 
+function isTmdbId(value: string | undefined): value is string {
+  return !!value && /^\d+$/.test(value);
+}
+
 function message(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
@@ -566,7 +570,7 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
       item: { tmdbId?: string; type: TMDBMediaType; genre?: string[] },
       weight: number
     ) => {
-      if (!item.tmdbId) return;
+      if (!isTmdbId(item.tmdbId)) return;
       const key = `${item.type}:${item.tmdbId}`;
       weights.set(key, (weights.get(key) ?? 0) + weight);
       seeds.set(key, { tmdbId: item.tmdbId, type: item.type, genres: item.genre });
@@ -660,6 +664,7 @@ export function useRecommendations(
     const controller = new AbortController();
     const seeds = (active.tmdbSeeds ?? [])
       .filter((item) => typeFilter === "all" || item.type === typeFilter)
+      .filter((item) => isTmdbId(item.tmdbId))
       .slice(0, 10);
     setIsLoading(true);
     void Promise.all(
