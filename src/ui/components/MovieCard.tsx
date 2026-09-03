@@ -56,7 +56,7 @@ export function MovieCard({
   layout = "rail",
   suppressHoverEffects = false,
   showMobileActions = true,
-  showWatchlistAction = false
+  showWatchlistAction = true
 }: MovieCardProps) {
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);

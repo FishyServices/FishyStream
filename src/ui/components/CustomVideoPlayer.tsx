@@ -13,8 +13,7 @@ import {
   Minimize,
   Loader2,
   Settings,
-  Download,
-  ListVideo
+  Download
 } from "lucide-react";
 import { Button } from "@fishy/ui";
 import {
@@ -112,8 +111,6 @@ export function CustomVideoPlayer({
     batchDownloadState,
     downloadProgress,
     batchDownloadProgress,
-    downloadActionLabel,
-    hasDownloadControl,
     selectedBatchEpisodes,
     setSelectedBatchEpisodes,
     prepareDownload,
@@ -444,6 +441,9 @@ export function CustomVideoPlayer({
   const isOutro =
     skipTimes.outro && currentTime >= skipTimes.outro.start && currentTime <= skipTimes.outro.end;
 
+  const markerPosition = (seconds: number) =>
+    duration > 0 ? `${Math.min(100, Math.max(0, (seconds / duration) * 100))}%` : "0%";
+
   const handleMediaError = () => {
     if (!localFile) return;
     const isMkv = /\.mkv$/i.test(localFile.name);
@@ -495,100 +495,102 @@ export function CustomVideoPlayer({
       </video>
 
       <div
-        className={`absolute inset-0 z-30 flex flex-col justify-between bg-linear-to-t from-background/92 via-transparent to-background/50 transition-opacity duration-300 ${
+        className={`absolute inset-0 z-30 flex flex-col justify-between bg-linear-to-t from-black/80 via-transparent to-black/15 transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        <div className="w-full p-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0 rounded-xl bg-background/65 text-foreground hover:bg-accent"
-              onClick={() => navigate(-1)}
-              aria-label="Back"
-              title="Back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div className="min-w-0">
-              <h1 className="truncate font-display text-base font-semibold text-foreground">
-                {content.title}
-              </h1>
-              <p className="truncate text-xs text-foreground/65">
-                {content.type === "movie"
-                  ? `Movie · ${content.year}`
-                  : `TV Series · ${content.year} · S${tvTarget.season} E${tvTarget.episode}`}
-              </p>
-            </div>
+        <div className="flex w-full items-start justify-between px-3 pt-3 sm:px-4 sm:pt-4"></div>
 
-            {(showEpisodePicker || (content.type === "movie" && hasDownloadControl)) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="shrink-0 gap-2 rounded-xl bg-background/65 text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (showEpisodePicker) onOpenEpisodePicker?.();
-                  else if (downloadUrl) handleDownload();
+        {!isPlaying && !isScraping && !mediaError && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={togglePlay}
+            className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-xl text-white hover:bg-white/10"
+            aria-label="Play"
+          >
+            <Play className="h-12 w-12 fill-white stroke-white" />
+          </Button>
+        )}
+
+        <div className="w-full px-3 pb-2 pt-0 sm:px-4 sm:pb-3" onClick={(e) => e.stopPropagation()}>
+          <div className="group/scrubber relative mb-1 h-6 w-full">
+            <div className="pointer-events-none absolute inset-x-0 top-2.5 h-1 rounded-full bg-white/25" />
+            <div
+              className="pointer-events-none absolute left-0 top-2.5 h-1 rounded-full bg-primary"
+              style={{ width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%` }}
+            />
+            {skipTimes.intro && duration > 0 && (
+              <div
+                className="pointer-events-none absolute top-2.5 z-10 h-1 rounded-full bg-warning/80"
+                style={{
+                  left: markerPosition(skipTimes.intro.start),
+                  width: `${Math.max(0, ((skipTimes.intro.end - skipTimes.intro.start) / duration) * 100)}%`
                 }}
-                aria-label={showEpisodePicker ? "Download episodes" : downloadActionLabel}
-                title={showEpisodePicker ? "Download episodes" : downloadActionLabel}
-              >
-                {showEpisodePicker ? (
-                  <ListVideo className="w-4 h-4" />
-                ) : downloadUrl && downloadState.status === "downloading" ? (
-                  <Pause className="w-4 h-4" />
-                ) : (
-                  <Download className="w-4 h-4" />
-                )}
-                {showEpisodePicker
-                  ? batchDownloadProgress === null
-                    ? "Download episodes"
-                    : `Downloading · ${batchDownloadProgress}%`
-                  : downloadUrl
-                    ? downloadProgress === null
-                      ? "Download"
-                      : `${downloadProgress}%`
-                    : "HLS unavailable"}
-              </Button>
+                title="Intro"
+              />
             )}
-          </div>
-        </div>
-
-        <div
-          className="m-3 w-auto rounded-xl border border-border/60 bg-background/72 p-4 sm:m-5"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="w-full flex items-center gap-2 group/scrubber">
-            <span className="w-12 text-right font-mono text-xs text-foreground/80">
-              {formatTime(currentTime)}
-            </span>
+            {skipTimes.outro && duration > 0 && (
+              <div
+                className="pointer-events-none absolute top-2.5 z-10 h-1 rounded-full bg-destructive/80"
+                style={{
+                  left: markerPosition(skipTimes.outro.start),
+                  width: `${Math.max(0, ((skipTimes.outro.end - skipTimes.outro.start) / duration) * 100)}%`
+                }}
+                title="Outro"
+              />
+            )}
+            {skipTimes.intro && duration > 0 && (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 top-1 z-20 h-3 w-0.5 bg-warning"
+                  style={{ left: markerPosition(skipTimes.intro.start) }}
+                />
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 top-1 z-20 h-3 w-0.5 bg-warning"
+                  style={{ left: markerPosition(skipTimes.intro.end) }}
+                />
+              </>
+            )}
+            {skipTimes.outro && duration > 0 && (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 top-1 z-20 h-3 w-0.5 bg-destructive"
+                  style={{ left: markerPosition(skipTimes.outro.start) }}
+                />
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 top-1 z-20 h-3 w-0.5 bg-destructive"
+                  style={{ left: markerPosition(skipTimes.outro.end) }}
+                />
+              </>
+            )}
             <input
+              aria-label="Seek video"
               type="range"
               min={0}
               max={duration || 100}
               value={currentTime}
               onChange={(e) => handleSeek(Number(e.target.value))}
-              className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary transition-all group-hover/scrubber:h-2"
+              className="custom-player-seek absolute inset-0 h-6 w-full cursor-pointer appearance-none rounded-full bg-transparent"
             />
-            <span className="w-12 text-left font-mono text-xs text-foreground/80">
-              {formatTime(duration)}
-            </span>
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={togglePlay}
-                className="text-white p-1.5 bg-white/10 rounded-full hover:bg-white/20 h-9 w-9"
+                className="h-8 w-8 rounded-md p-0 text-white hover:bg-white/10"
               >
                 {isPlaying ? (
-                  <Pause className="w-6 h-6 fill-white" />
+                  <Pause className="h-4 w-4 fill-white" />
                 ) : (
-                  <Play className="w-6 h-6 fill-white" />
+                  <Play className="h-4 w-4 fill-white" />
                 )}
               </Button>
 
@@ -597,12 +599,12 @@ export function CustomVideoPlayer({
                   variant="ghost"
                   size="icon"
                   onClick={toggleMute}
-                  className="text-white hover:bg-white/15 p-1.5 rounded-full transition-colors h-8 w-8"
+                  className="h-8 w-8 rounded-md p-0 text-white hover:bg-white/10"
                 >
                   {isMuted || volume === 0 ? (
-                    <VolumeX className="w-5 h-5" />
+                    <VolumeX className="h-4 w-4" />
                   ) : (
-                    <Volume2 className="w-5 h-5" />
+                    <Volume2 className="h-4 w-4" />
                   )}
                 </Button>
                 <input
@@ -612,9 +614,12 @@ export function CustomVideoPlayer({
                   step={0.05}
                   value={isMuted ? 0 : volume}
                   onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                  className="w-0 overflow-hidden group-hover/volume:w-20 transition-all duration-300 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white"
+                  className="h-1 w-0 cursor-pointer appearance-none overflow-hidden rounded-lg bg-white/30 accent-white transition-all duration-300 group-hover/volume:w-20"
                 />
               </div>
+              <span className="font-mono text-[10px] text-white/75 sm:text-xs">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
             </div>
 
             <div className="flex items-center gap-2 relative">
@@ -762,20 +767,22 @@ export function CustomVideoPlayer({
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowSettings(!showSettings)}
-                className={`text-white hover:bg-white/15 p-2 rounded-full transition-colors h-9 w-9 ${
+                aria-label="Open settings"
+                title="Settings"
+                className={`h-8 w-8 rounded-md p-0 text-white hover:bg-white/10 ${
                   showSettings ? "bg-white/15" : ""
                 }`}
               >
-                <Settings className="w-5 h-5" />
+                <Settings className="h-4 w-4" />
               </Button>
 
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={toggleFullscreen}
-                className="text-white hover:bg-white/15 p-2 rounded-full transition-colors h-9 w-9"
+                className="h-8 w-8 rounded-md p-0 text-white hover:bg-white/10"
               >
-                {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
               </Button>
             </div>
           </div>
@@ -800,7 +807,7 @@ export function CustomVideoPlayer({
               videoRef.current.currentTime = isIntro ? skipTimes.intro!.end : skipTimes.outro!.end;
             }
           }}
-          className="absolute bottom-24 right-4 z-50 bg-primary hover:bg-primary/90 text-primary-foreground"
+          className="absolute bottom-36 right-3 z-50 rounded-md bg-white px-3 py-2 text-xs font-medium text-black shadow-lg hover:bg-white/90 sm:bottom-40 sm:right-4"
         >
           Skip {isIntro ? "Intro" : "Outro"}
         </Button>

@@ -175,7 +175,13 @@ export function MediaBrowsePage({ mode }: { mode: MediaMode }) {
               </div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {paginated.items.map((item) => (
-                  <MovieCard key={item._id} content={item} onPlay={handlePlay} layout="grid" />
+                  <MovieCard
+                    key={item._id}
+                    content={item}
+                    onPlay={handlePlay}
+                    layout="grid"
+                    showWatchlistAction={mode !== "anime"}
+                  />
                 ))}
               </div>
             </div>

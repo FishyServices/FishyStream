@@ -214,6 +214,49 @@
     @apply block h-full rounded-full bg-primary;
   }
 
+  .custom-player-seek {
+    touch-action: none;
+  }
+
+  .custom-player-seek::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    background: transparent;
+  }
+
+  .custom-player-seek::-webkit-slider-thumb {
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-top: -0.25rem;
+    appearance: none;
+    border: 0.125rem solid var(--color-foreground);
+    border-radius: 9999px;
+    background: var(--color-primary);
+    box-shadow: 0 0 0 0.2rem color-mix(in oklab, var(--color-primary) 18%, transparent);
+    transition:
+      transform 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .custom-player-seek:hover::-webkit-slider-thumb,
+  .custom-player-seek:focus-visible::-webkit-slider-thumb {
+    transform: scale(1.2);
+    box-shadow: 0 0 0 0.3rem color-mix(in oklab, var(--color-primary) 28%, transparent);
+  }
+
+  .custom-player-seek::-moz-range-track {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: transparent;
+  }
+
+  .custom-player-seek::-moz-range-thumb {
+    width: 0.75rem;
+    height: 0.75rem;
+    border: 0.125rem solid var(--color-foreground);
+    border-radius: 9999px;
+    background: var(--color-primary);
+  }
+
   .auth-canvas {
     @apply relative min-h-dvh overflow-hidden bg-background px-4 py-8;
   }
