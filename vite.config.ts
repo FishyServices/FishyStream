@@ -64,7 +64,6 @@ export default defineConfig(({ mode }) => {
               if (id.includes("@radix-ui")) return "vendor-ui";
               if (id.includes("hls.js")) return "vendor-hls";
               if (id.includes("convex")) return "vendor-convex";
-              if (id.includes("posthog")) return "vendor-posthog";
               if (id.includes("react-router")) return "vendor-router";
               if (id.includes("@capacitor")) return "vendor-capacitor";
               return "vendor";

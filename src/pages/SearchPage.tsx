@@ -1,14 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
-import { usePostHog } from "@posthog/react";
 import { Filter, Search, X, Tv, Film } from "lucide-react";
 import { Header } from "@/ui/components/Header";
 import { useSearchAll, type TMDBItem } from "@/features/catalog/queries/useContent";
 import { SearchCard } from "@/ui/components/SearchCard";
 import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger } from "@fishy/ui";
-import { isPostHogEnabled } from "@/shared/config/posthog";
 
 type SearchTypeFilter = "all" | "movie" | "tv";
 type SearchSort = "relevance" | "title" | "newest" | "rating";
@@ -45,7 +43,6 @@ function sortSearchResults(items: TMDBItem[], sort: SearchSort) {
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const posthog = usePostHog();
 
   useSeoMeta({
     title: "Search",
@@ -79,44 +76,6 @@ export function SearchPage() {
   useEffect(() => {
     setInput(query);
   }, [query]);
-
-  useEffect(() => {
-    const normalizedQuery = query.trim();
-    if (!isPostHogEnabled || !normalizedQuery || loading) return;
-
-    const trackingKey = JSON.stringify({
-      query: normalizedQuery,
-      typeFilter,
-      sort,
-      resultCount: results.length,
-      error
-    });
-    if (lastTrackedSearchRef.current === trackingKey) return;
-    lastTrackedSearchRef.current = trackingKey;
-
-    posthog.capture("search_performed", {
-      query: normalizedQuery,
-      type_filter: typeFilter,
-      sort,
-      result_count: results.length,
-      filtered_result_count: filteredResults.length,
-      movie_count: movieCount,
-      show_count: showCount,
-      has_error: Boolean(error),
-      error_message: error ?? undefined
-    });
-  }, [
-    error,
-    filteredResults.length,
-    loading,
-    movieCount,
-    posthog,
-    query,
-    results.length,
-    showCount,
-    sort,
-    typeFilter
-  ]);
 
   const handleInput = (val: string) => {
     setInput(val);

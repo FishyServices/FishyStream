@@ -32,12 +32,10 @@
     "@clerk/themes": "2.4.57",
     "@cloudflare/puppeteer": "1.4.0",
     "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git",
-    "@posthog/react": "1.10.5",
     "class-variance-authority": "0.7.1",
     "convex": "1.45.0",
     "hls.js": "1.7.2",
     "lucide-react": "1.39.0",
-    "posthog-js": "1.425.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-router-dom": "7.18.3"
