@@ -20,6 +20,7 @@ export type ProviderKey =
   | "videasy"
   | "vidfast"
   | "vidking"
+  | "vidlove"
   | "vidlux"
   | "vidnest"
   | "vidrock"
@@ -28,8 +29,8 @@ export type ProviderKey =
   | "vidup"
   | "vidzee"
   | "vidzen"
-  | "vidlink"
-  | "vixsrc";
+  | "vixsrc"
+  | "zxcstream";
 
 export type ProviderCategory = "primary" | "primary_anime" | "other";
 export type ProviderIdType = "tmdb" | "imdb" | "both";
@@ -579,6 +580,33 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
+    key: "vidlove",
+    name: "VidLove",
+    category: "other",
+    idType: "tmdb",
+    website: "https://player.vidlove.cc",
+    referrerPolicy: "no-referrer",
+    params: {
+      primarycolor: { type: "hex" },
+      secondarycolor: { type: "hex" },
+      iconcolor: { type: "hex" },
+      autoplay: { type: "boolean" },
+      poster: { type: "boolean" },
+      chromecast: { type: "boolean" },
+      servericon: { type: "boolean" },
+      setting: { type: "boolean" },
+      pip: { type: "boolean" },
+      font: { type: "string" },
+      fontcolor: { type: "hex" },
+      fontsize: { type: "number" },
+      opacity: { type: "number" },
+      logourl: { type: "string" },
+      server: { type: "string" }
+    },
+    moviePath: (id) => `/embed/movie/${id}`,
+    tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
     key: "vidlux",
     name: "VidLux",
     category: "other",
@@ -727,6 +755,24 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     },
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "zxcstream",
+    name: "ZXCStream",
+    category: "other",
+    idType: "tmdb",
+    website: "https://zxcstream.xyz",
+    referrerPolicy: "no-referrer",
+    params: {
+      dubLang: { type: "string" },
+      server: { type: "string" },
+      domainAd: { type: "string" },
+      color: { type: "hex" },
+      autoplay: { type: "boolean" },
+      back: { type: "boolean" }
+    },
+    moviePath: (id) => `/player/movie/${id}`,
+    tvPath: (id, season, episode) => `/player/tv/${id}/${season}/${episode}`
   })
 ];
 
@@ -914,7 +960,10 @@ export async function buildTvSources(args: {
     if (provider.animeOnly && !isAnime) continue;
 
     const fallbackId = getProviderId(provider, imdbId, tmdbId);
-    const usesAniList = isAnime && !!provider.getAnimeTVUrl && provider.animeIdType === "anilist";
+    const usesAniList =
+      isAnime &&
+      ((!!provider.getAnimeTVUrl && provider.animeIdType === "anilist") ||
+        (!!provider.getMalAnimeTVUrl && providerIdType === "mal"));
     const aniListAddress = usesAniList ? await getAniListAddress() : undefined;
     const useMalId = !!provider.getMalAnimeTVUrl && providerIdType === "mal";
     const animeId = usesAniList
