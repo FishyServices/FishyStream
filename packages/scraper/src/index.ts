@@ -21,6 +21,10 @@ type StreamResult = {
   outro?: any;
 };
 
+type MediaType = "hls" | "file";
+type JsonRecord = Record<string, unknown>;
+type MediaCandidate = { url: string; mediaType: MediaType };
+
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.use("/*", cors());
@@ -45,7 +49,29 @@ function resolveUrl(relative: string, base: string): string {
   }
 }
 
-function getMediaType(url: string): "hls" | "file" | null {
+function inheritSameOriginQueryParameters(childUrl: string, parentUrl: string): string {
+  try {
+    const child = new URL(childUrl);
+    const parent = new URL(parentUrl);
+    if (child.origin !== parent.origin) return child.href;
+
+    for (const [key, value] of parent.searchParams) {
+      if (!child.searchParams.has(key)) child.searchParams.set(key, value);
+    }
+    return child.href;
+  } catch {
+    return childUrl;
+  }
+}
+
+function getMediaType(url: string, hint?: unknown): MediaType | null {
+  if (typeof hint === "string") {
+    if (/^(hls|m3u8)$/i.test(hint)) return "hls";
+    if (/^(file|mp4|webm|video)$/i.test(hint)) return "file";
+    if (/mpegurl|mp4|webm|video\//i.test(hint)) {
+      return /mpegurl|m3u8/i.test(hint) ? "hls" : "file";
+    }
+  }
   if (/\.m3u8(?:[?#]|$)/i.test(url)) return "hls";
   if (/\.mp4(?:[?#]|$)|\.webm(?:[?#]|$)|mp4-proxy|video-proxy/i.test(url)) return "file";
   return null;
@@ -56,39 +82,83 @@ function sanitizeFilename(value: string | undefined): string {
   return filename || "fishystream-video.mp4";
 }
 
-function findPlayableMediaInObject(obj: any): { url: string; mediaType: "hls" | "file" } | null {
-  if (typeof obj === "string") {
-    const mediaType = getMediaType(obj);
-    return mediaType ? { url: obj, mediaType } : null;
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function resolveMediaCandidate(
+  value: unknown,
+  hint?: unknown,
+  base?: string
+): MediaCandidate | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  let url = value.trim();
+  if (/#EXTM3U|#EXT-X-/i.test(url) || /\r?\n/.test(url)) return null;
+  try {
+    url = base ? new URL(url, base).href : new URL(url).href;
+  } catch {
+    return null;
   }
-  if (Array.isArray(obj)) {
-    for (const item of obj) {
-      const found = findPlayableMediaInObject(item);
+
+  const mediaType = getMediaType(url, hint);
+  return mediaType ? { url, mediaType } : null;
+}
+
+function findPlayableMediaInObject(value: unknown, base?: string): MediaCandidate | null {
+  if (typeof value === "string") return resolveMediaCandidate(value, undefined, base);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findPlayableMediaInObject(item, base);
       if (found) return found;
     }
-  } else if (typeof obj === "object" && obj !== null) {
-    for (const key of Object.keys(obj)) {
-      const found = findPlayableMediaInObject(obj[key]);
-      if (found) return found;
-    }
+    return null;
+  }
+  if (!isRecord(value)) return null;
+
+  const typeHint = value.type ?? value.format ?? value.mimeType;
+  const hasHlsManifest =
+    typeof value.manifest === "string" && /#EXTM3U|#EXT-X-/i.test(value.manifest);
+  for (const key of ["file", "url", "src", "source", "stream", "hls", "mp4"]) {
+    const found = resolveMediaCandidate(
+      value[key],
+      key === "hls" || (key === "url" && hasHlsManifest)
+        ? "hls"
+        : key === "mp4"
+          ? "file"
+          : typeHint,
+      base
+    );
+    if (found) return found;
+  }
+
+  for (const nested of Object.values(value)) {
+    const found = findPlayableMediaInObject(nested, base);
+    if (found) return found;
   }
   return null;
 }
 
 function extractSourcesPayload(
-  json: any
-): { file: string; mediaType: "hls" | "file"; tracks?: any; intro?: any; outro?: any } | null {
-  const sources = json?.sources;
-  if (!sources) return null;
-
-  const file = Array.isArray(sources) ? sources[0]?.file : sources?.file;
-  if (typeof file === "string") {
-    const mediaType = getMediaType(file);
-    if (mediaType) {
-      return { file, mediaType, tracks: json.tracks, intro: json.intro, outro: json.outro };
-    }
-  }
-  return null;
+  json: unknown,
+  base?: string
+): {
+  file: string;
+  mediaType: MediaType;
+  tracks?: unknown;
+  intro?: unknown;
+  outro?: unknown;
+} | null {
+  if (!isRecord(json)) return null;
+  const candidate = findPlayableMediaInObject(json.sources, base);
+  if (!candidate) return null;
+  return {
+    file: candidate.url,
+    mediaType: candidate.mediaType,
+    tracks: json.tracks,
+    intro: json.intro,
+    outro: json.outro
+  };
 }
 
 function buildProxyUrl(
@@ -130,12 +200,35 @@ function unwrapMediaProxy(url: string, headers: StreamHeaders) {
   }
 }
 
-async function fetchWithReferrerFallback(url: string, headers: StreamHeaders) {
+function isCertificateVerificationError(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+  return (
+    error.code === "UNKNOWN_CERTIFICATE_VERIFICATION_ERROR" ||
+    (typeof error.message === "string" &&
+      /certificate verification|certificate/i.test(error.message))
+  );
+}
+
+async function fetchWithReferrerFallback(
+  url: string,
+  headers: StreamHeaders,
+  launchBrowser?: () => Promise<any>
+) {
   const requestHeaders = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     ...headers
   };
-  const response = await fetch(url, { headers: requestHeaders });
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: requestHeaders });
+  } catch (error) {
+    if (!launchBrowser || !isCertificateVerificationError(error)) throw error;
+    const browserResponse = await fetchWithBrowserFallback(url, headers, launchBrowser);
+    return new Response(browserResponse.body, {
+      status: 200,
+      headers: { "Content-Type": browserResponse.contentType }
+    });
+  }
   if (response.status !== 401 && response.status !== 403) return response;
 
   const fallbackHeaders = {
@@ -149,7 +242,16 @@ async function fetchWithReferrerFallback(url: string, headers: StreamHeaders) {
     return response;
   }
 
-  return fetch(url, { headers: fallbackHeaders });
+  try {
+    return await fetch(url, { headers: fallbackHeaders });
+  } catch (error) {
+    if (!launchBrowser || !isCertificateVerificationError(error)) throw error;
+    const browserResponse = await fetchWithBrowserFallback(url, fallbackHeaders, launchBrowser);
+    return new Response(browserResponse.body, {
+      status: 200,
+      headers: { "Content-Type": browserResponse.contentType }
+    });
+  }
 }
 
 async function fetchWithBrowserFallback(
@@ -263,7 +365,7 @@ app.get("/api/scrape", async (c) => {
 
       try {
         const json = JSON.parse(raw);
-        const payload = extractSourcesPayload(json);
+        const payload = extractSourcesPayload(json, targetUrl);
         if (payload) {
           console.log(`[Scraper] Found stream via injected fetch/XHR interception`);
           result = {
@@ -324,7 +426,7 @@ app.get("/api/scrape", async (c) => {
 
         if (isJson) {
           const json = JSON.parse(text);
-          const payload = extractSourcesPayload(json);
+          const payload = extractSourcesPayload(json, url);
           if (payload) {
             console.log(`[Scraper] Found getSources payload in JSON response: ${url}`);
             result = {
@@ -338,7 +440,7 @@ app.get("/api/scrape", async (c) => {
             return;
           }
 
-          const deep = findPlayableMediaInObject(json);
+          const deep = findPlayableMediaInObject(json, url);
           if (deep) {
             console.log(`[Scraper] Found ${deep.mediaType} deep in JSON tree: ${url}`);
             result = { url: deep.url, mediaType: deep.mediaType, headers: pageHeaders };
@@ -423,7 +525,7 @@ app.get("/api/subtitle-proxy", async (c) => {
   }
 
   try {
-    const response = await fetchWithReferrerFallback(url, extraHeaders);
+    const response = await fetchWithReferrerFallback(url, extraHeaders, c.env.launchBrowser);
     if (response.ok) {
       return c.text(await response.text(), 200, {
         "Content-Type": response.headers.get("content-type") ?? "text/vtt",
@@ -465,7 +567,7 @@ app.get("/api/m3u8-proxy", async (c) => {
   console.log(`[Proxy] Fetching M3U8: ${url}`);
 
   try {
-    const response = await fetchWithReferrerFallback(url, extraHeaders);
+    const response = await fetchWithReferrerFallback(url, extraHeaders, c.env.launchBrowser);
     let m3u8Content: string;
 
     if (response.ok) {
@@ -500,7 +602,10 @@ app.get("/api/m3u8-proxy", async (c) => {
           const uriMatch = line.match(/URI="([^"]+)"/);
           if (uriMatch && uriMatch[1]) {
             const original: string = uriMatch[1];
-            const resolved = resolveUrl(original, m3u8Url);
+            const resolved = inheritSameOriginQueryParameters(
+              resolveUrl(original, m3u8Url),
+              m3u8Url
+            );
             const isMedia = line.startsWith("#EXT-X-MEDIA");
             const endpoint = isMedia ? "/api/m3u8-proxy" : "/api/ts-proxy";
             const proxied = `${base}${endpoint}?url=${encodeURIComponent(resolved)}&headers=${encodedHeaders}`;
@@ -511,7 +616,10 @@ app.get("/api/m3u8-proxy", async (c) => {
 
         if (!line.trim()) return line;
 
-        const resolved = resolveUrl(line.trim(), m3u8Url);
+        const resolved = inheritSameOriginQueryParameters(
+          resolveUrl(line.trim(), m3u8Url),
+          m3u8Url
+        );
         const endpoint = isMaster ? "/api/m3u8-proxy" : "/api/ts-proxy";
         return `${base}${endpoint}?url=${encodeURIComponent(resolved)}&headers=${encodedHeaders}`;
       })
@@ -547,10 +655,14 @@ app.get("/api/media-proxy", async (c) => {
   console.log(`[Proxy] Fetching media: ${url}`);
 
   try {
-    const response = await fetchWithReferrerFallback(url, {
-      ...extraHeaders,
-      ...(range ? { Range: range } : {})
-    });
+    const response = await fetchWithReferrerFallback(
+      url,
+      {
+        ...extraHeaders,
+        ...(range ? { Range: range } : {})
+      },
+      c.env.launchBrowser
+    );
 
     if (response.status === 401 || response.status === 403 || response.status === 429) {
       console.log(`[Media Proxy] Upstream returned ${response.status}; retrying through Chromium`);
@@ -628,7 +740,7 @@ app.get("/api/ts-proxy", async (c) => {
   console.log(`[Proxy] Fetching TS chunk: ${url.split("/").pop() ?? ""}`);
 
   try {
-    const response = await fetchWithReferrerFallback(url, extraHeaders);
+    const response = await fetchWithReferrerFallback(url, extraHeaders, c.env.launchBrowser);
 
     if (response.status === 401 || response.status === 403) {
       console.log(`[TS Proxy] Upstream returned ${response.status}; retrying through Chromium`);

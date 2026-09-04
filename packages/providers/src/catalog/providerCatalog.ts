@@ -240,6 +240,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://cinesrc.st",
+    supportsCustomUI: true,
     progress: { resumeParam: "startAt" },
     params: {
       seek: { type: "number" },
@@ -630,6 +631,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vidnest.fun",
+    supportsCustomUI: true,
     animeIdType: "anilist",
     dubSupport: true,
     progress: { resumeParam: "progress" },
@@ -744,6 +746,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vixsrc.to",
+    supportsCustomUI: true,
     progress: { resumeParam: "startAt" },
     referrerPolicy: "no-referrer",
     params: {
