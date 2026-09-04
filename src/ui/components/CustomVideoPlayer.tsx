@@ -11,7 +11,6 @@ import {
   VolumeX,
   Maximize,
   Minimize,
-  Loader2,
   Settings,
   Download
 } from "lucide-react";
@@ -461,18 +460,8 @@ export function CustomVideoPlayer({
       ref={containerRef}
       onMouseMove={triggerControls}
       onMouseLeave={() => isPlaying && setShowControls(false)}
-      className="relative h-full w-full bg-black flex items-center justify-center select-none overflow-hidden group/custom-player"
+      className="group/custom-player relative flex h-full w-full select-none items-center justify-center overflow-hidden bg-black ring-1 ring-white/10"
     >
-      {isScraping && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/95 ">
-          <div className="media-surface rounded-xl p-8 text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground">
-              {localFile ? `Loading ${localFile.name}` : "Loading stream"}
-            </p>
-          </div>
-        </div>
-      )}
       <video
         ref={videoRef}
         onClick={togglePlay}
@@ -499,30 +488,64 @@ export function CustomVideoPlayer({
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        <div className="flex w-full items-start justify-between px-3 pt-3 sm:px-4 sm:pt-4"></div>
+        <div className="flex w-full items-start justify-between gap-4 px-3 pt-3 sm:px-5 sm:pt-5">
+          <div className="flex min-w-0 items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              aria-label="Go back"
+              className="touch-target h-10 w-10 shrink-0 rounded-xl border border-white/10 bg-black/25 text-white backdrop-blur-md hover:bg-white/15"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white sm:text-base">
+                {content.title}
+              </p>
+              <p className="eyebrow mt-1 text-white/55">
+                {content.type === "tv"
+                  ? `Season ${tvTarget.season} · Episode ${tvTarget.episode}`
+                  : "Movie"}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onInfoClick}
+            aria-label="Show details"
+            className="touch-target h-10 w-10 shrink-0 rounded-xl border border-white/10 bg-black/25 text-white backdrop-blur-md hover:bg-white/15"
+          >
+            <Info className="h-5 w-5" />
+          </Button>
+        </div>
 
         {!isPlaying && !isScraping && !mediaError && (
           <Button
             variant="ghost"
             size="icon"
             onClick={togglePlay}
-            className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-xl text-white hover:bg-white/10"
+            className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/25 bg-primary/90 text-primary-foreground shadow-2xl shadow-primary/25 transition-transform hover:scale-105 hover:bg-primary"
             aria-label="Play"
           >
-            <Play className="h-12 w-12 fill-white stroke-white" />
+            <Play className="ml-1 h-9 w-9 fill-current stroke-current" />
           </Button>
         )}
 
-        <div className="w-full px-3 pb-2 pt-0 sm:px-4 sm:pb-3" onClick={(e) => e.stopPropagation()}>
-          <div className="group/scrubber relative mb-1 h-6 w-full">
-            <div className="pointer-events-none absolute inset-x-0 top-2.5 h-1 rounded-full bg-white/25" />
+        <div
+          className="mx-2 mb-2 w-[calc(100%-1rem)] rounded-2xl border border-white/10 bg-black/45 px-3 pb-2 pt-1 shadow-2xl shadow-black/30 backdrop-blur-xl sm:mx-4 sm:mb-4 sm:w-[calc(100%-2rem)] sm:px-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="group/scrubber relative mb-1 h-8 w-full">
+            <div className="pointer-events-none absolute inset-x-0 top-3.5 h-1.5 rounded-full bg-white/20" />
             <div
-              className="pointer-events-none absolute left-0 top-2.5 h-1 rounded-full bg-primary"
+              className="pointer-events-none absolute left-0 top-3.5 h-1.5 rounded-full bg-primary shadow-[0_0_12px_color-mix(in_oklab,var(--color-primary)_55%,transparent)]"
               style={{ width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%` }}
             />
             {skipTimes.intro && duration > 0 && (
               <div
-                className="pointer-events-none absolute top-2.5 z-10 h-1 rounded-full bg-warning/80"
+                className="pointer-events-none absolute top-3.5 z-10 h-1.5 rounded-full bg-warning/80"
                 style={{
                   left: markerPosition(skipTimes.intro.start),
                   width: `${Math.max(0, ((skipTimes.intro.end - skipTimes.intro.start) / duration) * 100)}%`
@@ -532,7 +555,7 @@ export function CustomVideoPlayer({
             )}
             {skipTimes.outro && duration > 0 && (
               <div
-                className="pointer-events-none absolute top-2.5 z-10 h-1 rounded-full bg-destructive/80"
+                className="pointer-events-none absolute top-3.5 z-10 h-1.5 rounded-full bg-destructive/80"
                 style={{
                   left: markerPosition(skipTimes.outro.start),
                   width: `${Math.max(0, ((skipTimes.outro.end - skipTimes.outro.start) / duration) * 100)}%`
@@ -544,12 +567,12 @@ export function CustomVideoPlayer({
               <>
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-1 z-20 h-3 w-0.5 bg-warning"
+                  className="pointer-events-none absolute left-0 top-2 z-20 h-4 w-0.5 bg-warning"
                   style={{ left: markerPosition(skipTimes.intro.start) }}
                 />
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-1 z-20 h-3 w-0.5 bg-warning"
+                  className="pointer-events-none absolute left-0 top-2 z-20 h-4 w-0.5 bg-warning"
                   style={{ left: markerPosition(skipTimes.intro.end) }}
                 />
               </>
@@ -558,12 +581,12 @@ export function CustomVideoPlayer({
               <>
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-1 z-20 h-3 w-0.5 bg-destructive"
+                  className="pointer-events-none absolute left-0 top-2 z-20 h-4 w-0.5 bg-destructive"
                   style={{ left: markerPosition(skipTimes.outro.start) }}
                 />
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-1 z-20 h-3 w-0.5 bg-destructive"
+                  className="pointer-events-none absolute left-0 top-2 z-20 h-4 w-0.5 bg-destructive"
                   style={{ left: markerPosition(skipTimes.outro.end) }}
                 />
               </>
@@ -575,7 +598,7 @@ export function CustomVideoPlayer({
               max={duration || 100}
               value={currentTime}
               onChange={(e) => handleSeek(Number(e.target.value))}
-              className="custom-player-seek absolute inset-0 h-6 w-full cursor-pointer appearance-none rounded-full bg-transparent"
+              className="custom-player-seek absolute inset-0 h-8 w-full cursor-pointer appearance-none rounded-full bg-transparent"
             />
           </div>
 
@@ -585,7 +608,8 @@ export function CustomVideoPlayer({
                 variant="ghost"
                 size="icon"
                 onClick={togglePlay}
-                className="h-8 w-8 rounded-md p-0 text-white hover:bg-white/10"
+                aria-label={isPlaying ? "Pause" : "Play"}
+                className="touch-target h-10 w-10 rounded-xl p-0 text-white hover:bg-white/15"
               >
                 {isPlaying ? (
                   <Pause className="h-4 w-4 fill-white" />
@@ -594,12 +618,13 @@ export function CustomVideoPlayer({
                 )}
               </Button>
 
-              <div className="flex items-center gap-2 group/volume">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={toggleMute}
-                  className="h-8 w-8 rounded-md p-0 text-white hover:bg-white/10"
+                  aria-label={isMuted || volume === 0 ? "Unmute" : "Mute"}
+                  className="touch-target h-10 w-10 rounded-xl p-0 text-white hover:bg-white/15"
                 >
                   {isMuted || volume === 0 ? (
                     <VolumeX className="h-4 w-4" />
@@ -614,18 +639,18 @@ export function CustomVideoPlayer({
                   step={0.05}
                   value={isMuted ? 0 : volume}
                   onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                  className="h-1 w-0 cursor-pointer appearance-none overflow-hidden rounded-lg bg-white/30 accent-white transition-all duration-300 group-hover/volume:w-20"
+                  className="h-1 w-14 cursor-pointer appearance-none overflow-hidden rounded-lg bg-white/30 accent-white sm:w-20"
                 />
               </div>
-              <span className="font-mono text-[10px] text-white/75 sm:text-xs">
+              <span className="whitespace-nowrap font-mono text-[10px] tabular-nums text-white/75 sm:text-xs">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
             </div>
 
             <div className="flex items-center gap-2 relative">
               {showSettings && (
-                <div className="absolute bottom-12 right-0 bg-neutral-950/95 border border-white/10 rounded-lg p-3 w-64 flex flex-col gap-3 shadow-md text-white z-50">
-                  <div className="text-xs font-semibold text-white/50 border-b border-white/10 pb-1.5">
+                <div className="absolute bottom-14 right-0 z-50 flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-3 rounded-2xl border border-white/10 bg-neutral-950/95 p-3 text-white shadow-2xl shadow-black/40 backdrop-blur-xl">
+                  <div className="border-b border-white/10 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/50">
                     Settings
                   </div>
 
@@ -769,7 +794,7 @@ export function CustomVideoPlayer({
                 onClick={() => setShowSettings(!showSettings)}
                 aria-label="Open settings"
                 title="Settings"
-                className={`h-8 w-8 rounded-md p-0 text-white hover:bg-white/10 ${
+                className={`touch-target h-10 w-10 rounded-xl p-0 text-white hover:bg-white/15 ${
                   showSettings ? "bg-white/15" : ""
                 }`}
               >
@@ -780,7 +805,8 @@ export function CustomVideoPlayer({
                 variant="ghost"
                 size="icon"
                 onClick={toggleFullscreen}
-                className="h-8 w-8 rounded-md p-0 text-white hover:bg-white/10"
+                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                className="touch-target h-10 w-10 rounded-xl p-0 text-white hover:bg-white/15"
               >
                 {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
               </Button>
@@ -790,8 +816,11 @@ export function CustomVideoPlayer({
       </div>
 
       {mediaError && (
-        <div className="absolute inset-x-4 top-1/2 z-50 -translate-y-1/2 rounded-lg border border-destructive/50 bg-background/95 p-5 text-center sm:inset-x-1/4">
-          <p className="font-display font-semibold text-foreground">Video unavailable</p>
+        <div className="absolute inset-x-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl border border-destructive/40 bg-background/95 p-6 text-center shadow-2xl shadow-black/40 backdrop-blur-xl sm:inset-x-1/4">
+          <p className="eyebrow text-destructive">Playback error</p>
+          <p className="mt-2 font-display text-lg font-semibold text-foreground">
+            Video unavailable
+          </p>
           <p className="mt-2 text-sm text-muted-foreground">{mediaError}</p>
           <Button size="sm" className="mt-4" onClick={() => navigate("/")}>
             Choose another file from Home
@@ -807,7 +836,7 @@ export function CustomVideoPlayer({
               videoRef.current.currentTime = isIntro ? skipTimes.intro!.end : skipTimes.outro!.end;
             }
           }}
-          className="absolute bottom-36 right-3 z-50 rounded-md bg-white px-3 py-2 text-xs font-medium text-black shadow-lg hover:bg-white/90 sm:bottom-40 sm:right-4"
+          className="absolute bottom-28 right-4 z-50 rounded-xl border border-white/20 bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-black shadow-xl shadow-black/30 hover:bg-white/90 sm:bottom-32 sm:right-6"
         >
           Skip {isIntro ? "Intro" : "Outro"}
         </Button>
