@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Sparkles, RefreshCw, Film, Tv, Folder, Check, SlidersHorizontal } from "lucide-react";
 import { MovieCard } from "@/ui/components/MovieCard";
 import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
-import { useAllMyWatchlist } from "@/features/library/useWatchlist";
+import { useWatchlistSummary } from "@/features/library/useWatchlist";
 import { useUser } from "@clerk/react";
 import { useRecommendations } from "@/features/catalog/queries/useContent";
 import { useRecommendationFolderScope } from "@/features/catalog/recommendationFolderScope";
@@ -40,21 +40,16 @@ export function RecommendationsSection({
   const { isSignedIn, user } = useUser();
   const [typeFilter, setTypeFilter] = useState<"all" | "movie" | "tv">("all");
   const [refreshSeed, setRefreshSeed] = useState(0);
-  const watchlistData = useAllMyWatchlist();
-  const hasHistoryOrWatchlist = watchlistData.length > 0 || !!isSignedIn;
+  const watchlistSummary = useWatchlistSummary();
   const { scope: folderScope, setScope: setFolderScope } = useRecommendationFolderScope(
     user?.id ?? "guest"
   );
   const folderOptions = useMemo(
     () =>
-      Array.from(
-        new Set(
-          watchlistData
-            .map((item) => item.watchlistFolder?.trim())
-            .filter((folder): folder is string => !!folder)
-        )
-      ).sort((a, b) => a.localeCompare(b)),
-    [watchlistData]
+      Array.from(new Set(watchlistSummary?.folders.map((folder) => folder.name) ?? [])).sort(
+        (a, b) => a.localeCompare(b)
+      ),
+    [watchlistSummary]
   );
   const { recommendations, isLoading } = useRecommendations(
     limit,

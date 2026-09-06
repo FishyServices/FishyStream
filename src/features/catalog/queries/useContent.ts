@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/react";
-import { useAllMyWatchlistState } from "@/features/library/useWatchlist";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import { useContinueWatching, useMyWatchHistory } from "@/features/library/useWatchHistory";
 import { useRecommendationFolderScope } from "@/features/catalog/recommendationFolderScope";
 import type { ContentCard, ContentFeatured, ContentPlayback } from "@content/contentMetadata";
@@ -214,7 +215,8 @@ export function useHomepageContent() {
         ]
       };
     },
-    undefined
+    undefined,
+    "homepage-content-v1"
   );
   return result.value;
 }
@@ -225,7 +227,8 @@ export function useNewReleases() {
     [],
     async (signal) =>
       cardsFromList(await fetchTmdbListOrEmpty("/movie/now_playing", apiKey(), signal), "movie"),
-    undefined
+    undefined,
+    "new-releases-v1"
   ).value;
 }
 
@@ -316,7 +319,8 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
       }
       return null;
     },
-    undefined
+    undefined,
+    tmdbId ? `playback:${typeHint ?? "auto"}:${tmdbId}` : undefined
   );
   return tmdbId ? result.value : null;
 }
@@ -565,16 +569,24 @@ export function usePaginatedContent(
 }
 
 export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 0) {
-  const watchlistState = useAllMyWatchlistState();
   const history = useMyWatchHistory();
   const continueWatching = useContinueWatching(enabled, 24);
   const { user } = useUser();
   const { scope } = useRecommendationFolderScope(user?.id ?? "guest");
+  const watchlistSeeds = useQuery(
+    api.domains.watchlist.watchlist.listRecommendationSeeds,
+    enabled && user
+      ? {
+          clerkUserId: user.id,
+          ...(scope.folder ? { folder: scope.folder } : {})
+        }
+      : "skip"
+  );
   return useMemo(() => {
-    if (watchlistState.isLoading) {
+    if (enabled && user && watchlistSeeds === undefined) {
       return { tmdbSeeds: [], preferredType: "movie" as TMDBMediaType, genres: [] };
     }
-    const watchlist = watchlistState.items;
+    const watchlist = watchlistSeeds ?? [];
     const weights = new Map<string, number>();
     const genres = new Map<string, number>();
     const seeds = new Map<string, RecommendationSeed>();
@@ -604,10 +616,7 @@ export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 
       });
       for (const genre of item.genre ?? []) genres.set(genre, (genres.get(genre) ?? 0) + weight);
     };
-    const scoped = watchlist?.filter(
-      (item) => scope.folder === null || item.watchlistFolder?.trim() === scope.folder
-    );
-    const shuffledWatchlist = shuffleWithSeed(scoped ?? [], refreshSeed * 7919 + 17);
+    const shuffledWatchlist = shuffleWithSeed(watchlist, refreshSeed * 7919 + 17);
     if (scope.folder === null)
       shuffleWithSeed(continueWatching ?? [], refreshSeed * 6151 + 31)
         .slice(0, 24)
@@ -636,7 +645,7 @@ export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 
         .slice(0, 8)
         .map(([genre]) => genre)
     };
-  }, [continueWatching, history, refreshSeed, scope, watchlistState]);
+  }, [continueWatching, enabled, history, refreshSeed, scope, user, watchlistSeeds]);
 }
 
 const REC_CACHE = "fishy_recs_cache_v3";
@@ -843,7 +852,8 @@ export function useContentDetail(
         voteAverage: imdb?.voteAverage ?? tmdb.voteAverage
       };
     },
-    undefined as TMDBFullDetail | null | undefined
+    undefined as TMDBFullDetail | null | undefined,
+    tmdbId && type ? `detail:${type}:${tmdbId}:${includeImdb ? "imdb" : "tmdb"}` : undefined
   );
   return { detail: result.value, isLoading: result.isLoading };
 }

@@ -49,48 +49,32 @@ export const listWatchlist = query({
         ? baseQuery
         : baseQuery.filter((q) => q.eq(q.field("folder"), folder === null ? undefined : folder));
 
-    if (folder === undefined || normalizedSearch) {
+    if (normalizedSearch) {
       const entries = await scopedQuery.order("desc").collect();
-      const matchingEntries = normalizedSearch
-        ? entries.filter((entry) => normalizeTitle(entry.title).includes(normalizedSearch))
-        : entries;
-
-      if (normalizedSearch) {
-        const start = paginationOpts.cursor === null ? 0 : Number(paginationOpts.cursor);
-        const safeStart = Number.isFinite(start) && start >= 0 ? start : 0;
-        const end = safeStart + paginationOpts.numItems;
-
-        return {
-          page: matchingEntries.slice(safeStart, end).map(toWatchlistItem),
-          isDone: end >= matchingEntries.length,
-          continueCursor: String(end)
-        };
-      }
-
-      const representatives: typeof matchingEntries = [];
-      const seenFolders = new Set<string>();
-      const remaining: typeof matchingEntries = [];
-
-      for (const entry of matchingEntries) {
-        const entryFolder = entry.folder?.trim();
-        if (entryFolder && !seenFolders.has(entryFolder)) {
-          seenFolders.add(entryFolder);
-          representatives.push(entry);
-        } else {
-          remaining.push(entry);
-        }
-      }
-
-      const orderedEntries = [...representatives, ...remaining];
+      const matchingEntries = entries.filter((entry) =>
+        normalizeTitle(entry.title).includes(normalizedSearch)
+      );
       const start = paginationOpts.cursor === null ? 0 : Number(paginationOpts.cursor);
       const safeStart = Number.isFinite(start) && start >= 0 ? start : 0;
       const end = safeStart + paginationOpts.numItems;
-      const page = orderedEntries.slice(safeStart, end);
 
       return {
-        page: page.map(toWatchlistItem),
-        isDone: end >= orderedEntries.length,
+        page: matchingEntries.slice(safeStart, end).map(toWatchlistItem),
+        isDone: end >= matchingEntries.length,
         continueCursor: String(end)
+      };
+    }
+
+    if (typeof folder === "string") {
+      const result = await ctx.db
+        .query("mediaState")
+        .withIndex("by_clerk_folder", (q) => q.eq("clerkUserId", clerkUserId).eq("folder", folder))
+        .filter((q) => q.gt(q.field("watchlistAddedAt"), 0))
+        .order("desc")
+        .paginate(paginationOpts);
+      return {
+        ...result,
+        page: result.page.map(toWatchlistItem)
       };
     }
 
@@ -111,10 +95,37 @@ export const listWatchlistContentIds = query({
         q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
       )
       .collect();
-    return items.map((item) => ({
-      id: item.contentId,
-      tmdbId: parseContentId(item.contentId)?.tmdbId
-    }));
+    return items.map((item) => item.contentId);
+  }
+});
+
+export const listRecommendationSeeds = query({
+  args: {
+    clerkUserId: v.string(),
+    folder: v.optional(v.string())
+  },
+  handler: async (ctx, { clerkUserId, folder }) => {
+    const result = folder
+      ? await ctx.db
+          .query("mediaState")
+          .withIndex("by_clerk_folder", (q) =>
+            q.eq("clerkUserId", clerkUserId).eq("folder", folder)
+          )
+          .filter((q) => q.gt(q.field("watchlistAddedAt"), 0))
+          .order("desc")
+          .paginate({ numItems: 160, cursor: null })
+      : await ctx.db
+          .query("mediaState")
+          .withIndex("by_clerk_watchlist_added", (q) =>
+            q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
+          )
+          .order("desc")
+          .paginate({ numItems: 160, cursor: null });
+
+    return result.page.flatMap((entry) => {
+      const parsed = parseContentId(entry.contentId);
+      return parsed ? [{ tmdbId: parsed.tmdbId, type: parsed.type }] : [];
+    });
   }
 });
 
@@ -165,8 +176,8 @@ export const deleteFolder = mutation({
     const normalized = cleanFolder(name);
     const entries = await ctx.db
       .query("mediaState")
-      .withIndex("by_clerk_watchlist_added", (q) =>
-        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
+      .withIndex("by_clerk_folder", (q) =>
+        q.eq("clerkUserId", clerkUserId).eq("folder", normalized)
       )
       .collect();
     await Promise.all(
@@ -185,9 +196,7 @@ export const renameFolder = mutation({
     if (!source || !target || source === target) return;
     const entries = await ctx.db
       .query("mediaState")
-      .withIndex("by_clerk_watchlist_added", (q) =>
-        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
-      )
+      .withIndex("by_clerk_folder", (q) => q.eq("clerkUserId", clerkUserId).eq("folder", source))
       .collect();
     await Promise.all(
       entries
@@ -202,15 +211,19 @@ export const removeWatchlistEntries = mutation({
   handler: async (ctx, { clerkUserId, contentIds }) => {
     const requested = new Set(contentIds);
     if (!requested.size) return;
-    const entries = await ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_watchlist_added", (q) =>
-        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
+    const entries = await Promise.all(
+      [...requested].map((contentId) =>
+        ctx.db
+          .query("mediaState")
+          .withIndex("by_clerk_content", (q) =>
+            q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
+          )
+          .first()
       )
-      .collect();
+    );
     await Promise.all(
       entries
-        .filter((entry) => requested.has(entry.contentId))
+        .flatMap((entry) => (entry?.watchlistAddedAt ? [entry] : []))
         .map((entry) => ctx.db.patch(entry._id, { watchlistAddedAt: undefined, folder: undefined }))
     );
   }
@@ -226,15 +239,19 @@ export const setWatchlistFolderForEntries = mutation({
     const requested = new Set(contentIds);
     if (!requested.size) return;
     const normalized = folder ? cleanFolder(folder) : undefined;
-    const entries = await ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_watchlist_added", (q) =>
-        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
+    const entries = await Promise.all(
+      [...requested].map((contentId) =>
+        ctx.db
+          .query("mediaState")
+          .withIndex("by_clerk_content", (q) =>
+            q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
+          )
+          .first()
       )
-      .collect();
+    );
     await Promise.all(
       entries
-        .filter((entry) => requested.has(entry.contentId))
+        .flatMap((entry) => (entry?.watchlistAddedAt ? [entry] : []))
         .map((entry) => ctx.db.patch(entry._id, { folder: normalized }))
     );
   }

@@ -18,6 +18,7 @@ export default defineSchema({
     folder: v.optional(v.string())
   })
     .index("by_clerk_content", ["clerkUserId", "contentId"])
+    .index("by_clerk_folder", ["clerkUserId", "folder"])
     .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"])
     .index("by_clerk_watchlist_added", ["clerkUserId", "watchlistAddedAt"]),
 

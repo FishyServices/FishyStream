@@ -49,12 +49,9 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user || serverIds === undefined) return;
-    const next = new Set(serverIds.map((entry) => entry.id));
+    const next = new Set(serverIds);
     setIds(next);
     setWatchlistIds([...next]);
-    setWatchlistTmdbMap(
-      Object.fromEntries(serverIds.map((entry) => [entry.id, entry.tmdbId ?? ""]))
-    );
   }, [serverIds, user]);
 
   const toggle = useCallback(
