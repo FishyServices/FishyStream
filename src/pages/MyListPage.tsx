@@ -28,8 +28,11 @@ import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitiv
 import {
   useMyWatchlistPagination,
   useUpdateWatchlistFolder,
-  useToggleWatchlist,
-  type WatchlistSnapshot
+  useDeleteWatchlistFolder,
+  useRenameWatchlistFolder,
+  useRemoveWatchlistEntries,
+  useSetWatchlistFolderForEntries,
+  useWatchlistSummary
 } from "@/features/library/useWatchlist";
 import { useUser } from "@clerk/react";
 import { createPlayHandler } from "@/shared/navigation/watchNavigation";
@@ -72,15 +75,6 @@ const SORT_PREF_KEY = "mylist:sort";
 const VIEW_PREF_KEY = "mylist:view";
 const COLLAPSED_FOLDERS_PREF_KEY = "mylist:collapsed-folders";
 const FILTER_PREF_KEY = "mylist:filters";
-
-function itemToSnapshot(item: WatchlistGridItem): WatchlistSnapshot {
-  return {
-    tmdbId: item.tmdbId ?? "",
-    type: item.type,
-    title: item.title,
-    posterUrl: item.posterUrl
-  };
-}
 
 function pluralize(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
@@ -522,7 +516,6 @@ export function MyListPage() {
 
   const {
     items: watchlistData,
-    allItems,
     canLoadMore,
     isLoadingMore,
     loadMore
@@ -530,10 +523,14 @@ export function MyListPage() {
     folderFilter === "all" ? undefined : folderFilter === "unsorted" ? null : folderFilter,
     debouncedSearchQuery
   );
+  const watchlistSummary = useWatchlistSummary();
   const [watchlist, setWatchlist] = useState<typeof watchlistData>(undefined);
   const pendingFolderMoves = useRef<Map<ContentId, string | undefined>>(new Map());
   const updateFolder = useUpdateWatchlistFolder();
-  const toggleWatchlistItem = useToggleWatchlist();
+  const setFolderForEntries = useSetWatchlistFolderForEntries();
+  const removeEntries = useRemoveWatchlistEntries();
+  const deleteFolder = useDeleteWatchlistFolder();
+  const renameFolder = useRenameWatchlistFolder();
   const [newFolderName, setNewFolderName] = useState("");
   const [pendingFolderLoad, setPendingFolderLoad] = useState<string | null>(null);
   const [customFolders, setCustomFolders] = useState<string[]>(() =>
@@ -659,16 +656,10 @@ export function MyListPage() {
   }, [selectionMode]);
 
   const folderNames = useMemo(() => {
-    if (!watchlist) return [];
     return Array.from(
-      new Set([
-        ...customFolders,
-        ...allItems
-          .map((item) => item.watchlistFolder?.trim())
-          .filter((folder): folder is string => !!folder)
-      ])
+      new Set([...customFolders, ...(watchlistSummary?.folders.map((folder) => folder.name) ?? [])])
     ).sort((a, b) => a.localeCompare(b));
-  }, [allItems, customFolders]);
+  }, [customFolders, watchlistSummary]);
 
   const folderOptions = useMemo(() => {
     const options = new Set(folderNames);
@@ -823,14 +814,9 @@ export function MyListPage() {
   };
 
   const handleDeleteFolder = async (folderNameToDelete: string) => {
-    if (!watchlist) return;
-    const itemsInFolder = watchlist.filter(
-      (item) => item.watchlistFolder?.trim() === folderNameToDelete
-    );
-    const results = await Promise.all(
-      itemsInFolder.map((item) => handleAssignFolder(item._id, "unsorted", { silent: true }))
-    );
-    if (results.some((result) => !result)) {
+    try {
+      await deleteFolder(folderNameToDelete);
+    } catch {
       toast.error("Couldn't delete folder");
       return;
     }
@@ -845,14 +831,18 @@ export function MyListPage() {
     persistCustomFolders(
       Array.from(new Set([...customFolders, ...neededFolders])).sort((a, b) => a.localeCompare(b))
     );
-    const results = await Promise.all(
-      watchlist.map((item) =>
-        handleAssignFolder(item._id, item.type === "movie" ? "Movies" : "TV Shows", {
-          silent: true
-        })
-      )
-    );
-    if (results.some((result) => !result)) {
+    try {
+      await Promise.all([
+        setFolderForEntries(
+          watchlist.filter((item) => item.type === "movie").map((item) => item._id),
+          "Movies"
+        ),
+        setFolderForEntries(
+          watchlist.filter((item) => item.type === "tv").map((item) => item._id),
+          "TV Shows"
+        )
+      ]);
+    } catch {
       toast.error("Couldn't auto sort everything");
       return;
     }
@@ -872,7 +862,7 @@ export function MyListPage() {
     const timer = window.setTimeout(() => {
       pendingWatchlistRemovals.current.delete(item._id);
       setUndoWatchlistId((current) => (current === item._id ? null : current));
-      void toggleWatchlistItem(item._id, itemToSnapshot(item)).then(
+      void removeEntries([item._id]).then(
         () => toast.success(`Removed "${item.title}" from your list`),
         () => {
           setDismissedWatchlistIds((current) => {
@@ -927,11 +917,14 @@ export function MyListPage() {
     if (selectedIds.size === 0) return;
     setIsBulkMoving(true);
     const ids = [...selectedIds];
-    const results = await Promise.all(
-      ids.map((id) => handleAssignFolder(id, folderValue, { silent: true }))
-    );
+    let failed = false;
+    try {
+      await setFolderForEntries(ids, folderValue === "unsorted" ? undefined : folderValue);
+    } catch {
+      failed = true;
+    }
     setIsBulkMoving(false);
-    if (results.some((ok) => !ok)) {
+    if (failed) {
       toast.error("Couldn't move everything");
       return;
     }
@@ -948,7 +941,7 @@ export function MyListPage() {
     setIsBulkRemoving(true);
     const targets = watchlist.filter((item) => selectedIds.has(item._id));
     try {
-      await Promise.all(targets.map((item) => toggleWatchlistItem(item._id, itemToSnapshot(item))));
+      await removeEntries(targets.map((item) => item._id));
       toast.success(`Removed ${pluralize(targets.length, "title")} from your list`);
       exitSelectionMode();
     } catch {
@@ -976,14 +969,14 @@ export function MyListPage() {
       return;
     }
     setIsRenamingFolder(true);
-    const itemsInFolder = watchlist.filter(
-      (item) => item.watchlistFolder?.trim() === renameFolderTarget
-    );
-    const results = await Promise.all(
-      itemsInFolder.map((item) => handleAssignFolder(item._id, normalized, { silent: true }))
-    );
+    let failed = false;
+    try {
+      await renameFolder(renameFolderTarget, normalized);
+    } catch {
+      failed = true;
+    }
     setIsRenamingFolder(false);
-    if (results.some((ok) => !ok)) {
+    if (failed) {
       toast.error("Couldn't rename that folder");
       return;
     }
@@ -1017,7 +1010,15 @@ export function MyListPage() {
     );
   }
 
-  const hasAnyItems = watchlist.length > 0 || allItems.length > 0 || Boolean(searchQuery.trim());
+  const totalItemCount = user ? (watchlistSummary?.total ?? 0) : watchlist.length;
+  const unsortedItemCount = user
+    ? (watchlistSummary?.unsorted ?? 0)
+    : watchlist.filter((item) => !item.watchlistFolder?.trim()).length;
+  const folderItemCount = (folder: string) =>
+    user
+      ? (watchlistSummary?.folders.find((entry) => entry.name === folder)?.count ?? 0)
+      : watchlist.filter((item) => item.watchlistFolder?.trim() === folder).length;
+  const hasAnyItems = totalItemCount > 0 || Boolean(searchQuery.trim());
   const isFolderOnlyEmpty =
     filteredWatchlist.length === 0 &&
     folderFilter !== "all" &&
@@ -1060,7 +1061,7 @@ export function MyListPage() {
                       onClick={() => setFolderFilter("all")}
                       className="rounded-xl"
                     >
-                      All <span className="ml-1 opacity-60">{allItems.length}</span>
+                      All <span className="ml-1 opacity-60">{totalItemCount}</span>
                     </Button>
                     <Button
                       variant={folderFilter === "unsorted" ? "default" : "secondary"}
@@ -1069,9 +1070,7 @@ export function MyListPage() {
                       className="rounded-xl"
                     >
                       Unsorted
-                      <span className="ml-1 opacity-60">
-                        {allItems.filter((item) => !item.watchlistFolder?.trim()).length}
-                      </span>
+                      <span className="ml-1 opacity-60">{unsortedItemCount}</span>
                     </Button>
                     {folderNames.map((folder) => (
                       <div
@@ -1089,12 +1088,7 @@ export function MyListPage() {
                           className="rounded-none px-3 py-1.5 text-inherit hover:bg-transparent hover:text-inherit"
                         >
                           {folder}
-                          <span className="ml-1 opacity-60">
-                            {
-                              allItems.filter((item) => item.watchlistFolder?.trim() === folder)
-                                .length
-                            }
-                          </span>
+                          <span className="ml-1 opacity-60">{folderItemCount(folder)}</span>
                         </Button>
                         <Button
                           type="button"

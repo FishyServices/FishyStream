@@ -3,7 +3,8 @@ import {
   getWatchlistIds,
   getWatchlistSnapshots,
   setWatchlistIds,
-  setWatchlistSnapshots
+  setWatchlistSnapshots,
+  setWatchlistTmdbMap
 } from "@/shared/storage/localStorageStore";
 
 export const guestWatchlistPersistence = {
@@ -12,6 +13,26 @@ export const guestWatchlistPersistence = {
     const snapshot = snapshots[contentId];
     if (!snapshot) return;
     snapshots[contentId] = { ...snapshot, watchlistFolder: folder };
+    setWatchlistSnapshots(snapshots);
+  },
+  removeMany(contentIds: readonly ContentId[]): void {
+    const removed = new Set(contentIds);
+    const snapshots = getWatchlistSnapshots();
+    for (const contentId of removed) delete snapshots[contentId];
+    setWatchlistSnapshots(snapshots);
+    setWatchlistIds(getWatchlistIds().filter((id) => !removed.has(id)));
+    const tmdbMap = Object.fromEntries(
+      Object.entries(snapshots).map(([contentId, snapshot]) => [contentId, snapshot.tmdbId])
+    );
+    setWatchlistTmdbMap(tmdbMap);
+  },
+  setFolderMany(contentIds: readonly ContentId[], folder?: string): void {
+    const requested = new Set(contentIds);
+    const snapshots = getWatchlistSnapshots();
+    for (const contentId of requested) {
+      const snapshot = snapshots[contentId];
+      if (snapshot) snapshots[contentId] = { ...snapshot, watchlistFolder: folder };
+    }
     setWatchlistSnapshots(snapshots);
   }
 };

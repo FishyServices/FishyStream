@@ -24,22 +24,10 @@ import {
 
 const PAGE_SIZE = 20;
 
-function folderCacheKey(folder: string | null | undefined, search = "") {
-  const folderKey =
-    folder === undefined ? "all" : folder === null ? "unsorted" : `folder:${folder}`;
-  const normalizedSearch = search.trim().toLowerCase();
-  return normalizedSearch ? `search:${normalizedSearch}:${folderKey}` : folderKey;
-}
-
-function mergePages(latest: WatchlistGridItem[], cached: WatchlistGridItem[] | undefined) {
-  if (!cached?.length) return latest;
-  const seen = new Set(latest.map((item) => item._id));
-  return [...latest, ...cached.filter((item) => !seen.has(item._id))];
-}
-
 type WatchlistContextValue = {
   ids: Set<string>;
   toggle: (contentId: ContentId, snapshot: WatchlistSnapshot) => Promise<void>;
+  removeMany: (contentIds: readonly ContentId[]) => Promise<void>;
   hydrated: boolean;
 };
 
@@ -54,6 +42,9 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
     user ? { clerkUserId: user.id } : "skip"
   );
   const toggleEntry = useMutation(api.domains.watchlist.watchlist.toggleWatchlistEntry);
+  const removeWatchlistMutation = useMutation(
+    api.domains.watchlist.watchlist.removeWatchlistEntries
+  );
   const [ids, setIds] = useState<Set<string>>(() => new Set(getWatchlistIds()));
 
   useEffect(() => {
@@ -110,8 +101,40 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
     [ids, toggleEntry, user]
   );
 
+  const removeMany = useCallback(
+    async (contentIds: readonly ContentId[]) => {
+      const removed = new Set(contentIds);
+      const beforeIds = new Set(ids);
+      const beforeSnapshots = getWatchlistSnapshots();
+      const beforeTmdb = getWatchlistTmdbMap();
+      const nextIds = new Set([...ids].filter((id) => !removed.has(id as ContentId)));
+      setIds(nextIds);
+      setWatchlistIds([...nextIds]);
+      const nextSnapshots = { ...beforeSnapshots };
+      for (const contentId of removed) delete nextSnapshots[contentId];
+      setWatchlistSnapshots(nextSnapshots);
+      const nextTmdb = { ...beforeTmdb };
+      for (const contentId of removed) delete nextTmdb[contentId];
+      setWatchlistTmdbMap(nextTmdb);
+
+      if (!user) return;
+      try {
+        await removeWatchlistMutation({ clerkUserId: user.id, contentIds: [...contentIds] });
+      } catch (error) {
+        setIds(beforeIds);
+        setWatchlistIds([...beforeIds]);
+        setWatchlistSnapshots(beforeSnapshots);
+        setWatchlistTmdbMap(beforeTmdb);
+        throw error;
+      }
+    },
+    [ids, removeWatchlistMutation, user]
+  );
+
   return (
-    <WatchlistContext.Provider value={{ ids, toggle, hydrated: !user || serverIds !== undefined }}>
+    <WatchlistContext.Provider
+      value={{ ids, toggle, removeMany, hydrated: !user || serverIds !== undefined }}
+    >
       {children}
     </WatchlistContext.Provider>
   );
@@ -143,10 +166,7 @@ export function useWatchlistHydrated() {
 
 export function useMyWatchlistPagination(folder?: string | null, search = "") {
   const { user } = useUser();
-  const cacheKey = folderCacheKey(folder, search);
-  const [pagesByFolder, setPagesByFolder] = useState<Map<string, WatchlistGridItem[]>>(
-    () => new Map()
-  );
+  const { ids } = useWatchlistContext();
   const { results, status, loadMore } = usePaginatedQuery(
     api.domains.watchlist.watchlist.listWatchlist,
     user
@@ -158,66 +178,69 @@ export function useMyWatchlistPagination(folder?: string | null, search = "") {
       : "skip",
     { initialNumItems: PAGE_SIZE }
   );
+  const guestItems = useMemo(() => listGuestWatchlist(), [ids]);
   const serverItems = results as WatchlistGridItem[];
-  const cachedItems = pagesByFolder.get(cacheKey);
-  const cachedFolderItems = useMemo(() => {
-    if (search.trim()) return cachedItems ?? [];
-    const unique = new Map<string, WatchlistGridItem>();
-    for (const [pageKey, page] of pagesByFolder) {
-      if (pageKey.startsWith("search:")) continue;
-      for (const item of page) unique.set(item._id, item);
-    }
-    return [...unique.values()].filter((item) => {
-      const itemFolder = item.watchlistFolder?.trim();
-      return folder === undefined ? true : folder === null ? !itemFolder : itemFolder === folder;
-    });
-  }, [cachedItems, folder, pagesByFolder, search]);
-  const immediateItems = cachedItems ?? cachedFolderItems;
-
-  useEffect(() => {
-    if (!user || status === "LoadingFirstPage") return;
-    setPagesByFolder((current) => {
-      const merged = mergePages(serverItems, current.get(cacheKey));
-      const existing = current.get(cacheKey);
-      if (existing === merged) return current;
-      const next = new Map(current);
-      next.set(cacheKey, merged);
-      return next;
-    });
-  }, [cacheKey, serverItems, status, user]);
-
-  const guestItems = useMemo(() => listGuestWatchlist(), []);
-  const items = useMemo(
-    () =>
-      user
-        ? status === "LoadingFirstPage"
-          ? immediateItems
-          : mergePages(serverItems, immediateItems)
-        : guestItems,
-    [user, status, serverItems, immediateItems, guestItems]
-  );
-  const visibleItems = useMemo(
-    () => (user && status === "LoadingFirstPage" && !immediateItems.length ? undefined : items),
-    [user, status, immediateItems, items]
-  );
-  const allItems = useMemo(() => {
-    if (!user) return guestItems;
-    const unique = new Map<string, WatchlistGridItem>();
-    for (const page of pagesByFolder.values()) {
-      for (const item of page) unique.set(item._id, item);
-    }
-    for (const item of visibleItems ?? []) unique.set(item._id, item);
-    return [...unique.values()];
-  }, [guestItems, pagesByFolder, user, visibleItems]);
+  const items = user ? (status === "LoadingFirstPage" ? undefined : serverItems) : guestItems;
   const requestLoadMore = useCallback(() => loadMore(PAGE_SIZE), [loadMore]);
   return {
-    items: visibleItems,
-    allItems,
-    isLoading: status === "LoadingFirstPage" && !!user && !immediateItems.length,
+    items,
+    allItems: items ?? [],
+    isLoading: status === "LoadingFirstPage" && !!user,
     isLoadingMore: status === "LoadingMore",
     canLoadMore: status === "CanLoadMore",
     loadMore: requestLoadMore
   };
+}
+
+export function useWatchlistSummary() {
+  const { user } = useUser();
+  return useQuery(
+    api.domains.watchlist.watchlist.listWatchlistSummary,
+    user ? { clerkUserId: user.id } : "skip"
+  );
+}
+
+export function useRemoveWatchlistEntries() {
+  const { user } = useUser();
+  const { removeMany } = useWatchlistContext();
+  const mutation = useMutation(api.domains.watchlist.watchlist.removeWatchlistEntries);
+  return useCallback(
+    async (contentIds: readonly ContentId[]) => {
+      if (!user) {
+        await removeMany(contentIds);
+        return;
+      }
+      await mutation({ clerkUserId: user.id, contentIds: [...contentIds] });
+    },
+    [mutation, removeMany, user]
+  );
+}
+
+export function useSetWatchlistFolderForEntries() {
+  const { user } = useUser();
+  const mutation = useMutation(api.domains.watchlist.watchlist.setWatchlistFolderForEntries);
+  return useCallback(
+    async (contentIds: readonly ContentId[], folder?: string) => {
+      if (!user) {
+        guestWatchlistPersistence.setFolderMany(contentIds, folder);
+        return;
+      }
+      await mutation({ clerkUserId: user.id, contentIds: [...contentIds], folder });
+    },
+    [mutation, user]
+  );
+}
+
+export function useRenameWatchlistFolder() {
+  const { user } = useUser();
+  const mutation = useMutation(api.domains.watchlist.watchlist.renameFolder);
+  return useCallback(
+    async (from: string, to: string) => {
+      if (!user) return;
+      await mutation({ clerkUserId: user.id, from, to });
+    },
+    [mutation, user]
+  );
 }
 
 export function useMyWatchlist() {
@@ -255,7 +278,7 @@ export function useDeleteWatchlistFolder() {
   const mutation = useMutation(api.domains.watchlist.watchlist.deleteFolder);
   return useCallback(
     (name: string) => {
-      if (!user) throw new Error("Sign in to delete folders");
+      if (!user) return Promise.resolve();
       return mutation({ clerkUserId: user.id, name });
     },
     [mutation, user]
