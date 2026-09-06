@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/react";
-import { useAllMyWatchlist } from "@/features/library/useWatchlist";
+import { useAllMyWatchlistState } from "@/features/library/useWatchlist";
 import { useContinueWatching, useMyWatchHistory } from "@/features/library/useWatchHistory";
 import { useRecommendationFolderScope } from "@/features/catalog/recommendationFolderScope";
 import type { ContentCard, ContentFeatured, ContentPlayback } from "@content/contentMetadata";
@@ -39,6 +39,7 @@ import {
 } from "@fishy/providers/imdb";
 import ownersPicksData from "../ownersPicks.json";
 import { isBlockedContent } from "../model/contentPolicy";
+import { selectFreshRecommendations } from "../recommendationSelection";
 
 export type { TMDBItem, TMDBFullDetail };
 
@@ -57,7 +58,15 @@ export interface BrowsePageResult {
 }
 
 export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
-export type RecommendationSeed = { tmdbId: string; type: TMDBMediaType; genres?: string[] };
+type RecommendationSeedSource = "continue" | "watchlist" | "history";
+
+export type RecommendationSeed = {
+  tmdbId: string;
+  type: TMDBMediaType;
+  genres?: string[];
+  weight?: number;
+  source?: RecommendationSeedSource;
+};
 
 function apiKey(): string {
   const configured = import.meta.env.VITE_TMDB_KEY;
@@ -557,23 +566,43 @@ export function usePaginatedContent(
 }
 
 export function usePersonalizedRecommendationSeed(enabled = true) {
-  const watchlist = useAllMyWatchlist();
+  const watchlistState = useAllMyWatchlistState();
   const history = useMyWatchHistory();
   const continueWatching = useContinueWatching(enabled, 24);
   const { user } = useUser();
   const { scope } = useRecommendationFolderScope(user?.id ?? "guest");
   return useMemo(() => {
+    if (watchlistState.isLoading) {
+      return { tmdbSeeds: [], preferredType: "movie" as TMDBMediaType, genres: [] };
+    }
+    const watchlist = watchlistState.items;
     const weights = new Map<string, number>();
     const genres = new Map<string, number>();
     const seeds = new Map<string, RecommendationSeed>();
     const add = (
       item: { tmdbId?: string; type: TMDBMediaType; genre?: string[] },
-      weight: number
+      weight: number,
+      source: RecommendationSeedSource
     ) => {
       if (!isTmdbId(item.tmdbId)) return;
       const key = `${item.type}:${item.tmdbId}`;
       weights.set(key, (weights.get(key) ?? 0) + weight);
-      seeds.set(key, { tmdbId: item.tmdbId, type: item.type, genres: item.genre });
+      const existing = seeds.get(key);
+      const sourcePriority: Record<RecommendationSeedSource, number> = {
+        continue: 3,
+        watchlist: 2,
+        history: 1
+      };
+      seeds.set(key, {
+        tmdbId: item.tmdbId,
+        type: item.type,
+        genres: item.genre,
+        weight: (existing?.weight ?? 0) + weight,
+        source:
+          existing?.source && sourcePriority[existing.source] > sourcePriority[source]
+            ? existing.source
+            : source
+      });
       for (const genre of item.genre ?? []) genres.set(genre, (genres.get(genre) ?? 0) + weight);
     };
     const scoped = watchlist?.filter(
@@ -584,25 +613,38 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
           : !item.watchlistFolder || !scope.folders.includes(item.watchlistFolder))
     );
     if (scope.folders.length === 0)
-      continueWatching?.forEach((item, index) => add(item, Math.max(0.5, 1 - index * 0.05)));
-    scoped?.forEach((item, index) => add(item, 7 * Math.max(0.3, 1 - index * 0.02)));
+      continueWatching
+        ?.slice(0, 24)
+        .forEach((item, index) => add(item, Math.max(0.5, 1 - index * 0.05), "continue"));
+    scoped
+      ?.slice(0, 128)
+      .forEach((item, index) => add(item, 7 * Math.max(0.3, 1 - index * 0.02), "watchlist"));
     if (scope.folders.length === 0)
-      history?.forEach((item, index) => add(item, Math.max(0.1, 1 - index * 0.01)));
+      history
+        ?.slice(0, 32)
+        .forEach((item, index) => add(item, Math.max(0.1, 1 - index * 0.01), "history"));
     const ordered = [...seeds.entries()]
       .sort((a, b) => (weights.get(b[0]) ?? 0) - (weights.get(a[0]) ?? 0))
       .map(([, seed]) => seed);
+    const typeWeights = new Map<TMDBMediaType, number>();
+    for (const [key, weight] of weights) {
+      const type = seeds.get(key)?.type;
+      if (type) typeWeights.set(type, (typeWeights.get(type) ?? 0) + weight);
+    }
     return {
       tmdbSeeds: ordered,
-      preferredType: "movie" as TMDBMediaType,
+      preferredType:
+        (typeWeights.get("tv") ?? 0) > (typeWeights.get("movie") ?? 0) ? "tv" : "movie",
       genres: [...genres.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 8)
         .map(([genre]) => genre)
     };
-  }, [continueWatching, history, scope, watchlist]);
+  }, [continueWatching, history, scope, watchlistState]);
 }
 
 const REC_CACHE = "fishy_recs_cache_v3";
+const RECENT_RECOMMENDATIONS = "fishy_recent_recommendations_v1";
 type CacheEntry = { timestamp: number; cards: ContentCard[] };
 type Cache = Record<string, CacheEntry>;
 function isCachedCard(value: unknown): value is ContentCard {
@@ -643,6 +685,30 @@ function writeCache(value: Cache): void {
   }
 }
 
+function readRecentRecommendations(): Record<string, string[]> {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(RECENT_RECOMMENDATIONS) ?? "{}");
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return Object.fromEntries(
+      Object.entries(value).flatMap(([key, entry]) =>
+        Array.isArray(entry)
+          ? [[key, entry.filter((item): item is string => typeof item === "string")]]
+          : []
+      )
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeRecentRecommendations(value: Record<string, string[]>): void {
+  try {
+    localStorage.setItem(RECENT_RECOMMENDATIONS, JSON.stringify(value));
+  } catch {
+    /* optional */
+  }
+}
+
 export function useRecommendations(
   limit = 12,
   typeFilter: "all" | TMDBMediaType = "all",
@@ -655,6 +721,8 @@ export function useRecommendations(
   const [recommendations, setRecommendations] = useState<ContentCard[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const signature = active.tmdbSeeds?.map(cardKey).sort().join("|") ?? "default";
+  const genreSignature = active.genres.map((genre) => genre.toLowerCase()).join("|");
+  const preferenceSignature = `${active.preferredType}:${genreSignature}`;
   useEffect(() => {
     if (!enabled) {
       setRecommendations([]);
@@ -665,41 +733,78 @@ export function useRecommendations(
     const seeds = (active.tmdbSeeds ?? [])
       .filter((item) => typeFilter === "all" || item.type === typeFilter)
       .filter((item) => isTmdbId(item.tmdbId))
-      .slice(0, 10);
+      .slice(0, 160);
     setIsLoading(true);
-    void Promise.all(
-      seeds.map(async (seedItem) => {
-        const key = `${seedItem.type}:${seedItem.tmdbId}`;
-        const cache = readCache();
-        const cached = cache[key];
-        if (cached && Date.now() - cached.timestamp < 6 * 60 * 60 * 1000) return cached.cards;
-        const responses = await Promise.all([
-          fetchTmdbListOrEmpty(
-            `/${seedItem.type}/${seedItem.tmdbId}/recommendations`,
-            apiKey(),
-            controller.signal
-          ),
-          fetchTmdbListOrEmpty(
-            `/${seedItem.type}/${seedItem.tmdbId}/similar`,
-            apiKey(),
-            controller.signal
-          )
-        ]);
-        const cards = collectTmdbCards(
-          responses.map((data) => ({ data, type: seedItem.type })),
-          { typeFilter, excludedIds: new Set(active.tmdbSeeds?.map(cardKey)) }
+    const cache = readCache();
+    const recent = readRecentRecommendations();
+    const rotationKey = `${signature}:${typeFilter}`;
+    const recentCount = recent[rotationKey]?.length ?? 0;
+    const loadSeed = async (seedItem: RecommendationSeed) => {
+      const key = `${seedItem.type}:${seedItem.tmdbId}`;
+      const cached = cache[key];
+      const excludedIds = new Set(active.tmdbSeeds?.map(cardKey));
+      if (cached && Date.now() - cached.timestamp < 6 * 60 * 60 * 1000) {
+        return cached.cards.filter((card) => !excludedIds.has(cardKey(card)));
+      }
+      const responses = await Promise.all([
+        fetchTmdbListOrEmpty(
+          `/${seedItem.type}/${seedItem.tmdbId}/recommendations`,
+          apiKey(),
+          controller.signal
+        ),
+        fetchTmdbListOrEmpty(
+          `/${seedItem.type}/${seedItem.tmdbId}/similar`,
+          apiKey(),
+          controller.signal
         )
-          .map(cardFromTmdb)
-          .filter((card): card is ContentCard => card !== null);
-        cache[key] = { timestamp: Date.now(), cards };
+      ]);
+      const cards = collectTmdbCards(
+        responses.map((data) => ({ data, type: seedItem.type })),
+        { typeFilter, excludedIds }
+      )
+        .map(cardFromTmdb)
+        .filter((card): card is ContentCard => card !== null);
+      cache[key] = { timestamp: Date.now(), cards };
+      return cards;
+    };
+    void (async () => {
+      const groups: ContentCard[][] = [];
+      const candidates = new Map<string, ContentCard>();
+      const targetCandidateCount = Math.max(limit * 2, 48, recentCount + limit);
+      for (let index = 0; index < seeds.length; index += 8) {
+        const batch = await Promise.all(seeds.slice(index, index + 8).map(loadSeed));
+        for (const cards of batch) {
+          groups.push(cards);
+          for (const card of cards) candidates.set(cardKey(card), card);
+        }
         writeCache(cache);
-        return cards;
-      })
-    )
+        if (candidates.size >= targetCandidateCount) break;
+      }
+      return groups;
+    })()
       .then((groups) => {
         if (controller.signal.aborted) return;
         const unique = [...new Map(groups.flat().map((card) => [cardKey(card), card])).values()];
-        setRecommendations(shuffleWithSeed(unique, refreshSeed).slice(0, Math.max(0, limit)));
+        const preferredGenres = new Set(active.genres.map((genre) => genre.toLowerCase()));
+        const ordered = shuffleWithSeed(unique, refreshSeed).sort((left, right) => {
+          const score = (card: ContentCard) => {
+            const genreScore = (card.genre ?? []).filter((genre) =>
+              preferredGenres.has(genre.toLowerCase())
+            ).length;
+            const typeScore = card.type === active.preferredType ? 1 : 0;
+            return genreScore * 10 + typeScore + (card.voteAverage ?? 0) / 100;
+          };
+          return score(right) - score(left);
+        });
+        const selected = selectFreshRecommendations(
+          ordered,
+          Math.max(0, limit),
+          recent[rotationKey] ?? [],
+          cardKey
+        );
+        recent[rotationKey] = selected.recentKeys;
+        writeRecentRecommendations(recent);
+        setRecommendations(selected.items);
       })
       .catch(() => {
         if (!controller.signal.aborted) setRecommendations([]);
@@ -708,7 +813,7 @@ export function useRecommendations(
         if (!controller.signal.aborted) setIsLoading(false);
       });
     return () => controller.abort();
-  }, [active.tmdbSeeds, enabled, limit, refreshSeed, signature, typeFilter]);
+  }, [enabled, limit, preferenceSignature, refreshSeed, signature, typeFilter]);
   return { recommendations, isLoading };
 }
 

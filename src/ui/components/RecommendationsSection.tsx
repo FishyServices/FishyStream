@@ -227,16 +227,7 @@ export function RecommendationsSection({
       />
       {recommendations.length > 0 ? (
         <div className="rounded-xl border border-border/55 bg-card/28 p-3 sm:p-5">
-          <div className="mb-5 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <p className="text-sm text-muted-foreground">
-              {folderScope.folders.length > 0
-                ? folderScope.mode === "include"
-                  ? "Based only on titles in your selected folders"
-                  : "Based on titles outside your excluded folders"
-                : "Based on your saved titles and viewing activity"}
-            </p>
-          </div>
+          <div className="mb-5 flex items-center gap-2"></div>
           {grid}
         </div>
       ) : (

@@ -225,6 +225,10 @@ export function useMyWatchlist() {
 }
 
 export function useAllMyWatchlist() {
+  return useAllMyWatchlistState().items;
+}
+
+export function useAllMyWatchlistState() {
   const pagination = useMyWatchlistPagination();
 
   useEffect(() => {
@@ -232,7 +236,10 @@ export function useAllMyWatchlist() {
     pagination.loadMore();
   }, [pagination.canLoadMore, pagination.isLoadingMore, pagination.loadMore]);
 
-  return pagination.allItems;
+  return {
+    items: pagination.allItems,
+    isLoading: pagination.isLoading || pagination.isLoadingMore || pagination.canLoadMore
+  };
 }
 
 export function useWatchlistFolders() {
