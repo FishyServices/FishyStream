@@ -551,18 +551,7 @@ export function VideoPlayer({
     };
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="media-surface rounded-xl p-8 text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Finding the best source for you</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !sources.length || !selectedSourceConfig) {
+  if (!loading && (error || !sources.length || !selectedSourceConfig)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="media-surface max-w-md rounded-xl p-8 text-center">
@@ -683,7 +672,16 @@ export function VideoPlayer({
       )}
 
       <div className="group/player relative flex flex-1 items-center justify-center overflow-hidden bg-black">
-        {useCustomPlayer ? (
+        {loading ? (
+          <div
+            className="media-surface rounded-xl p-8 text-center"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Finding the best source for you</p>
+          </div>
+        ) : useCustomPlayer ? (
           <CustomVideoPlayer
             embedUrl={embedUrl}
             content={content}
