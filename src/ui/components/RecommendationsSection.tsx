@@ -64,13 +64,6 @@ export function RecommendationsSection({
   );
   const playHandler = onPlay ?? createPlayHandler(navigate);
 
-  const toggleFolder = (folder: string) => {
-    const folders = folderScope.folders.includes(folder)
-      ? folderScope.folders.filter((item) => item !== folder)
-      : [...folderScope.folders, folder].sort((a, b) => a.localeCompare(b));
-    setFolderScope({ ...folderScope, folders });
-  };
-
   const filterTabs = (
     <Tabs value={typeFilter} onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}>
       <TabsList className="h-auto rounded-xl border border-border/65 bg-muted/45 p-1">
@@ -108,46 +101,26 @@ export function RecommendationsSection({
         }
       >
         <Folder className="mr-2 h-4 w-4" />
-        {folderScope.folders.length === 0
-          ? "All folders"
-          : `${folderScope.folders.length} folder${folderScope.folders.length === 1 ? "" : "s"}`}
+        {folderScope.folder ?? "All My List items"}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-72 rounded-xl border border-border/70 bg-popover p-1 shadow-sm">
         <DropdownMenuLabel className="px-2 py-2 text-sm font-medium text-foreground">
           Recommendation sources
         </DropdownMenuLabel>
-        <DropdownMenuItem
-          className="gap-2"
-          onClick={() => setFolderScope({ ...folderScope, mode: "include" })}
-        >
-          {folderScope.mode === "include" ? (
-            <Check className="h-4 w-4" />
-          ) : (
-            <span className="w-4" />
-          )}
-          Use selected folders only
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="gap-2"
-          onClick={() => setFolderScope({ ...folderScope, mode: "exclude" })}
-        >
-          {folderScope.mode === "exclude" ? (
-            <Check className="h-4 w-4" />
-          ) : (
-            <span className="w-4" />
-          )}
-          Exclude selected folders
+        <DropdownMenuItem className="gap-2" onClick={() => setFolderScope({ folder: null })}>
+          {folderScope.folder === null ? <Check className="h-4 w-4" /> : <span className="w-4" />}
+          Use all My List items
         </DropdownMenuItem>
         <DropdownMenuSeparator className="my-1 bg-border/65" />
         {folderOptions.map((folder) => {
-          const selected = folderScope.folders.includes(folder);
+          const selected = folderScope.folder === folder;
           return (
             <DropdownMenuItem
               key={folder}
               className="gap-2"
               onClick={(event) => {
                 event.preventDefault();
-                toggleFolder(folder);
+                setFolderScope({ folder: selected ? null : folder });
               }}
             >
               {selected ? <Check className="h-4 w-4 text-primary" /> : <span className="w-4" />}
@@ -157,8 +130,8 @@ export function RecommendationsSection({
         })}
         <DropdownMenuSeparator className="my-1 bg-border/65" />
         <DropdownMenuItem
-          disabled={folderScope.folders.length === 0}
-          onClick={() => setFolderScope({ mode: "include", folders: [] })}
+          disabled={folderScope.folder === null}
+          onClick={() => setFolderScope({ folder: null })}
         >
           <SlidersHorizontal className="mr-2 h-4 w-4" />
           Clear folder filter

@@ -2,35 +2,43 @@ import { describe, expect, it } from "vitest";
 import { selectFreshRecommendations } from "./recommendationSelection";
 
 describe("selectFreshRecommendations", () => {
-  it("moves to the next page window on each reload", () => {
-    const first = selectFreshRecommendations(["a", "b", "c"], 1, [], (item) => item);
-    const second = selectFreshRecommendations(["a", "b", "c"], 1, first.recentKeys, (item) => item);
-    const third = selectFreshRecommendations(["a", "b", "c"], 1, second.recentKeys, (item) => item);
+  it("does not repeat an item until the candidate cycle is exhausted", () => {
+    const first = selectFreshRecommendations(["a", "b", "c"], 1, [], (item) => item, 1);
+    const second = selectFreshRecommendations(
+      ["a", "b", "c"],
+      1,
+      first.recentKeys,
+      (item) => item,
+      2
+    );
+    const third = selectFreshRecommendations(
+      ["a", "b", "c"],
+      1,
+      second.recentKeys,
+      (item) => item,
+      3
+    );
 
-    expect(first.items).toEqual(["a"]);
-    expect(second.items).toEqual(["b"]);
-    expect(third.items).toEqual(["c"]);
+    expect(new Set([first.items[0], second.items[0], third.items[0]]).size).toBe(3);
   });
 
-  it("replaces the whole page from the rotated pool", () => {
+  it("uses only unseen candidates while enough remain", () => {
+    const result = selectFreshRecommendations(["a", "b", "c", "d"], 3, ["a"], (item) => item, 4);
+
+    expect(result.items).toHaveLength(3);
+    expect(result.items).not.toContain("a");
+  });
+
+  it("starts a new cycle when fewer than a page remain", () => {
     const result = selectFreshRecommendations(
       ["a", "b", "c", "d"],
       3,
       ["a", "b", "c"],
-      (item) => item
+      (item) => item,
+      5
     );
 
-    expect(result.items).toEqual(["d", "a", "b"]);
-  });
-
-  it("starts at the beginning only after the page window reaches the end", () => {
-    const result = selectFreshRecommendations(
-      ["a", "b", "c", "d"],
-      3,
-      ["b", "c", "d"],
-      (item) => item
-    );
-
-    expect(result.items).toEqual(["a", "b", "c"]);
+    expect(result.items).toHaveLength(3);
+    expect(result.recentKeys).toEqual(result.items);
   });
 });

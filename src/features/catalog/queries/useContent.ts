@@ -21,7 +21,6 @@ import {
   fetchTmdbSearch,
   fetchTmdbSeasonEpisodes,
   fetchTmdbVideos,
-  shuffleWithSeed,
   toTMDBContentCard,
   type TMDBBrowseListResponse,
   type TMDBContentCard,
@@ -39,7 +38,7 @@ import {
 } from "@fishy/providers/imdb";
 import ownersPicksData from "../ownersPicks.json";
 import { isBlockedContent } from "../model/contentPolicy";
-import { selectFreshRecommendations } from "../recommendationSelection";
+import { selectFreshRecommendations, shuffleWithSeed } from "../recommendationSelection";
 
 export type { TMDBItem, TMDBFullDetail };
 
@@ -565,7 +564,7 @@ export function usePaginatedContent(
   return result;
 }
 
-export function usePersonalizedRecommendationSeed(enabled = true) {
+export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 0) {
   const watchlistState = useAllMyWatchlistState();
   const history = useMyWatchHistory();
   const continueWatching = useContinueWatching(enabled, 24);
@@ -606,22 +605,19 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
       for (const genre of item.genre ?? []) genres.set(genre, (genres.get(genre) ?? 0) + weight);
     };
     const scoped = watchlist?.filter(
-      (item) =>
-        scope.folders.length === 0 ||
-        (scope.mode === "include"
-          ? !!item.watchlistFolder && scope.folders.includes(item.watchlistFolder)
-          : !item.watchlistFolder || !scope.folders.includes(item.watchlistFolder))
+      (item) => scope.folder === null || item.watchlistFolder?.trim() === scope.folder
     );
-    if (scope.folders.length === 0)
-      continueWatching
-        ?.slice(0, 24)
+    const shuffledWatchlist = shuffleWithSeed(scoped ?? [], refreshSeed * 7919 + 17);
+    if (scope.folder === null)
+      shuffleWithSeed(continueWatching ?? [], refreshSeed * 6151 + 31)
+        .slice(0, 24)
         .forEach((item, index) => add(item, Math.max(0.5, 1 - index * 0.05), "continue"));
-    scoped
-      ?.slice(0, 128)
+    shuffledWatchlist
+      .slice(0, 160)
       .forEach((item, index) => add(item, 7 * Math.max(0.3, 1 - index * 0.02), "watchlist"));
-    if (scope.folders.length === 0)
-      history
-        ?.slice(0, 32)
+    if (scope.folder === null)
+      shuffleWithSeed(history ?? [], refreshSeed * 4513 + 47)
+        .slice(0, 48)
         .forEach((item, index) => add(item, Math.max(0.1, 1 - index * 0.01), "history"));
     const ordered = [...seeds.entries()]
       .sort((a, b) => (weights.get(b[0]) ?? 0) - (weights.get(a[0]) ?? 0))
@@ -640,11 +636,11 @@ export function usePersonalizedRecommendationSeed(enabled = true) {
         .slice(0, 8)
         .map(([genre]) => genre)
     };
-  }, [continueWatching, history, scope, watchlistState]);
+  }, [continueWatching, history, refreshSeed, scope, watchlistState]);
 }
 
 const REC_CACHE = "fishy_recs_cache_v3";
-const RECENT_RECOMMENDATIONS = "fishy_recent_recommendations_v1";
+const RECENT_RECOMMENDATIONS = "fishy_recent_recommendations_v2";
 type CacheEntry = { timestamp: number; cards: ContentCard[] };
 type Cache = Record<string, CacheEntry>;
 function isCachedCard(value: unknown): value is ContentCard {
@@ -716,7 +712,7 @@ export function useRecommendations(
   enabled = true,
   seed?: { tmdbSeeds?: RecommendationSeed[]; preferredType: TMDBMediaType; genres: string[] }
 ) {
-  const personal = usePersonalizedRecommendationSeed(enabled);
+  const personal = usePersonalizedRecommendationSeed(enabled, refreshSeed);
   const active = seed ?? personal;
   const [recommendations, setRecommendations] = useState<ContentCard[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -770,7 +766,7 @@ export function useRecommendations(
     void (async () => {
       const groups: ContentCard[][] = [];
       const candidates = new Map<string, ContentCard>();
-      const targetCandidateCount = Math.max(limit * 2, 48, recentCount + limit);
+      const targetCandidateCount = Math.max(limit * 4, 96, recentCount + limit);
       for (let index = 0; index < seeds.length; index += 8) {
         const batch = await Promise.all(seeds.slice(index, index + 8).map(loadSeed));
         for (const cards of batch) {
@@ -800,7 +796,8 @@ export function useRecommendations(
           ordered,
           Math.max(0, limit),
           recent[rotationKey] ?? [],
-          cardKey
+          cardKey,
+          refreshSeed * 1009 + Date.now()
         );
         recent[rotationKey] = selected.recentKeys;
         writeRecentRecommendations(recent);

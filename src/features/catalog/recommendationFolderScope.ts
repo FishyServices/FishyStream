@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-export type RecommendationFolderMode = "include" | "exclude";
-
 export type RecommendationFolderScope = {
-  mode: RecommendationFolderMode;
-  folders: string[];
+  folder: string | null;
 };
 
-const DEFAULT_SCOPE: RecommendationFolderScope = { mode: "include", folders: [] };
+const DEFAULT_SCOPE: RecommendationFolderScope = { folder: null };
 const scopeKey = (userId: string) => `fishystream:recommendation-folder-scope:${userId}`;
 const SCOPE_CHANGED_EVENT = "fishystream:recommendation-folder-scope-changed";
 
@@ -15,14 +12,10 @@ function normalizeScope(value: unknown): RecommendationFolderScope {
   if (!value || typeof value !== "object") return DEFAULT_SCOPE;
   const candidate = value as Partial<RecommendationFolderScope>;
   return {
-    mode: candidate.mode === "exclude" ? "exclude" : "include",
-    folders: Array.isArray(candidate.folders)
-      ? Array.from(
-          new Set(
-            candidate.folders.filter((folder): folder is string => typeof folder === "string")
-          )
-        ).sort((a, b) => a.localeCompare(b))
-      : []
+    folder:
+      typeof candidate.folder === "string" && candidate.folder.trim()
+        ? candidate.folder.trim()
+        : null
   };
 }
 
