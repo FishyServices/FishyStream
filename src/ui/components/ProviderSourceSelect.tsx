@@ -207,13 +207,18 @@ export function ProviderSourceSelect({
                       source.url === selectedSource &&
                       activeTab === (useCustomPlayer ? "custom" : "embedded");
                     return (
-                      <Button
+                      <div
                         key={source.url}
-                        type="button"
-                        variant="ghost"
                         role="option"
                         aria-selected={isSelected}
+                        tabIndex={0}
                         onClick={() => {
+                          onSelect(source.url, activeTab);
+                          setOpen(false);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" && event.key !== " ") return;
+                          event.preventDefault();
                           onSelect(source.url, activeTab);
                           setOpen(false);
                         }}
@@ -248,7 +253,7 @@ export function ProviderSourceSelect({
                           ) : null}
                           {isSelected ? <Check className="w-3.5 h-3.5" /> : null}
                         </span>
-                      </Button>
+                      </div>
                     );
                   })}
                 </Fragment>

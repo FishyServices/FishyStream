@@ -1,5 +1,6 @@
 import {
   buildMovieSources,
+  buildTvFallbackSources,
   buildTvSources,
   getProviderByKey,
   type ProviderCatalogEntry,
@@ -14,6 +15,12 @@ import {
 
 export interface PlaybackSourceResolver {
   buildMovieSources(args: { imdbId?: string; tmdbId?: string }): StreamSource[];
+  buildTvFallbackSources(args: {
+    imdbId?: string;
+    tmdbId?: string;
+    season: number;
+    episode: number;
+  }): StreamSource[];
   buildTvSources(args: Parameters<typeof buildTvSources>[0]): Promise<StreamSource[]>;
   groupSources(sources: StreamSource[]): ProviderGroupedSources[];
   pickSource(
@@ -26,6 +33,7 @@ export interface PlaybackSourceResolver {
 
 export const providerSourceResolver: PlaybackSourceResolver = {
   buildMovieSources,
+  buildTvFallbackSources,
   buildTvSources,
   groupSources: groupSourcesByProviderCategory,
   pickSource: pickPreferredSource,

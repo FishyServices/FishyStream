@@ -203,6 +203,23 @@ export function VideoPlayer({
       (matchingAnimeSeasonData === null &&
         !readSessionAnimeSeasonSyncKeys().includes(animeSeasonSyncAttemptKey ?? "")));
 
+  useEffect(() => {
+    if (
+      !animeSeasonKey ||
+      !waitingForAnimeSeasonMetadata ||
+      animeSeasonFailedRef.current.has(animeSeasonKey)
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      animeSeasonFailedRef.current.add(animeSeasonKey);
+      setAnimeSeasonReloadKey((value) => value + 1);
+    }, 8000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [animeSeasonKey, waitingForAnimeSeasonMetadata]);
+
   const session = usePlaybackSession({
     content,
     initialSeason,
@@ -672,7 +689,7 @@ export function VideoPlayer({
       )}
 
       <div className="group/player relative flex flex-1 items-center justify-center overflow-hidden bg-black">
-        {loading ? (
+        {loading && !selectedSourceConfig ? (
           <div
             className="media-surface rounded-xl p-8 text-center"
             role="status"

@@ -122,6 +122,9 @@ export function usePlaybackSession({
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const sourceRequestIdRef = useRef(0);
+  const selectedSourceUrlRef = useRef("");
+  const selectedSourceKeyRef = useRef<string | undefined>(undefined);
+  const fallbackSourcesSeededRef = useRef(false);
   const loadedTargetRef = useRef<PlaybackTarget>({ season: 1, episode: 1 });
   const targetRef = useRef<PlaybackTarget>({
     season: initialSeason ?? 1,
@@ -158,6 +161,9 @@ export function usePlaybackSession({
     setLoadedTarget(next);
     setSources([]);
     setSelectedSourceUrl("");
+    selectedSourceUrlRef.current = "";
+    selectedSourceKeyRef.current = undefined;
+    fallbackSourcesSeededRef.current = false;
     setLoading(true);
     setError(null);
     setResumePositionSeconds(0);
@@ -175,6 +181,8 @@ export function usePlaybackSession({
     setTarget(next);
     setSources([]);
     setSelectedSourceUrl("");
+    selectedSourceUrlRef.current = "";
+    fallbackSourcesSeededRef.current = false;
     setLoading(true);
     setError(null);
     setResumePositionSeconds(0);
@@ -202,7 +210,6 @@ export function usePlaybackSession({
         currentSeasonData !== undefined &&
         currentSeasonData !== null &&
         currentSeasonData.seasonNumber !== season;
-      if (waitingForAnimeSeasonMetadata || hasMismatchedSeasonData) return;
 
       if (!content.imdbId && !content.tmdbId) {
         setError("No video ID available for this content");
@@ -210,14 +217,52 @@ export function usePlaybackSession({
         return;
       }
 
+      if (content.type === "tv" && !fallbackSourcesSeededRef.current) {
+        const fallback = providerSourceResolver.buildTvFallbackSources({
+          imdbId: content.imdbId ?? undefined,
+          tmdbId: content.tmdbId ?? undefined,
+          season,
+          episode
+        });
+        const requestedFallback = initialSource
+          ? fallback.find((source) => source.name.toLowerCase() === initialSource.toLowerCase())
+          : undefined;
+        const rememberedFallback = fallback.find(
+          (source) => source.key === selectedSourceKeyRef.current
+        );
+        const hasUnresolvedRequestedSource =
+          !!initialSource && !requestedFallback && !rememberedFallback;
+        const fallbackSelection = hasUnresolvedRequestedSource
+          ? undefined
+          : (requestedFallback ??
+            rememberedFallback ??
+            providerSourceResolver.pickSource(fallback, {
+              initialSource,
+              defaultProvider: settings.defaultProvider
+            }) ??
+            fallback[0]);
+        fallbackSourcesSeededRef.current = true;
+        setSources(fallback);
+        if (fallbackSelection) {
+          selectedSourceUrlRef.current = fallbackSelection.url;
+          selectedSourceKeyRef.current = fallbackSelection.key;
+          setSelectedSourceUrl(fallbackSelection.url);
+        }
+      }
+
+      if (waitingForAnimeSeasonMetadata || hasMismatchedSeasonData) return;
+
       const requestId = ++sourceRequestIdRef.current;
       const startedAt = Date.now();
       setLoading(true);
       setError(null);
+      let seededFallback = false;
 
       try {
         const targetSeasonData =
           currentSeasonData?.seasonNumber === season ? currentSeasonData : undefined;
+
+        seededFallback = content.type === "tv" && fallbackSourcesSeededRef.current;
 
         const fetched =
           content.type === "tv"
@@ -246,9 +291,11 @@ export function usePlaybackSession({
 
         if (requestId !== sourceRequestIdRef.current) return;
         if (!fetched.length) {
-          setSources([]);
-          setSelectedSourceUrl("");
-          setError("No streaming sources found for this content");
+          if (!seededFallback) {
+            setSources([]);
+            setSelectedSourceUrl("");
+            setError("No streaming sources found for this content");
+          }
           return;
         }
 
@@ -270,7 +317,16 @@ export function usePlaybackSession({
             episode
           )
         );
-        setSelectedSourceUrl(selected?.url ?? "");
+        setSelectedSourceUrl((current) => {
+          const next = fetched.some((source) => source.url === current)
+            ? current
+            : (fetched.find((source) => source.key === selectedSourceKeyRef.current)?.url ??
+              selected?.url ??
+              "");
+          selectedSourceUrlRef.current = next;
+          selectedSourceKeyRef.current = fetched.find((source) => source.url === next)?.key;
+          return next;
+        });
         logProviderInfo({
           contentType: content.type,
           source: selected,
@@ -281,7 +337,9 @@ export function usePlaybackSession({
       } catch (err) {
         if (requestId !== sourceRequestIdRef.current) return;
         const message = err instanceof Error ? err.message : String(err);
-        setError(`Failed to load streaming sources: ${message}`);
+        if (!seededFallback) {
+          setError(`Failed to load streaming sources: ${message}`);
+        }
         logProviderWarning({
           contentType: content.type,
           message,
@@ -313,9 +371,9 @@ export function usePlaybackSession({
   );
 
   useEffect(() => {
-    if (sources.length > 0 || error) return;
+    if (error || (sources.length > 0 && !waitingForAnimeSeasonMetadata && !loading)) return;
     void loadSources("load sources");
-  }, [error, loadSources, reloadKey, sources.length]);
+  }, [error, loadSources, loading, reloadKey, sources.length, waitingForAnimeSeasonMetadata]);
 
   const selectedSource = sources.find((source) => source.url === selectedSourceUrl);
   const selectedProvider = selectedSource
@@ -406,6 +464,8 @@ export function usePlaybackSession({
         )
       );
       setSelectedSourceUrl(nextUrl);
+      selectedSourceUrlRef.current = nextUrl;
+      selectedSourceKeyRef.current = nextSource.key;
       logProviderInfo({
         contentType: content.type,
         source: nextSource,
@@ -424,6 +484,8 @@ export function usePlaybackSession({
       sourceRequestIdRef.current += 1;
       setSources([]);
       setSelectedSourceUrl("");
+      selectedSourceUrlRef.current = "";
+      fallbackSourcesSeededRef.current = false;
       setLoading(true);
       setError(null);
     },
@@ -435,6 +497,8 @@ export function usePlaybackSession({
     sourceRequestIdRef.current += 1;
     setSources([]);
     setSelectedSourceUrl("");
+    selectedSourceUrlRef.current = "";
+    fallbackSourcesSeededRef.current = false;
     setLoading(true);
     setError(null);
   }, []);
@@ -455,6 +519,8 @@ export function usePlaybackSession({
       sourceRequestIdRef.current += 1;
       setSources([]);
       setSelectedSourceUrl("");
+      selectedSourceUrlRef.current = "";
+      fallbackSourcesSeededRef.current = false;
       setLoading(true);
       setError(null);
     },
@@ -465,6 +531,8 @@ export function usePlaybackSession({
     setError(null);
     setLoading(true);
     setSources([]);
+    selectedSourceUrlRef.current = "";
+    fallbackSourcesSeededRef.current = false;
     setReloadKey((value) => value + 1);
   }, []);
 

@@ -899,6 +899,35 @@ export function buildMovieSources(args: { imdbId?: string; tmdbId?: string }): S
   return dedupeSources(sources);
 }
 
+export function buildTvFallbackSources(args: {
+  imdbId?: string;
+  tmdbId?: string;
+  season: number;
+  episode: number;
+}): StreamSource[] {
+  const sources = STREAM_PROVIDERS.flatMap((provider) => {
+    if (provider.key === "direct" || provider.animeOnly) return [];
+
+    const id = getProviderId(provider, args.imdbId, args.tmdbId);
+    if (!id) return [];
+
+    const mapped = mapCanonicalToProviderOrder(args.tmdbId, provider.name, {
+      season: args.season,
+      episode: args.episode
+    });
+
+    return [
+      {
+        key: provider.key,
+        name: provider.name,
+        url: provider.getTVUrl(id, mapped.season, mapped.episode)
+      }
+    ];
+  });
+
+  return dedupeSources(sources);
+}
+
 export async function buildTvSources(args: {
   imdbId?: string;
   isAnime?: boolean;
@@ -958,6 +987,17 @@ export async function buildTvSources(args: {
     return aniListAddressPromise;
   };
 
+  const getAniListAddressWithTimeout = async () => {
+    try {
+      return await Promise.race([
+        getAniListAddress(),
+        new Promise<undefined>((resolve) => setTimeout(resolve, 6000))
+      ]);
+    } catch {
+      return undefined;
+    }
+  };
+
   for (const provider of STREAM_PROVIDERS) {
     if (provider.key === "direct") continue;
     if (provider.animeOnly && !isAnime) continue;
@@ -967,7 +1007,7 @@ export async function buildTvSources(args: {
       isAnime &&
       ((!!provider.getAnimeTVUrl && provider.animeIdType === "anilist") ||
         (!!provider.getMalAnimeTVUrl && providerIdType === "mal"));
-    const aniListAddress = usesAniList ? await getAniListAddress() : undefined;
+    const aniListAddress = usesAniList ? await getAniListAddressWithTimeout() : undefined;
     const useMalId = !!provider.getMalAnimeTVUrl && providerIdType === "mal";
     const animeId = usesAniList
       ? useMalId

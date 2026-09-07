@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   getNextEpisodeAddress,
   normalizePlaybackProgressSample,
+  pickPreferredSource,
   shouldWaitForAnimeSeasonMetadata,
   shouldStorePlaybackProgressSample
 } from "./providerPlayback.js";
+import type { StreamSource } from "../catalog/providerCatalog.js";
 
 describe("providerPlayback", () => {
   it("normalizes progress samples to valid ranges", () => {
@@ -56,5 +58,14 @@ describe("providerPlayback", () => {
         currentSeasonData: { seasonNumber: 1 }
       })
     ).toBe(true);
+  });
+
+  it("honors an explicit provider before automatic direct fallback", () => {
+    const sources: StreamSource[] = [
+      { key: "direct", name: "Direct", url: "https://direct.example" },
+      { key: "megaplay", name: "MegaPlay", url: "https://megaplay.example" }
+    ];
+
+    expect(pickPreferredSource(sources, { initialSource: "MegaPlay" })?.key).toBe("megaplay");
   });
 });
