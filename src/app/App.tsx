@@ -14,6 +14,7 @@ import { Film, Loader2 } from "lucide-react";
 import { Button, Toaster } from "@fishy/ui";
 import { DiscoverContentMode } from "@/pages/DiscoverPage";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
+import { UrlContentModal } from "@/ui/components/ContentModal";
 
 export function App() {
   const { isLoaded, isSignedIn } = useUser();
@@ -48,7 +49,12 @@ export function App() {
     );
   }
 
-  return <HomepageContent handlePlay={handlePlay} isSignedIn={isSignedIn} settings={settings} />;
+  return (
+    <>
+      <HomepageContent handlePlay={handlePlay} isSignedIn={isSignedIn} settings={settings} />
+      <UrlContentModal onPlay={handlePlay} />
+    </>
+  );
 }
 
 function HomepageContent({

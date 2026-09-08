@@ -62,6 +62,10 @@
   pointer-events: auto;
 }
 
+body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] {
+  backdrop-filter: none !important;
+}
+
 @theme {
   --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;

@@ -1,6 +1,5 @@
 import { Play, Plus, Check, Star } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
 import {
   useIsInWatchlist,
   useToggleWatchlist,
@@ -61,55 +60,23 @@ export function MovieCard({
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const tmdbId = content.tmdbId && /^\d+$/.test(content.tmdbId) ? content.tmdbId : undefined;
   const watchlistContentId = tmdbId ? makeContentId(content.type, tmdbId) : undefined;
   const isInWatchlist = useIsInWatchlist(watchlistContentId);
   const toggleWatchlist = useToggleWatchlist();
-  const didOpenFromUrl = useRef(false);
-
-  useEffect(() => {
-    if (didOpenFromUrl.current) return;
-
-    const modalParam = searchParams.get("modal");
-    const typeParam = searchParams.get("type");
-
-    if (
-      modalParam &&
-      (content.tmdbId || content.imdbId) &&
-      modalParam === (content.tmdbId ?? content.imdbId) &&
-      typeParam === content.type
-    ) {
-      didOpenFromUrl.current = true;
-      setShowModal(true);
-    }
-  }, []);
-
   const handleModalChange = (open: boolean) => {
     setShowModal(open);
 
+    const url = new URL(window.location.href);
     if (open && (content.tmdbId || content.imdbId)) {
-      setSearchParams(
-        (prev) => {
-          const newParams = new URLSearchParams(prev);
-          newParams.set("modal", content.tmdbId ?? content.imdbId!);
-          newParams.set("type", content.type);
-          return newParams;
-        },
-        { replace: true }
-      );
+      url.searchParams.set("modal", content.tmdbId ?? content.imdbId!);
+      url.searchParams.set("type", content.type);
     } else {
-      setSearchParams(
-        (prev) => {
-          const newParams = new URLSearchParams(prev);
-          newParams.delete("modal");
-          newParams.delete("type");
-          return newParams;
-        },
-        { replace: true }
-      );
+      url.searchParams.delete("modal");
+      url.searchParams.delete("type");
     }
+    window.history.replaceState(window.history.state, "", url);
   };
 
   const handleWatchlist = async (e: React.MouseEvent) => {

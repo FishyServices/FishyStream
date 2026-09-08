@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Play,
   Plus,
@@ -323,21 +323,27 @@ export function ContentModal({
     false
   );
 
-  const fullContent: ContentDetail | null | undefined = tmdbDetail
-    ? contentDetailFromTmdb(tmdbDetail, content!._id)
-    : tmdbDetail;
+  const fullContent: ContentDetail | null | undefined = useMemo(() => {
+    if (tmdbDetail === undefined) return undefined;
+    if (tmdbDetail === null || !content) return null;
+    return contentDetailFromTmdb(tmdbDetail, content._id);
+  }, [content, tmdbDetail]);
 
-  const resolvedContent: ModalContent | null = fullContent
-    ? {
-        ...fullContent,
-        ...content,
-        _id: fullContent._id,
-        tmdbId: fullContent.tmdbId,
-        rating: fullContent.rating,
-        voteAverage: fullContent.voteAverage,
-        imdbId: fullContent.imdbId ?? content?.imdbId
-      }
-    : content;
+  const resolvedContent: ModalContent | null = useMemo(
+    () =>
+      fullContent
+        ? {
+            ...content,
+            ...fullContent,
+            _id: fullContent._id,
+            tmdbId: fullContent.tmdbId,
+            rating: fullContent.rating,
+            voteAverage: fullContent.voteAverage,
+            imdbId: fullContent.imdbId ?? content?.imdbId
+          }
+        : content,
+    [content, fullContent]
+  );
 
   const detailContent = hasFullContent(resolvedContent) ? resolvedContent : null;
   const navigate = useNavigate();
@@ -370,11 +376,7 @@ export function ContentModal({
     getImdbId(resolvedContent)
   );
 
-  const dbSeason = useMemo(() => {
-    const raw = tmdbSeason ?? undefined;
-    if (!raw) return raw;
-    return raw;
-  }, [tmdbSeason]);
+  const dbSeason = tmdbSeason ?? undefined;
 
   const knownSeasonsFromTmdb = resolvedContent ? getSeasonCount(resolvedContent) : undefined;
   const [episodeLoadError, setEpisodeLoadError] = useState<string | null>(null);
@@ -493,7 +495,7 @@ export function ContentModal({
       setEpisodeLoadError(null);
       setSeasonCountOverride(undefined);
     }
-  }, [resolvedContent, isOpen]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && resolvedContent) {
@@ -520,7 +522,7 @@ export function ContentModal({
       setSelectedSeason(resolvedContent.seasonNumber ?? 1);
       setSelectedEpisode(resolvedContent.episodeNumber ?? 1);
     }
-  }, [resolvedContent]);
+  }, [resolvedContent?._id, resolvedContent?.seasonNumber, resolvedContent?.episodeNumber]);
 
   useEffect(() => {
     if (isOpen && resolvedContent?.type === "tv") {
@@ -539,9 +541,17 @@ export function ContentModal({
     setSelectedEpisode(ep);
   };
 
-  if (!resolvedContent) return null;
+  useEffect(() => {
+    if (isOpen && episodeSelectionMode) {
+      setSelectedDownloadEpisodes([]);
+    } else if (!isOpen) {
+      setSelectedDownloadEpisodes([]);
+    }
+  }, [episodeSelectionMode, isOpen, selectedSeason]);
 
   const isHydratingContent = isOpen && !hasFullContent(content) && fullContent === undefined;
+  if (!resolvedContent) return null;
+
   const contentData = resolvedContent;
   const heroImageUrl = detailContent?.backdropUrl;
 
@@ -552,13 +562,6 @@ export function ContentModal({
   );
   const episodes = dbSeason?.episodes ?? [];
 
-  useEffect(() => {
-    if (isOpen && episodeSelectionMode) {
-      setSelectedDownloadEpisodes([]);
-    } else if (!isOpen) {
-      setSelectedDownloadEpisodes([]);
-    }
-  }, [episodeSelectionMode, isOpen, selectedSeason]);
   const ratingLabel: string | undefined = detailContent?.rating;
 
   const handleWatchlist = async () => {
@@ -602,7 +605,10 @@ export function ContentModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="z-modal flex max-h-[min(96dvh,70rem)] w-[calc(100%-1rem)] max-w-4xl flex-col overflow-hidden rounded-xl border border-border/70 bg-card/95 p-0 text-card-foreground shadow-md [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button:hover]:bg-accent">
+      <DialogContent
+        data-content-modal="true"
+        className="z-modal flex max-h-[min(96dvh,70rem)] w-[calc(100%-1rem)] max-w-4xl flex-col overflow-hidden rounded-xl border border-border/70 bg-card/95 p-0 text-card-foreground shadow-md [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button:hover]:bg-accent"
+      >
         {" "}
         <DialogTitle className="sr-only">{contentData.title}</DialogTitle>
         <div className="relative h-72 shrink-0 overflow-hidden sm:h-96">
@@ -1182,5 +1188,37 @@ export function ContentModal({
         />
       )}
     </Dialog>
+  );
+}
+
+export function UrlContentModal({ onPlay }: { onPlay: PlayHandler }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const modalId = searchParams.get("modal");
+  const rawType = searchParams.get("type");
+  const type: ContentType | undefined =
+    rawType === "movie" || rawType === "tv" ? rawType : undefined;
+
+  if (!modalId || !type) return null;
+
+  const content = {
+    _id: makeContentId(type, modalId),
+    title: "Loading…",
+    type,
+    posterUrl: "",
+    tmdbId: modalId
+  };
+
+  return (
+    <ContentModal
+      content={content}
+      isOpen={true}
+      onClose={() => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("modal");
+        nextParams.delete("type");
+        setSearchParams(nextParams, { replace: true });
+      }}
+      onPlay={onPlay}
+    />
   );
 }
