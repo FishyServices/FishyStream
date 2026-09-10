@@ -41,14 +41,16 @@ export const ANIME_GENRES = [
   { slug: "comedy", label: "Comedy", query: "Animation,Comedy", href: "/anime/genre/comedy" },
   { slug: "drama", label: "Drama", query: "Animation,Drama", href: "/anime/genre/drama" },
   { slug: "fantasy", label: "Fantasy", query: "Animation,Fantasy", href: "/anime/genre/fantasy" },
-  { slug: "horror", label: "Horror", query: null, href: "/anime/genre/horror" },
-  { slug: "isekai", label: "Isekai", query: null, href: "/anime/genre/isekai" },
+  //{ slug: "horror", label: "Horror", query: null, href: "/anime/genre/horror" },
+  //{ slug: "isekai", label: "Isekai", query: null, href: "/anime/genre/isekai" },
   { slug: "romance", label: "Romance", query: "Animation,Romance", href: "/anime/genre/romance" },
+  /*
   {
     slug: "sci-fi",
     label: "Sci-Fi",
     query: "Animation,Science Fiction",
     href: "/anime/genre/sci-fi"
   },
+  */
   { slug: "mystery", label: "Mystery", query: "Animation,Mystery", href: "/anime/genre/mystery" }
 ] as const;

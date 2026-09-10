@@ -12,6 +12,7 @@ import {
   Search,
   Settings,
   Sparkles,
+  Star,
   Tv,
   UserRound
 } from "lucide-react";
@@ -39,7 +40,8 @@ const primaryNav: NavItem[] = [
   { label: "Discover", href: "/discover", icon: Compass },
   { label: "Movies", href: "/movies", icon: Film },
   { label: "TV Shows", href: "/tv-shows", icon: Tv },
-  { label: "Picks", href: "/best", icon: Sparkles }
+  { label: "Anime", href: "/anime/genre/all", icon: Sparkles },
+  { label: "Picks", href: "/best", icon: Star }
 ];
 
 const libraryNav: NavItem[] = [
@@ -83,9 +85,9 @@ function NavLink({
       to={item.href}
       onClick={onNavigate}
       title={collapsed ? item.label : undefined}
-      className={`group relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`group relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-[background-color,color,transform] hover:translate-x-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active
-          ? "bg-primary text-primary-foreground shadow-sm"
+          ? "bg-primary/15 text-primary shadow-sm ring-1 ring-primary/25 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       } ${collapsed ? "justify-center px-0 xl:justify-start xl:px-3" : ""}`}
     >
@@ -194,22 +196,33 @@ export function Header() {
 
   return (
     <>
-      <aside className="app-rail flex-col px-3 py-5">
+      <aside className="app-rail flex-col bg-linear-to-b from-card/90 via-background to-background px-3 py-5 shadow-[12px_0_30px_color-mix(in_oklab,var(--color-background)_35%,transparent)]">
         <div className="mb-8 px-2 xl:px-1">
-          <Brand compact />
+          <span className="xl:hidden">
+            <Brand compact />
+          </span>
+          <span className="hidden xl:block">
+            <Brand />
+          </span>
         </div>
+        <p className="mb-2 hidden px-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70 xl:block">
+          Explore
+        </p>
         <nav className="space-y-1" aria-label="Primary navigation">
           {primaryNav.map((item) => (
             <NavLink key={item.href} item={item} collapsed />
           ))}
         </nav>
         <div className="my-5 border-t border-border/60" />
+        <p className="mb-2 hidden px-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70 xl:block">
+          Library
+        </p>
         <nav className="space-y-1" aria-label="Library navigation">
           {libraryNav.map((item) => (
             <NavLink key={item.href} item={item} collapsed />
           ))}
         </nav>
-        <div className="mt-auto space-y-2">
+        <div className="mt-auto space-y-1 rounded-xl border border-border/60 bg-card/55 p-2 shadow-sm">
           <Button
             variant="secondary"
             onClick={() => setSearchOpen(true)}
