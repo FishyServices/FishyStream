@@ -113,7 +113,10 @@ function SearchDialog({
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="media-surface w-[calc(100%-2rem)] max-w-2xl overflow-hidden rounded-xl p-0">
+      <DialogContent
+        data-content-modal="true"
+        className="media-surface w-[calc(100%-2rem)] max-w-2xl overflow-hidden rounded-xl p-0"
+      >
         <Command className="bg-transparent">
           <CommandInput
             ref={inputRef}
@@ -302,6 +305,7 @@ export function Header() {
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent
           side="right"
+          data-content-modal="true"
           className="w-[min(22rem,calc(100vw-1rem))] border-border/70 bg-background p-4"
         >
           <SheetHeader className="mb-5">

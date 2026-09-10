@@ -1,5 +1,5 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Film, Filter, Sparkles, Tv2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, Sparkles, Tv2 } from "lucide-react";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
 import { Header } from "@/ui/components/Header";
 import { MovieCard } from "@/ui/components/MovieCard";
@@ -149,30 +149,11 @@ export function MediaBrowsePage({ mode }: { mode: MediaMode }) {
         {paginated.isLoading ? (
           <GridSkeleton />
         ) : paginated.items.length === 0 ? (
-          <EmptyState
-            icon={
-              mode === "movie" ? (
-                <Film className="h-10 w-10" />
-              ) : mode === "tv" ? (
-                <Tv2 className="h-10 w-10" />
-              ) : (
-                <Sparkles className="h-10 w-10" />
-              )
-            }
-            title={`No ${title.toLowerCase()} found`}
-          />
+          <EmptyState title={`No ${title.toLowerCase()} found`} />
         ) : (
           <>
             <div className="rounded-xl border border-border/55 bg-card/25 p-3 sm:p-5">
-              <div className="mb-5 flex items-center gap-2">
-                {mode === "movie" ? (
-                  <Film className="h-4 w-4 text-primary" />
-                ) : mode === "tv" ? (
-                  <Tv2 className="h-4 w-4 text-primary" />
-                ) : (
-                  <Sparkles className="h-4 w-4 text-primary" />
-                )}
-              </div>
+              <div className="mb-5 flex items-center gap-2"></div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {paginated.items.map((item) => (
                   <MovieCard
