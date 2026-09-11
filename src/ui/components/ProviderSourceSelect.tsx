@@ -102,7 +102,7 @@ export function ProviderSourceSelect({
         className={
           isHeader
             ? "flex w-full items-center justify-start gap-1.5 rounded-md border border-border/80 bg-card/90 px-3 py-2 h-auto text-sm font-normal text-foreground hover:bg-card/90 sm:w-55"
-            : "flex w-full items-center justify-start gap-1.5 rounded-md border border-white/10 bg-black/40 px-2.5 py-2 h-auto text-xs font-normal text-white hover:bg-black/40"
+            : "flex w-full items-center justify-start gap-1.5 rounded-lg border border-border/70 bg-card/80 px-2.5 py-2 h-auto text-xs font-normal text-foreground hover:bg-accent"
         }
       >
         <MonitorPlay className={isHeader ? "w-4 h-4 shrink-0" : "w-3.5 h-3.5 shrink-0"} />
@@ -129,12 +129,12 @@ export function ProviderSourceSelect({
           className={
             isHeader
               ? "absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-sm"
-              : "absolute bottom-full right-0 z-50 mb-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-neutral-950/95 text-white shadow-md "
+              : "absolute bottom-full right-0 z-50 mb-2 w-64 overflow-hidden rounded-xl border border-border/70 bg-popover/98 text-popover-foreground shadow-lg "
           }
         >
           <div
             className={
-              isHeader ? "flex border-b border-border/80" : "flex border-b border-white/10"
+              isHeader ? "flex border-b border-border/80" : "flex border-b border-border/70"
             }
           >
             <Button
@@ -147,7 +147,7 @@ export function ProviderSourceSelect({
                   ? "border-b-2 border-primary text-primary hover:text-primary"
                   : isHeader
                     ? "text-muted-foreground hover:text-foreground"
-                    : "text-white/50 hover:text-white hover:bg-transparent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-transparent"
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -162,7 +162,7 @@ export function ProviderSourceSelect({
                   ? "border-b-2 border-primary text-primary hover:text-primary"
                   : isHeader
                     ? "text-muted-foreground hover:text-foreground"
-                    : "text-white/50 hover:text-white hover:bg-transparent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-transparent"
               }`}
             >
               <Globe className="w-3.5 h-3.5" />
@@ -176,7 +176,7 @@ export function ProviderSourceSelect({
                 className={
                   isHeader
                     ? "px-3 py-4 text-center text-xs text-muted-foreground"
-                    : "px-3 py-4 text-center text-xs text-white/50"
+                    : "px-3 py-4 text-center text-xs text-muted-foreground"
                 }
               >
                 No sources available
@@ -189,7 +189,7 @@ export function ProviderSourceSelect({
                       className={
                         isHeader
                           ? "my-1 border-t border-border/80"
-                          : "my-1 border-t border-white/10"
+                          : "my-1 border-t border-border/70"
                       }
                     />
                   ) : null}
@@ -197,7 +197,7 @@ export function ProviderSourceSelect({
                     className={
                       isHeader
                         ? "px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
-                        : "px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/40"
+                        : "px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
                     }
                   >
                     {group.label}
@@ -227,8 +227,8 @@ export function ProviderSourceSelect({
                             ? `flex w-full items-center justify-between gap-2 rounded-none px-3 py-1.5 h-auto text-left text-sm font-normal hover:bg-accent hover:text-accent-foreground ${
                                 isSelected ? "text-primary" : "text-popover-foreground"
                               }`
-                            : `flex w-full items-center justify-between gap-2 rounded-none px-3 py-1.5 h-auto text-left text-xs font-normal hover:bg-neutral-800 ${
-                                isSelected ? "text-primary" : "text-white"
+                            : `flex w-full items-center justify-between gap-2 rounded-none px-3 py-1.5 h-auto text-left text-xs font-normal hover:bg-accent ${
+                                isSelected ? "text-primary" : "text-popover-foreground"
                               }`
                         }
                       >

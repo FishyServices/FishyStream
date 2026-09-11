@@ -1026,7 +1026,7 @@ export function MyListPage() {
     listTypeFilter === "all";
 
   return (
-    <div className="app-canvas min-h-screen">
+    <div className="app-canvas library-page min-h-screen">
       <Header />
 
       <main className="page-shell-wide page-stack pb-28">

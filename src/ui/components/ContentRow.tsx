@@ -46,11 +46,11 @@ export function ContentRow({
   if (content.length === 0) return null;
 
   return (
-    <section className="group relative isolate overflow-hidden py-5 pb-9 sm:py-7 sm:pb-12">
+    <section className="group relative isolate overflow-hidden py-4 pb-8 sm:py-6 sm:pb-10">
       <div className="page-shell-wide relative z-40 mb-4 flex items-center justify-between gap-3 sm:mb-5">
         <div>
           <h2
-            className="truncate font-display text-xl font-bold text-foreground sm:text-2xl"
+            className="truncate font-display text-xl font-semibold text-foreground sm:text-2xl"
             title={title}
           >
             {viewAllHref ? (

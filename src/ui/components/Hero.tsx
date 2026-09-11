@@ -156,7 +156,7 @@ export function Hero({
   };
 
   return (
-    <section className="group/hero relative h-[70svh] min-h-130 w-full max-h-225 overflow-hidden border-b border-border/45 sm:h-[86vh] sm:min-h-150">
+    <section className="group/hero relative h-[58svh] min-h-120 w-full max-h-190 overflow-hidden border-b border-border/45 sm:h-[68vh] sm:min-h-135">
       <div className="absolute inset-0 bg-neutral-950">
         <div
           className={`absolute inset-0 transition-all duration-1000 ease-out ${loaded ? "opacity-100" : "opacity-0"}`}
@@ -191,7 +191,7 @@ export function Hero({
           loaded ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
         }`}
       >
-        <div className="max-w-xl space-y-4 sm:max-w-2xl">
+        <div className="max-w-xl space-y-3 sm:max-w-2xl">
           {activeContent.logoUrl ? (
             <img
               src={activeContent.logoUrl}
@@ -199,7 +199,7 @@ export function Hero({
               className="h-14 w-auto max-w-[min(18rem,70vw)] object-contain object-left sm:h-20 sm:max-w-xs lg:h-24"
             />
           ) : (
-            <h1 className="font-display text-4xl font-black leading-[0.94] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+            <h1 className="font-display text-4xl font-semibold leading-[0.96] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
               {activeContent.title}
             </h1>
           )}
@@ -231,7 +231,7 @@ export function Hero({
           <div className="flex flex-wrap items-center gap-2 pt-2 sm:gap-3">
             <Button
               size="lg"
-              className="w-full rounded-xl bg-primary px-7 text-base font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 sm:w-auto"
+              className="w-full rounded-lg bg-primary px-7 text-base font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 sm:w-auto"
               onClick={handlePlay}
             >
               <Play className="mr-2 h-5 w-5 fill-current" />
@@ -240,7 +240,7 @@ export function Hero({
             <Button
               size="lg"
               variant="secondary"
-              className="flex-1 rounded-xl border-border/80 bg-card/75 px-5 text-base font-semibold text-foreground hover:bg-accent sm:flex-none sm:px-7"
+              className="flex-1 rounded-lg border-border/80 bg-card/75 px-5 text-base font-semibold text-foreground hover:bg-accent sm:flex-none sm:px-7"
               onClick={() => setShowModal(true)}
             >
               <Info className="mr-2 h-5 w-5" />

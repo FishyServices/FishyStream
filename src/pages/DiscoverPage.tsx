@@ -55,7 +55,7 @@ function FeaturedDiscoverCarousel({
   };
 
   return (
-    <section className="relative h-[72svh] min-h-130 overflow-hidden border-b border-border/55 sm:h-[80vh] sm:min-h-150">
+    <section className="relative h-[58svh] min-h-120 overflow-hidden border-b border-border/55 sm:h-[68vh] sm:min-h-135">
       {items.map((item, itemIndex) => (
         <div
           key={item._id}
@@ -84,7 +84,7 @@ function FeaturedDiscoverCarousel({
               className="max-h-24 max-w-[min(22rem,78vw)] object-contain object-left "
             />
           ) : (
-            <h1 className="max-w-2xl font-display text-4xl font-bold leading-[0.95] tracking-tight text-foreground sm:text-6xl">
+            <h1 className="max-w-2xl font-display text-4xl font-semibold leading-[0.95] tracking-tight text-foreground sm:text-6xl">
               {active.title}
             </h1>
           )}

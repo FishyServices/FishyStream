@@ -211,7 +211,7 @@ export function SettingsPage() {
         <div className="page-intro">
           <div>
             <p className="mb-2 text-sm font-medium text-muted-foreground">Your FishyStream</p>
-            <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               Settings
             </h1>
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">

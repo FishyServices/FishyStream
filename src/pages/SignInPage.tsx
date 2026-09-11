@@ -175,7 +175,7 @@ function NativeSignInCard() {
   };
 
   return (
-    <div className="media-surface w-full max-w-md rounded-xl p-6 shadow-md sm:p-8">
+    <div className="media-surface w-full max-w-md rounded-2xl p-6 shadow-md sm:p-8">
       <div className="mb-6">
         <p className="mb-2 text-sm font-medium text-muted-foreground">Welcome back</p>
         <h1 className="font-display text-3xl font-bold text-foreground">Sign in</h1>
@@ -193,7 +193,7 @@ function NativeSignInCard() {
             type="button"
             variant={mode === "password" ? "default" : "ghost"}
             size="sm"
-            className={`rounded-md ${mode === "password" ? "bg-white text-black hover:bg-white/90" : "text-white/65 hover:text-white"}`}
+            className={`rounded-lg ${mode === "password" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground hover:text-foreground"}`}
             onClick={() => {
               setMode("password");
               setErrorMessage(null);
@@ -205,7 +205,7 @@ function NativeSignInCard() {
             type="button"
             variant={mode === "email-code" ? "default" : "ghost"}
             size="sm"
-            className={`rounded-md ${mode === "email-code" ? "bg-white text-black hover:bg-white/90" : "text-white/65 hover:text-white"}`}
+            className={`rounded-lg ${mode === "email-code" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground hover:text-foreground"}`}
             onClick={() => {
               setMode("email-code");
               setErrorMessage(null);

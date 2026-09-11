@@ -32,7 +32,7 @@ export function WatchPage() {
 
   if (content === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
+      <div className="app-canvas flex min-h-screen items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
@@ -40,8 +40,11 @@ export function WatchPage() {
 
   if (content === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <h1 className="text-xl font-semibold text-white">Title not found</h1>
+      <div className="app-canvas flex min-h-screen items-center justify-center px-6">
+        <div className="media-surface max-w-md rounded-2xl p-8 text-center">
+          <h1 className="font-display text-2xl font-semibold text-foreground">Title not found</h1>
+          <p className="mt-2 text-sm text-muted-foreground">This title is no longer available.</p>
+        </div>
       </div>
     );
   }

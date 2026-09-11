@@ -4,7 +4,7 @@ import { Button } from "@fishy/ui";
 export function PosterSkeleton({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`poster-skeleton aspect-2/3 w-full min-w-0 rounded-xl border border-border/55 bg-card/80 shadow-md ${className}`}
+      className={`poster-skeleton block aspect-2/3 min-w-0 rounded-lg border border-border/55 bg-card/80 shadow-md ${className}`}
       aria-hidden="true"
     />
   );
@@ -33,6 +33,9 @@ type GridSkeletonVariant = "grid" | "library" | "picks";
 const gridSkeletonClassName =
   "grid min-w-0 grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
 
+const gridSkeletonSurfaceClassName =
+  "media-surface rounded-xl border-border/55 bg-card/38 p-3 sm:p-5";
+
 function SkeletonGrid({
   count,
   className = gridSkeletonClassName
@@ -43,7 +46,17 @@ function SkeletonGrid({
   return (
     <div className={className}>
       {Array.from({ length: count }).map((_, index) => (
-        <PosterSkeleton key={index} />
+        <div key={index} className="min-w-0">
+          <PosterSkeleton className="w-full" />
+          <div className="mt-2 space-y-2 md:hidden">
+            <div className="poster-skeleton h-4 w-3/4 rounded-md" />
+            <div className="poster-skeleton h-3 w-10 rounded-md" />
+            <div className="flex items-center gap-2">
+              <div className="poster-skeleton h-11 w-11 rounded-lg" />
+              <div className="poster-skeleton h-11 w-11 rounded-lg" />
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -66,15 +79,15 @@ export function GridSkeleton({
           {Array.from({ length: 3 }).map((_, index) => (
             <section
               key={index}
-              className="rounded-xl border border-border/55 bg-card/28 p-4 sm:p-5"
+              className="media-surface rounded-xl border-border/55 bg-card/50 p-4 sm:p-5"
             >
               <div className="mb-5 flex items-center gap-3 border-b border-border/55 pb-4">
                 <div className="poster-skeleton h-9 w-9 shrink-0 rounded-xl border border-border/55 bg-card/60" />
                 <div className="poster-skeleton h-7 w-40 rounded-lg border border-border/55 bg-card/60" />
               </div>
               <SkeletonGrid
-                count={count}
-                className={`${gridSkeletonClassName} lg:gap-x-5 2xl:grid-cols-7 2xl:gap-x-6`}
+                count={Math.max(count, 20)}
+                className={`${gridSkeletonClassName} gap-y-8 sm:gap-y-9 lg:gap-x-5 2xl:grid-cols-7 2xl:gap-x-6`}
               />
             </section>
           ))}
@@ -97,7 +110,7 @@ export function GridSkeleton({
               <div className="poster-skeleton h-9 w-24 rounded-xl border border-border/55 bg-card/60" />
               <div className="poster-skeleton h-9 w-28 rounded-xl border border-border/55 bg-card/60" />
             </div>
-            <SkeletonGrid count={count} />
+            <SkeletonGrid count={count} className={gridSkeletonClassName} />
           </section>
         </div>
       </div>
@@ -105,7 +118,7 @@ export function GridSkeleton({
   }
 
   return (
-    <div aria-hidden="true">
+    <div className={gridSkeletonSurfaceClassName} aria-hidden="true">
       <SkeletonGrid count={count} />
     </div>
   );
@@ -121,10 +134,12 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-56 items-center justify-center px-6 py-14 text-center">
+    <div className="empty-state flex min-h-64 items-center justify-center rounded-xl border border-dashed border-border/70 bg-card/28 px-6 py-14 text-center">
       <div className="max-w-sm space-y-3">
         {icon ? (
-          <div className="mx-auto flex justify-center text-muted-foreground/40">{icon}</div>
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl border border-primary/20 bg-primary/8 text-primary/70">
+            {icon}
+          </div>
         ) : null}
         <p className="text-sm font-medium text-foreground">{title}</p>
         {action}
@@ -146,7 +161,7 @@ export function PageHeader({
     <div className="page-intro">
       <div className="min-w-0 flex items-baseline gap-2">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             {title}
           </h1>
         </div>

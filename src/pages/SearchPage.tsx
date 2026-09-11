@@ -159,7 +159,7 @@ export function SearchPage() {
 
         {!loading && results.length > 0 && (
           <>
-            <div className="mb-6 flex flex-col gap-4 rounded-xl border border-border/60 bg-card/42 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="media-surface mb-6 flex flex-col gap-4 rounded-xl border-border/60 bg-card/42 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span className="rounded-full bg-primary/12 px-2.5 py-1 font-semibold text-primary">
                   {filteredResults.length} results
@@ -223,7 +223,7 @@ export function SearchPage() {
               />
             ) : (
               <>
-                <div className="rounded-xl border border-border/55 bg-card/25 p-3 sm:p-5">
+                <div className="media-surface rounded-xl border-border/55 bg-card/38 p-3 sm:p-5">
                   <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 stagger-children">
                     {filteredResults.map((item) => (
                       <div key={`${item.type}-${item.tmdbId}`} className="animate-fade-in-up">

@@ -86,8 +86,8 @@ export function SearchCard({
         aria-label={`${item.title} (${item.year})`}
       >
         <div
-          className={`relative aspect-2/3 rounded-lg overflow-hidden transition-all duration-300 ${
-            hovered ? "md:z-20 md:shadow-md md:md:ring-1 md:ring-white/20" : "shadow-md"
+          className={`relative aspect-2/3 overflow-hidden rounded-lg border border-border/55 bg-card transition-all duration-300 ${
+            hovered ? "md:z-20 md:shadow-md md:ring-1 md:ring-primary/45" : "shadow-md"
           }`}
         >
           {imgError ? (
@@ -115,17 +115,17 @@ export function SearchCard({
             <div className="space-y-2">
               <Button
                 size="icon"
-                className="h-9 w-9 shrink-0 rounded-md bg-white text-black shadow-sm hover:bg-white/90"
+                className="h-9 w-9 shrink-0 rounded-lg bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
                 onClick={handlePlay}
                 aria-label={`Play ${item.title}`}
               >
-                <Play className="w-4 h-4 fill-black text-black ml-0.5" />
+                <Play className="ml-0.5 h-4 w-4 fill-current" />
               </Button>
 
-              <h3 className="text-sm font-display font-semibold text-white truncate leading-tight">
+              <h3 className="truncate font-display text-sm font-semibold leading-tight text-foreground">
                 {item.title}
               </h3>
-              <div className="flex items-center gap-2 text-xs text-white/60">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{item.year}</span>
                 {score && score > 0 && (
                   <span className="flex items-center gap-0.5">
@@ -140,10 +140,10 @@ export function SearchCard({
 
         <div className="mt-2 space-y-2 md:hidden">
           <div>
-            <h3 className="line-clamp-1 text-sm font-display font-semibold leading-tight text-white">
+            <h3 className="line-clamp-1 font-display text-sm font-semibold leading-tight text-foreground">
               {item.title}
             </h3>
-            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-white/58">
+            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
               <span>{item.year}</span>
               {score && score > 0 && (
                 <span className="flex items-center gap-1">
@@ -157,11 +157,11 @@ export function SearchCard({
           {showMobileActions && (
             <Button
               size="icon"
-              className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-black hover:bg-white/90"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={handlePlay}
               aria-label={`Play ${item.title}`}
             >
-              <Play className="h-4 w-4 fill-black text-black" />
+              <Play className="h-4 w-4 fill-current" />
             </Button>
           )}
         </div>

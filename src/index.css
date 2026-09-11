@@ -69,6 +69,23 @@ body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] 
 @theme {
   --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;
+  --color-background: oklch(0.145 0.012 250);
+  --color-foreground: oklch(0.94 0.008 250);
+  --color-card: oklch(0.19 0.014 250);
+  --color-card-foreground: oklch(0.94 0.008 250);
+  --color-popover: oklch(0.22 0.016 250);
+  --color-popover-foreground: oklch(0.94 0.008 250);
+  --color-primary: oklch(0.74 0.135 195);
+  --color-primary-foreground: oklch(0.15 0.012 250);
+  --color-secondary: oklch(0.235 0.014 250);
+  --color-secondary-foreground: oklch(0.94 0.008 250);
+  --color-muted: oklch(0.235 0.014 250);
+  --color-muted-foreground: oklch(0.68 0.012 250);
+  --color-accent: oklch(0.275 0.018 250);
+  --color-accent-foreground: oklch(0.95 0.008 250);
+  --color-border: oklch(0.31 0.016 250);
+  --color-input: oklch(0.27 0.016 250);
+  --color-ring: oklch(0.74 0.135 195);
   --color-warning: oklch(0.78 0.12 85);
 
   --radius-xl: var(--radius-xl-dynamic);
@@ -147,7 +164,13 @@ body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] 
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: var(--color-background);
+    background:
+      radial-gradient(
+        circle at 30% -10%,
+        color-mix(in oklab, var(--color-primary) 7%, transparent),
+        transparent 34rem
+      ),
+      var(--color-background);
   }
 
   ::selection {
@@ -178,11 +201,18 @@ body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] 
 @layer components {
   .app-canvas {
     min-height: 100dvh;
-    background: var(--color-background);
+    background:
+      radial-gradient(
+        circle at 50% -12%,
+        color-mix(in oklab, var(--color-primary) 6%, transparent),
+        transparent 34rem
+      ),
+      var(--color-background);
   }
 
   .app-rail {
-    @apply fixed inset-y-0 left-0 z-header hidden border-r border-border/65 bg-background md:flex md:w-18 xl:w-62;
+    @apply fixed inset-y-0 left-0 z-header hidden border-r border-border/60 bg-background/92 md:flex md:w-20 xl:w-64;
+    backdrop-filter: blur(22px);
   }
 
   .app-topbar {
@@ -195,15 +225,16 @@ body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] 
   }
 
   .app-main {
-    @apply min-h-dvh pb-23 md:pb-0 md:pl-18 xl:pl-62;
+    @apply min-h-dvh pb-23 md:pb-0 md:pl-20 xl:pl-64;
   }
 
   .app-rail ~ main {
-    @apply min-h-dvh pb-23 md:pb-0 md:pl-18 xl:pl-62;
+    @apply min-h-dvh pb-23 md:pb-0 md:pl-20 xl:pl-64;
   }
 
   .media-surface {
-    @apply border border-border/65 bg-card shadow-sm;
+    @apply border border-border/65 bg-card/80 shadow-sm;
+    box-shadow: 0 18px 48px color-mix(in oklab, var(--color-background) 60%, transparent);
   }
 
   .page-intro {
@@ -263,6 +294,13 @@ body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] 
 
   .auth-canvas {
     @apply relative min-h-dvh overflow-hidden bg-background px-4 py-8;
+    background:
+      radial-gradient(
+        circle at 50% 0%,
+        color-mix(in oklab, var(--color-primary) 10%, transparent),
+        transparent 30rem
+      ),
+      var(--color-background);
   }
 
   .surface {
@@ -278,7 +316,11 @@ body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] 
   }
 
   .home-panel {
-    @apply relative overflow-hidden rounded-lg border border-border/65 bg-card shadow-sm;
+    @apply relative overflow-hidden rounded-lg border border-border/65 bg-card/80 shadow-sm;
+  }
+
+  .section-kicker {
+    @apply font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80;
   }
 
   .poster-skeleton {
@@ -312,6 +354,35 @@ body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] 
   .home-discovery-strip {
     background: var(--color-card);
   }
+
+  .auth-canvas .text-white,
+  .library-page .text-white {
+    color: var(--color-foreground);
+  }
+
+  .auth-canvas .text-white\/70,
+  .auth-canvas .text-white\/65,
+  .auth-canvas .text-white\/45,
+  .library-page .text-white\/70,
+  .library-page .text-white\/60,
+  .library-page .text-white\/58 {
+    color: var(--color-muted-foreground);
+  }
+
+  .auth-canvas .bg-black\/20,
+  .library-page .bg-white\/4,
+  .library-page .bg-white\/5,
+  .library-page .bg-white\/6,
+  .library-page .bg-white\/8 {
+    background-color: color-mix(in oklab, var(--color-muted) 55%, transparent);
+  }
+
+  .auth-canvas .border-white\/10,
+  .library-page .border-white\/6,
+  .library-page .border-white\/10,
+  .library-page .border-white\/12 {
+    border-color: color-mix(in oklab, var(--color-border) 90%, transparent);
+  }
 }
 
 @layer utilities {
@@ -331,7 +402,7 @@ body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] 
   }
 
   .page-stack {
-    padding-top: clamp(5.75rem, 10vw, 7rem);
+    padding-top: clamp(5.5rem, 8vw, 6.75rem);
     padding-bottom: clamp(3rem, 8vw, 5rem);
   }
 
@@ -400,7 +471,7 @@ body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] 
 
 @media (min-width: 1024px) {
   .page-shell-wide {
-    width: min(100% - 5.35rem, 175rem);
+    width: min(100% - 4rem, 175rem);
   }
 }
 

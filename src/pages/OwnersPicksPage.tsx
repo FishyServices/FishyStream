@@ -48,14 +48,16 @@ export function OwnersPicksPage() {
           {sections.map((sect) => (
             <section
               key={sect.title}
-              className="rounded-xl border border-border/55 bg-card/28 p-4 sm:p-5"
+              className="media-surface rounded-xl border-border/55 bg-card/50 p-4 sm:p-5"
             >
               <div className="mb-5 flex items-center gap-3 border-b border-border/55 pb-4">
                 <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/12">
                   <sect.icon className="h-4 w-4 text-primary" />
                 </span>
                 <div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">{sect.title}</h2>
+                  <h2 className="font-display text-2xl font-semibold text-foreground">
+                    {sect.title}
+                  </h2>
                 </div>
               </div>
 

@@ -53,13 +53,13 @@ function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <Link
       to="/"
-      className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-sm font-black text-primary-foreground shadow-sm ">
-        F
+      <span className="grid h-9 w-9 place-items-center rounded-lg border border-primary/35 bg-primary/12 font-mono text-xs font-bold tracking-tight text-primary transition-colors group-hover:bg-primary/20">
+        FS
       </span>
       {!compact && (
-        <span className="font-display text-lg font-bold tracking-tight text-foreground">
+        <span className="font-display text-[1.05rem] font-semibold tracking-tight text-foreground">
           FishyStream
         </span>
       )}
@@ -87,7 +87,7 @@ function NavLink({
       title={collapsed ? item.label : undefined}
       className={`group relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-[background-color,color,transform] hover:translate-x-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active
-          ? "bg-primary/15 text-primary shadow-sm ring-1 ring-primary/25 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
+          ? "bg-primary/10 text-primary ring-1 ring-primary/20 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       } ${collapsed ? "justify-center px-0 xl:justify-start xl:px-3" : ""}`}
     >
@@ -196,8 +196,8 @@ export function Header() {
 
   return (
     <>
-      <aside className="app-rail flex-col bg-linear-to-b from-card/90 via-background to-background px-3 py-5 shadow-[12px_0_30px_color-mix(in_oklab,var(--color-background)_35%,transparent)]">
-        <div className="mb-8 px-2 xl:px-1">
+      <aside className="app-rail flex-col bg-linear-to-b from-card/72 via-background/96 to-background px-3 py-5 shadow-[12px_0_30px_color-mix(in_oklab,var(--color-background)_35%,transparent)]">
+        <div className="mb-9 px-2 xl:px-1">
           <span className="xl:hidden">
             <Brand compact />
           </span>
@@ -205,24 +205,20 @@ export function Header() {
             <Brand />
           </span>
         </div>
-        <p className="mb-2 hidden px-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70 xl:block">
-          Explore
-        </p>
+        <p className="section-kicker mb-2 hidden px-3 xl:block">Explore</p>
         <nav className="space-y-1" aria-label="Primary navigation">
           {primaryNav.map((item) => (
             <NavLink key={item.href} item={item} collapsed />
           ))}
         </nav>
         <div className="my-5 border-t border-border/60" />
-        <p className="mb-2 hidden px-3 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70 xl:block">
-          Library
-        </p>
+        <p className="section-kicker mb-2 hidden px-3 xl:block">Library</p>
         <nav className="space-y-1" aria-label="Library navigation">
           {libraryNav.map((item) => (
             <NavLink key={item.href} item={item} collapsed />
           ))}
         </nav>
-        <div className="mt-auto space-y-1 rounded-xl border border-border/60 bg-card/55 p-2 shadow-sm">
+        <div className="mt-auto space-y-1 rounded-xl border border-border/60 bg-card/55 p-2">
           <Button
             variant="secondary"
             onClick={() => setSearchOpen(true)}
@@ -268,7 +264,7 @@ export function Header() {
         </div>
       </aside>
 
-      <header className="app-topbar">
+      <header className="app-topbar bg-background/88 backdrop-blur-xl">
         <Brand />
         <div className="flex items-center gap-1">
           <Button

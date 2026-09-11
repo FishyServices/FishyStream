@@ -100,7 +100,7 @@ function NativeSignUpCard() {
   };
 
   return (
-    <div className="media-surface w-full max-w-md rounded-xl p-6 shadow-md sm:p-8">
+    <div className="media-surface w-full max-w-md rounded-2xl p-6 shadow-md sm:p-8">
       <div className="mb-6">
         <p className="mb-2 text-sm font-medium text-muted-foreground">Start watching</p>
         <h1 className="font-display text-3xl font-bold text-foreground">Create account</h1>
