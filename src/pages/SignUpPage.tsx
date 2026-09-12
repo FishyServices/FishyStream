@@ -107,7 +107,7 @@ function NativeSignUpCard() {
       </div>
 
       {errorMessage && (
-        <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
           {errorMessage}
         </div>
       )}
@@ -115,7 +115,7 @@ function NativeSignUpCard() {
       {!awaitingCode ? (
         <form className="space-y-3" onSubmit={handleSubmit}>
           <Label className="block">
-            <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
+            <span className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
               <Mail className="h-4 w-4" />
               Email
             </span>
@@ -124,14 +124,14 @@ function NativeSignUpCard() {
               autoComplete="email"
               value={emailAddress}
               onChange={(event) => setEmailAddress(event.target.value)}
-              className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
+              className="h-12 border-input bg-background text-foreground placeholder:text-muted-foreground"
               placeholder="you@example.com"
               required
             />
           </Label>
 
           <Label className="block">
-            <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
+            <span className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
               <Lock className="h-4 w-4" />
               Password
             </span>
@@ -140,7 +140,7 @@ function NativeSignUpCard() {
               autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
+              className="h-12 border-input bg-background text-foreground placeholder:text-muted-foreground"
               placeholder="Create a password"
               required
             />
@@ -154,7 +154,7 @@ function NativeSignUpCard() {
       ) : (
         <form className="space-y-3" onSubmit={handleVerify}>
           <Label className="block">
-            <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
+            <span className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
               <ShieldCheck className="h-4 w-4" />
               Code
             </span>
@@ -163,7 +163,7 @@ function NativeSignUpCard() {
               autoComplete="one-time-code"
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
+              className="h-12 border-input bg-background text-foreground placeholder:text-muted-foreground"
               placeholder="Code"
               required
             />
@@ -176,7 +176,7 @@ function NativeSignUpCard() {
         </form>
       )}
 
-      <p className="mt-5 text-center text-sm text-white/45">
+      <p className="mt-5 text-center text-sm text-muted-foreground">
         Already have an account?{" "}
         <Link to="/sign-in" className="font-medium text-primary hover:text-primary/80">
           Sign in
@@ -195,10 +195,10 @@ export function SignUpPage() {
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </ClerkLoading>
       <ClerkFailed>
-        <div className="max-w-md rounded-xl border border-red-500/20 bg-red-500/10 p-6 text-center">
-          <AlertCircle className="mx-auto mb-3 h-8 w-8 text-red-400" />
-          <p className="font-medium text-white">Clerk failed to initialize</p>
-          <p className="mt-2 text-sm text-white/70">
+        <div className="max-w-md rounded-xl border border-destructive/30 bg-destructive/10 p-6 text-center">
+          <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive" />
+          <p className="font-medium text-foreground">Clerk failed to initialize</p>
+          <p className="mt-2 text-sm text-muted-foreground">
             Check your Clerk publishable key and allowed local development URLs.
           </p>
         </div>

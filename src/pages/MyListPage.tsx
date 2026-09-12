@@ -137,7 +137,7 @@ function FolderPickerItems({
   return (
     <>
       <DropdownMenuItem
-        className="rounded-md px-3 py-2 text-xs font-medium text-white/70 focus:bg-white focus:text-black"
+        className="rounded-md px-3 py-2 text-xs font-medium text-muted-foreground focus:bg-accent focus:text-accent-foreground"
         onClick={() => onSelect("unsorted")}
       >
         Unsorted
@@ -145,7 +145,7 @@ function FolderPickerItems({
       {folderOptions.map((folder) => (
         <DropdownMenuItem
           key={folder}
-          className="rounded-md px-3 py-2 text-xs font-medium text-white/70 focus:bg-white focus:text-black"
+          className="rounded-md px-3 py-2 text-xs font-medium text-muted-foreground focus:bg-accent focus:text-accent-foreground"
           onClick={() => onSelect(folder)}
         >
           {folder}
@@ -173,11 +173,11 @@ function ItemActionsMenu({
   return (
     <DropdownMenu open={isOpen} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger render={trigger} />
-      <DropdownMenuContent className="w-56 rounded-lg border border-white/10 bg-popover p-1 shadow-md">
+      <DropdownMenuContent className="w-56 rounded-lg border-border bg-popover p-1 shadow-md">
         <FolderPickerItems folderOptions={folderOptions} onSelect={onAssignFolder} />
-        <div className="my-1 h-px bg-white/10" />
+        <div className="my-1 h-px bg-border" />
         <DropdownMenuItem
-          className="rounded-md px-3 py-2 text-xs font-medium text-red-300 focus:bg-red-500/10 focus:text-red-200"
+          className="rounded-md px-3 py-2 text-xs font-medium text-destructive focus:bg-destructive/10 focus:text-destructive"
           onClick={onRemove}
         >
           <ListMinus className="mr-2 inline h-4 w-4" />
@@ -235,7 +235,7 @@ function WatchlistCard({
         } ${
           isSelected
             ? "border-primary/60 bg-primary/10"
-            : "border-white/6 bg-white/4 hover:border-white/12 hover:bg-white/8"
+            : "border-border/60 bg-muted/35 hover:border-primary/30 hover:bg-accent/60"
         } ${isDragging ? "scale-[0.99] opacity-70" : ""} ${isMenuOpen ? "z-40" : ""}`;
 
   return (
@@ -268,8 +268,8 @@ function WatchlistCard({
               <div
                 className={`flex h-7 w-7 items-center justify-center rounded-md border-2 shadow-sm transition-colors ${
                   isSelected
-                    ? "border-primary bg-primary text-white"
-                    : "border-white/50 bg-black/60"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background/80"
                 }`}
               >
                 {isSelected && <CheckSquare className="h-4 w-4" />}
@@ -286,7 +286,7 @@ function WatchlistCard({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 rounded-md border border-white/12 bg-black/80 text-white/82 shadow-sm hover:bg-black hover:text-white"
+                    className="h-9 w-9 rounded-md border-border bg-background/80 text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground"
                     aria-label={`Choose folder for ${item.title}`}
                   >
                     <MoreHorizontal className="h-4 w-4" />
@@ -307,13 +307,13 @@ function WatchlistCard({
           {selectionMode && (
             <div
               className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
-                isSelected ? "border-primary bg-primary text-white" : "border-white/30"
+                isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border"
               }`}
             >
               {isSelected && <CheckSquare className="h-3.5 w-3.5" />}
             </div>
           )}
-          <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-lg border border-white/6 sm:h-24 sm:w-16">
+          <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-lg border border-border/60 sm:h-24 sm:w-16">
             <img
               src={item.posterUrl}
               alt={item.title}
@@ -346,10 +346,10 @@ function WatchlistCard({
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="max-w-60 truncate text-base font-bold text-white sm:max-w-100">
+              <h3 className="max-w-60 truncate text-base font-bold text-foreground sm:max-w-100">
                 {item.title}
               </h3>
-              <span className="rounded border border-white/20 bg-white/5 px-1.5 py-0.5 text-xs font-medium capitalize text-white/60">
+              <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-xs font-medium capitalize text-muted-foreground">
                 {item.type}
               </span>
             </div>
@@ -368,7 +368,7 @@ function WatchlistCard({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 rounded-md border border-white/12 bg-white/5 text-white/82 hover:bg-white/10 hover:text-white"
+                    className="h-9 w-9 rounded-md border-border bg-muted/50 text-foreground hover:bg-accent hover:text-accent-foreground"
                     aria-label={`Choose folder for ${item.title}`}
                   >
                     <MoreHorizontal className="h-4 w-4" />
@@ -1099,7 +1099,7 @@ export function MyListPage() {
                             openRenameFolder(folder);
                           }}
                           className={`rounded-none px-2 py-1.5 ${
-                            folderFilter === folder ? "hover:bg-black/20" : "hover:bg-white/8"
+                            folderFilter === folder ? "hover:bg-accent/60" : "hover:bg-muted/60"
                           }`}
                           aria-label={`Rename ${folder} folder`}
                         >
@@ -1115,7 +1115,7 @@ export function MyListPage() {
                           }}
                           className={`rounded-none px-2 py-1.5 ${
                             folderFilter === folder
-                              ? "bg-black/12 hover:bg-black/20"
+                              ? "bg-muted/70 hover:bg-accent/60"
                               : "hover:bg-white/8"
                           }`}
                           aria-label={`Delete ${folder} folder`}
@@ -1249,8 +1249,10 @@ export function MyListPage() {
                     {SORT_OPTIONS.map((option) => (
                       <DropdownMenuItem
                         key={option.id}
-                        className={`rounded-md px-3 py-2 text-xs font-medium focus:bg-white focus:text-black ${
-                          sortBy === option.id ? "bg-white/10 text-white" : "text-white/70"
+                        className={`rounded-md px-3 py-2 text-xs font-medium focus:bg-accent focus:text-accent-foreground ${
+                          sortBy === option.id
+                            ? "bg-accent text-accent-foreground"
+                            : "text-muted-foreground"
                         }`}
                         onClick={() => setSortBy(option.id)}
                       >
@@ -1394,14 +1396,14 @@ export function MyListPage() {
       {/* Floating bulk-action bar */}
       {selectionMode && selectedIds.size > 0 && (
         <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
-          <div className="flex w-full max-w-xl items-center gap-2 rounded-xl border border-white/10 bg-[hsl(220,20%,10%)] p-2 shadow-md">
-            <div className="flex items-center gap-2 pl-2 pr-1 text-sm font-medium text-white">
+          <div className="flex w-full max-w-xl items-center gap-2 rounded-xl border border-border bg-popover p-2 shadow-md">
+            <div className="flex items-center gap-2 pl-2 pr-1 text-sm font-medium text-popover-foreground">
               {pluralize(selectedIds.size, "selected")}
             </div>
             <Button
               variant="ghost"
               size="sm"
-              className="rounded-md text-white/70 hover:text-white"
+              className="rounded-md text-muted-foreground hover:text-foreground"
               onClick={handleSelectAllToggle}
             >
               {allVisibleSelected ? "Clear" : "Select all"}
@@ -1422,7 +1424,7 @@ export function MyListPage() {
                     </Button>
                   }
                 />
-                <DropdownMenuContent className="mb-2 w-56 rounded-lg border border-white/10 bg-popover p-1 shadow-md">
+                <DropdownMenuContent className="mb-2 w-56 rounded-lg border-border bg-popover p-1 shadow-md">
                   <FolderPickerItems folderOptions={folderOptions} onSelect={handleBulkMove} />
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1440,7 +1442,7 @@ export function MyListPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-md text-white/60 hover:text-white"
+                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
                 onClick={exitSelectionMode}
                 aria-label="Cancel selection"
               >
@@ -1452,10 +1454,10 @@ export function MyListPage() {
       )}
 
       <Dialog open={isAutoSortDialogOpen} onOpenChange={setIsAutoSortDialogOpen}>
-        <DialogContent className="border-white/10 bg-[hsl(220,20%,8%)] text-white">
+        <DialogContent className="border-border/70 bg-card text-card-foreground">
           <DialogHeader>
             <DialogTitle>Organize your list?</DialogTitle>
-            <DialogDescription className="text-white/58">
+            <DialogDescription className="text-muted-foreground">
               Movies go to "Movies" and TV shows go to "TV Shows". Items already sorted elsewhere
               will move.
             </DialogDescription>
@@ -1480,10 +1482,10 @@ export function MyListPage() {
         open={!!pendingDeleteFolder}
         onOpenChange={(open) => !open && setPendingDeleteFolder(null)}
       >
-        <DialogContent className="border-white/10 bg-[hsl(220,20%,8%)] text-white">
+        <DialogContent className="border-border/70 bg-card text-card-foreground">
           <DialogHeader>
             <DialogTitle>Delete folder?</DialogTitle>
-            <DialogDescription className="text-white/58">
+            <DialogDescription className="text-muted-foreground">
               {pendingDeleteFolder
                 ? `"${pendingDeleteFolder}" will be removed. Its titles move back to Unsorted.`
                 : "Are you sure?"}
@@ -1512,10 +1514,10 @@ export function MyListPage() {
         open={pendingBulkRemove}
         onOpenChange={(open) => !open && setPendingBulkRemove(false)}
       >
-        <DialogContent className="border-white/10 bg-[hsl(220,20%,8%)] text-white">
+        <DialogContent className="border-border/70 bg-card text-card-foreground">
           <DialogHeader>
             <DialogTitle>Remove {pluralize(selectedIds.size, "title")}?</DialogTitle>
-            <DialogDescription className="text-white/58">
+            <DialogDescription className="text-muted-foreground">
               These titles will be removed from your list. You can always add them back later.
             </DialogDescription>
           </DialogHeader>
@@ -1534,10 +1536,10 @@ export function MyListPage() {
         open={!!renameFolderTarget}
         onOpenChange={(open) => !open && setRenameFolderTarget(null)}
       >
-        <DialogContent className="border-white/10 bg-[hsl(220,20%,8%)] text-white">
+        <DialogContent className="border-border/70 bg-card text-card-foreground">
           <DialogHeader>
             <DialogTitle>Rename folder</DialogTitle>
-            <DialogDescription className="text-white/58">
+            <DialogDescription className="text-muted-foreground">
               Titles inside "{renameFolderTarget}" will move to the new name.
             </DialogDescription>
           </DialogHeader>
@@ -1552,7 +1554,7 @@ export function MyListPage() {
             }}
             placeholder="Folder name"
             autoFocus
-            className="rounded-md border-white/12 bg-white/6 text-white placeholder:text-white/35"
+            className="rounded-md border-input bg-background text-foreground placeholder:text-muted-foreground"
           />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setRenameFolderTarget(null)}>

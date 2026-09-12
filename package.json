@@ -25,33 +25,33 @@
     "icons": "bun scripts/generate-icons.ts"
   },
   "dependencies": {
-    "@capacitor/android": "8.5.1",
-    "@capacitor/cli": "8.5.1",
-    "@capacitor/core": "8.5.1",
-    "@clerk/react": "6.15.0",
+    "@capacitor/android": "8.5.2",
+    "@capacitor/cli": "8.5.2",
+    "@capacitor/core": "8.5.2",
+    "@clerk/react": "6.15.2",
     "@clerk/themes": "2.4.57",
     "@cloudflare/puppeteer": "1.4.0",
     "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git",
     "class-variance-authority": "0.7.1",
     "convex": "1.45.0",
-    "hls.js": "1.7.2",
-    "lucide-react": "1.39.0",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
+    "hls.js": "1.7.3",
+    "lucide-react": "1.45.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "react-router-dom": "7.18.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
-    "@types/bun": "latest",
-    "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.5",
+    "@types/bun": "1.4.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
     "concurrently": "10.0.5",
     "prettier": "3.9.6",
     "sharp": "0.35.4",
     "tailwindcss": "4.3.3",
     "typescript": "~7.0.2",
-    "vite": "8.2.2",
-    "vitest": "4.1.11"
+    "vite": "8.3.0",
+    "vitest": "5.0.0"
   }
 }

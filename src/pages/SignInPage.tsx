@@ -182,13 +182,13 @@ function NativeSignInCard() {
       </div>
 
       {errorMessage && (
-        <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
           {errorMessage}
         </div>
       )}
 
       {!requiresVerification && (
-        <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg border border-white/8 bg-black/20 p-1">
+        <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/60 p-1">
           <Button
             type="button"
             variant={mode === "password" ? "default" : "ghost"}
@@ -222,7 +222,7 @@ function NativeSignInCard() {
           onSubmit={mode === "password" ? handleSubmit : handleSendEmailCode}
         >
           <Label className="block">
-            <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
+            <span className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
               <Mail className="h-4 w-4" />
               Email
             </span>
@@ -231,7 +231,7 @@ function NativeSignInCard() {
               autoComplete="email"
               value={emailAddress}
               onChange={(event) => setEmailAddress(event.target.value)}
-              className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
+              className="h-12 border-input bg-background text-foreground placeholder:text-muted-foreground"
               placeholder="you@example.com"
               required
             />
@@ -239,7 +239,7 @@ function NativeSignInCard() {
 
           {mode === "password" && (
             <Label className="block">
-              <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
+              <span className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Lock className="h-4 w-4" />
                 Password
               </span>
@@ -248,7 +248,7 @@ function NativeSignInCard() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
+                className="h-12 border-input bg-background text-foreground placeholder:text-muted-foreground"
                 placeholder="Your password"
                 required
               />
@@ -266,7 +266,7 @@ function NativeSignInCard() {
           onSubmit={mode === "email-code" ? handleVerifyEmailCode : handleVerify}
         >
           <Label className="block">
-            <span className="mb-2 flex items-center gap-2 text-sm text-white/70">
+            <span className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
               <ShieldCheck className="h-4 w-4" />
               Code
             </span>
@@ -275,7 +275,7 @@ function NativeSignInCard() {
               autoComplete="one-time-code"
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              className="h-12 border-white/10 bg-white/4 text-white placeholder:text-white/30"
+              className="h-12 border-input bg-background text-foreground placeholder:text-muted-foreground"
               placeholder="Code"
               required
             />
@@ -288,7 +288,7 @@ function NativeSignInCard() {
         </form>
       )}
 
-      <p className="mt-5 text-center text-sm text-white/45">
+      <p className="mt-5 text-center text-sm text-muted-foreground">
         Need an account?{" "}
         <Link to="/sign-up" className="font-medium text-primary hover:text-primary/80">
           Create one
@@ -307,10 +307,10 @@ export function SignInPage() {
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </ClerkLoading>
       <ClerkFailed>
-        <div className="max-w-md rounded-xl border border-red-500/20 bg-red-500/10 p-6 text-center">
-          <AlertCircle className="mx-auto mb-3 h-8 w-8 text-red-400" />
-          <p className="font-medium text-white">Clerk failed to initialize</p>
-          <p className="mt-2 text-sm text-white/70">
+        <div className="max-w-md rounded-xl border border-destructive/30 bg-destructive/10 p-6 text-center">
+          <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive" />
+          <p className="font-medium text-foreground">Clerk failed to initialize</p>
+          <p className="mt-2 text-sm text-muted-foreground">
             Check your Clerk publishable key and allowed local development URLs.
           </p>
         </div>

@@ -977,9 +977,8 @@ export async function buildTvSources(args: {
   const getAniListAddress = () => {
     if (!aniListAddressPromise) {
       aniListAddressPromise = storedAniListAddress
-        ? resolveAniListEpisodeAddress({
+        ? Promise.resolve({
             anilistId: storedAniListAddress.anilistId,
-            season,
             episode: storedAniListAddress.anilistEpisodeNumber
           })
         : resolveAniListEpisodeAddress({ anilistId, title, season, seasonTitle, year, episode });

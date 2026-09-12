@@ -34,10 +34,6 @@ export default defineConfig(({ mode }) => {
       alias: [
         { find: "@", replacement: path.resolve(__dirname, "./src") },
         { find: "@content", replacement: path.resolve(__dirname, "./shared/content") },
-        {
-          find: "@fishy/ui",
-          replacement: path.resolve(__dirname, "./node_modules/@fishy/ui/src/index.ts")
-        },
         { find: "react", replacement: path.resolve(__dirname, "./node_modules/react") },
         { find: "react-dom", replacement: path.resolve(__dirname, "./node_modules/react-dom") }
       ]

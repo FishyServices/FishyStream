@@ -41,7 +41,7 @@ export function App() {
             <div className="absolute inset-0 rounded-xl border-2 border-primary/40 animate-pulse" />
             <Loader2 className="h-5 w-5 animate-spin text-primary relative z-10" />
           </div>
-          <span className="text-xs text-white/54 font-medium tracking-wide">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground">
             Loading FishyStream…
           </span>
         </div>
@@ -99,14 +99,14 @@ function HomepageContent({
         <Header />
         <main className="flex min-h-[calc(100vh-5rem)] items-center justify-center px-6 pt-24">
           <div className="max-w-md text-center space-y-4">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-white/4 border border-white/8 shadow-md">
-              <Film className="h-6 w-6 text-white/60" />
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border border-border bg-card shadow-md">
+              <Film className="h-6 w-6 text-muted-foreground" />
             </div>
             <div className="space-y-2">
-              <h2 className="font-display text-2xl font-semibold text-white">
+              <h2 className="font-display text-2xl font-semibold text-foreground">
                 Catalog unavailable
               </h2>
-              <p className="text-sm text-white/50 leading-relaxed">Check TMDB settings.</p>
+              <p className="text-sm leading-relaxed text-muted-foreground">Check TMDB settings.</p>
             </div>
           </div>
         </main>
