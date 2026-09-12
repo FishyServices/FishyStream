@@ -165,19 +165,7 @@ export const removeWatchHistoryEntry = mutation({
       .first();
     if (!existing) return false;
 
-    if (existing.watchlistAddedAt) {
-      await ctx.db.patch(existing._id, {
-        positionSeconds: undefined,
-        durationSeconds: undefined,
-        seasonNumber: undefined,
-        episodeNumber: undefined,
-        source: undefined,
-        dub: undefined,
-        watchedAt: undefined
-      });
-    } else {
-      await ctx.db.delete(existing._id);
-    }
+    await ctx.db.delete(existing._id);
 
     return true;
   }
@@ -192,19 +180,7 @@ export const clearWatchHistory = mutation({
       .collect();
 
     for (const entry of entries) {
-      if (entry.watchlistAddedAt) {
-        await ctx.db.patch(entry._id, {
-          positionSeconds: undefined,
-          durationSeconds: undefined,
-          seasonNumber: undefined,
-          episodeNumber: undefined,
-          source: undefined,
-          dub: undefined,
-          watchedAt: undefined
-        });
-      } else {
-        await ctx.db.delete(entry._id);
-      }
+      await ctx.db.delete(entry._id);
     }
 
     return entries.length;

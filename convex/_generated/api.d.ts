@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as aggregates from "../aggregates.js";
 import type * as domains_history_watchHistory from "../domains/history/watchHistory.js";
 import type * as domains_progress_watchProgress from "../domains/progress/watchProgress.js";
 import type * as domains_seasons_seasonSync from "../domains/seasons/seasonSync.js";
@@ -21,6 +22,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aggregates: typeof aggregates;
   "domains/history/watchHistory": typeof domains_history_watchHistory;
   "domains/progress/watchProgress": typeof domains_progress_watchProgress;
   "domains/seasons/seasonSync": typeof domains_seasons_seasonSync;
@@ -54,4 +56,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  watchlistFolderCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"watchlistFolderCounts">;
+};

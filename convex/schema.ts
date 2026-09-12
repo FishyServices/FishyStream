@@ -13,14 +13,34 @@ export default defineSchema({
     episodeNumber: v.optional(v.number()),
     source: v.optional(v.string()),
     dub: v.optional(v.boolean()),
-    watchedAt: v.optional(v.number()),
-    watchlistAddedAt: v.optional(v.number()),
+    watchedAt: v.optional(v.number())
+  })
+    .index("by_clerk_content", ["clerkUserId", "contentId"])
+    .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"]),
+
+  watchlist: defineTable({
+    clerkUserId: v.string(),
+    contentId: v.string(),
+    addedAt: v.number(),
     folder: v.optional(v.string())
   })
     .index("by_clerk_content", ["clerkUserId", "contentId"])
-    .index("by_clerk_folder", ["clerkUserId", "folder"])
-    .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"])
-    .index("by_clerk_watchlist_added", ["clerkUserId", "watchlistAddedAt"]),
+    .index("by_clerk_added", ["clerkUserId", "addedAt"])
+    .index("by_clerk_folder", ["clerkUserId", "folder", "addedAt"]),
+
+  watchlistContent: defineTable({
+    contentId: v.string(),
+    title: v.string(),
+    posterUrl: v.string()
+  }).index("by_content", ["contentId"]),
+
+  // for this i dont know how aggergate and this works......
+  watchlistMaintenance: defineTable({
+    key: v.string(),
+    state: v.union(v.literal("running"), v.literal("complete")),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number())
+  }).index("by_key", ["key"]),
 
   seasonEpisodes: defineTable({
     contentId: v.string(),

@@ -64,6 +64,12 @@ function readJson(key: string): unknown {
 const LS_WATCHLIST_IDS_KEY = "watchlist_ids";
 const LS_WATCHLIST_TMDB_KEY = "watchlist_tmdb_map";
 const LS_WATCHLIST_SNAPSHOTS_KEY = "watchlist_snapshots_v1";
+const LS_WATCHLIST_CACHE_PREFIX = "watchlist_cache_v1:";
+
+export type WatchlistCache = {
+  ids: ContentId[];
+  snapshots: Record<string, LocalContentSnapshot>;
+};
 
 export function getWatchlistIds(): ContentId[] {
   try {
@@ -127,6 +133,37 @@ export function getWatchlistSnapshots(): Record<string, LocalContentSnapshot> {
 export function setWatchlistSnapshots(snapshots: Record<string, LocalContentSnapshot>) {
   try {
     localStorage.setItem(LS_WATCHLIST_SNAPSHOTS_KEY, JSON.stringify(snapshots));
+  } catch {}
+}
+
+function getWatchlistCacheKey(userId: string) {
+  return `${LS_WATCHLIST_CACHE_PREFIX}${userId}`;
+}
+
+export function getWatchlistCache(userId: string): WatchlistCache {
+  try {
+    const value = readJson(getWatchlistCacheKey(userId));
+    if (!isRecord(value) || !Array.isArray(value.ids) || !isRecord(value.snapshots)) {
+      return { ids: [], snapshots: {} };
+    }
+    return {
+      ids: value.ids.filter(
+        (id): id is ContentId => typeof id === "string" && parseContentId(id) !== null
+      ),
+      snapshots: Object.fromEntries(
+        Object.entries(value.snapshots).filter((entry): entry is [string, LocalContentSnapshot] =>
+          isLocalContentSnapshot(entry[1])
+        )
+      )
+    };
+  } catch {
+    return { ids: [], snapshots: {} };
+  }
+}
+
+export function setWatchlistCache(userId: string, cache: WatchlistCache) {
+  try {
+    localStorage.setItem(getWatchlistCacheKey(userId), JSON.stringify(cache));
   } catch {}
 }
 

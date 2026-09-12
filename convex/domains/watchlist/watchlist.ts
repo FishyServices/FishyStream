@@ -1,33 +1,108 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { mutation, query } from "../../_generated/server";
-import { fromImageWire, toImageWire, parseContentId } from "@content/contentMetadata";
+import { getOneFrom } from "convex-helpers/server/relationships";
+import { internalMutation, mutation as rawMutation, query } from "../../_generated/server";
+import { internal } from "../../_generated/api";
+import type { QueryCtx } from "../../_generated/server";
+import {
+  fromImageWire,
+  parseContentId,
+  toImageWire,
+  type ContentType
+} from "@content/contentMetadata";
+import { foldersByUser, mutation } from "../../aggregates";
 
-const folderName = v.string();
+const folderNameValidator = v.string();
+const MAX_SCAN_ROWS = 300;
+const FOLDER_COUNTS_MAINTENANCE_KEY = "watchlist-folder-counts-v1";
+const MAINTENANCE_LEASE_MS = 60_000;
 
-function cleanFolder(name: string) {
-  return name.trim().replace(/\s+/g, " ");
+function normalizeFolderName(raw: string) {
+  return raw.trim().replace(/\s+/g, " ");
 }
 
-function normalizeTitle(value: string) {
-  return value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+function toStoredFolder(selector: string | null) {
+  return selector === null ? undefined : selector;
 }
 
-function toWatchlistItem(item: {
-  contentId: string;
-  title: string;
-  folder?: string;
-  posterUrl: string;
-}) {
-  const parsed = parseContentId(item.contentId);
+function entriesForFolder(ctx: QueryCtx, clerkUserId: string, selector: string | null | undefined) {
+  if (selector === undefined) {
+    return ctx.db
+      .query("watchlist")
+      .withIndex("by_clerk_added", (q) => q.eq("clerkUserId", clerkUserId).gt("addedAt", 0))
+      .order("desc");
+  }
+  return ctx.db
+    .query("watchlist")
+    .withIndex("by_clerk_folder", (q) =>
+      q.eq("clerkUserId", clerkUserId).eq("folder", toStoredFolder(selector))
+    )
+    .order("desc");
+}
+
+async function locateEntry(ctx: QueryCtx, clerkUserId: string, contentId: string) {
+  return ctx.db
+    .query("watchlist")
+    .withIndex("by_clerk_content", (q) =>
+      q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
+    )
+    .first();
+}
+
+function locateContent(ctx: QueryCtx, contentId: string) {
+  return getOneFrom(ctx.db, "watchlistContent", "by_content", contentId, "contentId");
+}
+
+function buildGridItem(
+  entry: { contentId: string; folder?: string },
+  content: { title: string; posterUrl: string }
+) {
+  const parsed = parseContentId(entry.contentId);
   return {
-    _id: item.contentId,
-    title: item.title,
+    _id: entry.contentId,
+    title: content.title,
     type: parsed?.type || "movie",
-    posterUrl: fromImageWire(item.posterUrl),
+    posterUrl: fromImageWire(content.posterUrl),
     tmdbId: parsed?.tmdbId || "",
-    watchlistFolder: item.folder
+    watchlistFolder: entry.folder
   };
+}
+
+async function hydrate(ctx: QueryCtx, entries: Array<{ contentId: string; folder?: string }>) {
+  const uniqueContentIds = Array.from(new Set(entries.map((entry) => entry.contentId)));
+  const resolved = await Promise.all(
+    uniqueContentIds.map(
+      async (contentId) => [contentId, await locateContent(ctx, contentId)] as const
+    )
+  );
+  const contentById = new Map(resolved);
+  const items: ReturnType<typeof buildGridItem>[] = [];
+  for (const entry of entries) {
+    const content = contentById.get(entry.contentId);
+    if (content) items.push(buildGridItem(entry, content));
+  }
+  return items;
+}
+
+async function distinctFolderNames(ctx: QueryCtx, clerkUserId: string) {
+  const rows = await entriesForFolder(ctx, clerkUserId, undefined).collect();
+  const names = new Set<string>();
+  for (const row of rows) if (row.folder) names.add(row.folder);
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+}
+
+async function findByTitle(
+  ctx: QueryCtx,
+  clerkUserId: string,
+  term: string,
+  selector: string | null | undefined
+) {
+  const rows = await entriesForFolder(ctx, clerkUserId, selector).take(MAX_SCAN_ROWS);
+  const hydrated = await hydrate(ctx, rows);
+  const needle = term.toLowerCase();
+  const matches: typeof hydrated = [];
+  for (const item of hydrated) if (item.title.toLowerCase().includes(needle)) matches.push(item);
+  return matches;
 }
 
 export const listWatchlist = query({
@@ -38,193 +113,143 @@ export const listWatchlist = query({
     search: v.optional(v.string())
   },
   handler: async (ctx, { clerkUserId, paginationOpts, folder, search }) => {
-    const normalizedSearch = search?.trim() ? normalizeTitle(search) : "";
-    const baseQuery = ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_watchlist_added", (q) =>
-        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
-      );
-    const scopedQuery =
-      folder === undefined
-        ? baseQuery
-        : baseQuery.filter((q) => q.eq(q.field("folder"), folder === null ? undefined : folder));
-
-    if (normalizedSearch) {
-      const entries = await scopedQuery.order("desc").collect();
-      const matchingEntries = entries.filter((entry) =>
-        normalizeTitle(entry.title).includes(normalizedSearch)
-      );
-      const start = paginationOpts.cursor === null ? 0 : Number(paginationOpts.cursor);
-      const safeStart = Number.isFinite(start) && start >= 0 ? start : 0;
-      const end = safeStart + paginationOpts.numItems;
-
+    const term = search?.trim();
+    if (term) {
+      const matches = await findByTitle(ctx, clerkUserId, term, folder);
+      const cursor = paginationOpts.cursor === null ? 0 : Number(paginationOpts.cursor);
+      const start = Number.isFinite(cursor) && cursor >= 0 ? cursor : 0;
+      const end = start + paginationOpts.numItems;
       return {
-        page: matchingEntries.slice(safeStart, end).map(toWatchlistItem),
-        isDone: end >= matchingEntries.length,
+        page: matches.slice(start, end),
+        isDone: end >= matches.length,
         continueCursor: String(end)
       };
     }
-
-    if (typeof folder === "string") {
-      const result = await ctx.db
-        .query("mediaState")
-        .withIndex("by_clerk_folder", (q) => q.eq("clerkUserId", clerkUserId).eq("folder", folder))
-        .filter((q) => q.gt(q.field("watchlistAddedAt"), 0))
-        .order("desc")
-        .paginate(paginationOpts);
-      return {
-        ...result,
-        page: result.page.map(toWatchlistItem)
-      };
-    }
-
-    const result = await scopedQuery.order("desc").paginate(paginationOpts);
-    return {
-      ...result,
-      page: result.page.map(toWatchlistItem)
-    };
+    const paged = await entriesForFolder(ctx, clerkUserId, folder).paginate(paginationOpts);
+    return { ...paged, page: await hydrate(ctx, paged.page) };
   }
 });
 
 export const listWatchlistContentIds = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }) => {
-    const items = await ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_watchlist_added", (q) =>
-        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
-      )
-      .collect();
-    return items.map((item) => item.contentId);
+    const rows = await entriesForFolder(ctx, clerkUserId, undefined).collect();
+    return rows.map((row) => row.contentId);
   }
 });
 
 export const listRecommendationSeeds = query({
-  args: {
-    clerkUserId: v.string(),
-    folder: v.optional(v.string())
-  },
+  args: { clerkUserId: v.string(), folder: v.optional(v.string()) },
   handler: async (ctx, { clerkUserId, folder }) => {
-    const result = folder
-      ? await ctx.db
-          .query("mediaState")
-          .withIndex("by_clerk_folder", (q) =>
-            q.eq("clerkUserId", clerkUserId).eq("folder", folder)
-          )
-          .filter((q) => q.gt(q.field("watchlistAddedAt"), 0))
-          .order("desc")
-          .paginate({ numItems: 160, cursor: null })
-      : await ctx.db
-          .query("mediaState")
-          .withIndex("by_clerk_watchlist_added", (q) =>
-            q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
-          )
-          .order("desc")
-          .paginate({ numItems: 160, cursor: null });
-
-    return result.page.flatMap((entry) => {
-      const parsed = parseContentId(entry.contentId);
-      return parsed ? [{ tmdbId: parsed.tmdbId, type: parsed.type }] : [];
-    });
+    const rows = await entriesForFolder(ctx, clerkUserId, folder).take(160);
+    const seeds: Array<{ tmdbId: string; type: ContentType }> = [];
+    for (const row of rows) {
+      const parsed = parseContentId(row.contentId);
+      if (parsed) seeds.push({ tmdbId: parsed.tmdbId, type: parsed.type });
+    }
+    return seeds;
   }
 });
 
 export const listFolders = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => {
-    const entries = await ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_watchlist_added", (q) =>
-        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
-      )
-      .collect();
-    return Array.from(
-      new Set(entries.flatMap((entry) => (entry.folder ? [entry.folder] : [])))
-    ).sort((a, b) => a.localeCompare(b));
-  }
+  handler: async (ctx, { clerkUserId }) => distinctFolderNames(ctx, clerkUserId)
 });
 
 export const listWatchlistSummary = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }) => {
-    const entries = await ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_watchlist_added", (q) =>
-        q.eq("clerkUserId", clerkUserId).gt("watchlistAddedAt", 0)
-      )
-      .collect();
     const counts = new Map<string, number>();
+    let total = 0;
     let unsorted = 0;
-    for (const entry of entries) {
-      const folder = entry.folder?.trim();
-      if (!folder) unsorted += 1;
-      else counts.set(folder, (counts.get(folder) ?? 0) + 1);
+    for await (const item of foldersByUser.iter(ctx, {
+      namespace: clerkUserId,
+      pageSize: 256
+    })) {
+      total += 1;
+      if (item.key) counts.set(item.key, (counts.get(item.key) ?? 0) + 1);
+      else unsorted += 1;
     }
     return {
-      total: entries.length,
+      total,
       unsorted,
-      folders: [...counts.entries()]
+      folders: Array.from(counts.entries())
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => a.name.localeCompare(b.name))
     };
   }
 });
 
+export const ensureFolderCounts = rawMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("watchlistMaintenance")
+      .withIndex("by_key", (q) => q.eq("key", FOLDER_COUNTS_MAINTENANCE_KEY))
+      .first();
+    const now = Date.now();
+    if (
+      existing?.state === "complete" ||
+      (existing?.state === "running" && now - existing.startedAt < MAINTENANCE_LEASE_MS)
+    ) {
+      return;
+    }
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { state: "running", startedAt: now });
+    } else {
+      await ctx.db.insert("watchlistMaintenance", {
+        key: FOLDER_COUNTS_MAINTENANCE_KEY,
+        state: "running",
+        startedAt: now
+      });
+    }
+    await ctx.scheduler.runAfter(0, internal.domains.watchlist.watchlist.backfillFolderCounts, {});
+  }
+});
+
+export const backfillFolderCounts = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await foldersByUser.clearAll(ctx);
+    const rows = await ctx.db.query("watchlist").collect();
+    for (const row of rows) await foldersByUser.insertIfDoesNotExist(ctx, row);
+    const marker = await ctx.db
+      .query("watchlistMaintenance")
+      .withIndex("by_key", (q) => q.eq("key", FOLDER_COUNTS_MAINTENANCE_KEY))
+      .first();
+    if (marker) await ctx.db.patch(marker._id, { state: "complete", completedAt: Date.now() });
+  }
+});
+
 export const deleteFolder = mutation({
-  args: { clerkUserId: v.string(), name: folderName },
+  args: { clerkUserId: v.string(), name: folderNameValidator },
   handler: async (ctx, { clerkUserId, name }) => {
-    const normalized = cleanFolder(name);
-    const entries = await ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_folder", (q) =>
-        q.eq("clerkUserId", clerkUserId).eq("folder", normalized)
-      )
-      .collect();
-    await Promise.all(
-      entries
-        .filter((entry) => entry.folder === normalized)
-        .map((entry) => ctx.db.patch(entry._id, { folder: undefined }))
-    );
+    const rows = await entriesForFolder(ctx, clerkUserId, normalizeFolderName(name)).collect();
+    await Promise.all(rows.map((row) => ctx.db.patch(row._id, { folder: undefined })));
   }
 });
 
 export const renameFolder = mutation({
-  args: { clerkUserId: v.string(), from: folderName, to: folderName },
+  args: { clerkUserId: v.string(), from: folderNameValidator, to: folderNameValidator },
   handler: async (ctx, { clerkUserId, from, to }) => {
-    const source = cleanFolder(from);
-    const target = cleanFolder(to);
+    const source = normalizeFolderName(from);
+    const target = normalizeFolderName(to);
     if (!source || !target || source === target) return;
-    const entries = await ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_folder", (q) => q.eq("clerkUserId", clerkUserId).eq("folder", source))
-      .collect();
-    await Promise.all(
-      entries
-        .filter((entry) => entry.folder === source)
-        .map((entry) => ctx.db.patch(entry._id, { folder: target }))
-    );
+    const rows = await entriesForFolder(ctx, clerkUserId, source).collect();
+    await Promise.all(rows.map((row) => ctx.db.patch(row._id, { folder: target })));
   }
 });
 
 export const removeWatchlistEntries = mutation({
   args: { clerkUserId: v.string(), contentIds: v.array(v.string()) },
   handler: async (ctx, { clerkUserId, contentIds }) => {
-    const requested = new Set(contentIds);
-    if (!requested.size) return;
-    const entries = await Promise.all(
-      [...requested].map((contentId) =>
-        ctx.db
-          .query("mediaState")
-          .withIndex("by_clerk_content", (q) =>
-            q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
-          )
-          .first()
-      )
-    );
+    const uniqueIds = Array.from(new Set(contentIds));
+    const rows = await Promise.all(uniqueIds.map((id) => locateEntry(ctx, clerkUserId, id)));
     await Promise.all(
-      entries
-        .flatMap((entry) => (entry?.watchlistAddedAt ? [entry] : []))
-        .map((entry) => ctx.db.patch(entry._id, { watchlistAddedAt: undefined, folder: undefined }))
+      rows
+        .filter((row): row is NonNullable<typeof row> => row !== null)
+        .map((row) => ctx.db.delete(row._id))
     );
   }
 });
@@ -233,26 +258,16 @@ export const setWatchlistFolderForEntries = mutation({
   args: {
     clerkUserId: v.string(),
     contentIds: v.array(v.string()),
-    folder: v.optional(folderName)
+    folder: v.optional(folderNameValidator)
   },
   handler: async (ctx, { clerkUserId, contentIds, folder }) => {
-    const requested = new Set(contentIds);
-    if (!requested.size) return;
-    const normalized = folder ? cleanFolder(folder) : undefined;
-    const entries = await Promise.all(
-      [...requested].map((contentId) =>
-        ctx.db
-          .query("mediaState")
-          .withIndex("by_clerk_content", (q) =>
-            q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
-          )
-          .first()
-      )
-    );
+    const normalized = folder ? normalizeFolderName(folder) : undefined;
+    const uniqueIds = Array.from(new Set(contentIds));
+    const rows = await Promise.all(uniqueIds.map((id) => locateEntry(ctx, clerkUserId, id)));
     await Promise.all(
-      entries
-        .flatMap((entry) => (entry?.watchlistAddedAt ? [entry] : []))
-        .map((entry) => ctx.db.patch(entry._id, { folder: normalized }))
+      rows
+        .filter((row): row is NonNullable<typeof row> => row !== null)
+        .map((row) => ctx.db.patch(row._id, { folder: normalized }))
     );
   }
 });
@@ -261,49 +276,44 @@ export const toggleWatchlistEntry = mutation({
   args: {
     clerkUserId: v.string(),
     contentId: v.string(),
-    tmdbId: v.string(),
-    contentType: v.union(v.literal("movie"), v.literal("tv")),
     title: v.string(),
     posterUrl: v.string(),
     inWatchlist: v.boolean()
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_content", (q) =>
-        q.eq("clerkUserId", args.clerkUserId).eq("contentId", args.contentId)
-      )
-      .first();
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        watchlistAddedAt: args.inWatchlist ? Date.now() : undefined,
-        folder: args.inWatchlist ? existing.folder : undefined,
-        title: args.title,
-        posterUrl: toImageWire(args.posterUrl)
-      });
-    } else if (args.inWatchlist) {
-      await ctx.db.insert("mediaState", {
-        clerkUserId: args.clerkUserId,
+    const existing = await locateEntry(ctx, args.clerkUserId, args.contentId);
+    if (existing && !args.inWatchlist) {
+      await ctx.db.delete(existing._id);
+      return;
+    }
+    if (!args.inWatchlist) return;
+
+    const wirePoster = toImageWire(args.posterUrl);
+    const content = await locateContent(ctx, args.contentId);
+    if (!content) {
+      await ctx.db.insert("watchlistContent", {
         contentId: args.contentId,
         title: args.title,
-        posterUrl: toImageWire(args.posterUrl),
-        watchlistAddedAt: Date.now()
+        posterUrl: wirePoster
+      });
+    } else if (content.title !== args.title || content.posterUrl !== wirePoster) {
+      await ctx.db.patch(content._id, { title: args.title, posterUrl: wirePoster });
+    }
+    if (!existing) {
+      await ctx.db.insert("watchlist", {
+        clerkUserId: args.clerkUserId,
+        contentId: args.contentId,
+        addedAt: Date.now()
       });
     }
   }
 });
 
 export const setWatchlistFolder = mutation({
-  args: { clerkUserId: v.string(), contentId: v.string(), folder: v.optional(folderName) },
+  args: { clerkUserId: v.string(), contentId: v.string(), folder: v.optional(folderNameValidator) },
   handler: async (ctx, { clerkUserId, contentId, folder }) => {
-    const entry = await ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_content", (q) =>
-        q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
-      )
-      .first();
-    if (!entry || !entry.watchlistAddedAt) throw new Error("Watchlist item not found");
-    const normalized = folder ? cleanFolder(folder) : undefined;
-    await ctx.db.patch(entry._id, { folder: normalized });
+    const entry = await locateEntry(ctx, clerkUserId, contentId);
+    if (!entry) throw new Error("Watchlist item not found");
+    await ctx.db.patch(entry._id, { folder: folder ? normalizeFolderName(folder) : undefined });
   }
 });

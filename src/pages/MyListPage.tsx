@@ -675,10 +675,7 @@ export function MyListPage() {
   }, [folderFilter, listTypeFilter, searchQuery, user?.id]);
 
   useEffect(() => {
-    if (!watchlistData) {
-      setWatchlist(watchlistData);
-      return;
-    }
+    if (!watchlistData) return;
     setWatchlist(
       watchlistData.map((item) => {
         const pendingFolder = pendingFolderMoves.current.get(item._id);
@@ -1067,7 +1064,7 @@ export function MyListPage() {
     );
   }
 
-  const totalItemCount = user ? (watchlistSummary?.total ?? 0) : watchlist.length;
+  const totalItemCount = user ? (watchlistSummary?.total ?? watchlist.length) : watchlist.length;
   const unsortedItemCount = user
     ? (watchlistSummary?.unsorted ?? 0)
     : watchlist.filter((item) => !item.watchlistFolder?.trim()).length;
@@ -1075,7 +1072,7 @@ export function MyListPage() {
     user
       ? (watchlistSummary?.folders.find((entry) => entry.name === folder)?.count ?? 0)
       : watchlist.filter((item) => item.watchlistFolder?.trim() === folder).length;
-  const hasAnyItems = totalItemCount > 0 || Boolean(searchQuery.trim());
+  const hasAnyItems = watchlist.length > 0 || Boolean(searchQuery.trim());
   const isFolderOnlyEmpty =
     filteredWatchlist.length === 0 &&
     folderFilter !== "all" &&
