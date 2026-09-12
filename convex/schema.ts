@@ -34,14 +34,6 @@ export default defineSchema({
     posterUrl: v.string()
   }).index("by_content", ["contentId"]),
 
-  // for this i dont know how aggergate and this works......
-  watchlistMaintenance: defineTable({
-    key: v.string(),
-    state: v.union(v.literal("running"), v.literal("complete")),
-    startedAt: v.number(),
-    completedAt: v.optional(v.number())
-  }).index("by_key", ["key"]),
-
   seasonEpisodes: defineTable({
     contentId: v.string(),
     tmdbId: v.string(),

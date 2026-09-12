@@ -83,17 +83,11 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   );
   const toggleEntry = useMutation(api.domains.watchlist.watchlist.toggleWatchlistEntry);
   const dropEntries = useMutation(api.domains.watchlist.watchlist.removeWatchlistEntries);
-  const ensureFolderCounts = useMutation(api.domains.watchlist.watchlist.ensureFolderCounts);
 
   const [ids, setIds] = useState<Set<string>>(() => new Set(getWatchlistIds()));
   const idsSnapshotRef = useRef(ids);
   const pendingOpRef = useRef(0);
   const migratedRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!isLoaded || !user) return;
-    void ensureFolderCounts().catch(() => undefined);
-  }, [ensureFolderCounts, isLoaded, user]);
 
   const applyIds = useCallback((next: Set<string>) => {
     idsSnapshotRef.current = next;

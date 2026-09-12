@@ -1,8 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { getOneFrom } from "convex-helpers/server/relationships";
-import { internalMutation, mutation as rawMutation, query } from "../../_generated/server";
-import { internal } from "../../_generated/api";
+import { mutation, query } from "../../_generated/server";
 import type { QueryCtx } from "../../_generated/server";
 import {
   fromImageWire,
@@ -10,12 +9,9 @@ import {
   toImageWire,
   type ContentType
 } from "@content/contentMetadata";
-import { foldersByUser, mutation } from "../../aggregates";
 
 const folderNameValidator = v.string();
 const MAX_SCAN_ROWS = 300;
-const FOLDER_COUNTS_MAINTENANCE_KEY = "watchlist-aggregates-v2";
-const MAINTENANCE_LEASE_MS = 60_000;
 
 function normalizeFolderName(raw: string) {
   return raw.trim().replace(/\s+/g, " ");
@@ -86,38 +82,16 @@ async function hydrate(ctx: QueryCtx, entries: Array<{ contentId: string; folder
 
 async function aggregateFolderSummary(ctx: QueryCtx, clerkUserId: string) {
   const counts = new Map<string, number>();
-  let total = 0;
   let unsorted = 0;
-  for await (const item of foldersByUser.iter(ctx, {
-    namespace: clerkUserId,
-    pageSize: 256,
-    stale: true
-  })) {
-    total += 1;
-    if (item.key) counts.set(item.key, (counts.get(item.key) ?? 0) + 1);
-    else unsorted += 1;
-  }
-  if (total > 0) {
-    return {
-      total,
-      unsorted,
-      folders: Array.from(counts.entries())
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    };
-  }
-
   const rows = await entriesForFolder(ctx, clerkUserId, undefined).collect();
-  const directCounts = new Map<string, number>();
-  let directUnsorted = 0;
   for (const row of rows) {
-    if (row.folder) directCounts.set(row.folder, (directCounts.get(row.folder) ?? 0) + 1);
-    else directUnsorted += 1;
+    if (row.folder) counts.set(row.folder, (counts.get(row.folder) ?? 0) + 1);
+    else unsorted += 1;
   }
   return {
     total: rows.length,
-    unsorted: directUnsorted,
-    folders: Array.from(directCounts.entries())
+    unsorted,
+    folders: Array.from(counts.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name))
   };
@@ -192,48 +166,6 @@ export const listFolders = query({
 export const listWatchlistSummary = query({
   args: { clerkUserId: v.string() },
   handler: async (ctx, { clerkUserId }) => aggregateFolderSummary(ctx, clerkUserId)
-});
-
-export const ensureFolderCounts = rawMutation({
-  args: {},
-  handler: async (ctx) => {
-    const existing = await ctx.db
-      .query("watchlistMaintenance")
-      .withIndex("by_key", (q) => q.eq("key", FOLDER_COUNTS_MAINTENANCE_KEY))
-      .first();
-    const now = Date.now();
-    if (
-      existing?.state === "complete" ||
-      (existing?.state === "running" && now - existing.startedAt < MAINTENANCE_LEASE_MS)
-    ) {
-      return;
-    }
-
-    if (existing) {
-      await ctx.db.patch(existing._id, { state: "running", startedAt: now });
-    } else {
-      await ctx.db.insert("watchlistMaintenance", {
-        key: FOLDER_COUNTS_MAINTENANCE_KEY,
-        state: "running",
-        startedAt: now
-      });
-    }
-    await ctx.scheduler.runAfter(0, internal.domains.watchlist.watchlist.backfillFolderCounts, {});
-  }
-});
-
-export const backfillFolderCounts = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    await foldersByUser.clearAll(ctx);
-    const rows = await ctx.db.query("watchlist").collect();
-    for (const row of rows) await foldersByUser.insertIfDoesNotExist(ctx, row);
-    const marker = await ctx.db
-      .query("watchlistMaintenance")
-      .withIndex("by_key", (q) => q.eq("key", FOLDER_COUNTS_MAINTENANCE_KEY))
-      .first();
-    if (marker) await ctx.db.patch(marker._id, { state: "complete", completedAt: Date.now() });
-  }
 });
 
 export const deleteFolder = mutation({
