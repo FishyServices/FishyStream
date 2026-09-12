@@ -90,7 +90,8 @@ async function aggregateFolderSummary(ctx: QueryCtx, clerkUserId: string) {
   let unsorted = 0;
   for await (const item of foldersByUser.iter(ctx, {
     namespace: clerkUserId,
-    pageSize: 256
+    pageSize: 256,
+    stale: true
   })) {
     total += 1;
     if (item.key) counts.set(item.key, (counts.get(item.key) ?? 0) + 1);
