@@ -84,11 +84,25 @@ async function hydrate(ctx: QueryCtx, entries: Array<{ contentId: string; folder
   return items;
 }
 
-async function distinctFolderNames(ctx: QueryCtx, clerkUserId: string) {
-  const rows = await entriesForFolder(ctx, clerkUserId, undefined).collect();
-  const names = new Set<string>();
-  for (const row of rows) if (row.folder) names.add(row.folder);
-  return Array.from(names).sort((a, b) => a.localeCompare(b));
+async function aggregateFolderSummary(ctx: QueryCtx, clerkUserId: string) {
+  const counts = new Map<string, number>();
+  let total = 0;
+  let unsorted = 0;
+  for await (const item of foldersByUser.iter(ctx, {
+    namespace: clerkUserId,
+    pageSize: 256
+  })) {
+    total += 1;
+    if (item.key) counts.set(item.key, (counts.get(item.key) ?? 0) + 1);
+    else unsorted += 1;
+  }
+  return {
+    total,
+    unsorted,
+    folders: Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  };
 }
 
 async function findByTitle(
@@ -153,31 +167,13 @@ export const listRecommendationSeeds = query({
 
 export const listFolders = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => distinctFolderNames(ctx, clerkUserId)
+  handler: async (ctx, { clerkUserId }) =>
+    (await aggregateFolderSummary(ctx, clerkUserId)).folders.map((folder) => folder.name)
 });
 
 export const listWatchlistSummary = query({
   args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => {
-    const counts = new Map<string, number>();
-    let total = 0;
-    let unsorted = 0;
-    for await (const item of foldersByUser.iter(ctx, {
-      namespace: clerkUserId,
-      pageSize: 256
-    })) {
-      total += 1;
-      if (item.key) counts.set(item.key, (counts.get(item.key) ?? 0) + 1);
-      else unsorted += 1;
-    }
-    return {
-      total,
-      unsorted,
-      folders: Array.from(counts.entries())
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    };
-  }
+  handler: async (ctx, { clerkUserId }) => aggregateFolderSummary(ctx, clerkUserId)
 });
 
 export const ensureFolderCounts = rawMutation({
