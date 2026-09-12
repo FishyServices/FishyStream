@@ -25,6 +25,15 @@ type MediaType = "hls" | "file";
 type JsonRecord = Record<string, unknown>;
 type MediaCandidate = { url: string; mediaType: MediaType };
 
+function isFetchableUrl(value: string): boolean {
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === "http:" || protocol === "https:" || protocol === "s3:";
+  } catch {
+    return false;
+  }
+}
+
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.use("/*", cors());
@@ -49,14 +58,28 @@ function resolveUrl(relative: string, base: string): string {
   }
 }
 
-function inheritSameOriginQueryParameters(childUrl: string, parentUrl: string): string {
+function inheritPlaylistQueryParameters(childUrl: string, parentUrl: string): string {
   try {
     const child = new URL(childUrl);
     const parent = new URL(parentUrl);
-    if (child.origin !== parent.origin) return child.href;
+    const sameOrigin = child.origin === parent.origin;
+    const sharedMediaQueryParameters = new Set([
+      "auth",
+      "expires",
+      "exp",
+      "hdnts",
+      "sig",
+      "signature",
+      "token"
+    ]);
 
     for (const [key, value] of parent.searchParams) {
-      if (!child.searchParams.has(key)) child.searchParams.set(key, value);
+      if (
+        !child.searchParams.has(key) &&
+        (sameOrigin || sharedMediaQueryParameters.has(key.toLowerCase()))
+      ) {
+        child.searchParams.set(key, value);
+      }
     }
     return child.href;
   } catch {
@@ -100,6 +123,8 @@ function resolveMediaCandidate(
   } catch {
     return null;
   }
+
+  if (!isFetchableUrl(url)) return null;
 
   const mediaType = getMediaType(url, hint);
   return mediaType ? { url, mediaType } : null;
@@ -214,6 +239,10 @@ async function fetchWithReferrerFallback(
   headers: StreamHeaders,
   launchBrowser?: () => Promise<any>
 ) {
+  if (!isFetchableUrl(url)) {
+    throw new TypeError("Media URL must use the http:, https:, or s3: protocol");
+  }
+
   const requestHeaders = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     ...headers
@@ -403,15 +432,18 @@ app.get("/api/scrape", async (c) => {
         responseType === "media" &&
         (contentType.includes("video/mp4") || contentType.includes("video/webm"));
 
-      if (mediaType && !url.includes("m3u8-proxy")) {
+      if (mediaType && isFetchableUrl(url) && !url.includes("m3u8-proxy")) {
         const captured = unwrapMediaProxy(url, pageHeaders);
+        if (!isFetchableUrl(captured.url)) return;
         console.log(`[Scraper] Found ${mediaType} directly in network: ${captured.url}`);
         result = { url: captured.url, mediaType, headers: captured.headers };
         return;
       }
 
       if (contentIsVideoFile) {
+        if (!isFetchableUrl(url)) return;
         const captured = unwrapMediaProxy(url, pageHeaders);
+        if (!isFetchableUrl(captured.url)) return;
         console.log(`[Scraper] Found video file directly in network: ${captured.url}`);
         result = { url: captured.url, mediaType: "file", headers: captured.headers };
         return;
@@ -516,6 +548,7 @@ app.get("/api/subtitle-proxy", async (c) => {
   const url = c.req.query("url");
   const headersParam = c.req.query("headers");
   if (!url) return c.text("URL parameter is required", 400);
+  if (!isFetchableUrl(url)) return c.text("URL must use http:, https:, or s3:", 400);
 
   let extraHeaders: StreamHeaders = {};
   try {
@@ -556,6 +589,7 @@ app.get("/api/m3u8-proxy", async (c) => {
   const url = c.req.query("url");
   const headersParam = c.req.query("headers");
   if (!url) return c.text("URL parameter is required", 400);
+  if (!isFetchableUrl(url)) return c.text("URL must use http:, https:, or s3:", 400);
 
   let extraHeaders: StreamHeaders = {};
   try {
@@ -602,10 +636,7 @@ app.get("/api/m3u8-proxy", async (c) => {
           const uriMatch = line.match(/URI="([^"]+)"/);
           if (uriMatch && uriMatch[1]) {
             const original: string = uriMatch[1];
-            const resolved = inheritSameOriginQueryParameters(
-              resolveUrl(original, m3u8Url),
-              m3u8Url
-            );
+            const resolved = inheritPlaylistQueryParameters(resolveUrl(original, m3u8Url), m3u8Url);
             const isMedia = line.startsWith("#EXT-X-MEDIA");
             const endpoint = isMedia ? "/api/m3u8-proxy" : "/api/ts-proxy";
             const proxied = `${base}${endpoint}?url=${encodeURIComponent(resolved)}&headers=${encodedHeaders}`;
@@ -616,10 +647,7 @@ app.get("/api/m3u8-proxy", async (c) => {
 
         if (!line.trim()) return line;
 
-        const resolved = inheritSameOriginQueryParameters(
-          resolveUrl(line.trim(), m3u8Url),
-          m3u8Url
-        );
+        const resolved = inheritPlaylistQueryParameters(resolveUrl(line.trim(), m3u8Url), m3u8Url);
         const endpoint = isMaster ? "/api/m3u8-proxy" : "/api/ts-proxy";
         return `${base}${endpoint}?url=${encodeURIComponent(resolved)}&headers=${encodedHeaders}`;
       })
@@ -643,6 +671,7 @@ app.get("/api/media-proxy", async (c) => {
   const shouldDownload = c.req.query("download") === "1";
   const requestedFilename = c.req.query("filename");
   if (!url) return c.text("URL parameter is required", 400);
+  if (!isFetchableUrl(url)) return c.text("URL must use http:, https:, or s3:", 400);
 
   let extraHeaders: StreamHeaders = {};
   try {
@@ -729,6 +758,7 @@ app.get("/api/ts-proxy", async (c) => {
   const url = c.req.query("url");
   const headersParam = c.req.query("headers");
   if (!url) return c.text("URL parameter is required", 400);
+  if (!isFetchableUrl(url)) return c.text("URL must use http:, https:, or s3:", 400);
 
   let extraHeaders: StreamHeaders = {};
   try {
