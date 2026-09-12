@@ -14,7 +14,7 @@ import { foldersByUser, mutation } from "../../aggregates";
 
 const folderNameValidator = v.string();
 const MAX_SCAN_ROWS = 300;
-const FOLDER_COUNTS_MAINTENANCE_KEY = "watchlist-folder-counts-v1";
+const FOLDER_COUNTS_MAINTENANCE_KEY = "watchlist-aggregates-v2";
 const MAINTENANCE_LEASE_MS = 60_000;
 
 function normalizeFolderName(raw: string) {
@@ -97,10 +97,27 @@ async function aggregateFolderSummary(ctx: QueryCtx, clerkUserId: string) {
     if (item.key) counts.set(item.key, (counts.get(item.key) ?? 0) + 1);
     else unsorted += 1;
   }
+  if (total > 0) {
+    return {
+      total,
+      unsorted,
+      folders: Array.from(counts.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    };
+  }
+
+  const rows = await entriesForFolder(ctx, clerkUserId, undefined).collect();
+  const directCounts = new Map<string, number>();
+  let directUnsorted = 0;
+  for (const row of rows) {
+    if (row.folder) directCounts.set(row.folder, (directCounts.get(row.folder) ?? 0) + 1);
+    else directUnsorted += 1;
+  }
   return {
-    total,
-    unsorted,
-    folders: Array.from(counts.entries())
+    total: rows.length,
+    unsorted: directUnsorted,
+    folders: Array.from(directCounts.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name))
   };
