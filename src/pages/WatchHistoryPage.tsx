@@ -326,7 +326,7 @@ export function WatchHistoryPage() {
         )}
 
         <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
-          <DialogContent>
+          <DialogContent data-content-modal="true">
             <DialogTitle>Clear watch history?</DialogTitle>
             <DialogDescription>
               This removes your watched progress and history. Saved titles in My List will remain.

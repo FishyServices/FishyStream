@@ -267,7 +267,10 @@ export function ProviderSourceSelect({
         open={settingsProviderKey !== null}
         onOpenChange={(isOpen) => !isOpen && setSettingsProviderKey(null)}
       >
-        <DialogContent className="border-border/80 bg-card text-card-foreground">
+        <DialogContent
+          data-content-modal="true"
+          className="border-border/80 bg-card text-card-foreground"
+        >
           <DialogHeader>
             <DialogTitle>
               {settingsProviderKey ? getProviderByKey(settingsProviderKey)?.name : "Provider"}{" "}

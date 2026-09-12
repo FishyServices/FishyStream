@@ -155,6 +155,82 @@ function FolderPickerItems({
   );
 }
 
+function RenameFolderDialog({
+  folderName,
+  folderNames,
+  open,
+  onOpenChange,
+  onRename
+}: {
+  folderName: string | null;
+  folderNames: string[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onRename: (folderName: string, nextName: string) => Promise<boolean>;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open && inputRef.current) inputRef.current.value = folderName ?? "";
+  }, [folderName, open]);
+
+  const submit = async () => {
+    if (!folderName) return;
+    const nextName = inputRef.current?.value.trim() ?? "";
+    if (!nextName || nextName === folderName) {
+      onOpenChange(false);
+      return;
+    }
+    if (folderNames.some((name) => name.toLowerCase() === nextName.toLowerCase())) {
+      toast.error("A folder with that name already exists");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const renamed = await onRename(folderName, nextName);
+    setIsSubmitting(false);
+    if (renamed) onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        data-content-modal="true"
+        className="border-border/70 bg-card text-card-foreground"
+      >
+        <DialogHeader>
+          <DialogTitle>Rename folder</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Titles inside &quot;{folderName}&quot; will move to the new name.
+          </DialogDescription>
+        </DialogHeader>
+        <Input
+          ref={inputRef}
+          defaultValue={folderName ?? ""}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void submit();
+            }
+          }}
+          placeholder="Folder name"
+          autoFocus
+          className="rounded-md border-input bg-background text-foreground placeholder:text-muted-foreground"
+        />
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button disabled={isSubmitting} onClick={() => void submit()}>
+            {isSubmitting ? "Renaming…" : "Rename"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ItemActionsMenu({
   folderOptions,
   isOpen,
@@ -531,7 +607,7 @@ export function MyListPage() {
   const removeEntries = useRemoveWatchlistEntries();
   const deleteFolder = useDeleteWatchlistFolder();
   const renameFolder = useRenameWatchlistFolder();
-  const [newFolderName, setNewFolderName] = useState("");
+  const newFolderNameRef = useRef<HTMLInputElement>(null);
   const [pendingFolderLoad, setPendingFolderLoad] = useState<string | null>(null);
   const [customFolders, setCustomFolders] = useState<string[]>(() =>
     getCustomFolders(user?.id ?? "guest")
@@ -567,8 +643,6 @@ export function MyListPage() {
   const [isBulkRemoving, setIsBulkRemoving] = useState(false);
 
   const [renameFolderTarget, setRenameFolderTarget] = useState<string | null>(null);
-  const [renameFolderValue, setRenameFolderValue] = useState("");
-  const [isRenamingFolder, setIsRenamingFolder] = useState(false);
 
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() =>
     getCollapsedFolders(user?.id ?? "guest")
@@ -764,20 +838,20 @@ export function MyListPage() {
   };
 
   const handleCreateFolder = () => {
-    const normalized = newFolderName.trim();
+    const normalized = newFolderNameRef.current?.value.trim() ?? "";
     if (!normalized) return;
     if (folderNames.some((folder) => folder.toLowerCase() === normalized.toLowerCase())) {
       setFolderFilter(
         folderNames.find((folder) => folder.toLowerCase() === normalized.toLowerCase()) ??
           normalized
       );
-      setNewFolderName("");
+      if (newFolderNameRef.current) newFolderNameRef.current.value = "";
       toast.info("Folder already exists");
       return;
     }
     persistCustomFolders([...customFolders, normalized].sort((a, b) => a.localeCompare(b)));
     setFolderFilter(normalized);
-    setNewFolderName("");
+    if (newFolderNameRef.current) newFolderNameRef.current.value = "";
     toast.success(`Created folder "${normalized}"`);
   };
 
@@ -954,40 +1028,23 @@ export function MyListPage() {
 
   function openRenameFolder(name: string) {
     setRenameFolderTarget(name);
-    setRenameFolderValue(name);
   }
 
-  async function handleRenameFolder() {
-    if (!renameFolderTarget || !watchlist) return;
-    const normalized = renameFolderValue.trim();
-    if (!normalized || normalized === renameFolderTarget) {
-      setRenameFolderTarget(null);
-      return;
-    }
-    if (folderNames.some((f) => f.toLowerCase() === normalized.toLowerCase())) {
-      toast.error("A folder with that name already exists");
-      return;
-    }
-    setIsRenamingFolder(true);
-    let failed = false;
+  async function handleRenameFolder(folderName: string, nextName: string) {
     try {
-      await renameFolder(renameFolderTarget, normalized);
+      await renameFolder(folderName, nextName);
     } catch {
-      failed = true;
-    }
-    setIsRenamingFolder(false);
-    if (failed) {
       toast.error("Couldn't rename that folder");
-      return;
+      return false;
     }
     persistCustomFolders(
-      Array.from(
-        new Set(customFolders.filter((f) => f !== renameFolderTarget).concat(normalized))
-      ).sort((a, b) => a.localeCompare(b))
+      Array.from(new Set(customFolders.filter((f) => f !== folderName).concat(nextName))).sort(
+        (a, b) => a.localeCompare(b)
+      )
     );
-    if (folderFilter === renameFolderTarget) setFolderFilter(normalized);
-    setRenameFolderTarget(null);
-    toast.success(`Renamed to "${normalized}"`);
+    if (folderFilter === folderName) setFolderFilter(nextName);
+    toast.success(`Renamed to "${nextName}"`);
+    return true;
   }
 
   function toggleFolderCollapsed(name: string) {
@@ -1114,9 +1171,7 @@ export function MyListPage() {
                             setPendingDeleteFolder(folder);
                           }}
                           className={`rounded-none px-2 py-1.5 ${
-                            folderFilter === folder
-                              ? "bg-muted/70 hover:bg-accent/60"
-                              : "hover:bg-white/8"
+                            folderFilter === folder ? "hover:bg-accent/60" : "hover:bg-white/8"
                           }`}
                           aria-label={`Delete ${folder} folder`}
                         >
@@ -1140,8 +1195,7 @@ export function MyListPage() {
                   <div className="relative flex-1">
                     <FolderPlus className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      value={newFolderName}
-                      onChange={(e) => setNewFolderName(e.target.value)}
+                      ref={newFolderNameRef}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
@@ -1454,7 +1508,10 @@ export function MyListPage() {
       )}
 
       <Dialog open={isAutoSortDialogOpen} onOpenChange={setIsAutoSortDialogOpen}>
-        <DialogContent className="border-border/70 bg-card text-card-foreground">
+        <DialogContent
+          data-content-modal="true"
+          className="border-border/70 bg-card text-card-foreground"
+        >
           <DialogHeader>
             <DialogTitle>Organize your list?</DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -1482,7 +1539,10 @@ export function MyListPage() {
         open={!!pendingDeleteFolder}
         onOpenChange={(open) => !open && setPendingDeleteFolder(null)}
       >
-        <DialogContent className="border-border/70 bg-card text-card-foreground">
+        <DialogContent
+          data-content-modal="true"
+          className="border-border/70 bg-card text-card-foreground"
+        >
           <DialogHeader>
             <DialogTitle>Delete folder?</DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -1514,7 +1574,10 @@ export function MyListPage() {
         open={pendingBulkRemove}
         onOpenChange={(open) => !open && setPendingBulkRemove(false)}
       >
-        <DialogContent className="border-border/70 bg-card text-card-foreground">
+        <DialogContent
+          data-content-modal="true"
+          className="border-border/70 bg-card text-card-foreground"
+        >
           <DialogHeader>
             <DialogTitle>Remove {pluralize(selectedIds.size, "title")}?</DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -1532,40 +1595,13 @@ export function MyListPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <RenameFolderDialog
+        folderName={renameFolderTarget}
+        folderNames={folderNames}
         open={!!renameFolderTarget}
         onOpenChange={(open) => !open && setRenameFolderTarget(null)}
-      >
-        <DialogContent className="border-border/70 bg-card text-card-foreground">
-          <DialogHeader>
-            <DialogTitle>Rename folder</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Titles inside "{renameFolderTarget}" will move to the new name.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            value={renameFolderValue}
-            onChange={(e) => setRenameFolderValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleRenameFolder();
-              }
-            }}
-            placeholder="Folder name"
-            autoFocus
-            className="rounded-md border-input bg-background text-foreground placeholder:text-muted-foreground"
-          />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setRenameFolderTarget(null)}>
-              Cancel
-            </Button>
-            <Button disabled={isRenamingFolder} onClick={handleRenameFolder}>
-              {isRenamingFolder ? "Renaming…" : "Rename"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onRename={handleRenameFolder}
+      />
     </div>
   );
 }

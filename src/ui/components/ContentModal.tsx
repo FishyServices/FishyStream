@@ -1170,7 +1170,10 @@ export function ContentModal({
             setRelatedModalItem(null);
           }}
         >
-          <DialogContent className="z-modal flex max-w-xs items-center justify-center border-border/80 bg-card p-8 text-card-foreground">
+          <DialogContent
+            data-content-modal="true"
+            className="z-modal flex max-w-xs items-center justify-center border-border/80 bg-card p-8 text-card-foreground"
+          >
             <DialogTitle className="sr-only">Loading</DialogTitle>
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
           </DialogContent>
