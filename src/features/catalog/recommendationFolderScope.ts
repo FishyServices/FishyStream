@@ -38,17 +38,19 @@ export function setRecommendationFolderScope(userId: string, scope: Recommendati
 }
 
 export function useRecommendationFolderScope(userId = "guest") {
-  const [scope, setScope] = useState<RecommendationFolderScope>(() =>
-    getRecommendationFolderScope(userId)
-  );
+  const [scopeState, setScopeState] = useState<RecommendationFolderScope | null>(null);
+
+  const scope = useMemo(() => {
+    return scopeState ?? getRecommendationFolderScope(userId);
+  }, [scopeState, userId]);
 
   useEffect(() => {
-    setScope(getRecommendationFolderScope(userId));
+    setScopeState(null);
 
     const onScopeChanged = (event: Event) => {
       const detail = (event as CustomEvent<{ userId?: string; scope?: RecommendationFolderScope }>)
         .detail;
-      if (detail?.userId === userId && detail.scope) setScope(normalizeScope(detail.scope));
+      if (detail?.userId === userId && detail.scope) setScopeState(normalizeScope(detail.scope));
     };
     window.addEventListener(SCOPE_CHANGED_EVENT, onScopeChanged);
     return () => window.removeEventListener(SCOPE_CHANGED_EVENT, onScopeChanged);
@@ -57,7 +59,7 @@ export function useRecommendationFolderScope(userId = "guest") {
   const saveScope = useCallback(
     (nextScope: RecommendationFolderScope) => {
       const normalized = normalizeScope(nextScope);
-      setScope(normalized);
+      setScopeState(normalized);
       setRecommendationFolderScope(userId, normalized);
     },
     [userId]

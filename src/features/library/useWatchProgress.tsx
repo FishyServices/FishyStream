@@ -158,14 +158,29 @@ export function WatchProgressProvider({ children }: { children: ReactNode }) {
     fetchedUserRef.current = user.id;
 
     convex
-      .query(api.domains.history.watchHistory.listWatchProgressEntries, { clerkUserId: user.id })
+      .query(api.domains.history.watchHistory.listWatchHistory, { clerkUserId: user.id, limit: 20 })
       .then((serverItems) => {
         const localById = new Map(readStore().map((entry) => [entry.contentId, entry]));
 
         for (const serverItem of serverItems) {
-          const local = localById.get(serverItem.contentId);
-          if (local && local.clientUpdatedAt >= serverItem.watchedAt) continue;
-          localById.set(serverItem.contentId, storedFromServer(serverItem));
+          const contentId = serverItem._id;
+          const local = localById.get(contentId);
+          if (local && local.clientUpdatedAt >= 0) continue;
+          localById.set(
+            contentId,
+            storedFromServer({
+              contentId,
+              progress: serverItem.progress,
+              positionSeconds: 0,
+              durationSeconds: 0,
+              completed: serverItem.completed,
+              seasonNumber: serverItem.seasonNumber,
+              episodeNumber: serverItem.episodeNumber,
+              source: serverItem.source,
+              dub: serverItem.dub,
+              watchedAt: Date.now()
+            })
+          );
         }
 
         const merged = compactEntries(Array.from(localById.values()));

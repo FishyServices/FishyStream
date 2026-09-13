@@ -83,7 +83,10 @@ async function hydrate(ctx: QueryCtx, entries: Array<{ contentId: string; folder
 async function aggregateFolderSummary(ctx: QueryCtx, clerkUserId: string) {
   const counts = new Map<string, number>();
   let unsorted = 0;
-  const rows = await entriesForFolder(ctx, clerkUserId, undefined).collect();
+  const rows = await ctx.db
+    .query("watchlist")
+    .withIndex("by_clerk_folder", (q) => q.eq("clerkUserId", clerkUserId))
+    .collect();
   for (const row of rows) {
     if (row.folder) counts.set(row.folder, (counts.get(row.folder) ?? 0) + 1);
     else unsorted += 1;
@@ -145,9 +148,10 @@ export const listWatchlistContentIds = query({
 });
 
 export const listRecommendationSeeds = query({
-  args: { clerkUserId: v.string(), folder: v.optional(v.string()) },
-  handler: async (ctx, { clerkUserId, folder }) => {
-    const rows = await entriesForFolder(ctx, clerkUserId, folder).take(160);
+  args: { clerkUserId: v.string(), folder: v.optional(v.string()), limit: v.optional(v.number()) },
+  handler: async (ctx, { clerkUserId, folder, limit = 20 }) => {
+    const fetchLimit = Math.max(1, Math.min(100, limit));
+    const rows = await entriesForFolder(ctx, clerkUserId, folder).take(fetchLimit);
     const seeds: Array<{ tmdbId: string; type: ContentType }> = [];
     for (const row of rows) {
       const parsed = parseContentId(row.contentId);

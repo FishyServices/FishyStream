@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode
 } from "react";
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../../convex/_generated/api";
 import { parseContentId, type ContentId, type WatchlistGridItem } from "@content/contentMetadata";
@@ -77,9 +77,10 @@ function updateUserCache(
 
 export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const { isLoaded, user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const remoteIds = useQuery(
     api.domains.watchlist.watchlist.listWatchlistContentIds,
-    user ? { clerkUserId: user.id } : "skip"
+    user && isAuthenticated ? { clerkUserId: user.id } : "skip"
   );
   const toggleEntry = useMutation(api.domains.watchlist.watchlist.toggleWatchlistEntry);
   const dropEntries = useMutation(api.domains.watchlist.watchlist.removeWatchlistEntries);
@@ -231,6 +232,17 @@ export function useIsInWatchlist(contentId: string | undefined) {
   return !!contentId && state.ids.has(contentId);
 }
 
+export function useCheckWatchlistStatus(contentIds: string[]): Record<string, boolean> {
+  const { state } = useWatchlistApi();
+  return useMemo(() => {
+    const statusMap: Record<string, boolean> = {};
+    for (const id of contentIds) {
+      if (id) statusMap[id] = state.ids.has(id);
+    }
+    return statusMap;
+  }, [contentIds, state.ids]);
+}
+
 export function useToggleWatchlist() {
   return useWatchlistApi().save;
 }
@@ -284,11 +296,11 @@ export function useMyWatchlistPagination(folder?: string | null, search = "") {
 }
 
 export function useWatchlistSummary() {
-  const { isLoaded, isSignedIn, user } = useUser();
-  const signedIn = isLoaded && isSignedIn && user !== null;
+  const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   return useQuery(
     api.domains.watchlist.watchlist.listWatchlistSummary,
-    signedIn ? { clerkUserId: user.id } : "skip"
+    user && isAuthenticated ? { clerkUserId: user.id } : "skip"
   );
 }
 
@@ -346,11 +358,8 @@ export function useAllMyWatchlistState() {
 }
 
 export function useWatchlistFolders() {
-  const { user } = useUser();
-  return useQuery(
-    api.domains.watchlist.watchlist.listFolders,
-    user ? { clerkUserId: user.id } : "skip"
-  );
+  const summary = useWatchlistSummary();
+  return useMemo(() => summary?.folders.map((folder) => folder.name), [summary]);
 }
 
 export function useDeleteWatchlistFolder() {

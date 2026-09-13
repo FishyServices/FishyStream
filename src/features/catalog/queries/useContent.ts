@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/react";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useContinueWatching, useMyWatchHistory } from "@/features/library/useWatchHistory";
 import { useRecommendationFolderScope } from "@/features/catalog/recommendationFolderScope";
@@ -570,12 +570,13 @@ export function usePaginatedContent(
 
 export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 0) {
   const history = useMyWatchHistory();
-  const continueWatching = useContinueWatching(enabled, 24);
+  const continueWatching = useContinueWatching(enabled, 20);
   const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const { scope } = useRecommendationFolderScope(user?.id ?? "guest");
   const watchlistSeeds = useQuery(
     api.domains.watchlist.watchlist.listRecommendationSeeds,
-    enabled && user
+    enabled && user && isAuthenticated
       ? {
           clerkUserId: user.id,
           ...(scope.folder ? { folder: scope.folder } : {})
@@ -622,7 +623,7 @@ export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 
         .slice(0, 24)
         .forEach((item, index) => add(item, Math.max(0.5, 1 - index * 0.05), "continue"));
     shuffledWatchlist
-      .slice(0, 160)
+      .slice(0, 20)
       .forEach((item, index) => add(item, 7 * Math.max(0.3, 1 - index * 0.02), "watchlist"));
     if (scope.folder === null)
       shuffleWithSeed(history ?? [], refreshSeed * 4513 + 47)

@@ -1,4 +1,4 @@
-import { useMutation, usePaginatedQuery } from "convex/react";
+import { useConvexAuth, useMutation, usePaginatedQuery } from "convex/react";
 import { useUser } from "@clerk/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
@@ -73,15 +73,20 @@ export function useMyWatchHistoryPagination(search = "") {
   };
 }
 
-export function useMyWatchHistory(): WatchHistoryItemMeta[] | undefined {
-  const { user } = useUser();
+export function useMyWatchHistory(limit = 20): WatchHistoryItemMeta[] | undefined {
+  const { isLoaded, isSignedIn, user } = useUser();
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
+  const enabled = !!isLoaded && !!isSignedIn && !!user && isAuthenticated && !isAuthLoading;
   const serverData = useOneShotConvexQuery<WatchHistoryItemMeta[]>(
-    !!user,
+    enabled,
     (convex) =>
-      convex.query(api.domains.history.watchHistory.listWatchHistory, { clerkUserId: user!.id }),
-    [user?.id],
+      convex.query(api.domains.history.watchHistory.listWatchHistory, {
+        clerkUserId: user!.id,
+        limit
+      }),
+    [user?.id, limit, enabled],
     undefined,
-    user ? `watch_history_${user.id}` : undefined
+    user && enabled ? `watch_history_${user.id}_${limit}` : undefined
   );
 
   const localProgress = useWatchProgressContext();

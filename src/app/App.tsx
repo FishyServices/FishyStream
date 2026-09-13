@@ -31,7 +31,7 @@ export function App() {
 
   const handlePlay = createPlayHandler(navigate);
 
-  if (!isLoaded || isConvexAuthLoading) {
+  if (!isLoaded) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <Toaster position="top-right" richColors />

@@ -73,9 +73,9 @@ async function listHistory(
 }
 
 export const listWatchHistory = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchHistoryItemMeta[]> => {
-    return await listHistory(ctx, clerkUserId, 100, true);
+  args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, { clerkUserId, limit = 20 }): Promise<WatchHistoryItemMeta[]> => {
+    return await listHistory(ctx, clerkUserId, Math.max(1, Math.min(100, limit)), true);
   }
 });
 
@@ -124,13 +124,14 @@ export const listContinueWatching = query({
 });
 
 export const listWatchProgressEntries = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<WatchProgressEntryMeta[]> => {
+  args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, { clerkUserId, limit = 20 }): Promise<WatchProgressEntryMeta[]> => {
+    const fetchLimit = Math.max(1, Math.min(100, limit));
     const rows = await ctx.db
       .query("mediaState")
       .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId).gt("watchedAt", 0))
       .order("desc")
-      .take(75);
+      .take(fetchLimit);
 
     return rows.map((row) => {
       const progress =

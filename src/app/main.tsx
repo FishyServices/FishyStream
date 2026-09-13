@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
 import { ClerkProvider, useAuth, useUser } from "@clerk/react";
 import { dark } from "@clerk/themes";
