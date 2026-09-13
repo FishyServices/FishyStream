@@ -28,6 +28,18 @@ export default defineSchema({
     .index("by_clerk_added", ["clerkUserId", "addedAt"])
     .index("by_clerk_folder", ["clerkUserId", "folder", "addedAt"]),
 
+  watchlistIds: defineTable({
+    clerkUserId: v.string(),
+    contentIds: v.array(v.string())
+  }).index("by_clerk", ["clerkUserId"]),
+
+  watchlistCounts: defineTable({
+    clerkUserId: v.string(),
+    total: v.number(),
+    unsorted: v.number(),
+    folderCounts: v.array(v.object({ name: v.string(), count: v.number() }))
+  }).index("by_clerk", ["clerkUserId"]),
+
   watchlistContent: defineTable({
     contentId: v.string(),
     title: v.string(),
