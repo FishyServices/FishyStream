@@ -244,3 +244,46 @@ export function setCustomFolders(userId: string = "guest", folders: string[]) {
     localStorage.setItem(getCustomFoldersKey(userId), JSON.stringify(folders));
   } catch {}
 }
+
+const LS_CUSTOM_PLAYER_VOLUME_KEY = "custom_player_volume";
+const LS_CUSTOM_PLAYER_VOLUME_BOOST_KEY = "custom_player_volume_boost";
+
+export function getCustomPlayerVolume(): number {
+  try {
+    const raw = localStorage.getItem(LS_CUSTOM_PLAYER_VOLUME_KEY);
+    if (raw !== null) {
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return 1;
+}
+
+export function setCustomPlayerVolume(volume: number): void {
+  try {
+    const clamped = Math.min(1, Math.max(0, volume));
+    localStorage.setItem(LS_CUSTOM_PLAYER_VOLUME_KEY, String(clamped));
+  } catch {}
+}
+
+export function getCustomPlayerVolumeBoost(): number {
+  try {
+    const raw = localStorage.getItem(LS_CUSTOM_PLAYER_VOLUME_BOOST_KEY);
+    if (raw !== null) {
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 3) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return 1.0;
+}
+
+export function setCustomPlayerVolumeBoost(boost: number): void {
+  try {
+    const clamped = Math.min(3, Math.max(1, boost));
+    localStorage.setItem(LS_CUSTOM_PLAYER_VOLUME_BOOST_KEY, String(clamped));
+  } catch {}
+}

@@ -12,6 +12,7 @@ import {
   VolumeX,
   Maximize,
   Minimize,
+  PictureInPicture2,
   Settings,
   Download,
   Zap,
@@ -35,6 +36,12 @@ import {
 import type { ContentPlayback } from "@content/contentMetadata";
 import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
 import { useVideoDownloads } from "@/ui/components/custom-video-player/downloads";
+import {
+  getCustomPlayerVolume,
+  setCustomPlayerVolume,
+  getCustomPlayerVolumeBoost,
+  setCustomPlayerVolumeBoost
+} from "@/shared/storage/localStorageStore";
 
 interface CustomVideoPlayerProps {
   embedUrl: string;
@@ -107,13 +114,28 @@ export function CustomVideoPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [bufferedEnd, setBufferedEnd] = useState(0);
-  const [volume, setVolume] = useState(1); // Standard volume 0.0 - 1.0
-  const [volumeBoost, setVolumeBoost] = useState(1.0); // Boost multiplier 1.0 - 3.0 in settings
+  const [volume, setVolume] = useState(() => getCustomPlayerVolume());
+  const [volumeBoost, setVolumeBoost] = useState(() => getCustomPlayerVolumeBoost());
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPip, setIsPip] = useState(false);
+  const [supportsPip, setSupportsPip] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+
+  const [volumeHud, setVolumeHud] = useState<{
+    visible: boolean;
+    volume: number;
+    volumeBoost: number;
+    muted: boolean;
+  }>({
+    visible: false,
+    volume,
+    volumeBoost,
+    muted: false
+  });
+  const volumeHudTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number>(0);
@@ -177,15 +199,35 @@ export function CustomVideoPlayer({
     }, 2500);
   };
 
+  const showVolumeToast = (v: number, boost: number, muted: boolean) => {
+    setVolumeHud({ visible: true, volume: v, volumeBoost: boost, muted });
+    if (volumeHudTimeoutRef.current) {
+      clearTimeout(volumeHudTimeoutRef.current);
+    }
+    volumeHudTimeoutRef.current = setTimeout(() => {
+      setVolumeHud((prev) => ({ ...prev, visible: false }));
+    }, 1400);
+  };
+
   useEffect(() => {
     return () => {
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
+      if (volumeHudTimeoutRef.current) {
+        clearTimeout(volumeHudTimeoutRef.current);
+      }
       if (audioContextRef.current && audioContextRef.current.state !== "closed") {
         audioContextRef.current.close().catch(() => {});
       }
     };
+  }, []);
+
+  useEffect(() => {
+    setSupportsPip(
+      typeof document !== "undefined" &&
+        ("pictureInPictureEnabled" in document ? document.pictureInPictureEnabled : true)
+    );
   }, []);
 
   useEffect(() => {
@@ -231,6 +273,10 @@ export function CustomVideoPlayer({
         e.preventDefault();
         toggleFullscreen();
         triggerControls();
+      } else if (e.code === "KeyP") {
+        e.preventDefault();
+        togglePip();
+        triggerControls();
       }
     };
 
@@ -259,6 +305,12 @@ export function CustomVideoPlayer({
     const loadVideoSource = (sourceUrl: string, mediaType: "hls" | "file", startAtSeconds = 0) => {
       const video = videoRef.current;
       if (!video || !isMounted) return;
+
+      if (volumeBoostRef.current > 1 && !audioSourceRef.current) {
+        initAudioBoost();
+      } else if (!gainNodeRef.current) {
+        video.volume = volumeRef.current;
+      }
 
       if (mediaType === "hls" && Hls.isSupported()) {
         const hls = new Hls();
@@ -380,12 +432,19 @@ export function CustomVideoPlayer({
       return;
     }
 
+    if (volumeBoostRef.current > 1 && !audioSourceRef.current) {
+      initAudioBoost();
+    } else if (!gainNodeRef.current) {
+      video.volume = volumeRef.current;
+    }
+
     const handlePlayState = () => {
       setIsPlaying(!video.paused);
     };
     const handleVolumeState = () => {
       if (!gainNodeRef.current) {
         setVolume(video.volume);
+        setCustomPlayerVolume(video.volume);
       }
       setIsMuted(video.muted);
     };
@@ -467,6 +526,9 @@ export function CustomVideoPlayer({
 
   const togglePlay = () => {
     if (!videoRef.current) return;
+    if (volumeBoostRef.current > 1 && !audioSourceRef.current) {
+      initAudioBoost();
+    }
     if (audioContextRef.current?.state === "suspended") {
       audioContextRef.current.resume().catch(() => {});
     }
@@ -487,9 +549,14 @@ export function CustomVideoPlayer({
     const clamped = Math.min(1, Math.max(0, value));
     setVolume(clamped);
     volumeRef.current = clamped;
+    setCustomPlayerVolume(clamped);
+
+    setVolumeBoost(1.0);
+    volumeBoostRef.current = 1.0;
+    setCustomPlayerVolumeBoost(1.0);
 
     if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = isMuted ? 0 : clamped * volumeBoostRef.current;
+      gainNodeRef.current.gain.value = isMuted ? 0 : clamped;
       if (audioContextRef.current?.state === "suspended") {
         audioContextRef.current.resume().catch(() => {});
       }
@@ -500,6 +567,9 @@ export function CustomVideoPlayer({
     if (clamped > 0 && isMuted && videoRef.current) {
       videoRef.current.muted = false;
       setIsMuted(false);
+      showVolumeToast(clamped, 1.0, false);
+    } else {
+      showVolumeToast(clamped, 1.0, isMuted);
     }
   };
 
@@ -507,6 +577,7 @@ export function CustomVideoPlayer({
     const clamped = Math.min(3, Math.max(1, boostValue));
     setVolumeBoost(clamped);
     volumeBoostRef.current = clamped;
+    setCustomPlayerVolumeBoost(clamped);
 
     if (clamped > 1 && !audioSourceRef.current) {
       initAudioBoost();
@@ -518,6 +589,8 @@ export function CustomVideoPlayer({
         audioContextRef.current.resume().catch(() => {});
       }
     }
+
+    showVolumeToast(volumeRef.current, clamped, isMuted);
   };
 
   const toggleMute = () => {
@@ -532,7 +605,143 @@ export function CustomVideoPlayer({
         audioContextRef.current.resume().catch(() => {});
       }
     }
+
+    showVolumeToast(volumeRef.current, volumeBoostRef.current, nextMute);
   };
+
+  const togglePip = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (video.requestPictureInPicture) {
+        if (volumeBoostRef.current > 1 && !audioSourceRef.current) {
+          initAudioBoost();
+        }
+        if (audioContextRef.current?.state === "suspended") {
+          await audioContextRef.current.resume().catch(() => {});
+        }
+        await video.requestPictureInPicture();
+      }
+    } catch (err) {
+      console.error("Picture-in-Picture failed:", err);
+    }
+  };
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleEnterPip = () => setIsPip(true);
+    const handleLeavePip = () => setIsPip(false);
+
+    video.addEventListener("enterpictureinpicture", handleEnterPip);
+    video.addEventListener("leavepictureinpicture", handleLeavePip);
+
+    return () => {
+      video.removeEventListener("enterpictureinpicture", handleEnterPip);
+      video.removeEventListener("leavepictureinpicture", handleLeavePip);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+
+    const subTitle =
+      content.type === "tv"
+        ? `S${tvTarget.season} · E${tvTarget.episode}`
+        : content.year
+          ? String(content.year)
+          : "";
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: content.title,
+      artist: subTitle,
+      album: content.type === "tv" ? content.title : "Movie",
+      artwork: content.posterUrl
+        ? [{ src: content.posterUrl, sizes: "512x512", type: "image/jpeg" }]
+        : []
+    });
+
+    const handlePlay = () => {
+      if (videoRef.current && videoRef.current.paused) {
+        if (volumeBoostRef.current > 1 && !audioSourceRef.current) {
+          initAudioBoost();
+        }
+        if (audioContextRef.current?.state === "suspended") {
+          audioContextRef.current.resume().catch(() => {});
+        }
+        videoRef.current.play().catch(() => {});
+      }
+    };
+
+    const handlePause = () => {
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
+    };
+
+    const handleSeekBackward = () => {
+      if (videoRef.current) {
+        handleSeek(Math.max(0, videoRef.current.currentTime - 10));
+      }
+    };
+
+    const handleSeekForward = () => {
+      if (videoRef.current) {
+        handleSeek(
+          Math.min(videoRef.current.duration || Infinity, videoRef.current.currentTime + 10)
+        );
+      }
+    };
+
+    const handleSeekTo = (details: MediaSessionActionDetails) => {
+      if (videoRef.current && details.seekTime !== undefined) {
+        handleSeek(details.seekTime);
+      }
+    };
+
+    try {
+      navigator.mediaSession.setActionHandler("play", handlePlay);
+      navigator.mediaSession.setActionHandler("pause", handlePause);
+      navigator.mediaSession.setActionHandler("seekbackward", handleSeekBackward);
+      navigator.mediaSession.setActionHandler("seekforward", handleSeekForward);
+      navigator.mediaSession.setActionHandler("seekto", handleSeekTo);
+    } catch {}
+
+    return () => {
+      try {
+        navigator.mediaSession.setActionHandler("play", null);
+        navigator.mediaSession.setActionHandler("pause", null);
+        navigator.mediaSession.setActionHandler("seekbackward", null);
+        navigator.mediaSession.setActionHandler("seekforward", null);
+        navigator.mediaSession.setActionHandler("seekto", null);
+      } catch {}
+    };
+  }, [
+    content.title,
+    content.posterUrl,
+    content.type,
+    content.year,
+    tvTarget.season,
+    tvTarget.episode
+  ]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+    if (duration > 0 && Number.isFinite(duration)) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration,
+          playbackRate: 1,
+          position: Math.min(currentTime, duration)
+        });
+      } catch {}
+    }
+  }, [isPlaying, currentTime, duration]);
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
@@ -1006,6 +1215,23 @@ export function CustomVideoPlayer({
                 </PopoverPortal>
               </Popover>
 
+              {supportsPip && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={togglePip}
+                  aria-label={isPip ? "Exit Picture-in-Picture" : "Enter Picture-in-Picture"}
+                  title="Picture-in-Picture (p)"
+                  className={`touch-target rounded-full hover:bg-white/10 ${
+                    isPip
+                      ? "bg-white/15 text-primary hover:text-primary"
+                      : "text-white/85 hover:text-white"
+                  }`}
+                >
+                  <PictureInPicture2 className="h-4.5 w-4.5" />
+                </Button>
+              )}
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -1023,6 +1249,27 @@ export function CustomVideoPlayer({
           </div>
         </div>
       </div>
+
+      {volumeHud.visible && (
+        <div className="pointer-events-none absolute left-1/2 top-16 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-full bg-neutral-950/90 px-4 py-2 text-white shadow-2xl ring-1 ring-white/15 backdrop-blur-xl transition-all duration-200 animate-in fade-in zoom-in-95">
+          {volumeHud.muted || volumeHud.volume === 0 ? (
+            <VolumeX className="h-4.5 w-4.5 text-white/60" />
+          ) : volumeHud.volume < 0.5 ? (
+            <Volume1 className="h-4.5 w-4.5 text-primary" />
+          ) : (
+            <Volume2 className="h-4.5 w-4.5 text-primary" />
+          )}
+          <span className="font-mono text-xs font-medium text-white">
+            {volumeHud.muted ? "Muted" : `${Math.round(volumeHud.volume * 100)}%`}
+          </span>
+          {volumeHud.volumeBoost > 1 && (
+            <div className="flex items-center gap-1 border-l border-white/15 pl-2.5 text-xs font-semibold text-primary">
+              <Zap className="h-3 w-3 fill-current" />
+              <span>{Math.round(volumeHud.volumeBoost * 100)}%</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {mediaError && (
         <div className="absolute inset-x-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-neutral-950/95 p-7 text-center shadow-2xl ring-1 ring-white/10 backdrop-blur-xl sm:inset-x-1/4">

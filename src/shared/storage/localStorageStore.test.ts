@@ -5,7 +5,11 @@ import {
   getWatchlistSnapshots,
   setWatchProgressStore,
   setWatchlistIds,
-  setWatchlistSnapshots
+  setWatchlistSnapshots,
+  getCustomPlayerVolume,
+  setCustomPlayerVolume,
+  getCustomPlayerVolumeBoost,
+  setCustomPlayerVolumeBoost
 } from "./localStorageStore";
 
 const storage = new Map<string, string>();
@@ -71,5 +75,57 @@ describe("localStorageStore", () => {
     setWatchProgressStore(store);
 
     expect(getWatchProgressStore()).toEqual(store);
+  });
+
+  describe("custom player volume settings", () => {
+    it("returns default volume 1 when not set", () => {
+      expect(getCustomPlayerVolume()).toBe(1);
+    });
+
+    it("round-trips custom player volume", () => {
+      setCustomPlayerVolume(0.45);
+      expect(getCustomPlayerVolume()).toBe(0.45);
+    });
+
+    it("clamps custom player volume to [0, 1]", () => {
+      setCustomPlayerVolume(1.5);
+      expect(getCustomPlayerVolume()).toBe(1);
+
+      setCustomPlayerVolume(-0.2);
+      expect(getCustomPlayerVolume()).toBe(0);
+    });
+
+    it("returns default volume 1 for invalid stored value", () => {
+      storage.set("custom_player_volume", "invalid");
+      expect(getCustomPlayerVolume()).toBe(1);
+
+      storage.set("custom_player_volume", "5.0");
+      expect(getCustomPlayerVolume()).toBe(1);
+    });
+
+    it("returns default volume boost 1.0 when not set", () => {
+      expect(getCustomPlayerVolumeBoost()).toBe(1.0);
+    });
+
+    it("round-trips custom player volume boost", () => {
+      setCustomPlayerVolumeBoost(2.5);
+      expect(getCustomPlayerVolumeBoost()).toBe(2.5);
+    });
+
+    it("clamps custom player volume boost to [1, 3]", () => {
+      setCustomPlayerVolumeBoost(4.0);
+      expect(getCustomPlayerVolumeBoost()).toBe(3);
+
+      setCustomPlayerVolumeBoost(0.5);
+      expect(getCustomPlayerVolumeBoost()).toBe(1);
+    });
+
+    it("returns default volume boost 1.0 for invalid stored value", () => {
+      storage.set("custom_player_volume_boost", "invalid");
+      expect(getCustomPlayerVolumeBoost()).toBe(1.0);
+
+      storage.set("custom_player_volume_boost", "0.5");
+      expect(getCustomPlayerVolumeBoost()).toBe(1.0);
+    });
   });
 });
