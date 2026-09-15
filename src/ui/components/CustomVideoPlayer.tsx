@@ -551,12 +551,8 @@ export function CustomVideoPlayer({
     volumeRef.current = clamped;
     setCustomPlayerVolume(clamped);
 
-    setVolumeBoost(1.0);
-    volumeBoostRef.current = 1.0;
-    setCustomPlayerVolumeBoost(1.0);
-
     if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = isMuted ? 0 : clamped;
+      gainNodeRef.current.gain.value = isMuted ? 0 : clamped * volumeBoostRef.current;
       if (audioContextRef.current?.state === "suspended") {
         audioContextRef.current.resume().catch(() => {});
       }
@@ -567,9 +563,9 @@ export function CustomVideoPlayer({
     if (clamped > 0 && isMuted && videoRef.current) {
       videoRef.current.muted = false;
       setIsMuted(false);
-      showVolumeToast(clamped, 1.0, false);
+      showVolumeToast(clamped, volumeBoostRef.current, false);
     } else {
-      showVolumeToast(clamped, 1.0, isMuted);
+      showVolumeToast(clamped, volumeBoostRef.current, isMuted);
     }
   };
 
