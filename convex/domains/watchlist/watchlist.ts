@@ -297,7 +297,7 @@ export const listWatchlistContentIds = query({
 
 export const listRecommendationSeeds = query({
   args: { clerkUserId: v.string(), folder: v.optional(v.string()), limit: v.optional(v.number()) },
-  handler: async (ctx, { clerkUserId, folder, limit = 20 }) => {
+  handler: async (ctx, { clerkUserId, folder, limit = 45 }) => {
     const fetchLimit = Math.max(1, Math.min(100, limit));
     const rows = await entriesForFolder(ctx, clerkUserId, folder).take(fetchLimit);
     const seeds: Array<{ tmdbId: string; type: ContentType }> = [];

@@ -7,14 +7,26 @@ import {
   Mic2,
   Play,
   Pause,
+  Volume1,
   Volume2,
   VolumeX,
   Maximize,
   Minimize,
   Settings,
-  Download
+  Download,
+  Zap,
+  FastForward
 } from "lucide-react";
-import { Button } from "@fishy/ui";
+import {
+  Button,
+  Slider,
+  Popover,
+  PopoverTrigger,
+  PopoverPortal,
+  PopoverPositioner,
+  PopoverContent,
+  Separator
+} from "@fishy/ui";
 import {
   ProviderSourceSelect,
   type ProviderIdType,
@@ -94,15 +106,34 @@ export function CustomVideoPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
+  const [bufferedEnd, setBufferedEnd] = useState(0);
+  const [volume, setVolume] = useState(1); // Standard volume 0.0 - 1.0
+  const [volumeBoost, setVolumeBoost] = useState(1.0); // Boost multiplier 1.0 - 3.0 in settings
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
 
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<number>(0);
+
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const volumeRef = useRef(volume);
+  const volumeBoostRef = useRef(volumeBoost);
+
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPlayingRef = useRef(isPlaying);
+
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
+
+  useEffect(() => {
+    volumeBoostRef.current = volumeBoost;
+  }, [volumeBoost]);
 
   const {
     downloadUrl,
@@ -151,6 +182,9 @@ export function CustomVideoPlayer({
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+        audioContextRef.current.close().catch(() => {});
+      }
     };
   }, []);
 
@@ -175,11 +209,11 @@ export function CustomVideoPlayer({
         triggerControls();
       } else if (e.code === "ArrowUp") {
         e.preventDefault();
-        handleVolumeChange(Math.min(1, video.volume + 0.05));
+        handleVolumeChange(Math.min(1, Number((volumeRef.current + 0.05).toFixed(2))));
         triggerControls();
       } else if (e.code === "ArrowDown") {
         e.preventDefault();
-        handleVolumeChange(Math.max(0, video.volume - 0.05));
+        handleVolumeChange(Math.max(0, Number((volumeRef.current - 0.05).toFixed(2))));
         triggerControls();
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
@@ -350,7 +384,9 @@ export function CustomVideoPlayer({
       setIsPlaying(!video.paused);
     };
     const handleVolumeState = () => {
-      setVolume(video.volume);
+      if (!gainNodeRef.current) {
+        setVolume(video.volume);
+      }
       setIsMuted(video.muted);
     };
     const handleDurationChange = () => {
@@ -373,12 +409,24 @@ export function CustomVideoPlayer({
       });
     };
 
+    const handleProgress = () => {
+      if (!video.buffered || video.buffered.length === 0) return;
+      let end = 0;
+      for (let i = 0; i < video.buffered.length; i++) {
+        if (video.buffered.start(i) <= video.currentTime) {
+          end = Math.max(end, video.buffered.end(i));
+        }
+      }
+      setBufferedEnd(end);
+    };
+
     video.addEventListener("play", handlePlayState);
     video.addEventListener("pause", handlePlayState);
     video.addEventListener("volumechange", handleVolumeState);
     video.addEventListener("durationchange", handleDurationChange);
     video.addEventListener("loadedmetadata", handleDurationChange);
     video.addEventListener("timeupdate", handleTimeUpdate);
+    video.addEventListener("progress", handleProgress);
     video.addEventListener("ended", handlePlayState);
 
     return () => {
@@ -388,12 +436,40 @@ export function CustomVideoPlayer({
       video.removeEventListener("durationchange", handleDurationChange);
       video.removeEventListener("loadedmetadata", handleDurationChange);
       video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("progress", handleProgress);
       video.removeEventListener("ended", handlePlayState);
     };
   }, [isScraping, onPlaybackEvent]);
 
+  const initAudioBoost = () => {
+    if (!videoRef.current || audioSourceRef.current) return;
+    try {
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const source = ctx.createMediaElementSource(videoRef.current);
+      const gain = ctx.createGain();
+      gain.gain.value = isMuted ? 0 : volumeRef.current * volumeBoostRef.current;
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      audioContextRef.current = ctx;
+      gainNodeRef.current = gain;
+      audioSourceRef.current = source;
+      if (videoRef.current) {
+        videoRef.current.volume = 1;
+      }
+    } catch (err) {
+      console.error("Failed to initialize audio booster:", err);
+    }
+  };
+
   const togglePlay = () => {
     if (!videoRef.current) return;
+    if (audioContextRef.current?.state === "suspended") {
+      audioContextRef.current.resume().catch(() => {});
+    }
     if (isPlaying) {
       videoRef.current.pause();
     } else {
@@ -408,12 +484,39 @@ export function CustomVideoPlayer({
   };
 
   const handleVolumeChange = (value: number) => {
-    if (!videoRef.current) return;
-    videoRef.current.volume = value;
-    setVolume(value);
-    if (value > 0 && videoRef.current.muted) {
+    const clamped = Math.min(1, Math.max(0, value));
+    setVolume(clamped);
+    volumeRef.current = clamped;
+
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = isMuted ? 0 : clamped * volumeBoostRef.current;
+      if (audioContextRef.current?.state === "suspended") {
+        audioContextRef.current.resume().catch(() => {});
+      }
+    } else if (videoRef.current) {
+      videoRef.current.volume = clamped;
+    }
+
+    if (clamped > 0 && isMuted && videoRef.current) {
       videoRef.current.muted = false;
       setIsMuted(false);
+    }
+  };
+
+  const handleVolumeBoostChange = (boostValue: number) => {
+    const clamped = Math.min(3, Math.max(1, boostValue));
+    setVolumeBoost(clamped);
+    volumeBoostRef.current = clamped;
+
+    if (clamped > 1 && !audioSourceRef.current) {
+      initAudioBoost();
+    }
+
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = isMuted ? 0 : volumeRef.current * clamped;
+      if (audioContextRef.current?.state === "suspended") {
+        audioContextRef.current.resume().catch(() => {});
+      }
     }
   };
 
@@ -422,6 +525,13 @@ export function CustomVideoPlayer({
     const nextMute = !isMuted;
     videoRef.current.muted = nextMute;
     setIsMuted(nextMute);
+
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = nextMute ? 0 : volumeRef.current * volumeBoostRef.current;
+      if (audioContextRef.current?.state === "suspended") {
+        audioContextRef.current.resume().catch(() => {});
+      }
+    }
   };
 
   const toggleFullscreen = () => {
@@ -433,6 +543,17 @@ export function CustomVideoPlayer({
     } else {
       document.exitFullscreen();
     }
+  };
+
+  const handleScrubberMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setHoverPosition(pos * 100);
+    setHoverTime(pos * (duration || 0));
+  };
+
+  const handleScrubberMouseLeave = () => {
+    setHoverTime(null);
   };
 
   const isIntro =
@@ -453,21 +574,28 @@ export function CustomVideoPlayer({
     );
   };
 
-  const showEpisodePicker = content.type === "tv" && !!onOpenEpisodePicker;
-
   return (
     <div
       ref={containerRef}
+      tabIndex={0}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        containerRef.current?.focus();
+      }}
       onMouseMove={triggerControls}
       onMouseLeave={() => isPlaying && setShowControls(false)}
-      className="group/custom-player relative flex h-full w-full select-none items-center justify-center overflow-hidden bg-black ring-1 ring-white/10"
+      className="group/custom-player relative flex h-full w-full select-none items-center justify-center overflow-hidden bg-black outline-none focus:outline-none"
     >
       <video
         ref={videoRef}
         onClick={togglePlay}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          containerRef.current?.focus();
+        }}
         onDoubleClick={toggleFullscreen}
         onError={handleMediaError}
-        className={`w-full h-full object-contain ${showControls ? "cursor-pointer" : "cursor-none"}`}
+        className={`h-full w-full object-contain ${showControls ? "cursor-pointer" : "cursor-none"}`}
         autoPlay
         playsInline
       >
@@ -484,30 +612,36 @@ export function CustomVideoPlayer({
       </video>
 
       <div
-        className={`absolute inset-0 z-30 flex flex-col justify-between bg-linear-to-t from-black/80 via-transparent to-black/15 transition-opacity duration-300 ${
+        className={`pointer-events-none absolute inset-0 z-20 bg-linear-to-b from-black/70 via-transparent to-black/80 transition-opacity duration-300 ${
+          showControls ? "opacity-100" : "opacity-0"
+        }`}
+      />
+
+      <div
+        className={`absolute inset-0 z-30 flex flex-col justify-between transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        <div className="flex w-full items-start justify-between gap-4 px-3 pt-3 sm:px-5 sm:pt-5">
-          <div className="flex min-w-0 items-center gap-2">
+        <div className="flex w-full items-center justify-between gap-4 px-4 pt-4 sm:px-8 sm:pt-7">
+          <div className="flex min-w-0 items-center gap-3.5">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate(-1)}
               aria-label="Go back"
-              className="touch-target h-10 w-10 shrink-0 rounded-xl border border-white/10 bg-black/25 text-white backdrop-blur-md hover:bg-white/15"
+              className="touch-target shrink-0 rounded-full text-white/90 hover:bg-white/10 hover:text-white active:scale-95"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white sm:text-base">
+              <p className="truncate font-display text-base font-medium leading-tight text-white sm:text-lg">
                 {content.title}
               </p>
-              <p className="eyebrow mt-1 text-white/55">
-                {content.type === "tv"
-                  ? `Season ${tvTarget.season} · Episode ${tvTarget.episode}`
-                  : "Movie"}
-              </p>
+              {content.type === "tv" && (
+                <p className="mt-0.5 truncate text-[13px] text-white/55">
+                  S{tvTarget.season} · E{tvTarget.episode}
+                </p>
+              )}
             </div>
           </div>
           <Button
@@ -515,37 +649,56 @@ export function CustomVideoPlayer({
             size="icon"
             onClick={onInfoClick}
             aria-label="Show details"
-            className="touch-target h-10 w-10 shrink-0 rounded-xl border border-white/10 bg-black/25 text-white backdrop-blur-md hover:bg-white/15"
+            className="touch-target shrink-0 rounded-full text-white/80 hover:bg-white/10 hover:text-white active:scale-95"
           >
             <Info className="h-5 w-5" />
           </Button>
         </div>
+
+        {isScraping && !mediaError && (
+          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="h-11 w-11 animate-spin rounded-full border-2 border-white/20 border-t-primary" />
+          </div>
+        )}
 
         {!isPlaying && !isScraping && !mediaError && (
           <Button
             variant="ghost"
             size="icon"
             onClick={togglePlay}
-            className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/25 bg-primary/90 text-primary-foreground shadow-2xl shadow-primary/25 transition-transform hover:scale-105 hover:bg-primary"
             aria-label="Play"
+            className="absolute left-1/2 top-1/2 h-18 w-18 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10 text-white ring-1 ring-inset ring-white/25 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:bg-white/20 active:scale-95"
           >
-            <Play className="ml-1 h-9 w-9 fill-current stroke-current" />
+            <Play className="ml-1 h-8 w-8 fill-current stroke-none" />
           </Button>
         )}
 
-        <div
-          className="mx-2 mb-2 w-[calc(100%-1rem)] rounded-2xl border border-white/10 bg-black/45 px-3 pb-2 pt-1 shadow-2xl shadow-black/30 backdrop-blur-xl sm:mx-4 sm:mb-4 sm:w-[calc(100%-2rem)] sm:px-4"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="group/scrubber relative mb-1 h-8 w-full">
-            <div className="pointer-events-none absolute inset-x-0 top-3.5 h-1.5 rounded-full bg-white/20" />
+        <div className="mx-3 mb-3 sm:mx-8 sm:mb-7" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="group/scrubber relative mb-2.5 flex h-5 w-full cursor-pointer items-center"
+            onMouseMove={handleScrubberMouseMove}
+            onMouseLeave={handleScrubberMouseLeave}
+          >
+            {hoverTime !== null && (
+              <div
+                className="pointer-events-none absolute -top-9 z-30 -translate-x-1/2 rounded-md bg-neutral-950/95 px-2 py-1 font-mono text-[11px] font-medium text-white shadow-lg ring-1 ring-white/10"
+                style={{ left: `${hoverPosition}%` }}
+              >
+                {formatTime(hoverTime)}
+              </div>
+            )}
+            <div className="pointer-events-none absolute inset-x-0 h-0.75 rounded-full bg-white/25 transition-all group-hover/scrubber:h-1.5" />
             <div
-              className="pointer-events-none absolute left-0 top-3.5 h-1.5 rounded-full bg-primary shadow-[0_0_12px_color-mix(in_oklab,var(--color-primary)_55%,transparent)]"
+              className="pointer-events-none absolute left-0 h-0.75 rounded-full bg-white/45 transition-all group-hover/scrubber:h-1.5"
+              style={{ width: `${duration ? Math.min(100, (bufferedEnd / duration) * 100) : 0}%` }}
+            />
+            <div
+              className="pointer-events-none absolute left-0 h-0.75 rounded-full bg-primary shadow-[0_0_10px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] transition-all group-hover/scrubber:h-1.5"
               style={{ width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%` }}
             />
             {skipTimes.intro && duration > 0 && (
               <div
-                className="pointer-events-none absolute top-3.5 z-10 h-1.5 rounded-full bg-warning/80"
+                className="pointer-events-none absolute top-1/2 z-10 h-0.75 -translate-y-1/2 rounded-full bg-warning transition-all group-hover/scrubber:h-1.5"
                 style={{
                   left: markerPosition(skipTimes.intro.start),
                   width: `${Math.max(0, ((skipTimes.intro.end - skipTimes.intro.start) / duration) * 100)}%`
@@ -555,41 +708,13 @@ export function CustomVideoPlayer({
             )}
             {skipTimes.outro && duration > 0 && (
               <div
-                className="pointer-events-none absolute top-3.5 z-10 h-1.5 rounded-full bg-destructive/80"
+                className="pointer-events-none absolute top-1/2 z-10 h-0.75 -translate-y-1/2 rounded-full bg-destructive transition-all group-hover/scrubber:h-1.5"
                 style={{
                   left: markerPosition(skipTimes.outro.start),
                   width: `${Math.max(0, ((skipTimes.outro.end - skipTimes.outro.start) / duration) * 100)}%`
                 }}
                 title="Outro"
               />
-            )}
-            {skipTimes.intro && duration > 0 && (
-              <>
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-2 z-20 h-4 w-0.5 bg-warning"
-                  style={{ left: markerPosition(skipTimes.intro.start) }}
-                />
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-2 z-20 h-4 w-0.5 bg-warning"
-                  style={{ left: markerPosition(skipTimes.intro.end) }}
-                />
-              </>
-            )}
-            {skipTimes.outro && duration > 0 && (
-              <>
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-2 z-20 h-4 w-0.5 bg-destructive"
-                  style={{ left: markerPosition(skipTimes.outro.start) }}
-                />
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-2 z-20 h-4 w-0.5 bg-destructive"
-                  style={{ left: markerPosition(skipTimes.outro.end) }}
-                />
-              </>
             )}
             <input
               aria-label="Seek video"
@@ -598,217 +723,301 @@ export function CustomVideoPlayer({
               max={duration || 100}
               value={currentTime}
               onChange={(e) => handleSeek(Number(e.target.value))}
-              className="custom-player-seek absolute inset-0 h-8 w-full cursor-pointer appearance-none rounded-full bg-transparent"
+              className="custom-player-seek absolute inset-0 h-5 w-full cursor-pointer appearance-none rounded-full bg-transparent"
             />
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1 sm:gap-2">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={togglePlay}
                 aria-label={isPlaying ? "Pause" : "Play"}
-                className="touch-target h-10 w-10 rounded-xl p-0 text-white hover:bg-white/15"
+                className="touch-target rounded-full text-white hover:bg-white/10 active:scale-95"
               >
                 {isPlaying ? (
-                  <Pause className="h-4 w-4 fill-white" />
+                  <Pause className="h-5 w-5 fill-current" />
                 ) : (
-                  <Play className="h-4 w-4 fill-white" />
+                  <Play className="ml-0.5 h-5 w-5 fill-current" />
                 )}
               </Button>
 
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="group/vol flex items-center">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={toggleMute}
                   aria-label={isMuted || volume === 0 ? "Unmute" : "Mute"}
-                  className="touch-target h-10 w-10 rounded-xl p-0 text-white hover:bg-white/15"
+                  className="touch-target shrink-0 rounded-full text-white/85 hover:bg-white/10 hover:text-white"
                 >
                   {isMuted || volume === 0 ? (
-                    <VolumeX className="h-4 w-4" />
+                    <VolumeX className="h-4.5 w-4.5" />
+                  ) : volume < 0.5 ? (
+                    <Volume1 className="h-4.5 w-4.5" />
                   ) : (
-                    <Volume2 className="h-4 w-4" />
+                    <Volume2 className="h-4.5 w-4.5" />
                   )}
                 </Button>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                  className="h-1 w-14 cursor-pointer appearance-none overflow-hidden rounded-lg bg-white/30 accent-white sm:w-20"
-                />
+                <div className="w-14 pl-0.5 sm:w-0 sm:overflow-hidden sm:pl-0 sm:transition-all sm:duration-200 sm:group-hover/vol:w-20 sm:group-hover/vol:pl-1">
+                  <div className="relative flex h-8 w-full items-center">
+                    <div className="pointer-events-none absolute inset-x-0 h-0.75 rounded-full bg-white/25" />
+                    <div
+                      className="pointer-events-none absolute left-0 h-0.75 rounded-full bg-primary"
+                      style={{ width: `${Math.round((isMuted ? 0 : volume) * 100)}%` }}
+                    />
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.02}
+                      value={isMuted ? 0 : volume}
+                      onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                      title={`Volume: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
+                      aria-label="Volume slider"
+                      className="custom-player-seek absolute inset-0 h-8 w-full cursor-pointer appearance-none rounded-full bg-transparent"
+                    />
+                  </div>
+                </div>
               </div>
-              <span className="whitespace-nowrap font-mono text-[10px] tabular-nums text-white/75 sm:text-xs">
-                {formatTime(currentTime)} / {formatTime(duration)}
+
+              <span className="ml-1 whitespace-nowrap font-mono text-xs tabular-nums text-white/60 sm:ml-2">
+                <span className="text-white">{formatTime(currentTime)}</span>
+                <span className="mx-1.5 text-white/30">/</span>
+                <span>{formatTime(duration)}</span>
               </span>
             </div>
 
-            <div className="flex items-center gap-2 relative">
-              {showSettings && (
-                <div className="absolute bottom-14 right-0 z-50 flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-3 rounded-2xl border border-white/10 bg-neutral-950/95 p-3 text-white shadow-2xl shadow-black/40 backdrop-blur-xl">
-                  <div className="border-b border-white/10 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/50">
-                    Settings
-                  </div>
-
-                  {showDubToggle && (
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs text-white/50">Language</label>
-                      <div className="flex items-center rounded-md border border-white/10 bg-black/40 overflow-hidden shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDubToggle(false)}
-                          className={`flex-1 flex items-center justify-center gap-1.5 rounded-none py-1 text-xs font-medium transition-colors ${
-                            !isDub
-                              ? "bg-primary text-primary-foreground hover:bg-primary/95"
-                              : "text-white/70 hover:text-white hover:bg-white/5"
-                          }`}
-                        >
-                          <Mic2 className="w-3.5 h-3.5" />
-                          SUB
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDubToggle(true)}
-                          className={`flex-1 flex items-center justify-center gap-1.5 rounded-none py-1 text-xs font-medium transition-colors ${
-                            isDub
-                              ? "bg-primary text-primary-foreground hover:bg-primary/95"
-                              : "text-white/70 hover:text-white hover:bg-white/5"
-                          }`}
-                        >
-                          <Mic2 className="w-3.5 h-3.5" />
-                          DUB
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-white/50">Source</label>
-                    <ProviderSourceSelect
-                      groupedSources={groupedSources}
-                      selectedSource={selectedSource}
-                      useCustomPlayer
-                      onSelect={(url, mode) => {
-                        onSelectProvider(url, mode);
-                        setShowSettings(false);
-                      }}
-                      providerIdType={providerIdType}
-                      onProviderIdTypeChange={onProviderIdTypeChange}
-                      variant="panel"
-                    />
-                  </div>
-
-                  {content.type === "movie" && (
-                    <div className="flex flex-col gap-1.5 border-t border-white/10 pt-2">
-                      <label className="text-xs font-medium text-white/70">Download</label>
-                      {downloadUrl ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start gap-2 text-xs text-white hover:bg-white/10"
-                          onClick={() => handleDownload()}
-                        >
-                          {downloadState.status === "downloading" ? (
-                            <Pause className="w-3.5 h-3.5" />
-                          ) : (
-                            <Download className="w-3.5 h-3.5" />
-                          )}
-                          {downloadState.status === "downloading"
-                            ? `Pause download${downloadProgress === null ? "" : ` · ${downloadProgress}%`}`
-                            : downloadState.status === "paused"
-                              ? `Resume download${downloadProgress === null ? "" : ` · ${downloadProgress}%`}`
-                              : downloadState.status === "error"
-                                ? "Retry download"
-                                : "Download movie"}
-                        </Button>
-                      ) : (
-                        <p className="text-[11px] text-white/50">
-                          Download is unavailable for this stream.
-                        </p>
+            <div className="relative flex items-center gap-1">
+              <Popover open={showSettings} onOpenChange={setShowSettings}>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Open settings"
+                      title="Settings"
+                      className={`touch-target relative rounded-full text-white/85 hover:bg-white/10 hover:text-white ${
+                        showSettings ? "bg-white/10 text-white" : ""
+                      }`}
+                    >
+                      <Settings className="h-4.5 w-4.5" />
+                      {volumeBoost > 1 && (
+                        <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
                       )}
-                      {downloadState.status === "error" && (
-                        <p className="text-[11px] text-destructive">{downloadState.message}</p>
-                      )}
-                    </div>
-                  )}
-                  {content.type === "tv" && getEpisodeEmbedUrl && (
-                    <div className="flex flex-col gap-1.5 border-t border-white/10 pt-2">
-                      <div>
-                        <p className="text-xs font-medium text-white/70">More episodes</p>
-                        <p className="text-[11px] text-white/45">
-                          Choose episodes from the content modal.
-                        </p>
+                    </Button>
+                  }
+                />
+                <PopoverPortal>
+                  <PopoverPositioner side="top" align="end" sideOffset={12}>
+                    <PopoverContent className="flex max-h-[70vh] w-[min(21rem,calc(100vw-2rem))] flex-col gap-4 overflow-y-auto rounded-2xl bg-neutral-950/97 p-4 text-white shadow-2xl shadow-black/70 ring-1 ring-white/10 backdrop-blur-2xl">
+                      <p className="font-display text-sm font-medium text-white">Settings</p>
+
+                      <div className="flex flex-col gap-2.5 rounded-xl bg-white/5 p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Zap
+                              className={`h-3.5 w-3.5 ${
+                                volumeBoost > 1 ? "text-primary" : "text-white/50"
+                              }`}
+                            />
+                            <span className="text-[13px] text-white/85">Volume boost</span>
+                          </div>
+                          <span
+                            className={`font-mono text-xs tabular-nums ${
+                              volumeBoost > 1 ? "text-primary" : "text-white/45"
+                            }`}
+                          >
+                            {Math.round(volumeBoost * 100)}%
+                          </span>
+                        </div>
+
+                        <Slider
+                          value={volumeBoost}
+                          onValueChange={(next) =>
+                            handleVolumeBoostChange(
+                              Array.isArray(next) ? next[0] : (next as number)
+                            )
+                          }
+                          min={1}
+                          max={3}
+                          step={0.05}
+                          aria-label="Volume Boost Multiplier"
+                        />
+
+                        <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+                          {[
+                            { label: "100%", val: 1.0 },
+                            { label: "150%", val: 1.5 },
+                            { label: "200%", val: 2.0 },
+                            { label: "300%", val: 3.0 }
+                          ].map((preset) => (
+                            <Button
+                              key={preset.val}
+                              variant={
+                                Math.abs(volumeBoost - preset.val) < 0.05 ? "default" : "ghost"
+                              }
+                              size="sm"
+                              onClick={() => handleVolumeBoostChange(preset.val)}
+                              className="h-7 rounded-lg font-mono text-[11px] text-white/60 hover:text-white"
+                            >
+                              {preset.label}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
+
+                      {showDubToggle && (
+                        <div className="flex flex-col gap-2">
+                          <p className="text-[13px] text-white/85">Language</p>
+                          <div className="flex shrink-0 items-center overflow-hidden rounded-xl bg-white/5 p-0.5">
+                            <Button
+                              variant={!isDub ? "default" : "ghost"}
+                              size="sm"
+                              onClick={() => handleDubToggle(false)}
+                              className="flex-1 gap-1.5 rounded-lg text-xs font-medium text-white/60 hover:text-white"
+                            >
+                              <Mic2 className="h-3.5 w-3.5" />
+                              Sub
+                            </Button>
+                            <Button
+                              variant={isDub ? "default" : "ghost"}
+                              size="sm"
+                              onClick={() => handleDubToggle(true)}
+                              className="flex-1 gap-1.5 rounded-lg text-xs font-medium text-white/60 hover:text-white"
+                            >
+                              <Mic2 className="h-3.5 w-3.5" />
+                              Dub
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col gap-2">
+                        <p className="text-[13px] text-white/85">Source</p>
+                        <ProviderSourceSelect
+                          groupedSources={groupedSources}
+                          selectedSource={selectedSource}
+                          useCustomPlayer
+                          onSelect={(url, mode) => {
+                            onSelectProvider(url, mode);
+                            setShowSettings(false);
+                          }}
+                          providerIdType={providerIdType}
+                          onProviderIdTypeChange={onProviderIdTypeChange}
+                          variant="panel"
+                        />
+                      </div>
+
+                      {content.type === "movie" && (
+                        <>
+                          <Separator className="bg-white/10" />
+                          <div className="flex flex-col gap-2">
+                            <p className="text-[13px] text-white/85">Download</p>
+                            {downloadUrl ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start gap-2 text-xs text-white/85 hover:bg-white/5 hover:text-white"
+                                onClick={() => handleDownload()}
+                              >
+                                {downloadState.status === "downloading" ? (
+                                  <Pause className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Download className="h-3.5 w-3.5" />
+                                )}
+                                {downloadState.status === "downloading"
+                                  ? `Pause download${downloadProgress === null ? "" : ` · ${downloadProgress}%`}`
+                                  : downloadState.status === "paused"
+                                    ? `Resume download${downloadProgress === null ? "" : ` · ${downloadProgress}%`}`
+                                    : downloadState.status === "error"
+                                      ? "Retry download"
+                                      : "Download movie"}
+                              </Button>
+                            ) : (
+                              <p className="text-[11px] text-white/45">
+                                Download is unavailable for this stream.
+                              </p>
+                            )}
+                            {downloadState.status === "error" && (
+                              <p className="text-[11px] text-destructive">
+                                {downloadState.message}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                      {content.type === "tv" && getEpisodeEmbedUrl && (
+                        <>
+                          <Separator className="bg-white/10" />
+                          <div className="flex flex-col gap-2">
+                            <div>
+                              <p className="text-[13px] text-white/85">More episodes</p>
+                              <p className="mt-0.5 text-[11px] text-white/45">
+                                Choose episodes from the content modal.
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={batchDownloadState.status === "downloading"}
+                              className="w-full justify-start gap-2 text-xs text-white/80 hover:bg-white/5 hover:text-white"
+                              onClick={onOpenEpisodePicker}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              {batchDownloadProgress === null
+                                ? "Download episodes"
+                                : `Downloading episodes · ${batchDownloadProgress}%`}
+                            </Button>
+                            {batchDownloadState.status === "downloading" && (
+                              <p className="text-[11px] text-white/45">
+                                Downloading episode {batchDownloadState.completed + 1} of{" "}
+                                {batchDownloadState.total}
+                              </p>
+                            )}
+                            {batchDownloadState.status === "completed" && (
+                              <p className="text-[11px] text-success">
+                                Downloaded {batchDownloadState.completed} episodes.
+                              </p>
+                            )}
+                            {batchDownloadState.status === "error" && (
+                              <p className="text-[11px] text-destructive">
+                                {batchDownloadState.message}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                      <Separator className="bg-white/10" />
                       <Button
                         variant="ghost"
                         size="sm"
-                        disabled={batchDownloadState.status === "downloading"}
-                        className="w-full justify-start gap-2 text-xs text-white/80 hover:bg-white/10"
-                        onClick={onOpenEpisodePicker}
+                        className="w-full justify-start gap-2 text-xs text-white/85 hover:bg-white/5 hover:text-white"
+                        onClick={() => {
+                          onInfoClick();
+                          setShowSettings(false);
+                        }}
                       >
-                        <Download className="h-3.5 w-3.5" />
-                        {batchDownloadProgress === null
-                          ? "Download episodes"
-                          : `Downloading episodes · ${batchDownloadProgress}%`}
+                        <Info className="h-3.5 w-3.5" />
+                        Details
                       </Button>
-                      {batchDownloadState.status === "downloading" && (
-                        <p className="text-[11px] text-white/50">
-                          Downloading episode {batchDownloadState.completed + 1} of{" "}
-                          {batchDownloadState.total}
-                        </p>
-                      )}
-                      {batchDownloadState.status === "completed" && (
-                        <p className="text-[11px] text-emerald-400">
-                          Downloaded {batchDownloadState.completed} episodes.
-                        </p>
-                      )}
-                      {batchDownloadState.status === "error" && (
-                        <p className="text-[11px] text-destructive">{batchDownloadState.message}</p>
-                      )}
-                    </div>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full flex items-center justify-start gap-2 text-xs text-white hover:bg-white/10 py-1.5 mt-1 border-t border-white/10 pt-2 rounded-none"
-                    onClick={() => {
-                      onInfoClick();
-                      setShowSettings(false);
-                    }}
-                  >
-                    <Info className="w-3.5 h-3.5" />
-                    Details
-                  </Button>
-                </div>
-              )}
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowSettings(!showSettings)}
-                aria-label="Open settings"
-                title="Settings"
-                className={`touch-target h-10 w-10 rounded-xl p-0 text-white hover:bg-white/15 ${
-                  showSettings ? "bg-white/15" : ""
-                }`}
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
+                    </PopoverContent>
+                  </PopoverPositioner>
+                </PopoverPortal>
+              </Popover>
 
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={toggleFullscreen}
                 aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                className="touch-target h-10 w-10 rounded-xl p-0 text-white hover:bg-white/15"
+                className="touch-target rounded-full text-white/85 hover:bg-white/10 hover:text-white"
               >
-                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                {isFullscreen ? (
+                  <Minimize className="h-4.5 w-4.5" />
+                ) : (
+                  <Maximize className="h-4.5 w-4.5" />
+                )}
               </Button>
             </div>
           </div>
@@ -816,13 +1025,11 @@ export function CustomVideoPlayer({
       </div>
 
       {mediaError && (
-        <div className="absolute inset-x-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl border border-destructive/40 bg-background/95 p-6 text-center shadow-2xl shadow-black/40 backdrop-blur-xl sm:inset-x-1/4">
-          <p className="eyebrow text-destructive">Playback error</p>
-          <p className="mt-2 font-display text-lg font-semibold text-foreground">
-            Video unavailable
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">{mediaError}</p>
-          <Button size="sm" className="mt-4" onClick={() => navigate("/")}>
+        <div className="absolute inset-x-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-neutral-950/95 p-7 text-center shadow-2xl ring-1 ring-white/10 backdrop-blur-xl sm:inset-x-1/4">
+          <p className="text-xs font-medium text-destructive">Playback error</p>
+          <p className="mt-2 font-display text-lg font-medium text-white">Video unavailable</p>
+          <p className="mt-2 text-sm text-white/55">{mediaError}</p>
+          <Button onClick={() => navigate("/")} className="mt-5 rounded-full">
             Choose another file from Home
           </Button>
         </div>
@@ -830,15 +1037,17 @@ export function CustomVideoPlayer({
 
       {(isIntro || isOutro) && (
         <Button
+          variant="secondary"
           onClick={(e) => {
             e.stopPropagation();
             if (videoRef.current) {
               videoRef.current.currentTime = isIntro ? skipTimes.intro!.end : skipTimes.outro!.end;
             }
           }}
-          className="absolute bottom-28 right-4 z-50 rounded-xl border border-white/20 bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-black shadow-xl shadow-black/30 hover:bg-white/90 sm:bottom-32 sm:right-6"
+          className="absolute bottom-24 right-4 z-50 gap-2 rounded-full bg-white/10 text-sm font-medium text-white ring-1 ring-inset ring-white/20 backdrop-blur-xl hover:bg-primary hover:text-primary-foreground hover:ring-primary/50 sm:bottom-28 sm:right-8"
         >
-          Skip {isIntro ? "Intro" : "Outro"}
+          <span>Skip {isIntro ? "intro" : "outro"}</span>
+          <FastForward className="h-4 w-4" />
         </Button>
       )}
     </div>
