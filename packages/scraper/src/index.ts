@@ -318,7 +318,13 @@ async function fetchWithBrowserFallback(
       contentType: response.headers()["content-type"] ?? "application/octet-stream"
     };
   } finally {
-    if (browser) await browser.close();
+    if (browser) {
+      if (typeof browser.disconnect === "function") {
+        await browser.disconnect().catch(() => {});
+      } else if (typeof browser.close === "function") {
+        await browser.close().catch(() => {});
+      }
+    }
   }
 }
 
@@ -540,7 +546,13 @@ app.get("/api/scrape", async (c) => {
     console.error("[Scraper] Error:", err);
     return c.json({ error: "Scraping failed", details: err.message }, 500);
   } finally {
-    if (browser) await browser.close();
+    if (browser) {
+      if (typeof browser.disconnect === "function") {
+        await browser.disconnect().catch(() => {});
+      } else if (typeof browser.close === "function") {
+        await browser.close().catch(() => {});
+      }
+    }
   }
 });
 

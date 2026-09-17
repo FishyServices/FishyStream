@@ -1,3 +1,32 @@
+async function acquireBrowser(binding: any, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      if (typeof puppeteer.sessions === "function") {
+        try {
+          const sessions = await puppeteer.sessions(binding);
+          const availableSession = sessions?.find((s: any) => !s.connectionId);
+          if (availableSession?.sessionId) {
+            return await puppeteer.connect(binding, availableSession.sessionId);
+          }
+        } catch {}
+      }
+
+      return await puppeteer.launch(binding);
+    } catch (err: any) {
+      const isRateLimit =
+        err?.message?.includes("429") ||
+        err?.message?.includes("Rate limit exceeded") ||
+        err?.code === 429;
+      if (isRateLimit && attempt < maxRetries - 1) {
+        const delay = (attempt + 1) * 1000 + Math.random() * 500;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 type RouteParam = string | string[] | undefined;
 
 export interface PagesFunctionContext {
@@ -35,7 +64,7 @@ export async function handleApiRequest(context: PagesFunctionContext) {
       request,
       {
         ...env,
-        launchBrowser: () => puppeteer.launch((env as any).MYBROWSER)
+        launchBrowser: () => acquireBrowser((env as any).MYBROWSER)
       },
       context as any
     );
