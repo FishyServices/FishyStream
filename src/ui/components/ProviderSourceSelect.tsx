@@ -129,7 +129,7 @@ export function ProviderSourceSelect({
           className={
             isHeader
               ? "absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-sm"
-              : "absolute bottom-full right-0 z-50 mb-2 w-64 overflow-hidden rounded-xl border border-border/70 bg-popover/98 text-popover-foreground shadow-lg "
+              : "mt-2 w-full overflow-hidden rounded-xl border border-border/70 bg-popover/98 text-popover-foreground shadow-lg"
           }
         >
           <div
@@ -170,7 +170,7 @@ export function ProviderSourceSelect({
             </Button>
           </div>
 
-          <div className="max-h-72 overflow-y-auto py-1">
+          <div className="max-h-72 overflow-y-auto overscroll-contain py-1">
             {activeGroups.length === 0 ? (
               <p
                 className={
