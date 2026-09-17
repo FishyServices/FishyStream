@@ -1048,6 +1048,7 @@ export function CustomVideoPlayer({
                           max={3}
                           step={0.05}
                           aria-label="Volume Boost Multiplier"
+                          className="py-1"
                         />
 
                         <div className="grid grid-cols-4 gap-1.5 pt-0.5">

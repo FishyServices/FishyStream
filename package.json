@@ -28,18 +28,18 @@
     "@capacitor/android": "8.5.2",
     "@capacitor/cli": "8.5.2",
     "@capacitor/core": "8.5.2",
-    "@clerk/react": "6.15.2",
+    "@clerk/react": "6.16.1",
     "@clerk/themes": "2.4.57",
     "@cloudflare/puppeteer": "1.4.0",
     "@fishy/ui": "git+https://github.com/official-notfishvr/fishy-ui.git",
     "class-variance-authority": "0.7.1",
-    "convex": "1.45.0",
+    "convex": "1.46.0",
     "convex-helpers": "^0.1.124",
     "hls.js": "1.7.3",
-    "lucide-react": "1.45.0",
+    "lucide-react": "1.46.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "react-router-dom": "7.18.3"
+    "react-router-dom": "7.18.4"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
@@ -48,11 +48,11 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
     "concurrently": "10.0.5",
-    "prettier": "3.9.6",
+    "prettier": "3.9.7",
     "sharp": "0.35.4",
     "tailwindcss": "4.3.3",
     "typescript": "~7.0.2",
     "vite": "8.3.0",
-    "vitest": "5.0.0"
+    "vitest": "5.0.1"
   }
 }
