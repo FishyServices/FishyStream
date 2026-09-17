@@ -37,11 +37,11 @@ export interface ProviderSourceSelectProps {
   onProviderIdTypeChange?: (idType: ProviderIdType) => void;
 }
 
-function filterGroupsBySupportsCustomUI(groups: ProviderSourceGroup[]): ProviderSourceGroup[] {
+function filterGroupsBycanBeScraped(groups: ProviderSourceGroup[]): ProviderSourceGroup[] {
   return groups
     .map((group) => ({
       ...group,
-      sources: group.sources.filter((source) => getProviderByKey(source.key)?.supportsCustomUI)
+      sources: group.sources.filter((source) => getProviderByKey(source.key)?.canBeScraped)
     }))
     .filter((group) => group.sources.length > 0);
 }
@@ -60,7 +60,7 @@ export function ProviderSourceSelect({
   const isHeader = variant === "header";
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const customGroups = filterGroupsBySupportsCustomUI(groupedSources);
+  const customGroups = filterGroupsBycanBeScraped(groupedSources);
   const hasCustomOption = customGroups.length > 0;
 
   const [open, setOpen] = useState(false);

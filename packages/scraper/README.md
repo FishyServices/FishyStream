@@ -1,13 +1,21 @@
 # Scraper
 
-uses puppeteer to scrap video data from the providers
+The scraper uses Puppeteer to extract video metadata and playable embed URLs from streaming providers.
 
-Know to work
+## Known to work
 
-[megaplay](https://megaplay.buzz)
-[Peachify](https://peachify.top)
-[VidLux](https://vidlux.xyz)
+### Anime
 
-# Downloads
+- [MegaPlay](https://megaplay.buzz)
+- [VidNest](https://vidnest.fun)
 
-can download from getting data from other websites/apis or can do something like https://github.com/FishyServices/FishyStream/blob/master/src/ui/components/CustomVideoPlayer.tsx#L538
+### Movies & TV
+
+- [CineSrc](https://cinesrc.st)
+- [Peachify](https://peachify.top)
+- [VidLux](https://vidlux.xyz)
+- [VixSrc](https://vixsrc.to)
+
+## Downloads
+
+The scraper can get downloads from the providers. examples: https://github.com/FishyServices/FishyStream/blob/master/src/ui/components/custom-video-player/downloads.ts

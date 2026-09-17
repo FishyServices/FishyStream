@@ -71,7 +71,7 @@ export interface ProviderCatalogEntry<TParams extends ProviderParamsDef = Provid
   referrerPolicy?: ProviderReferrerPolicy;
   unsafeWildcardOrigin?: boolean;
   progress?: ProviderProgressConfig;
-  supportsCustomUI?: boolean;
+  canBeScraped?: boolean;
   params?: TParams;
   getMovieUrl: (id: string, params?: Partial<{ [K in keyof TParams]: any }>) => string;
   getTVUrl: (
@@ -240,7 +240,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://cinesrc.st",
-    supportsCustomUI: true,
+    canBeScraped: true,
     progress: { resumeParam: "startAt" },
     params: {
       seek: { type: "number" },
@@ -419,7 +419,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animeIdType: "anilist",
     dubSupport: true,
     progress: { resumeParam: "startAt" },
-    supportsCustomUI: true,
+    canBeScraped: true,
     moviePath: (id) => `/stream/ani/${id}/1/dub`,
     tvPath: (id, _season, episode) => `/stream/ani/${id}/${episode}/dub`,
     animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`,
@@ -433,7 +433,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://peachify.top",
     progress: { resumeParam: "startAt" },
-    supportsCustomUI: true,
+    canBeScraped: true,
     referrerPolicy: "no-referrer",
     params: {
       server: { type: "string" },
@@ -613,7 +613,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vidlux.xyz",
-    supportsCustomUI: true,
+    canBeScraped: true,
     params: {
       key: { type: "string" },
       color: { type: "hex" },
@@ -631,7 +631,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vidnest.fun",
-    supportsCustomUI: true,
+    canBeScraped: true,
     animeIdType: "anilist",
     dubSupport: true,
     progress: { resumeParam: "progress" },
@@ -746,7 +746,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vixsrc.to",
-    supportsCustomUI: true,
+    canBeScraped: true,
     progress: { resumeParam: "startAt" },
     referrerPolicy: "no-referrer",
     params: {
