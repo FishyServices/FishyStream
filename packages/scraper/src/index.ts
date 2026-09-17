@@ -234,6 +234,20 @@ function isCertificateVerificationError(error: unknown): boolean {
   );
 }
 
+async function releaseBrowser(browser: any): Promise<void> {
+  if (!browser) return;
+
+  const isRemoteBrowser = typeof browser.process === "function" && browser.process() === null;
+  if (isRemoteBrowser && typeof browser.disconnect === "function") {
+    await browser.disconnect().catch(() => {});
+    return;
+  }
+
+  if (typeof browser.close === "function") {
+    await browser.close().catch(() => {});
+  }
+}
+
 async function fetchWithReferrerFallback(
   url: string,
   headers: StreamHeaders,
@@ -318,13 +332,7 @@ async function fetchWithBrowserFallback(
       contentType: response.headers()["content-type"] ?? "application/octet-stream"
     };
   } finally {
-    if (browser) {
-      if (typeof browser.disconnect === "function") {
-        await browser.disconnect().catch(() => {});
-      } else if (typeof browser.close === "function") {
-        await browser.close().catch(() => {});
-      }
-    }
+    await releaseBrowser(browser);
   }
 }
 
@@ -546,13 +554,7 @@ app.get("/api/scrape", async (c) => {
     console.error("[Scraper] Error:", err);
     return c.json({ error: "Scraping failed", details: err.message }, 500);
   } finally {
-    if (browser) {
-      if (typeof browser.disconnect === "function") {
-        await browser.disconnect().catch(() => {});
-      } else if (typeof browser.close === "function") {
-        await browser.close().catch(() => {});
-      }
-    }
+    await releaseBrowser(browser);
   }
 });
 

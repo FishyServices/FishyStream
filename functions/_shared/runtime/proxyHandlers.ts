@@ -1,3 +1,5 @@
+const BROWSER_KEEP_ALIVE_MS = 10 * 60 * 1000;
+
 async function acquireBrowser(binding: any, maxRetries = 3) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -11,7 +13,7 @@ async function acquireBrowser(binding: any, maxRetries = 3) {
         } catch {}
       }
 
-      return await puppeteer.launch(binding);
+      return await puppeteer.launch(binding, { keep_alive: BROWSER_KEEP_ALIVE_MS });
     } catch (err: any) {
       const isRateLimit =
         err?.message?.includes("429") ||
