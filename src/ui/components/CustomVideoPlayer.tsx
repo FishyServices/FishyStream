@@ -306,10 +306,11 @@ export function CustomVideoPlayer({
       const video = videoRef.current;
       if (!video || !isMounted) return;
 
+      video.volume = volumeRef.current;
+      video.muted = isMuted || volumeRef.current === 0;
+
       if (volumeBoostRef.current > 1 && !audioSourceRef.current) {
         initAudioBoost();
-      } else if (!gainNodeRef.current) {
-        video.volume = volumeRef.current;
       }
 
       if (mediaType === "hls" && Hls.isSupported()) {
@@ -320,6 +321,7 @@ export function CustomVideoPlayer({
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           if (startAtSeconds > 0) video.currentTime = startAtSeconds;
           video.play().catch(() => {});
+          ensureAudioActive();
         });
         return;
       }
@@ -331,10 +333,12 @@ export function CustomVideoPlayer({
           video.currentTime = startAtSeconds;
           video.removeEventListener("loadedmetadata", handleLoaded);
           video.play().catch(() => {});
+          ensureAudioActive();
         };
         video.addEventListener("loadedmetadata", handleLoaded);
       } else {
         video.play().catch(() => {});
+        ensureAudioActive();
       }
     };
 
@@ -426,27 +430,67 @@ export function CustomVideoPlayer({
     };
   }, [embedUrl, localFile]);
 
+  const ensureAudioActive = () => {
+    if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+      audioContextRef.current.resume().catch(() => {});
+    }
+  };
+
+  const initAudioBoost = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (audioSourceRef.current) {
+      if (gainNodeRef.current) {
+        gainNodeRef.current.gain.value = volumeBoostRef.current;
+      }
+      ensureAudioActive();
+      return;
+    }
+    try {
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const source = ctx.createMediaElementSource(video);
+      const gain = ctx.createGain();
+      gain.gain.value = volumeBoostRef.current;
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      audioContextRef.current = ctx;
+      gainNodeRef.current = gain;
+      audioSourceRef.current = source;
+      ensureAudioActive();
+    } catch (err) {
+      console.error("Failed to initialize audio booster:", err);
+    }
+  };
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) {
       return;
     }
 
+    video.volume = volumeRef.current;
+    video.muted = isMuted || volumeRef.current === 0;
+
     if (volumeBoostRef.current > 1 && !audioSourceRef.current) {
       initAudioBoost();
-    } else if (!gainNodeRef.current) {
-      video.volume = volumeRef.current;
     }
 
     const handlePlayState = () => {
       setIsPlaying(!video.paused);
+      if (!video.paused) {
+        ensureAudioActive();
+      }
     };
     const handleVolumeState = () => {
-      if (!gainNodeRef.current) {
-        setVolume(video.volume);
-        setCustomPlayerVolume(video.volume);
-      }
-      setIsMuted(video.muted);
+      const currentVol = Number.isFinite(video.volume) ? video.volume : 0;
+      setVolume(currentVol);
+      volumeRef.current = currentVol;
+      setCustomPlayerVolume(currentVol);
+      setIsMuted(video.muted || currentVol === 0);
     };
     const handleDurationChange = () => {
       if (Number.isFinite(video.duration) && video.duration >= 0) {
@@ -480,6 +524,7 @@ export function CustomVideoPlayer({
     };
 
     video.addEventListener("play", handlePlayState);
+    video.addEventListener("playing", handlePlayState);
     video.addEventListener("pause", handlePlayState);
     video.addEventListener("volumechange", handleVolumeState);
     video.addEventListener("durationchange", handleDurationChange);
@@ -490,6 +535,7 @@ export function CustomVideoPlayer({
 
     return () => {
       video.removeEventListener("play", handlePlayState);
+      video.removeEventListener("playing", handlePlayState);
       video.removeEventListener("pause", handlePlayState);
       video.removeEventListener("volumechange", handleVolumeState);
       video.removeEventListener("durationchange", handleDurationChange);
@@ -500,38 +546,12 @@ export function CustomVideoPlayer({
     };
   }, [isScraping, onPlaybackEvent]);
 
-  const initAudioBoost = () => {
-    if (!videoRef.current || audioSourceRef.current) return;
-    try {
-      const AudioContextClass =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextClass) return;
-      const ctx = new AudioContextClass();
-      const source = ctx.createMediaElementSource(videoRef.current);
-      const gain = ctx.createGain();
-      gain.gain.value = isMuted ? 0 : volumeRef.current * volumeBoostRef.current;
-      source.connect(gain);
-      gain.connect(ctx.destination);
-      audioContextRef.current = ctx;
-      gainNodeRef.current = gain;
-      audioSourceRef.current = source;
-      if (videoRef.current) {
-        videoRef.current.volume = 1;
-      }
-    } catch (err) {
-      console.error("Failed to initialize audio booster:", err);
-    }
-  };
-
   const togglePlay = () => {
     if (!videoRef.current) return;
     if (volumeBoostRef.current > 1 && !audioSourceRef.current) {
       initAudioBoost();
     }
-    if (audioContextRef.current?.state === "suspended") {
-      audioContextRef.current.resume().catch(() => {});
-    }
+    ensureAudioActive();
     if (isPlaying) {
       videoRef.current.pause();
     } else {
@@ -551,22 +571,24 @@ export function CustomVideoPlayer({
     volumeRef.current = clamped;
     setCustomPlayerVolume(clamped);
 
-    if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = isMuted ? 0 : clamped * volumeBoostRef.current;
-      if (audioContextRef.current?.state === "suspended") {
-        audioContextRef.current.resume().catch(() => {});
+    const video = videoRef.current;
+    if (video) {
+      video.volume = clamped;
+      if (clamped === 0) {
+        video.muted = true;
+        setIsMuted(true);
+      } else if (isMuted || video.muted) {
+        video.muted = false;
+        setIsMuted(false);
       }
-    } else if (videoRef.current) {
-      videoRef.current.volume = clamped;
     }
 
-    if (clamped > 0 && isMuted && videoRef.current) {
-      videoRef.current.muted = false;
-      setIsMuted(false);
-      showVolumeToast(clamped, volumeBoostRef.current, false);
-    } else {
-      showVolumeToast(clamped, volumeBoostRef.current, isMuted);
-    }
+    ensureAudioActive();
+    showVolumeToast(
+      clamped,
+      volumeBoostRef.current,
+      clamped === 0 || (video ? video.muted : isMuted)
+    );
   };
 
   const handleVolumeBoostChange = (boostValue: number) => {
@@ -580,27 +602,20 @@ export function CustomVideoPlayer({
     }
 
     if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = isMuted ? 0 : volumeRef.current * clamped;
-      if (audioContextRef.current?.state === "suspended") {
-        audioContextRef.current.resume().catch(() => {});
-      }
+      gainNodeRef.current.gain.value = clamped;
     }
+    ensureAudioActive();
 
-    showVolumeToast(volumeRef.current, clamped, isMuted);
+    showVolumeToast(volumeRef.current, clamped, isMuted || volumeRef.current === 0);
   };
 
   const toggleMute = () => {
-    if (!videoRef.current) return;
-    const nextMute = !isMuted;
-    videoRef.current.muted = nextMute;
+    const video = videoRef.current;
+    if (!video) return;
+    const nextMute = !video.muted;
+    video.muted = nextMute;
     setIsMuted(nextMute);
-
-    if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = nextMute ? 0 : volumeRef.current * volumeBoostRef.current;
-      if (audioContextRef.current?.state === "suspended") {
-        audioContextRef.current.resume().catch(() => {});
-      }
-    }
+    ensureAudioActive();
 
     showVolumeToast(volumeRef.current, volumeBoostRef.current, nextMute);
   };
@@ -616,9 +631,7 @@ export function CustomVideoPlayer({
         if (volumeBoostRef.current > 1 && !audioSourceRef.current) {
           initAudioBoost();
         }
-        if (audioContextRef.current?.state === "suspended") {
-          await audioContextRef.current.resume().catch(() => {});
-        }
+        ensureAudioActive();
         await video.requestPictureInPicture();
       }
     } catch (err) {
@@ -787,6 +800,7 @@ export function CustomVideoPlayer({
         e.preventDefault();
         containerRef.current?.focus();
       }}
+      onPointerDownCapture={ensureAudioActive}
       onMouseMove={triggerControls}
       onMouseLeave={() => isPlaying && setShowControls(false)}
       className="group/custom-player relative flex h-full w-full select-none items-center justify-center overflow-hidden bg-black outline-none focus:outline-none"
