@@ -45,6 +45,7 @@ import {
 
 interface CustomVideoPlayerProps {
   embedUrl: string;
+  resumePositionSeconds?: number;
   localFile?: File;
   content: ContentPlayback;
   tvTarget: { season: number; episode: number };
@@ -78,6 +79,7 @@ function formatTime(seconds: number): string {
 
 export function CustomVideoPlayer({
   embedUrl,
+  resumePositionSeconds,
   localFile,
   content,
   tvTarget,
@@ -382,6 +384,9 @@ export function CustomVideoPlayer({
           }
 
           const getStartAtSeconds = () => {
+            if (typeof resumePositionSeconds === "number" && resumePositionSeconds > 0) {
+              return resumePositionSeconds;
+            }
             try {
               const url = new URL(embedUrl);
               const startAt = url.searchParams.get("startAt") || url.searchParams.get("progress");
@@ -428,7 +433,33 @@ export function CustomVideoPlayer({
       }
       if (localObjectUrl) URL.revokeObjectURL(localObjectUrl);
     };
-  }, [embedUrl, localFile]);
+  }, [embedUrl, localFile, resumePositionSeconds]);
+
+  const onPlaybackEventRef = useRef(onPlaybackEvent);
+  useEffect(() => {
+    onPlaybackEventRef.current = onPlaybackEvent;
+  }, [onPlaybackEvent]);
+
+  useEffect(() => {
+    const handleVisibilityOrUnload = () => {
+      const video = videoRef.current;
+      if (video && video.duration > 0 && video.currentTime > 0) {
+        onPlaybackEventRef.current({
+          event: "pause",
+          currentTime: video.currentTime,
+          duration: video.duration,
+          completed: video.ended
+        });
+      }
+    };
+
+    window.addEventListener("pagehide", handleVisibilityOrUnload);
+    document.addEventListener("visibilitychange", handleVisibilityOrUnload);
+    return () => {
+      window.removeEventListener("pagehide", handleVisibilityOrUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityOrUnload);
+    };
+  }, []);
 
   const ensureAudioActive = () => {
     if (audioContextRef.current && audioContextRef.current.state === "suspended") {
@@ -483,6 +514,46 @@ export function CustomVideoPlayer({
       setIsPlaying(!video.paused);
       if (!video.paused) {
         ensureAudioActive();
+        if (video.duration > 0) {
+          onPlaybackEventRef.current({
+            event: "play",
+            currentTime: video.currentTime,
+            duration: video.duration,
+            completed: video.ended
+          });
+        }
+      }
+    };
+    const handlePause = () => {
+      setIsPlaying(false);
+      if (video.duration > 0) {
+        onPlaybackEventRef.current({
+          event: "pause",
+          currentTime: video.currentTime,
+          duration: video.duration,
+          completed: video.ended
+        });
+      }
+    };
+    const handleEnded = () => {
+      setIsPlaying(false);
+      if (video.duration > 0) {
+        onPlaybackEventRef.current({
+          event: "ended",
+          currentTime: video.duration,
+          duration: video.duration,
+          completed: true
+        });
+      }
+    };
+    const handleSeeked = () => {
+      if (video.duration > 0) {
+        onPlaybackEventRef.current({
+          event: "seeked",
+          currentTime: video.currentTime,
+          duration: video.duration,
+          completed: video.ended
+        });
       }
     };
     const handleVolumeState = () => {
@@ -504,7 +575,7 @@ export function CustomVideoPlayer({
       const curr = video.currentTime;
       const dur = video.duration;
       setCurrentTime(curr);
-      onPlaybackEvent({
+      onPlaybackEventRef.current({
         event: "timeupdate",
         currentTime: curr,
         duration: dur,
@@ -525,26 +596,36 @@ export function CustomVideoPlayer({
 
     video.addEventListener("play", handlePlayState);
     video.addEventListener("playing", handlePlayState);
-    video.addEventListener("pause", handlePlayState);
+    video.addEventListener("pause", handlePause);
+    video.addEventListener("ended", handleEnded);
+    video.addEventListener("seeked", handleSeeked);
     video.addEventListener("volumechange", handleVolumeState);
     video.addEventListener("durationchange", handleDurationChange);
     video.addEventListener("loadedmetadata", handleDurationChange);
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("progress", handleProgress);
-    video.addEventListener("ended", handlePlayState);
 
     return () => {
+      if (video && video.duration > 0 && video.currentTime > 0) {
+        onPlaybackEventRef.current({
+          event: "pause",
+          currentTime: video.currentTime,
+          duration: video.duration,
+          completed: video.ended
+        });
+      }
       video.removeEventListener("play", handlePlayState);
       video.removeEventListener("playing", handlePlayState);
-      video.removeEventListener("pause", handlePlayState);
+      video.removeEventListener("pause", handlePause);
+      video.removeEventListener("ended", handleEnded);
+      video.removeEventListener("seeked", handleSeeked);
       video.removeEventListener("volumechange", handleVolumeState);
       video.removeEventListener("durationchange", handleDurationChange);
       video.removeEventListener("loadedmetadata", handleDurationChange);
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("progress", handleProgress);
-      video.removeEventListener("ended", handlePlayState);
     };
-  }, [isScraping, onPlaybackEvent]);
+  }, [isScraping]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -563,6 +644,14 @@ export function CustomVideoPlayer({
     if (!videoRef.current) return;
     videoRef.current.currentTime = value;
     setCurrentTime(value);
+    if (videoRef.current.duration > 0) {
+      onPlaybackEventRef.current({
+        event: "seeked",
+        currentTime: value,
+        duration: videoRef.current.duration,
+        completed: videoRef.current.ended
+      });
+    }
   };
 
   const handleVolumeChange = (value: number) => {

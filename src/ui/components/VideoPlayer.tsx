@@ -244,6 +244,7 @@ export function VideoPlayer({
     error,
     isDub,
     showDubToggle,
+    resumePositionSeconds,
     embedUrl,
     iframeSrcDoc,
     canTryNextSource,
@@ -701,6 +702,7 @@ export function VideoPlayer({
         ) : useCustomPlayer ? (
           <CustomVideoPlayer
             embedUrl={embedUrl}
+            resumePositionSeconds={resumePositionSeconds}
             content={content}
             tvTarget={tvTarget}
             getEpisodeEmbedUrl={getEpisodeEmbedUrl}
