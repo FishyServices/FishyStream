@@ -14,7 +14,9 @@ import {
   Globe,
   FileVideo,
   ExternalLink,
-  AlertTriangle
+  AlertTriangle,
+  Calendar,
+  Info
 } from "lucide-react";
 import {
   Button,
@@ -77,7 +79,7 @@ interface ContentModalProps {
   content: ModalContent | null;
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: "episodes" | "cast" | "videos" | "related";
+  initialTab?: "episodes" | "cast" | "videos" | "related" | "misc";
   compactCopy?: boolean;
   onPlay: PlayHandler;
   episodeSelectionMode?: boolean;
@@ -98,6 +100,19 @@ function getSeasonCount(content: ModalContent | null): number | undefined {
 function getImdbId(content: ModalContent | null): string | undefined {
   if (!content || !("imdbId" in content)) return undefined;
   return typeof content.imdbId === "string" ? content.imdbId : undefined;
+}
+
+function formatReleaseDate(value?: string): string {
+  if (!value) return "Unknown";
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  }).format(date);
 }
 
 function EpisodePill({
@@ -310,7 +325,7 @@ export function ContentModal({
   onDownloadEpisodes
 }: ContentModalProps) {
   const [activeTab, setActiveTab] = useState<
-    "episodes" | "ratings" | "cast" | "videos" | "related" | "downloads"
+    "episodes" | "ratings" | "cast" | "videos" | "related" | "downloads" | "misc"
   >(initialTab ?? "episodes");
   const { settings } = useAppSettings();
 
@@ -843,6 +858,20 @@ export function ContentModal({
                     <Download className="h-4 w-4" aria-hidden="true" />
                     Downloads
                   </Button>
+                  <Button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "misc"}
+                    value="misc"
+                    onClick={() => setActiveTab("misc")}
+                    variant="ghost"
+                    className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
+                      activeTab === "misc" ? "border-primary text-foreground" : "border-transparent"
+                    }`}
+                  >
+                    <Info className="h-4 w-4" aria-hidden="true" />
+                    Misc
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1156,6 +1185,60 @@ export function ContentModal({
                   <p className="py-8 text-center text-xs text-muted-foreground">
                     No downloads available
                   </p>
+                )}
+              </div>
+            )}
+
+            {activeTab === "misc" && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-border/70 bg-muted/35 p-4">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    <Calendar className="h-4 w-4 text-primary" aria-hidden="true" />
+                    Release date
+                  </div>
+                  <p className="text-sm text-foreground">
+                    {formatReleaseDate(detailContent?.releaseDate)}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-muted/35 p-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Status
+                  </p>
+                  <p className="text-sm text-foreground">{detailContent?.status ?? "Unknown"}</p>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-muted/35 p-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Original language
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {detailContent?.originalLanguage ?? "Unknown"}
+                  </p>
+                </div>
+
+                {detailContent?.duration && (
+                  <div className="rounded-xl border border-border/70 bg-muted/35 p-4">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Runtime
+                    </p>
+                    <p className="text-sm text-foreground">{detailContent.duration}</p>
+                  </div>
+                )}
+
+                {isTV && (
+                  <div className="rounded-xl border border-border/70 bg-muted/35 p-4 sm:col-span-2">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Series
+                    </p>
+                    <p className="text-sm text-foreground">
+                      {detailContent?.seasons ?? totalSeasons} season
+                      {(detailContent?.seasons ?? totalSeasons) === 1 ? "" : "s"}
+                      {detailContent?.totalEpisodes
+                        ? ` · ${detailContent.totalEpisodes} episodes`
+                        : ""}
+                    </p>
+                  </div>
                 )}
               </div>
             )}

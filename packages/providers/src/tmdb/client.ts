@@ -360,6 +360,7 @@ export async function fetchTmdbFullDetail(
       type === "movie" && data.runtime
         ? `${Math.floor(data.runtime / 60)}h ${data.runtime % 60}m`
         : undefined,
+    releaseDate: type === "movie" ? value.release_date : value.first_air_date,
     seasons: type === "tv" ? data.number_of_seasons : undefined,
     totalEpisodes: type === "tv" ? data.number_of_episodes : undefined,
     hasSpecials:

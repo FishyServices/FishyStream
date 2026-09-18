@@ -34,6 +34,7 @@ export type TMDBDetailsResult = {
   logoUrl?: string;
   trailerKey?: string;
   duration?: string;
+  releaseDate?: string;
   seasons?: number;
   hasSpecials?: boolean;
   tagline?: string;
@@ -52,6 +53,7 @@ export type TMDBFullDetail = {
   logoUrl?: string;
   trailerKey?: string;
   duration?: string;
+  releaseDate?: string;
   seasons?: number;
   hasSpecials?: boolean;
   totalEpisodes?: number;

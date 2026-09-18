@@ -22,6 +22,7 @@ export interface ContentFeatured extends ContentCard {
   logoUrl?: string;
   trailerKey?: string;
   duration?: string;
+  releaseDate?: string;
   seasons?: number;
   hasSpecials?: boolean;
   trending: boolean;

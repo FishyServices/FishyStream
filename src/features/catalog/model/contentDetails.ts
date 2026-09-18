@@ -20,6 +20,7 @@ export function contentDetailFromTmdb(
     logoUrl: detail.logoUrl,
     trailerKey: detail.trailerKey,
     duration: detail.duration,
+    releaseDate: detail.releaseDate,
     seasons: detail.seasons,
     hasSpecials: detail.hasSpecials,
     tagline: detail.tagline,
