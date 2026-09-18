@@ -1,17 +1,14 @@
 import { v } from "convex/values";
-import { mutation } from "../../_generated/server";
+import { viewerMutation } from "../../lib/auth";
 import type { Id } from "../../_generated/dataModel";
 import { toImageWire } from "@content/contentMetadata";
 
 const MIN_PROGRESS_DELTA_TO_WRITE = 5;
 const MIN_POSITION_DELTA_TO_WRITE_SECONDS = 300;
 
-export const saveWatchProgress = mutation({
+export const saveWatchProgress = viewerMutation({
   args: {
-    clerkUserId: v.string(),
     contentId: v.string(),
-    tmdbId: v.string(),
-    contentType: v.union(v.literal("movie"), v.literal("tv")),
     title: v.string(),
     posterUrl: v.string(),
     progress: v.number(),
@@ -33,7 +30,7 @@ export const saveWatchProgress = mutation({
     const existing = await ctx.db
       .query("mediaState")
       .withIndex("by_clerk_content", (q) =>
-        q.eq("clerkUserId", args.clerkUserId).eq("contentId", args.contentId)
+        q.eq("clerkUserId", ctx.viewerId).eq("contentId", args.contentId)
       )
       .first();
 
@@ -81,7 +78,7 @@ export const saveWatchProgress = mutation({
     }
 
     return await ctx.db.insert("mediaState", {
-      clerkUserId: args.clerkUserId,
+      clerkUserId: ctx.viewerId,
       contentId: args.contentId,
       title: args.title,
       posterUrl: toImageWire(args.posterUrl),

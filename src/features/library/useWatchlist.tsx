@@ -80,7 +80,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useConvexAuth();
   const remoteIds = useQuery(
     api.domains.watchlist.watchlist.listWatchlistContentIds,
-    user && isAuthenticated ? { clerkUserId: user.id } : "skip"
+    user && isAuthenticated ? {} : "skip"
   );
   const toggleEntry = useMutation(api.domains.watchlist.watchlist.toggleWatchlistEntry);
   const dropEntries = useMutation(api.domains.watchlist.watchlist.removeWatchlistEntries);
@@ -118,7 +118,6 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
         const snapshot = localSnapshots[contentId];
         if (!snapshot) return Promise.resolve();
         return toggleEntry({
-          clerkUserId: user.id,
           contentId,
           title: snapshot.title,
           posterUrl: snapshot.posterUrl,
@@ -167,7 +166,6 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
 
       try {
         await toggleEntry({
-          clerkUserId: user.id,
           contentId,
           title: snapshot.title,
           posterUrl: snapshot.posterUrl,
@@ -202,7 +200,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
       updateUserCache(user.id, after, nextSnapshots);
 
       try {
-        await dropEntries({ clerkUserId: user.id, contentIds: [...contentIds] });
+        await dropEntries({ contentIds: [...contentIds] });
       } catch (error) {
         setWatchlistCache(user.id, previousCache);
         if (opId === pendingOpRef.current) applyIds(before);
@@ -265,7 +263,6 @@ export function useMyWatchlistPagination(folder?: string | null, search = "") {
     api.domains.watchlist.watchlist.listWatchlist,
     signedIn
       ? {
-          clerkUserId: user.id,
           ...(folder !== undefined ? { folder } : {}),
           ...(search.trim() ? { search: search.trim() } : {})
         }
@@ -300,7 +297,7 @@ export function useWatchlistSummary() {
   const { isAuthenticated } = useConvexAuth();
   return useQuery(
     api.domains.watchlist.watchlist.listWatchlistSummary,
-    user && isAuthenticated ? { clerkUserId: user.id } : "skip"
+    user && isAuthenticated ? {} : "skip"
   );
 }
 
@@ -317,7 +314,7 @@ export function useSetWatchlistFolderForEntries() {
         guestWatchlistPersistence.setFolderMany(contentIds, folder);
         return;
       }
-      await setFolderMany({ clerkUserId: user.id, contentIds: [...contentIds], folder });
+      await setFolderMany({ contentIds: [...contentIds], folder });
     },
     [setFolderMany, user]
   );
@@ -329,7 +326,7 @@ export function useRenameWatchlistFolder() {
   return useCallback(
     async (from: string, to: string) => {
       if (!user) return;
-      await rename({ clerkUserId: user.id, from, to });
+      await rename({ from, to });
     },
     [rename, user]
   );
@@ -368,7 +365,7 @@ export function useDeleteWatchlistFolder() {
   return useCallback(
     (name: string) => {
       if (!user) return Promise.resolve();
-      return remove({ clerkUserId: user.id, name });
+      return remove({ name });
     },
     [remove, user]
   );
@@ -379,13 +376,13 @@ export function useUpdateWatchlistFolder() {
   const setFolder = useMutation(api.domains.watchlist.watchlist.setWatchlistFolder);
   return useCallback(
     (
-      input: ContentId | { clerkUserId?: string; contentId: ContentId; folder?: string },
+      input: ContentId | { contentId: ContentId; folder?: string },
       requestedFolder?: string
     ) => {
       const contentId = typeof input === "string" ? input : input.contentId;
       const folder = typeof input === "string" ? requestedFolder : input.folder;
       if (!user) return guestWatchlistPersistence.setFolder(contentId, folder);
-      return setFolder({ clerkUserId: user.id, contentId, folder });
+      return setFolder({ contentId, folder });
     },
     [setFolder, user]
   );

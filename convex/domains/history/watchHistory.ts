@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { mutation, query } from "../../_generated/server";
+import { viewerMutation, viewerQuery } from "../../lib/auth";
 import type { Doc } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 import {
@@ -37,6 +37,8 @@ function normalizeTitle(value: string) {
   return value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
 
+const MAX_SEARCH_ROWS = 300;
+
 async function listHistory(
   ctx: QueryCtx,
   clerkUserId: string,
@@ -72,20 +74,20 @@ async function listHistory(
   return progressRows.map(toHistoryItem);
 }
 
-export const listWatchHistory = query({
-  args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx, { clerkUserId, limit = 20 }): Promise<WatchHistoryItemMeta[]> => {
-    return await listHistory(ctx, clerkUserId, Math.max(1, Math.min(100, limit)), true);
+export const listWatchHistory = viewerQuery({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 20 }): Promise<WatchHistoryItemMeta[]> => {
+    return await listHistory(ctx, ctx.viewerId, Math.max(1, Math.min(100, limit)), true);
   }
 });
 
-export const listWatchHistoryPage = query({
+export const listWatchHistoryPage = viewerQuery({
   args: {
-    clerkUserId: v.string(),
     paginationOpts: paginationOptsValidator,
     search: v.optional(v.string())
   },
-  handler: async (ctx, { clerkUserId, paginationOpts, search }) => {
+  handler: async (ctx, { paginationOpts, search }) => {
+    const clerkUserId = ctx.viewerId;
     const normalizedSearch = search?.trim() ? normalizeTitle(search) : "";
     const historyQuery = ctx.db
       .query("mediaState")
@@ -93,7 +95,7 @@ export const listWatchHistoryPage = query({
       .order("desc");
 
     if (normalizedSearch) {
-      const matches = (await historyQuery.collect()).filter((row) =>
+      const matches = (await historyQuery.take(MAX_SEARCH_ROWS)).filter((row) =>
         normalizeTitle(row.title).includes(normalizedSearch)
       );
       const start = paginationOpts.cursor === null ? 0 : Number(paginationOpts.cursor);
@@ -116,16 +118,17 @@ export const listWatchHistoryPage = query({
   }
 });
 
-export const listContinueWatching = query({
-  args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx, { clerkUserId, limit = 6 }): Promise<WatchHistoryItemMeta[]> => {
-    return await listHistory(ctx, clerkUserId, Math.max(1, Math.min(30, limit)), false);
+export const listContinueWatching = viewerQuery({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 6 }): Promise<WatchHistoryItemMeta[]> => {
+    return await listHistory(ctx, ctx.viewerId, Math.max(1, Math.min(30, limit)), false);
   }
 });
 
-export const listWatchProgressEntries = query({
-  args: { clerkUserId: v.string(), limit: v.optional(v.number()) },
-  handler: async (ctx, { clerkUserId, limit = 20 }): Promise<WatchProgressEntryMeta[]> => {
+export const listWatchProgressEntries = viewerQuery({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 20 }): Promise<WatchProgressEntryMeta[]> => {
+    const clerkUserId = ctx.viewerId;
     const fetchLimit = Math.max(1, Math.min(100, limit));
     const rows = await ctx.db
       .query("mediaState")
@@ -155,13 +158,13 @@ export const listWatchProgressEntries = query({
   }
 });
 
-export const removeWatchHistoryEntry = mutation({
-  args: { clerkUserId: v.string(), contentId: v.string() },
-  handler: async (ctx, { clerkUserId, contentId }): Promise<boolean> => {
+export const removeWatchHistoryEntry = viewerMutation({
+  args: { contentId: v.string() },
+  handler: async (ctx, { contentId }): Promise<boolean> => {
     const existing = await ctx.db
       .query("mediaState")
       .withIndex("by_clerk_content", (q) =>
-        q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
+        q.eq("clerkUserId", ctx.viewerId).eq("contentId", contentId)
       )
       .first();
     if (!existing) return false;
@@ -172,12 +175,12 @@ export const removeWatchHistoryEntry = mutation({
   }
 });
 
-export const clearWatchHistory = mutation({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }): Promise<number> => {
+export const clearWatchHistory = viewerMutation({
+  args: {},
+  handler: async (ctx): Promise<number> => {
     const entries = await ctx.db
       .query("mediaState")
-      .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", clerkUserId).gt("watchedAt", 0))
+      .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", ctx.viewerId).gt("watchedAt", 0))
       .collect();
 
     for (const entry of entries) {

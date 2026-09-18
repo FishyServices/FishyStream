@@ -1,7 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { getOneFrom } from "convex-helpers/server/relationships";
-import { mutation, query } from "../../_generated/server";
+import { viewerMutation, viewerQuery } from "../../lib/auth";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
 import {
@@ -115,16 +115,16 @@ async function findByTitle(
   return matches;
 }
 
-async function getIdsDoc(ctx: QueryCtx, clerkUserId: string) {
+async function getCountsDoc(ctx: QueryCtx, clerkUserId: string) {
   return ctx.db
-    .query("watchlistIds")
+    .query("watchlistCounts")
     .withIndex("by_clerk", (q) => q.eq("clerkUserId", clerkUserId))
     .first();
 }
 
-async function getCountsDoc(ctx: QueryCtx, clerkUserId: string) {
+async function getIdsDoc(ctx: QueryCtx, clerkUserId: string) {
   return ctx.db
-    .query("watchlistCounts")
+    .query("watchlistIds")
     .withIndex("by_clerk", (q) => q.eq("clerkUserId", clerkUserId))
     .first();
 }
@@ -140,11 +140,11 @@ async function ensureIdsDoc(ctx: MutationCtx, clerkUserId: string) {
   const existing = await getIdsDoc(ctx, clerkUserId);
   if (existing) return existing;
   const rows = await scanWatchlist(ctx, clerkUserId);
-  const _id = await ctx.db.insert("watchlistIds", {
+  const id = await ctx.db.insert("watchlistIds", {
     clerkUserId,
     contentIds: rows.map((row) => row.contentId)
   });
-  return (await ctx.db.get(_id))!;
+  return (await ctx.db.get(id))!;
 }
 
 async function ensureCountsDoc(ctx: MutationCtx, clerkUserId: string) {
@@ -166,12 +166,8 @@ async function ensureCountsDoc(ctx: MutationCtx, clerkUserId: string) {
   return (await ctx.db.get(_id))!;
 }
 
-async function addContentId(
-  ctx: MutationCtx,
-  clerkUserId: string,
-  idsDoc: { _id: Id<"watchlistIds">; contentIds: string[] },
-  contentId: string
-) {
+async function addContentId(ctx: MutationCtx, clerkUserId: string, contentId: string) {
+  const idsDoc = await ensureIdsDoc(ctx, clerkUserId);
   await ctx.db.patch(idsDoc._id, { contentIds: [...idsDoc.contentIds, contentId] });
   const countsDoc = await ensureCountsDoc(ctx, clerkUserId);
   await ctx.db.patch(countsDoc._id, {
@@ -183,15 +179,14 @@ async function addContentId(
 async function removeContentIds(
   ctx: MutationCtx,
   clerkUserId: string,
-  idsDoc: { _id: Id<"watchlistIds">; contentIds: string[] },
   removed: Array<{ contentId: string; folder?: string }>
 ) {
   if (removed.length === 0) return;
+  const idsDoc = await ensureIdsDoc(ctx, clerkUserId);
   const removedSet = new Set(removed.map((row) => row.contentId));
   await ctx.db.patch(idsDoc._id, {
     contentIds: idsDoc.contentIds.filter((id) => !removedSet.has(id))
   });
-
   const countsDoc = await ensureCountsDoc(ctx, clerkUserId);
   const fromCounts = new Map<string | undefined, number>();
   for (const row of removed) fromCounts.set(row.folder, (fromCounts.get(row.folder) ?? 0) + 1);
@@ -260,14 +255,14 @@ async function renameFolderInCounts(
   await ctx.db.patch(countsDoc._id, { folderCounts });
 }
 
-export const listWatchlist = query({
+export const listWatchlist = viewerQuery({
   args: {
-    clerkUserId: v.string(),
     paginationOpts: paginationOptsValidator,
     folder: v.optional(v.union(v.string(), v.null())),
     search: v.optional(v.string())
   },
-  handler: async (ctx, { clerkUserId, paginationOpts, folder, search }) => {
+  handler: async (ctx, { paginationOpts, folder, search }) => {
+    const clerkUserId = ctx.viewerId;
     const term = search?.trim();
     if (term) {
       const matches = await findByTitle(ctx, clerkUserId, term, folder);
@@ -285,19 +280,20 @@ export const listWatchlist = query({
   }
 });
 
-export const listWatchlistContentIds = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => {
-    const idsDoc = await getIdsDoc(ctx, clerkUserId);
+export const listWatchlistContentIds = viewerQuery({
+  args: {},
+  handler: async (ctx) => {
+    const idsDoc = await getIdsDoc(ctx, ctx.viewerId);
     if (idsDoc) return idsDoc.contentIds;
-    const rows = await entriesForFolder(ctx, clerkUserId, undefined).collect();
+    const rows = await entriesForFolder(ctx, ctx.viewerId, undefined).collect();
     return rows.map((row) => row.contentId);
   }
 });
 
-export const listRecommendationSeeds = query({
-  args: { clerkUserId: v.string(), folder: v.optional(v.string()), limit: v.optional(v.number()) },
-  handler: async (ctx, { clerkUserId, folder, limit = 45 }) => {
+export const listRecommendationSeeds = viewerQuery({
+  args: { folder: v.optional(v.string()), limit: v.optional(v.number()) },
+  handler: async (ctx, { folder, limit = 45 }) => {
+    const clerkUserId = ctx.viewerId;
     const fetchLimit = Math.max(1, Math.min(100, limit));
     const rows = await entriesForFolder(ctx, clerkUserId, folder).take(fetchLimit);
     const seeds: Array<{ tmdbId: string; type: ContentType }> = [];
@@ -309,9 +305,10 @@ export const listRecommendationSeeds = query({
   }
 });
 
-export const listFolders = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => {
+export const listFolders = viewerQuery({
+  args: {},
+  handler: async (ctx) => {
+    const clerkUserId = ctx.viewerId;
     const countsDoc = await getCountsDoc(ctx, clerkUserId);
     if (countsDoc) {
       return countsDoc.folderCounts.map((folder) => folder.name).sort((a, b) => a.localeCompare(b));
@@ -320,9 +317,10 @@ export const listFolders = query({
   }
 });
 
-export const listWatchlistSummary = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => {
+export const listWatchlistSummary = viewerQuery({
+  args: {},
+  handler: async (ctx) => {
+    const clerkUserId = ctx.viewerId;
     const countsDoc = await getCountsDoc(ctx, clerkUserId);
     if (countsDoc) {
       return {
@@ -335,9 +333,10 @@ export const listWatchlistSummary = query({
   }
 });
 
-export const deleteFolder = mutation({
-  args: { clerkUserId: v.string(), name: folderNameValidator },
-  handler: async (ctx, { clerkUserId, name }) => {
+export const deleteFolder = viewerMutation({
+  args: { name: folderNameValidator },
+  handler: async (ctx, { name }) => {
+    const clerkUserId = ctx.viewerId;
     const normalizedName = normalizeFolderName(name);
     const rows = await entriesForFolder(ctx, clerkUserId, normalizedName).collect();
     await Promise.all(rows.map((row) => ctx.db.patch(row._id, { folder: undefined })));
@@ -345,9 +344,10 @@ export const deleteFolder = mutation({
   }
 });
 
-export const renameFolder = mutation({
-  args: { clerkUserId: v.string(), from: folderNameValidator, to: folderNameValidator },
-  handler: async (ctx, { clerkUserId, from, to }) => {
+export const renameFolder = viewerMutation({
+  args: { from: folderNameValidator, to: folderNameValidator },
+  handler: async (ctx, { from, to }) => {
+    const clerkUserId = ctx.viewerId;
     const source = normalizeFolderName(from);
     const target = normalizeFolderName(to);
     if (!source || !target || source === target) return;
@@ -357,31 +357,30 @@ export const renameFolder = mutation({
   }
 });
 
-export const removeWatchlistEntries = mutation({
-  args: { clerkUserId: v.string(), contentIds: v.array(v.string()) },
-  handler: async (ctx, { clerkUserId, contentIds }) => {
+export const removeWatchlistEntries = viewerMutation({
+  args: { contentIds: v.array(v.string()) },
+  handler: async (ctx, { contentIds }) => {
+    const clerkUserId = ctx.viewerId;
     const uniqueIds = Array.from(new Set(contentIds));
     const rows = await Promise.all(uniqueIds.map((id) => locateEntry(ctx, clerkUserId, id)));
     const validRows = rows.filter((row): row is NonNullable<typeof row> => row !== null);
     await Promise.all(validRows.map((row) => ctx.db.delete(row._id)));
     if (validRows.length === 0) return;
-    const idsDoc = await ensureIdsDoc(ctx, clerkUserId);
     await removeContentIds(
       ctx,
       clerkUserId,
-      idsDoc,
       validRows.map((row) => ({ contentId: row.contentId, folder: row.folder }))
     );
   }
 });
 
-export const setWatchlistFolderForEntries = mutation({
+export const setWatchlistFolderForEntries = viewerMutation({
   args: {
-    clerkUserId: v.string(),
     contentIds: v.array(v.string()),
     folder: v.optional(folderNameValidator)
   },
-  handler: async (ctx, { clerkUserId, contentIds, folder }) => {
+  handler: async (ctx, { contentIds, folder }) => {
+    const clerkUserId = ctx.viewerId;
     const normalized = folder ? normalizeFolderName(folder) : undefined;
     const uniqueIds = Array.from(new Set(contentIds));
     const rows = await Promise.all(uniqueIds.map((id) => locateEntry(ctx, clerkUserId, id)));
@@ -396,23 +395,21 @@ export const setWatchlistFolderForEntries = mutation({
   }
 });
 
-export const toggleWatchlistEntry = mutation({
+export const toggleWatchlistEntry = viewerMutation({
   args: {
-    clerkUserId: v.string(),
     contentId: v.string(),
     title: v.string(),
     posterUrl: v.string(),
     inWatchlist: v.boolean()
   },
   handler: async (ctx, args) => {
-    const idsDoc = await ensureIdsDoc(ctx, args.clerkUserId);
-    const alreadyIn = idsDoc.contentIds.includes(args.contentId);
+    const alreadyIn = Boolean(await locateEntry(ctx, ctx.viewerId, args.contentId));
 
     if (!args.inWatchlist) {
       if (!alreadyIn) return;
-      const entry = await locateEntry(ctx, args.clerkUserId, args.contentId);
+      const entry = await locateEntry(ctx, ctx.viewerId, args.contentId);
       if (entry) await ctx.db.delete(entry._id);
-      await removeContentIds(ctx, args.clerkUserId, idsDoc, [
+      await removeContentIds(ctx, ctx.viewerId, [
         { contentId: args.contentId, folder: entry?.folder }
       ]);
       return;
@@ -431,17 +428,18 @@ export const toggleWatchlistEntry = mutation({
       await ctx.db.patch(content._id, { title: args.title, posterUrl: wirePoster });
     }
     await ctx.db.insert("watchlist", {
-      clerkUserId: args.clerkUserId,
+      clerkUserId: ctx.viewerId,
       contentId: args.contentId,
       addedAt: Date.now()
     });
-    await addContentId(ctx, args.clerkUserId, idsDoc, args.contentId);
+    await addContentId(ctx, ctx.viewerId, args.contentId);
   }
 });
 
-export const setWatchlistFolder = mutation({
-  args: { clerkUserId: v.string(), contentId: v.string(), folder: v.optional(folderNameValidator) },
-  handler: async (ctx, { clerkUserId, contentId, folder }) => {
+export const setWatchlistFolder = viewerMutation({
+  args: { contentId: v.string(), folder: v.optional(folderNameValidator) },
+  handler: async (ctx, { contentId, folder }) => {
+    const clerkUserId = ctx.viewerId;
     const entry = await locateEntry(ctx, clerkUserId, contentId);
     if (!entry) throw new Error("Watchlist item not found");
     const normalized = folder ? normalizeFolderName(folder) : undefined;

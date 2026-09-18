@@ -13,6 +13,7 @@ import type * as domains_progress_watchProgress from "../domains/progress/watchP
 import type * as domains_seasons_seasonSync from "../domains/seasons/seasonSync.js";
 import type * as domains_seasons_seasons from "../domains/seasons/seasons.js";
 import type * as domains_watchlist_watchlist from "../domains/watchlist/watchlist.js";
+import type * as lib_auth from "../lib/auth.js";
 
 import type {
   ApiFromModules,
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   "domains/seasons/seasonSync": typeof domains_seasons_seasonSync;
   "domains/seasons/seasons": typeof domains_seasons_seasons;
   "domains/watchlist/watchlist": typeof domains_watchlist_watchlist;
+  "lib/auth": typeof lib_auth;
 }>;
 
 /**

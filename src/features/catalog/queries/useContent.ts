@@ -578,7 +578,6 @@ export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 
     api.domains.watchlist.watchlist.listRecommendationSeeds,
     enabled && user && isAuthenticated
       ? {
-          clerkUserId: user.id,
           ...(scope.folder ? { folder: scope.folder } : {})
         }
       : "skip"

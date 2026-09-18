@@ -158,7 +158,7 @@ export function WatchProgressProvider({ children }: { children: ReactNode }) {
     fetchedUserRef.current = user.id;
 
     convex
-      .query(api.domains.history.watchHistory.listWatchHistory, { clerkUserId: user.id, limit: 20 })
+      .query(api.domains.history.watchHistory.listWatchHistory, { limit: 20 })
       .then((serverItems) => {
         const localById = new Map(readStore().map((entry) => [entry.contentId, entry]));
 
@@ -260,10 +260,7 @@ export function useUpdateProgress() {
 
       try {
         await dbSync({
-          clerkUserId: user.id,
           contentId: dirtyEntry.contentId,
-          tmdbId: dirtyEntry.snapshot?.tmdbId || dirtyEntry.contentId.split(":").at(-1) || "",
-          contentType: dirtyEntry.snapshot?.type || "movie",
           title: dirtyEntry.snapshot?.title || "Unknown title",
           posterUrl: dirtyEntry.snapshot?.posterUrl || "",
           progress: Math.round(dirtyEntry.progress * 10) / 10,

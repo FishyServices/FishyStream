@@ -28,7 +28,6 @@ export function useMyWatchHistoryPagination(search = "") {
     api.domains.history.watchHistory.listWatchHistoryPage,
     user
       ? {
-          clerkUserId: user.id,
           ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {})
         }
       : "skip",
@@ -81,7 +80,6 @@ export function useMyWatchHistory(limit = 20): WatchHistoryItemMeta[] | undefine
     enabled,
     (convex) =>
       convex.query(api.domains.history.watchHistory.listWatchHistory, {
-        clerkUserId: user!.id,
         limit
       }),
     [user?.id, limit, enabled],
@@ -167,7 +165,7 @@ export function useRemoveFromHistory() {
         removeWatchProgressEntry(contentId);
         return Promise.resolve();
       }
-      return mutation({ clerkUserId: user.id, contentId });
+      return mutation({ contentId });
     },
     [user, mutation]
   );
@@ -179,6 +177,6 @@ export function useClearWatchHistory() {
 
   return useCallback(() => {
     if (!user) return Promise.resolve(0);
-    return mutation({ clerkUserId: user.id });
+    return mutation({});
   }, [mutation, user]);
 }

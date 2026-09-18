@@ -867,7 +867,7 @@ export function MyListPage() {
       )
     );
     try {
-      await updateFolder({ clerkUserId: user.id, contentId, folder: nextFolder });
+      await updateFolder({ contentId, folder: nextFolder });
       if (!options?.silent) {
         toast.success(folderValue === "unsorted" ? "Removed from folder" : "Folder updated");
       }
