@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "../../_generated/server";
-import type { MutationCtx } from "../../_generated/server";
+import type { MutationCtx, QueryCtx } from "../../_generated/server";
 
 const CURRENT_ANIME_MAPPING_VERSION = 2;
 
@@ -37,6 +37,37 @@ function truncate(value: string | undefined, max: number) {
   if (!value) return undefined;
   const trimmed = value.trim();
   return trimmed.length > max ? trimmed.slice(0, max).trimEnd() : trimmed;
+}
+
+function toPlaybackMapping(row: {
+  episodeNumber: number;
+  anilistId: string;
+  anilistEpisodeNumber: number;
+}) {
+  return {
+    episodeNumber: row.episodeNumber,
+    anilistId: row.anilistId,
+    anilistEpisodeNumber: row.anilistEpisodeNumber
+  };
+}
+
+async function findEpisodeMapping(
+  ctx: Pick<QueryCtx, "db">,
+  contentId: string,
+  seasonNumber: number,
+  episodeNumber: number | undefined
+) {
+  if (episodeNumber == null) return null;
+
+  return ctx.db
+    .query("seasonEpisodeMappings")
+    .withIndex("by_content_season_episode", (q) =>
+      q
+        .eq("contentId", contentId)
+        .eq("seasonNumber", seasonNumber)
+        .eq("episodeNumber", episodeNumber)
+    )
+    .first();
 }
 
 async function replaceEpisodeMappings(
@@ -220,14 +251,7 @@ export const getSeasonPlaybackMeta = query({
     if (!meta) return null;
     if (meta.mappingVersion !== CURRENT_ANIME_MAPPING_VERSION) return null;
 
-    const mappings = await ctx.db
-      .query("seasonEpisodeMappings")
-      .withIndex("by_content_season", (q: any) =>
-        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
-      )
-      .collect();
-    const mapping =
-      episodeNumber == null ? null : mappings.find((row) => row.episodeNumber === episodeNumber);
+    const mapping = await findEpisodeMapping(ctx, contentId, seasonNumber, episodeNumber);
 
     return {
       seasonNumber,
@@ -236,14 +260,7 @@ export const getSeasonPlaybackMeta = query({
       episodeCount: meta.episodeCount,
       anilistId: mapping?.anilistId ?? meta.anilistId,
       anilistEpisodeMappingCount: meta.anilistEpisodeMappingCount,
-      anilistEpisodeMappings:
-        mappings.length > 0
-          ? mappings.map((row) => ({
-              episodeNumber: row.episodeNumber,
-              anilistId: row.anilistId,
-              anilistEpisodeNumber: row.anilistEpisodeNumber
-            }))
-          : undefined
+      anilistEpisodeMappings: mapping ? [toPlaybackMapping(mapping)] : undefined
     };
   }
 });
@@ -264,26 +281,8 @@ export const getSeasonPlaybackMetaInternal = internalQuery({
     if (!meta) return null;
     if (meta.mappingVersion !== CURRENT_ANIME_MAPPING_VERSION) return null;
 
-    let episodeMapping;
-    if (episodeNumber != null) {
-      episodeMapping = await ctx.db
-        .query("seasonEpisodeMappings")
-        .withIndex("by_content_season_episode", (q) =>
-          q
-            .eq("contentId", contentId)
-            .eq("seasonNumber", seasonNumber)
-            .eq("episodeNumber", episodeNumber)
-        )
-        .first();
-      if (!episodeMapping) return null;
-    }
-
-    const mappings = await ctx.db
-      .query("seasonEpisodeMappings")
-      .withIndex("by_content_season", (q: any) =>
-        q.eq("contentId", contentId).eq("seasonNumber", seasonNumber)
-      )
-      .collect();
+    const episodeMapping = await findEpisodeMapping(ctx, contentId, seasonNumber, episodeNumber);
+    if (episodeNumber != null && !episodeMapping) return null;
 
     return {
       seasonNumber,
@@ -292,14 +291,7 @@ export const getSeasonPlaybackMetaInternal = internalQuery({
       episodeCount: meta.episodeCount,
       anilistId: episodeMapping?.anilistId ?? meta.anilistId,
       anilistEpisodeMappingCount: meta.anilistEpisodeMappingCount,
-      anilistEpisodeMappings:
-        mappings.length > 0
-          ? mappings.map((row) => ({
-              episodeNumber: row.episodeNumber,
-              anilistId: row.anilistId,
-              anilistEpisodeNumber: row.anilistEpisodeNumber
-            }))
-          : undefined
+      anilistEpisodeMappings: episodeMapping ? [toPlaybackMapping(episodeMapping)] : undefined
     };
   }
 });

@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { getOneFrom } from "convex-helpers/server/relationships";
+import { getOneFrom, getOrThrow } from "convex-helpers/server/relationships";
 import { viewerMutation, viewerQuery } from "../../lib/auth";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
@@ -144,7 +144,7 @@ async function ensureIdsDoc(ctx: MutationCtx, clerkUserId: string) {
     clerkUserId,
     contentIds: rows.map((row) => row.contentId)
   });
-  return (await ctx.db.get(id))!;
+  return getOrThrow(ctx, id);
 }
 
 async function ensureCountsDoc(ctx: MutationCtx, clerkUserId: string) {
@@ -163,7 +163,7 @@ async function ensureCountsDoc(ctx: MutationCtx, clerkUserId: string) {
     unsorted,
     folderCounts: Array.from(counts.entries()).map(([name, count]) => ({ name, count }))
   });
-  return (await ctx.db.get(_id))!;
+  return getOrThrow(ctx, _id);
 }
 
 async function addContentId(ctx: MutationCtx, clerkUserId: string, contentId: string) {

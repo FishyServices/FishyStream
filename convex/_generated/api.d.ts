@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as domains_history_mediaStateModel from "../domains/history/mediaStateModel.js";
 import type * as domains_history_watchHistory from "../domains/history/watchHistory.js";
 import type * as domains_progress_watchProgress from "../domains/progress/watchProgress.js";
 import type * as domains_seasons_seasonSync from "../domains/seasons/seasonSync.js";
@@ -22,6 +23,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "domains/history/mediaStateModel": typeof domains_history_mediaStateModel;
   "domains/history/watchHistory": typeof domains_history_watchHistory;
   "domains/progress/watchProgress": typeof domains_progress_watchProgress;
   "domains/seasons/seasonSync": typeof domains_seasons_seasonSync;
