@@ -37,6 +37,7 @@ import {
   fetchImdbFullDetail,
   fetchImdbSeasonEpisodes
 } from "@fishy/providers/imdb";
+import { fetchAnimeFillerEpisodes } from "@fishy/providers/anime";
 import ownersPicksData from "../ownersPicks.json";
 import { isBlockedContent } from "../model/contentPolicy";
 import { selectFreshRecommendations, shuffleWithSeed } from "../recommendationSelection";
@@ -867,16 +868,23 @@ type Season = {
     stillUrl?: string;
     runtime?: number;
     voteAverage: number;
+    fillerStatus: "filler" | "not_filler" | "unknown";
   }>;
 };
 export function useSeasonEpisodes(
   tmdbId: string | undefined,
   seasonNumber: number,
   enabled = true,
-  imdbId?: string
+  imdbId?: string,
+  animeTitle?: string,
+  animeYear?: number,
+  isAnime = false
 ) {
   const [season, setSeason] = useState<Season | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
+  const [fillerLoading, setFillerLoading] = useState(false);
+  const fillerWindows = useRef(new Set<string>());
+  const fillerRequests = useRef(new Set<string>());
   const ratings = useRef(new Map<number, number>());
   useEffect(() => {
     if (!enabled || !tmdbId) {
@@ -902,7 +910,8 @@ export function useSeasonEpisodes(
                 overview: value.overview,
                 episodes: value.episodes.map((episode) => ({
                   ...episode,
-                  voteAverage: ratings.current.get(episode.episodeNumber) ?? 0
+                  voteAverage: ratings.current.get(episode.episodeNumber) ?? 0,
+                  fillerStatus: "unknown" as const
                 }))
               }
             : null;
@@ -918,6 +927,63 @@ export function useSeasonEpisodes(
       });
     return () => controller.abort();
   }, [enabled, seasonNumber, tmdbId]);
+  useEffect(() => {
+    fillerWindows.current.clear();
+    fillerRequests.current.clear();
+    setFillerLoading(false);
+  }, [animeTitle, animeYear, seasonNumber, tmdbId]);
+  const loadFillerAround = useCallback(
+    (episodeNumber: number) => {
+      if (!enabled || !isAnime || !animeTitle || seasonNumber < 1) return;
+      const windowSize = 20;
+      const windowStart = Math.floor((episodeNumber - 1) / windowSize) * windowSize + 1;
+      const windowKey = `${tmdbId}:${seasonNumber}:${windowStart}`;
+      if (fillerWindows.current.has(windowKey) || fillerRequests.current.has(windowKey)) return;
+
+      fillerRequests.current.add(windowKey);
+      setFillerLoading(true);
+      const controller = new AbortController();
+      void fetchAnimeFillerEpisodes({
+        title: animeTitle,
+        season: seasonNumber,
+        year: animeYear,
+        centerEpisode: episodeNumber,
+        windowSize,
+        signal: controller.signal
+      })
+        .then((fillerEpisodes) => {
+          if (controller.signal.aborted) return;
+          fillerWindows.current.add(windowKey);
+          if (!fillerEpisodes) return;
+          const fillerByEpisode = new Map(
+            fillerEpisodes.map((episode) => [episode.episodeNumber, episode.isFiller])
+          );
+          setSeason((old) => {
+            if (!old) return old;
+            const nextSeason = {
+              ...old,
+              episodes: old.episodes.map((episode) => {
+                const isFiller = fillerByEpisode.get(episode.episodeNumber);
+                return isFiller === undefined
+                  ? episode
+                  : {
+                      ...episode,
+                      fillerStatus: isFiller ? ("filler" as const) : ("not_filler" as const)
+                    };
+              })
+            };
+            queryCache.set(`season:${tmdbId}:${seasonNumber}`, nextSeason);
+            return nextSeason;
+          });
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          fillerRequests.current.delete(windowKey);
+          setFillerLoading(fillerRequests.current.size > 0);
+        });
+    },
+    [animeTitle, animeYear, enabled, isAnime, seasonNumber, tmdbId]
+  );
   useEffect(() => {
     if (!enabled || !imdbId) return;
     const controller = new AbortController();
@@ -944,7 +1010,12 @@ export function useSeasonEpisodes(
       .catch(() => undefined);
     return () => controller.abort();
   }, [enabled, imdbId, seasonNumber]);
-  return { season, isLoading };
+  return {
+    season,
+    isLoading,
+    fillerLoading,
+    loadFillerAround
+  };
 }
 
 export function useSeriesEpisodeRatings(

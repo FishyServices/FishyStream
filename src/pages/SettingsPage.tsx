@@ -367,12 +367,23 @@ export function SettingsPage() {
               />
               <SettingRow
                 label="Episode ratings"
-                description="Show scores and the ratings grid on TV shows"
+                description="Show scores beside episodes; the Ratings tab stays available"
                 control={
                   <ToggleSettingControl
                     id="episode-ratings"
                     checked={settings.showEpisodeRatings}
                     onCheckedChange={(checked) => updateSetting("showEpisodeRatings", checked)}
+                  />
+                }
+              />
+              <SettingRow
+                label="Anime filler markers"
+                description="Automatically show filler labels while browsing episodes (based on https://jikan.moe API)"
+                control={
+                  <ToggleSettingControl
+                    id="anime-filler-markers"
+                    checked={settings.showFillerEpisodes}
+                    onCheckedChange={(checked) => updateSetting("showFillerEpisodes", checked)}
                   />
                 }
               />

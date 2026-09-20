@@ -119,6 +119,7 @@ function EpisodePill({
   ep,
   selected,
   onClick,
+  onVisible,
   showRating,
   selectionMode = false
 }: {
@@ -129,63 +130,86 @@ function EpisodePill({
     stillUrl?: string;
     runtime?: number;
     voteAverage?: number;
+    fillerStatus: "filler" | "not_filler" | "unknown";
   };
   selected: boolean;
   onClick: () => void;
+  onVisible?: (episodeNumber: number) => void;
   showRating: boolean;
   selectionMode?: boolean;
 }) {
+  const episodeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!onVisible || !episodeRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) onVisible(ep.episodeNumber);
+      },
+      { rootMargin: "240px 0px" }
+    );
+    observer.observe(episodeRef.current);
+    return () => observer.disconnect();
+  }, [ep.episodeNumber, onVisible]);
+
   return (
-    <Button
-      variant="ghost"
-      className={`group flex h-auto w-full items-start justify-start gap-3 rounded-xl border p-3 text-left transition-colors ${
-        selected
-          ? "border-primary/50 bg-primary/10 shadow-sm"
-          : "border-transparent bg-card/40 hover:border-border hover:bg-accent/65"
-      }`}
-      onClick={onClick}
-    >
-      {ep.stillUrl ? (
-        <img
-          src={ep.stillUrl}
-          alt={ep.name}
-          className="h-14 w-24 shrink-0 rounded-lg bg-muted object-cover"
-          loading="lazy"
-        />
-      ) : (
-        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg bg-muted">
-          <Tv className="h-5 w-5 text-muted-foreground/50" />
-        </div>
-      )}
-      <div className="min-w-0 flex-1 pt-0.5">
-        <div className="mb-0.5 flex items-center gap-2">
-          <span className="text-xs font-bold text-muted-foreground">E{ep.episodeNumber}</span>
-          {selected && (
-            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] font-bold text-primary">
-              {selectionMode ? "Selected" : "Now selected"}
-            </span>
-          )}
-        </div>
-        <p className="line-clamp-1 text-sm font-medium text-foreground">{ep.name}</p>
-        {ep.overview && (
-          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{ep.overview}</p>
+    <div ref={episodeRef}>
+      <Button
+        variant="ghost"
+        className={`group flex h-auto w-full items-start justify-start gap-3 rounded-xl border p-3 text-left transition-colors ${
+          selected
+            ? "border-primary/50 bg-primary/10 shadow-sm"
+            : "border-transparent bg-card/40 hover:border-border hover:bg-accent/65"
+        }`}
+        onClick={onClick}
+      >
+        {ep.stillUrl ? (
+          <img
+            src={ep.stillUrl}
+            alt={ep.name}
+            className="h-14 w-24 shrink-0 rounded-lg bg-muted object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg bg-muted">
+            <Tv className="h-5 w-5 text-muted-foreground/50" />
+          </div>
         )}
-        {ep.runtime && <p className="mt-1 text-[11px] text-muted-foreground/80">{ep.runtime}m</p>}
-      </div>
-      {showRating && ep.voteAverage !== undefined && ep.voteAverage > 0 && (
-        <span className="mt-1 flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-300">
-          <Star className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
-          {ep.voteAverage.toFixed(1)}
-        </span>
-      )}
-      {selectionMode ? (
-        <Check
-          className={`mt-4 h-4 w-4 shrink-0 ${selected ? "text-primary" : "text-transparent"}`}
-        />
-      ) : (
-        <Play className="mt-4 h-4 w-4 shrink-0 text-transparent transition-colors group-hover:text-primary" />
-      )}
-    </Button>
+        <div className="min-w-0 flex-1 pt-0.5">
+          <div className="mb-0.5 flex items-center gap-2">
+            <span className="text-xs font-bold text-muted-foreground">E{ep.episodeNumber}</span>
+            {ep.fillerStatus === "filler" && (
+              <span className="rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] font-bold text-warning">
+                Filler
+              </span>
+            )}
+            {selected && (
+              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] font-bold text-primary">
+                {selectionMode ? "Selected" : "Now selected"}
+              </span>
+            )}
+          </div>
+          <p className="line-clamp-1 text-sm font-medium text-foreground">{ep.name}</p>
+          {ep.overview && (
+            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{ep.overview}</p>
+          )}
+          {ep.runtime && <p className="mt-1 text-[11px] text-muted-foreground/80">{ep.runtime}m</p>}
+        </div>
+        {showRating && ep.voteAverage !== undefined && ep.voteAverage > 0 && (
+          <span className="mt-1 flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-300">
+            <Star className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+            {ep.voteAverage.toFixed(1)}
+          </span>
+        )}
+        {selectionMode ? (
+          <Check
+            className={`mt-4 h-4 w-4 shrink-0 ${selected ? "text-primary" : "text-transparent"}`}
+          />
+        ) : (
+          <Play className="mt-4 h-4 w-4 shrink-0 text-transparent transition-colors group-hover:text-primary" />
+        )}
+      </Button>
+    </div>
   );
 }
 
@@ -377,12 +401,21 @@ export function ContentModal({
       : undefined;
   const isInWatchlist = useIsInWatchlist(watchlistContentId);
   const toggleWatchlist = useToggleWatchlist();
-  const { season: tmdbSeason, isLoading: tmdbSeasonLoading } = useSeasonEpisodes(
+  const {
+    season: tmdbSeason,
+    isLoading: tmdbSeasonLoading,
+    loadFillerAround
+  } = useSeasonEpisodes(
     isOpen && resolvedContent?.type === "tv" && !resolvedContent.tmdbId?.startsWith("tt")
       ? resolvedContent.tmdbId
       : undefined,
     selectedSeason,
-    isOpen && resolvedContent?.type === "tv"
+    isOpen && resolvedContent?.type === "tv",
+    getImdbId(resolvedContent),
+    resolvedContent?.title,
+    resolvedContent?.year,
+    detailContent?.originalLanguage === "ja" ||
+      (resolvedContent?.genre ?? []).some((genre) => genre.toLowerCase() === "animation")
   );
   const { seasons: ratingSeasons, isLoading: ratingsLoading } = useSeriesEpisodeRatings(
     resolvedContent?.type === "tv" ? resolvedContent.tmdbId : undefined,
@@ -517,12 +550,6 @@ export function ContentModal({
       setActiveTab(initialTab ?? (resolvedContent.type === "tv" ? "episodes" : "cast"));
     }
   }, [initialTab, isOpen, resolvedContent?.type]);
-
-  useEffect(() => {
-    if (!settings.showEpisodeRatings && activeTab === "ratings") {
-      setActiveTab("episodes");
-    }
-  }, [activeTab, settings.showEpisodeRatings]);
 
   const handleRelatedClick = (item: TMDBItem) => {
     setRelatedModalItem(item);
@@ -824,7 +851,7 @@ export function ContentModal({
                     <Film className="h-4 w-4" aria-hidden="true" />
                     Related
                   </Button>
-                  {isTV && settings.showEpisodeRatings && (
+                  {isTV && (
                     <Button
                       type="button"
                       role="tab"
@@ -910,7 +937,6 @@ export function ContentModal({
                 {dbSeason?.overview && (
                   <p className="mb-3 text-sm text-muted-foreground">{dbSeason.overview}</p>
                 )}
-
                 {tmdbSeasonLoading && episodes.length === 0 ? (
                   <p className="py-8 text-center text-xs text-muted-foreground">Loading episodes</p>
                 ) : episodeLoadError ? (
@@ -927,6 +953,7 @@ export function ContentModal({
                             : ep.episodeNumber === selectedEpisode
                         }
                         showRating={settings.showEpisodeRatings}
+                        onVisible={settings.showFillerEpisodes ? loadFillerAround : undefined}
                         selectionMode={episodeSelectionMode}
                         onClick={() => {
                           if (episodeSelectionMode) {
@@ -971,7 +998,6 @@ export function ContentModal({
 
             {activeTab === "ratings" &&
               isTV &&
-              settings.showEpisodeRatings &&
               (ratingsLoading ? (
                 <p className="py-8 text-center text-xs text-muted-foreground">Loading ratings</p>
               ) : (
