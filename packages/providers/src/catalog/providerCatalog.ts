@@ -216,6 +216,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "both",
     website: "https://111movies.net",
+    canBeScraped: true,
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
@@ -746,7 +747,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vixsrc.to",
-    canBeScraped: true,
     progress: { resumeParam: "startAt" },
     referrerPolicy: "no-referrer",
     params: {

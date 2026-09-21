@@ -11,10 +11,10 @@ The scraper uses Puppeteer to extract video metadata and playable embed URLs fro
 
 ### Movies & TV
 
+- [111movies](https://111movies.net)
 - [CineSrc](https://cinesrc.st)
 - [Peachify](https://peachify.top)
 - [VidLux](https://vidlux.xyz)
-- [VixSrc](https://vixsrc.to)
 
 ## Downloads
 
