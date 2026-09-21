@@ -918,8 +918,7 @@ export function useSeasonEpisodes(
                   firstEpisodeNumber > 1
                     ? episode.episodeNumber - firstEpisodeNumber + 1
                     : episode.episodeNumber,
-                displayEpisodeNumber:
-                  firstEpisodeNumber > 1 ? episode.episodeNumber : undefined,
+                displayEpisodeNumber: firstEpisodeNumber > 1 ? episode.episodeNumber : undefined,
                 voteAverage: ratings.current.get(episode.episodeNumber) ?? 0,
                 fillerStatus: "unknown" as const
               }))
@@ -940,7 +939,12 @@ export function useSeasonEpisodes(
 
           const previousSeason =
             seasonNumber > 1 && imdbId
-              ? await fetchImdbSeasonEpisodes(imdbId, seasonNumber - 1, imdbRequest, controller.signal)
+              ? await fetchImdbSeasonEpisodes(
+                  imdbId,
+                  seasonNumber - 1,
+                  imdbRequest,
+                  controller.signal
+                )
               : null;
           const episodeOffset = previousSeason?.episodes.length ?? 0;
           const next = {
@@ -1038,7 +1042,7 @@ export function useSeasonEpisodes(
             ...old,
             episodes: old.episodes.map((episode) => ({
               ...episode,
-              voteAverage: next.get(episode.episodeNumber) ?? 0
+              voteAverage: next.get(episode.displayEpisodeNumber ?? episode.episodeNumber) ?? 0
             }))
           };
           queryCache.set(`season:${tmdbId}:${seasonNumber}`, nextSeason);
