@@ -72,51 +72,59 @@ export async function resolveVidLux(targetUrl: string): Promise<StreamResult | n
     const token = extractRequestToken(await pageResponse.text());
     if (!token) return null;
 
-    for (const provider of ["bolt", "vidstuck"]) {
-      const endpoint = new URL(`/api/extract/${provider}`, new URL(targetUrl).origin);
-      endpoint.searchParams.set("id", request.id);
-      endpoint.searchParams.set("type", request.type);
-      endpoint.searchParams.set("_t", token);
-      if (request.type === "tv" && request.season && request.episode) {
-        endpoint.searchParams.set("season", request.season);
-        endpoint.searchParams.set("episode", request.episode);
-      }
+    const targetOrigin = new URL(targetUrl).origin;
+    const providerResults = await Promise.all(
+      ["bolt", "vidstuck"].map(async (provider) => {
+        const endpoint = new URL(`/api/extract/${provider}`, targetOrigin);
+        endpoint.searchParams.set("id", request.id);
+        endpoint.searchParams.set("type", request.type);
+        endpoint.searchParams.set("_t", token);
+        if (request.type === "tv" && request.season && request.episode) {
+          endpoint.searchParams.set("season", request.season);
+          endpoint.searchParams.set("episode", request.episode);
+        }
 
-      const response = await fetch(endpoint, {
-        headers: { ...browserHeaders, Origin: new URL(targetUrl).origin, Referer: targetUrl }
-      });
-      if (!response.ok) continue;
+        const response = await fetch(endpoint, {
+          headers: { ...browserHeaders, Origin: targetOrigin, Referer: targetUrl }
+        });
+        if (!response.ok) return null;
 
-      const payload = (await response.json()) as {
-        encrypted?: boolean;
-        data?: string;
-        streams?: unknown;
-        captions?: unknown;
-      };
-      const decoded =
-        payload.encrypted && payload.data ? await decryptVidLuxPayload(payload.data) : payload;
-      if (!decoded || typeof decoded !== "object") continue;
-
-      const streams = (decoded as { streams?: unknown }).streams;
-      if (!Array.isArray(streams)) continue;
-      for (const stream of streams) {
-        if (!stream || typeof stream !== "object") continue;
-        const value = stream as { file?: unknown; type?: unknown };
-        if (typeof value.file !== "string") continue;
-        const fileUrl = unwrapDownloadUrl(value.file);
-        if (!isFetchableUrl(fileUrl)) continue;
-        const mediaType =
-          getMediaType(fileUrl, value.type) ??
-          resolveMediaCandidate(fileUrl, value.type)?.mediaType;
-        if (!mediaType) continue;
-        const headers: StreamHeaders = { Referer: "https://vidlux.xyz/" };
-        return {
-          url: fileUrl,
-          mediaType,
-          headers,
-          tracks: (decoded as { captions?: unknown }).captions
+        const payload = (await response.json()) as {
+          encrypted?: boolean;
+          data?: string;
+          streams?: unknown;
+          captions?: unknown;
         };
-      }
+        const decoded =
+          payload.encrypted && payload.data ? await decryptVidLuxPayload(payload.data) : payload;
+        if (!decoded || typeof decoded !== "object") return null;
+
+        const streams = (decoded as { streams?: unknown }).streams;
+        if (!Array.isArray(streams)) return null;
+        for (const stream of streams) {
+          if (!stream || typeof stream !== "object") continue;
+          const value = stream as { file?: unknown; type?: unknown };
+          if (typeof value.file !== "string") continue;
+          const fileUrl = unwrapDownloadUrl(value.file);
+          if (!isFetchableUrl(fileUrl)) continue;
+          const mediaType =
+            getMediaType(fileUrl, value.type) ??
+            resolveMediaCandidate(fileUrl, value.type)?.mediaType;
+          if (!mediaType) continue;
+          const headers: StreamHeaders = { Referer: "https://vidlux.xyz/" };
+          return {
+            url: fileUrl,
+            mediaType,
+            headers,
+            tracks: (decoded as { captions?: unknown }).captions
+          };
+        }
+        return null;
+      })
+    );
+
+    for (const providerResult of providerResults) {
+      if (providerResult) return providerResult;
     }
   } catch (error) {
     console.warn("[VidLux] Dedicated resolver failed", error);

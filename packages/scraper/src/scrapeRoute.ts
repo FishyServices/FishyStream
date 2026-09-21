@@ -26,6 +26,14 @@ export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
 
     let browser: any;
     let result: StreamResult | null = null;
+    let notifyResult: (() => void) | null = null;
+    const resultAvailable = new Promise<void>((resolve) => {
+      notifyResult = resolve;
+    });
+    const setResult = (next: StreamResult): void => {
+      result = next;
+      notifyResult?.();
+    };
 
     try {
       browser = await c.env.launchBrowser();
@@ -85,14 +93,14 @@ export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
             const payload = extractSourcesPayload(JSON.parse(raw), targetUrl);
             if (!result && payload) {
               console.log("[Scraper] Found stream via injected fetch/XHR interception");
-              result = {
+              setResult({
                 url: payload.file,
                 mediaType: payload.mediaType,
                 headers: { ...pageHeaders, ...payload.headers },
                 tracks: payload.tracks,
                 intro: payload.intro,
                 outro: payload.outro
-              };
+              });
               return;
             }
           } catch {}
@@ -101,7 +109,7 @@ export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
         const candidate = findMediaCandidateInText(raw, targetUrl);
         if (candidate && shouldUseMediaResult(result)) {
           console.log(`[Scraper] Found ${candidate.mediaType} in browser console output`);
-          result = { url: candidate.url, mediaType: candidate.mediaType, headers: pageHeaders };
+          setResult({ url: candidate.url, mediaType: candidate.mediaType, headers: pageHeaders });
         }
       });
 
@@ -121,7 +129,7 @@ export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
           const captured = unwrapMediaProxy(url, responseHeaders);
           if (!isFetchableUrl(captured.url) || !shouldUseMediaResult(result)) return;
           console.log(`[Scraper] Found ${mediaType} directly in network: ${captured.url}`);
-          result = { url: captured.url, mediaType, headers: captured.headers };
+          setResult({ url: captured.url, mediaType, headers: captured.headers });
           return;
         }
         if (isVideoFile) {
@@ -129,7 +137,7 @@ export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
           const captured = unwrapMediaProxy(url, responseHeaders);
           if (!isFetchableUrl(captured.url) || !shouldUseMediaResult(result)) return;
           console.log(`[Scraper] Found video file directly in network: ${captured.url}`);
-          result = { url: captured.url, mediaType: "file", headers: captured.headers };
+          setResult({ url: captured.url, mediaType: "file", headers: captured.headers });
           return;
         }
 
@@ -144,24 +152,24 @@ export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
             const payload = extractSourcesPayload(json, url);
             if (payload) {
               console.log(`[Scraper] Found getSources payload in JSON response: ${url}`);
-              result = {
+              setResult({
                 url: payload.file,
                 mediaType: payload.mediaType,
                 headers: { ...getDiscoveredMediaHeaders(responseHeaders, url), ...payload.headers },
                 tracks: payload.tracks,
                 intro: payload.intro,
                 outro: payload.outro
-              };
+              });
               return;
             }
             const deep = findPlayableMediaInObject(json, url);
             if (deep) {
               console.log(`[Scraper] Found ${deep.mediaType} deep in JSON tree: ${url}`);
-              result = {
+              setResult({
                 url: deep.url,
                 mediaType: deep.mediaType,
                 headers: { ...getDiscoveredMediaHeaders(responseHeaders, url), ...deep.headers }
-              };
+              });
               return;
             }
           }
@@ -170,41 +178,58 @@ export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
             console.log(
               `[Scraper] Found ${candidate.mediaType} via regex in script/response: ${url}`
             );
-            result = {
+            setResult({
               url: candidate.url,
               mediaType: candidate.mediaType,
               headers: responseHeaders
-            };
+            });
           }
         } catch {}
       });
 
       const providerResult = await resolveVidLux(targetUrl);
+      let shouldInspectDom = true;
       if (providerResult) {
-        result = providerResult;
+        setResult(providerResult);
       } else {
-        await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
+        const navigation = page.goto(targetUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: 20000
+        });
+        const navigationOutcome = await Promise.race([
+          navigation.then(() => "navigation" as const),
+          resultAvailable.then(() => "result" as const)
+        ]);
+
+        shouldInspectDom = navigationOutcome === "navigation";
       }
-      const pageMediaUrlsRaw: unknown = await page.evaluate(`
+
+      const pageMediaUrlsRaw: unknown = shouldInspectDom
+        ? await page.evaluate(`
         Array.from(document.querySelectorAll("video, source"))
           .flatMap((element) => [element.currentSrc || "", element.src || "", element.getAttribute("data-src") || ""])
           .filter(Boolean)
-      `);
+      `)
+        : [];
       for (const mediaUrl of Array.isArray(pageMediaUrlsRaw) ? pageMediaUrlsRaw : []) {
         if (typeof mediaUrl !== "string") continue;
         const candidate = resolveMediaCandidate(mediaUrl, undefined, targetUrl);
         if (candidate) {
           console.log(`[Scraper] Found ${candidate.mediaType} in the player DOM`);
-          result = { url: candidate.url, mediaType: candidate.mediaType, headers: pageHeaders };
+          setResult({ url: candidate.url, mediaType: candidate.mediaType, headers: pageHeaders });
           break;
         }
       }
 
-      let retries = 60;
-      while (!result && retries-- > 0) await new Promise((resolve) => setTimeout(resolve, 500));
-      if (!result) return c.json({ error: "Could not find a playable stream" }, 404);
+      if (!result) {
+        await Promise.race([
+          resultAvailable,
+          new Promise<void>((resolve) => setTimeout(resolve, 30_000))
+        ]);
+      }
+      if (result === null) return c.json({ error: "Could not find a playable stream" }, 404);
 
-      const found = result;
+      const found: StreamResult = result;
       const cookies = (await page.cookies(targetUrl, found.url))
         .map((cookie: { name: string; value: string }) => `${cookie.name}=${cookie.value}`)
         .join("; ");
