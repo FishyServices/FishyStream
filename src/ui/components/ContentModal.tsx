@@ -131,6 +131,7 @@ function EpisodePill({
     runtime?: number;
     voteAverage?: number;
     fillerStatus: "filler" | "not_filler" | "unknown";
+    displayEpisodeNumber?: number;
   };
   selected: boolean;
   onClick: () => void;
@@ -177,7 +178,9 @@ function EpisodePill({
         )}
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="mb-0.5 flex items-center gap-2">
-            <span className="text-xs font-bold text-muted-foreground">E{ep.episodeNumber}</span>
+            <span className="text-xs font-bold text-muted-foreground">
+              E{ep.displayEpisodeNumber ?? ep.episodeNumber}
+            </span>
             {ep.fillerStatus === "filler" && (
               <span className="rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] font-bold text-warning">
                 Filler
@@ -359,7 +362,7 @@ export function ContentModal({
     tmdbDetailEnabled ? contentIdentifier : undefined,
     tmdbDetailEnabled ? content?.type : undefined,
     tmdbDetailEnabled,
-    false
+    true
   );
 
   const fullContent: ContentDetail | null | undefined = useMemo(() => {

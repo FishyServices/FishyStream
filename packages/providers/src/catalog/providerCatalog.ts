@@ -1,6 +1,7 @@
 import { resolveAniListEpisodeAddress } from "../anime/anilistResolver.js";
 import { mapCanonicalToProviderOrder, getTvOrderingOverride } from "../anime/tvSeasonMappings.js";
 import type { AniListEpisodeMapping } from "../types.js";
+import { fetchTmdbSeasonEpisodes, TMDB_API_KEY } from "../tmdb/client.js";
 
 export type ProviderKey =
   | "111movies"
@@ -100,6 +101,27 @@ export interface StreamSource {
   key: string;
   name: string;
   url: string;
+}
+
+const automaticEpisodeOffsetCache = new Map<string, Promise<number>>();
+
+async function getAutomaticEpisodeOffset(tmdbId: string | undefined, season: number) {
+  if (!tmdbId || season <= 1) return 0;
+  const key = `${tmdbId}:${season}`;
+  const cached = automaticEpisodeOffsetCache.get(key);
+  if (cached) return cached;
+
+  const pending = (async () => {
+    const requestedSeason = await fetchTmdbSeasonEpisodes(tmdbId, season, TMDB_API_KEY);
+    if (requestedSeason?.episodes.length) {
+      const firstEpisodeNumber = requestedSeason.episodes[0]?.episodeNumber ?? 1;
+      return Math.max(0, firstEpisodeNumber - 1);
+    }
+    const firstSeason = await fetchTmdbSeasonEpisodes(tmdbId, 1, TMDB_API_KEY);
+    return firstSeason?.episodes.length ?? 0;
+  })();
+  automaticEpisodeOffsetCache.set(key, pending);
+  return pending;
 }
 
 type ProviderDefinition<TParams extends ProviderParamsDef> = Omit<
@@ -957,6 +979,14 @@ export async function buildTvSources(args: {
     dub
   } = args;
   const sources: StreamSource[] = [];
+  const automaticEpisodeOffset =
+    anilistEpisodeMappings?.length || anilistId
+      ? 0
+      : await getAutomaticEpisodeOffset(tmdbId, season);
+  const requestedAddress = {
+    season: automaticEpisodeOffset > 0 ? 1 : season,
+    episode: episode + automaticEpisodeOffset
+  };
 
   const override = getTvOrderingOverride(tmdbId);
   const directUrl = override?.videoUrlOverrides?.[`season=${season}&episode=${episode}`];
@@ -974,6 +1004,7 @@ export async function buildTvSources(args: {
 
   let aniListAddressPromise:
     Promise<Awaited<ReturnType<typeof resolveAniListEpisodeAddress>>> | undefined;
+  const aniListTarget = mapCanonicalToProviderOrder(tmdbId, "AniList", requestedAddress);
   const getAniListAddress = () => {
     if (!aniListAddressPromise) {
       aniListAddressPromise = storedAniListAddress
@@ -981,7 +1012,14 @@ export async function buildTvSources(args: {
             anilistId: storedAniListAddress.anilistId,
             episode: storedAniListAddress.anilistEpisodeNumber
           })
-        : resolveAniListEpisodeAddress({ anilistId, title, season, seasonTitle, year, episode });
+        : resolveAniListEpisodeAddress({
+            anilistId,
+            title,
+            season: aniListTarget.season,
+            seasonTitle,
+            year,
+            episode: aniListTarget.episode
+          });
     }
     return aniListAddressPromise;
   };
@@ -1019,9 +1057,17 @@ export async function buildTvSources(args: {
 
     const isAnimeMatch =
       isAnime && (!!provider.getAnimeTVUrl || !!provider.getMalAnimeTVUrl) && !!animeId;
+    const mappedCanonicalAddress = mapCanonicalToProviderOrder(
+      tmdbId,
+      provider.name,
+      isAnimeMatch ? requestedAddress : { season, episode }
+    );
     const mapped = isAnimeMatch
-      ? { season, episode: aniListAddress?.episode ?? episode }
-      : mapCanonicalToProviderOrder(tmdbId, provider.name, { season, episode });
+      ? {
+          season: mappedCanonicalAddress.season,
+          episode: aniListAddress?.episode ?? mappedCanonicalAddress.episode
+        }
+      : mappedCanonicalAddress;
     const url = isAnimeMatch
       ? (useMalId ? provider.getMalAnimeTVUrl : provider.getAnimeTVUrl)!(
           id,

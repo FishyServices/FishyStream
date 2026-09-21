@@ -848,6 +848,8 @@ export function useContentDetail(
           : null;
       return {
         ...tmdb,
+        seasons:
+          type === "tv" ? Math.max(tmdb.seasons ?? 0, imdb?.seasons ?? 0) || undefined : undefined,
         imdbId: imdb?.imdbId ?? tmdb.imdbId,
         rating: imdb?.rating ?? tmdb.rating,
         voteAverage: imdb?.voteAverage ?? tmdb.voteAverage
@@ -863,6 +865,7 @@ type Season = {
   overview?: string;
   episodes: Array<{
     episodeNumber: number;
+    displayEpisodeNumber?: number;
     name: string;
     overview?: string;
     stillUrl?: string;
@@ -903,18 +906,53 @@ export function useSeasonEpisodes(
     setIsLoading(true);
     ratings.current.clear();
     void fetchTmdbSeasonEpisodes(tmdbId, seasonNumber, apiKey(), controller.signal)
-      .then((value) => {
+      .then(async (value) => {
         if (!controller.signal.aborted) {
-          const next = value
-            ? {
-                overview: value.overview,
-                episodes: value.episodes.map((episode) => ({
-                  ...episode,
-                  voteAverage: ratings.current.get(episode.episodeNumber) ?? 0,
-                  fillerStatus: "unknown" as const
-                }))
-              }
+          if (value?.episodes.length) {
+            const firstEpisodeNumber = value.episodes[0]?.episodeNumber ?? 1;
+            const next = {
+              overview: value.overview,
+              episodes: value.episodes.map((episode) => ({
+                ...episode,
+                episodeNumber:
+                  firstEpisodeNumber > 1
+                    ? episode.episodeNumber - firstEpisodeNumber + 1
+                    : episode.episodeNumber,
+                displayEpisodeNumber:
+                  firstEpisodeNumber > 1 ? episode.episodeNumber : undefined,
+                voteAverage: ratings.current.get(episode.episodeNumber) ?? 0,
+                fillerStatus: "unknown" as const
+              }))
+            };
+            queryCache.set(cacheKey, next);
+            setSeason(next);
+            return;
+          }
+
+          const imdbSeason = imdbId
+            ? await fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
             : null;
+          if (!imdbSeason?.episodes.length) {
+            queryCache.set(cacheKey, null);
+            setSeason(null);
+            return;
+          }
+
+          const previousSeason =
+            seasonNumber > 1 && imdbId
+              ? await fetchImdbSeasonEpisodes(imdbId, seasonNumber - 1, imdbRequest, controller.signal)
+              : null;
+          const episodeOffset = previousSeason?.episodes.length ?? 0;
+          const next = {
+            overview: imdbSeason.overview,
+            episodes: imdbSeason.episodes.map((episode) => ({
+              ...episode,
+              overview: episode.overview ?? undefined,
+              displayEpisodeNumber: episode.episodeNumber + episodeOffset,
+              voteAverage: ratings.current.get(episode.episodeNumber) ?? 0,
+              fillerStatus: "unknown" as const
+            }))
+          };
           queryCache.set(cacheKey, next);
           setSeason(next);
         }
@@ -926,7 +964,7 @@ export function useSeasonEpisodes(
         if (!controller.signal.aborted) setIsLoading(false);
       });
     return () => controller.abort();
-  }, [enabled, seasonNumber, tmdbId]);
+  }, [enabled, imdbId, seasonNumber, tmdbId]);
   useEffect(() => {
     fillerWindows.current.clear();
     fillerRequests.current.clear();

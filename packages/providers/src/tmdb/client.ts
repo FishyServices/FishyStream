@@ -555,14 +555,21 @@ export async function buildCanonicalSeasonPayload(tmdbId: string, seasonNumber: 
   const season = await fetchTmdbSeasonEpisodes(tmdbId, seasonNumber, TMDB_API_KEY);
   if (!season) return null;
   const seasonYear = Number(season.airDate?.slice(0, 4));
+  const firstEpisodeNumber = season.episodes[0]?.episodeNumber ?? 1;
+  const episodeOffset = Math.max(0, firstEpisodeNumber - 1);
   return {
     seasonNumber,
     name: `Season ${seasonNumber}`,
     overview: season.overview,
     airDate: season.airDate,
     episodeCount: season.episodes.length,
+    episodeOffset,
     year: Number.isFinite(seasonYear) && seasonYear > 1900 ? seasonYear : undefined,
-    episodes: season.episodes.map((episode) => ({ ...episode, airDate: undefined }))
+    episodes: season.episodes.map((episode) => ({
+      ...episode,
+      episodeNumber: episode.episodeNumber - episodeOffset,
+      airDate: undefined
+    }))
   };
 }
 export async function resolveSeasonAniListId(args: {
@@ -584,6 +591,7 @@ export async function buildAniListEpisodeMappings(args: {
   season: number;
   seasonTitle?: string;
   year?: number;
+  episodeOffset?: number;
   episodes: Array<{ episodeNumber: number }>;
 }) {
   if (!args.anilistId) return undefined;
@@ -595,7 +603,7 @@ export async function buildAniListEpisodeMappings(args: {
         season: args.season,
         seasonTitle: args.seasonTitle,
         year: args.year,
-        episode: episode.episodeNumber
+        episode: episode.episodeNumber + (args.episodeOffset ?? 0)
       });
       return address
         ? {

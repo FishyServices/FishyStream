@@ -48,7 +48,8 @@ interface VideoPlayerProps {
 }
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
-const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:anime-season-sync-keys:v3";
+const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:anime-season-sync-keys:v5";
+const ANIME_SEASON_PLAYBACK_CACHE_VERSION = 5;
 
 function clamp(v: number) {
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
@@ -175,7 +176,7 @@ export function VideoPlayer({
     [content._id, tvTarget.season, tvTarget.episode, animeSeasonReloadKey],
     animeSeasonKey ? [animeSeasonKey, tvTarget.episode] : undefined,
     animeSeasonKey
-      ? `animeSeasonPlayback:${animeSeasonKey}:${tvTarget.episode}:${animeSeasonReloadKey}`
+      ? `animeSeasonPlayback:v${ANIME_SEASON_PLAYBACK_CACHE_VERSION}:${animeSeasonKey}:${tvTarget.episode}:${animeSeasonReloadKey}`
       : undefined
   );
   const matchingAnimeSeasonData =

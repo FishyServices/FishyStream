@@ -120,6 +120,16 @@ export function getCanonicalSeasonEpisodeCount(
     ?.episodeCount;
 }
 
+export function getCanonicalSeasonEpisodeStart(
+  tmdbId?: string | number | null,
+  seasonNumber?: number | null
+): number | undefined {
+  const override = getTvOrderingOverride(tmdbId);
+  if (!override || seasonNumber == null) return undefined;
+  return override.canonicalSeasons.find((season) => season.seasonNumber === seasonNumber)
+    ?.sourceEpisodeStart;
+}
+
 export function mapCanonicalToProviderOrder(
   tmdbId: string | number | null | undefined,
   providerName: string,

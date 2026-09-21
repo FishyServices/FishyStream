@@ -217,7 +217,7 @@ export function usePlaybackSession({
         return;
       }
 
-      if (content.type === "tv" && !fallbackSourcesSeededRef.current) {
+      if (content.type === "tv" && season === 1 && !fallbackSourcesSeededRef.current) {
         const fallback = providerSourceResolver.buildTvFallbackSources({
           imdbId: content.imdbId ?? undefined,
           tmdbId: content.tmdbId ?? undefined,

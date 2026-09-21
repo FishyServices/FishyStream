@@ -67,12 +67,20 @@ export const syncAnimeSeasonPlaybackMeta = action({
         seasonTitle: payload.name,
         year: payload.year
       });
+      if (!anilistId && payload.seasonNumber > 1) {
+        anilistId = await resolveSeasonAniListId({
+          title: args.title,
+          seasonNumber: 1,
+          year: payload.year ? payload.year - 1 : undefined
+        });
+      }
       mappings = await buildAniListEpisodeMappings({
         anilistId,
         title: args.title,
         season: payload.seasonNumber,
         seasonTitle: payload.name,
         year: payload.year,
+        episodeOffset: payload.episodeOffset,
         episodes
       });
     } catch (error) {
@@ -90,6 +98,7 @@ export const syncAnimeSeasonPlaybackMeta = action({
       episodeCount: payload.episodeCount,
       anilistId: anilistId ?? undefined,
       anilistEpisodeMappings: mappings,
+      episodeOffset: payload.episodeOffset,
       episodes
     });
 
