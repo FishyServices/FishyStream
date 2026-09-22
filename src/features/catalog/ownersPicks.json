@@ -26,9 +26,10 @@
     { "tmdbId": "21510", "title": "White Collar" }
   ],
   "anime": [
-    { "tmdbId": "67075", "title": "Mob Psycho 100", "rank": 1 },
-    { "tmdbId": "31724", "title": "Code Geass: Lelouch of the Rebellion", "rank": 2 },
-    { "tmdbId": "69346", "title": "Saga of Tanya the Evil", "rank": 3 },
+    { "tmdbId": "46298", "title": "Hunter x Hunter", "rank": 1 },
+    { "tmdbId": "67075", "title": "Mob Psycho 100", "rank": 2 },
+    { "tmdbId": "31724", "title": "Code Geass: Lelouch of the Rebellion", "rank": 3 },
+    { "tmdbId": "69346", "title": "Saga of Tanya the Evil", "rank": 4 },
     { "tmdbId": "100565", "title": "86 EIGHTY-SIX" },
     { "tmdbId": "114410", "title": "Chainsaw Man" },
     { "tmdbId": "72517", "title": "Classroom of the Elite" },
