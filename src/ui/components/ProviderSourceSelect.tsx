@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Globe, MonitorPlay, Settings2, Sparkles } from "lucide-react";
-import { getProviderByKey } from "@fishy/providers/catalog";
+import type { ProviderGroupedSources } from "@fishy/providers/playback";
 import {
   Button,
   Dialog,
@@ -10,23 +10,11 @@ import {
   DialogTitle
 } from "@fishy/ui";
 
-export interface ProviderSourceOption {
-  key: string;
-  name: string;
-  url: string;
-}
-
-export interface ProviderSourceGroup {
-  key: string;
-  label: string;
-  sources: ProviderSourceOption[];
-}
-
 export type ProviderUiMode = "custom" | "embedded";
 export type ProviderIdType = "anilist" | "mal";
 
 export interface ProviderSourceSelectProps {
-  groupedSources: ProviderSourceGroup[];
+  groupedSources: ProviderGroupedSources[];
   selectedSource: string;
   useCustomPlayer: boolean;
   onSelect: (url: string, mode: ProviderUiMode) => void;
@@ -37,13 +25,13 @@ export interface ProviderSourceSelectProps {
   onProviderIdTypeChange?: (idType: ProviderIdType) => void;
 }
 
-function filterGroupsBycanBeScraped(groups: ProviderSourceGroup[]): ProviderSourceGroup[] {
+function filterGroupsBycanBeScraped(groups: ProviderGroupedSources[]): ProviderGroupedSources[] {
   return groups
     .map((group) => ({
       ...group,
-      sources: group.sources.filter((source) => getProviderByKey(source.key)?.canBeScraped)
+      providers: group.providers.filter(({ provider }) => provider.canBeScraped)
     }))
-    .filter((group) => group.sources.length > 0);
+    .filter((group) => group.providers.length > 0);
 }
 
 export function ProviderSourceSelect({
@@ -87,9 +75,17 @@ export function ProviderSourceSelect({
 
   const activeGroups = activeTab === "custom" ? customGroups : groupedSources;
 
-  const selectedSourceName = groupedSources
-    .flatMap((group) => group.sources)
-    .find((source) => source.url === selectedSource)?.name;
+  const selectedSourceEntry = groupedSources
+    .flatMap((group) => group.providers)
+    .flatMap(({ provider, sources }) => sources.map((source) => ({ provider, source })))
+    .find(({ source }) => source.url === selectedSource);
+  const selectedSourceName = selectedSourceEntry
+    ? `${selectedSourceEntry.provider.name}${
+        selectedSourceEntry.source.server.id === "default"
+          ? ""
+          : ` · ${selectedSourceEntry.source.server.label}`
+      }`
+    : undefined;
 
   return (
     <div ref={containerRef} className={`relative ${className ?? ""}`}>
@@ -202,24 +198,29 @@ export function ProviderSourceSelect({
                   >
                     {group.label}
                   </p>
-                  {group.sources.map((source) => {
+                  {group.providers.map(({ provider, sources }) => {
+                    const selectedProviderSource = sources.find(
+                      (source) => source.url === selectedSource
+                    );
+                    const displayedSource = selectedProviderSource ?? sources[0];
                     const isSelected =
-                      source.url === selectedSource &&
+                      selectedProviderSource !== undefined &&
                       activeTab === (useCustomPlayer ? "custom" : "embedded");
+
                     return (
                       <div
-                        key={source.url}
+                        key={provider.key}
                         role="option"
                         aria-selected={isSelected}
                         tabIndex={0}
                         onClick={() => {
-                          onSelect(source.url, activeTab);
+                          if (displayedSource) onSelect(displayedSource.url, activeTab);
                           setOpen(false);
                         }}
                         onKeyDown={(event) => {
                           if (event.key !== "Enter" && event.key !== " ") return;
                           event.preventDefault();
-                          onSelect(source.url, activeTab);
+                          if (displayedSource) onSelect(displayedSource.url, activeTab);
                           setOpen(false);
                         }}
                         className={
@@ -232,19 +233,19 @@ export function ProviderSourceSelect({
                               }`
                         }
                       >
-                        <span className="truncate">{source.name}</span>
+                        <span className="min-w-0 flex-1 truncate">{provider.name}</span>
                         <span className="flex shrink-0 items-center gap-1">
-                          {getProviderByKey(source.key)?.getMalAnimeTVUrl &&
-                          onProviderIdTypeChange ? (
+                          {(provider.servers?.length ?? 0) > 1 ||
+                          (provider.getMalAnimeTVUrl && onProviderIdTypeChange) ? (
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              aria-label={`${source.name} settings`}
-                              title={`${source.name} settings`}
+                              aria-label={`${provider.name} settings`}
+                              title={`${provider.name} settings`}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                setSettingsProviderKey(source.key);
+                                setSettingsProviderKey(provider.key);
                               }}
                               className={`h-6 w-6 ${isSelected ? "text-primary" : "opacity-60"}`}
                             >
@@ -273,27 +274,72 @@ export function ProviderSourceSelect({
         >
           <DialogHeader>
             <DialogTitle>
-              {settingsProviderKey ? getProviderByKey(settingsProviderKey)?.name : "Provider"}{" "}
+              {settingsProviderKey
+                ? groupedSources
+                    .flatMap((group) => group.providers)
+                    .find((set) => set.provider.key === settingsProviderKey)?.provider.name
+                : "Provider"}{" "}
               settings
             </DialogTitle>
-            <DialogDescription>Choose which anime ID this provider should use.</DialogDescription>
+            <DialogDescription>
+              Choose the server and anime ID this provider should use.
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex gap-2">
-            {(["anilist", "mal"] as const).map((idType) => (
-              <Button
-                key={idType}
-                type="button"
-                variant={providerIdType === idType ? "default" : "outline"}
-                className="flex-1"
-                onClick={() => {
-                  onProviderIdTypeChange?.(idType);
-                  setSettingsProviderKey(null);
-                }}
-              >
-                {idType === "anilist" ? "AniList" : "MyAnimeList (MAL)"}
-              </Button>
-            ))}
-          </div>
+          {(() => {
+            const providerSet = groupedSources
+              .flatMap((group) => group.providers)
+              .find((set) => set.provider.key === settingsProviderKey);
+            if (!providerSet) return null;
+
+            const currentServer = providerSet.sources.find(
+              (source) => source.url === selectedSource
+            )?.server.id;
+
+            return (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Server</p>
+                  <div className="grid gap-2">
+                    {providerSet.sources.map((source) => (
+                      <Button
+                        key={source.url}
+                        type="button"
+                        variant={currentServer === source.server.id ? "default" : "outline"}
+                        className="justify-between"
+                        onClick={() => {
+                          onSelect(source.url, activeTab);
+                          setSettingsProviderKey(null);
+                          setOpen(false);
+                        }}
+                      >
+                        {source.server.label}
+                        {currentServer === source.server.id ? <Check className="h-4 w-4" /> : null}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                {providerSet.provider.getMalAnimeTVUrl && onProviderIdTypeChange ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Anime ID</p>
+                    <div className="grid gap-2">
+                      {(["anilist", "mal"] as const).map((idType) => (
+                        <Button
+                          key={idType}
+                          type="button"
+                          variant={providerIdType === idType ? "default" : "outline"}
+                          className="justify-between"
+                          onClick={() => onProviderIdTypeChange(idType)}
+                        >
+                          {idType === "anilist" ? "AniList" : "MyAnimeList (MAL)"}
+                          {providerIdType === idType ? <Check className="h-4 w-4" /> : null}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

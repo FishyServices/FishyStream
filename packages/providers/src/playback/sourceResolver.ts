@@ -7,11 +7,11 @@ import {
   type StreamSource
 } from "../catalog/providerCatalog.js";
 import {
-  getSeasonYear,
   groupSourcesByProviderCategory,
   pickPreferredSource,
   type ProviderGroupedSources
-} from "./providerPlayback.js";
+} from "./sourceSelection.js";
+import { getSeasonYear } from "./episodePolicy.js";
 
 export interface PlaybackSourceResolver {
   buildMovieSources(args: { imdbId?: string; tmdbId?: string }): StreamSource[];

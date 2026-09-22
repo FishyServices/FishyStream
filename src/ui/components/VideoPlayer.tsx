@@ -422,8 +422,8 @@ export function VideoPlayer({
       const { event: ev, currentTime, duration, progress } = parsed.data;
       reportPlaybackEvent({
         event: ev,
-        currentTime: currentTime ?? 0,
-        duration: duration ?? 0,
+        currentTime,
+        duration,
         progress
       });
     };
@@ -442,6 +442,52 @@ export function VideoPlayer({
     useCustomPlayer,
     reportPlaybackEvent
   ]);
+
+  useEffect(() => {
+    if (
+      useCustomPlayer ||
+      (selectedProvider?.key !== "vidcore" &&
+        selectedProvider?.key !== "vidzen" &&
+        selectedProvider?.key !== "vidfast" &&
+        selectedProvider?.key !== "vidlove" &&
+        selectedProvider?.key !== "cinesrc") ||
+      resumePositionSeconds <= 0
+    ) {
+      return;
+    }
+
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const seekToSavedPosition = () => {
+      if (selectedProvider?.key === "vidlove") {
+        iframe.contentWindow?.postMessage(
+          { type: "SET_TIME", time: resumePositionSeconds },
+          new URL(embedUrl).origin
+        );
+        return;
+      }
+      if (selectedProvider?.key === "cinesrc") {
+        iframe.contentWindow?.postMessage(
+          {
+            type: "cinesrc:command",
+            command: "seek",
+            args: [resumePositionSeconds]
+          },
+          new URL(embedUrl).origin
+        );
+        return;
+      }
+      postMessageToPlayer(
+        iframe,
+        "seek",
+        { time: resumePositionSeconds },
+        selectedProvider?.key === "vidzen"
+      );
+    };
+    iframe.addEventListener("load", seekToSavedPosition);
+    return () => iframe.removeEventListener("load", seekToSavedPosition);
+  }, [embedUrl, resumePositionSeconds, selectedProvider?.key, useCustomPlayer]);
 
   const handleProviderSelect = async (nextUrl: string, mode: ProviderUiMode) => {
     if (!nextUrl) return;

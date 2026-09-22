@@ -30,8 +30,8 @@ export type ProviderIdType = "anilist" | "mal";
 
 export interface PlaybackEvent {
   event: "timeupdate" | "play" | "pause" | "ended" | "seeked" | "playerstatus";
-  currentTime: number;
-  duration: number;
+  currentTime?: number;
+  duration?: number;
   progress?: number;
   completed?: boolean;
 }
@@ -124,6 +124,7 @@ export function usePlaybackSession({
   const sourceRequestIdRef = useRef(0);
   const selectedSourceUrlRef = useRef("");
   const selectedSourceKeyRef = useRef<string | undefined>(undefined);
+  const selectedServerIdRef = useRef<string | undefined>(undefined);
   const fallbackSourcesSeededRef = useRef(false);
   const loadedTargetRef = useRef<PlaybackTarget>({ season: 1, episode: 1 });
   const targetRef = useRef<PlaybackTarget>({
@@ -163,6 +164,7 @@ export function usePlaybackSession({
     setSelectedSourceUrl("");
     selectedSourceUrlRef.current = "";
     selectedSourceKeyRef.current = undefined;
+    selectedServerIdRef.current = undefined;
     fallbackSourcesSeededRef.current = false;
     setLoading(true);
     setError(null);
@@ -224,11 +226,18 @@ export function usePlaybackSession({
           season,
           episode
         });
+        const requestedServer = searchParams.get("server");
         const requestedFallback = initialSource
-          ? fallback.find((source) => source.name.toLowerCase() === initialSource.toLowerCase())
+          ? fallback.find(
+              (source) =>
+                source.name.toLowerCase() === initialSource.toLowerCase() &&
+                (!requestedServer || source.server.id === requestedServer)
+            )
           : undefined;
         const rememberedFallback = fallback.find(
-          (source) => source.key === selectedSourceKeyRef.current
+          (source) =>
+            source.key === selectedSourceKeyRef.current &&
+            source.server.id === selectedServerIdRef.current
         );
         const hasUnresolvedRequestedSource =
           !!initialSource && !requestedFallback && !rememberedFallback;
@@ -246,6 +255,7 @@ export function usePlaybackSession({
         if (fallbackSelection) {
           selectedSourceUrlRef.current = fallbackSelection.url;
           selectedSourceKeyRef.current = fallbackSelection.key;
+          selectedServerIdRef.current = fallbackSelection.server.id;
           setSelectedSourceUrl(fallbackSelection.url);
         }
       }
@@ -299,11 +309,21 @@ export function usePlaybackSession({
           return;
         }
 
+        const requestedServer = searchParams.get("server");
+        const requested = initialSource
+          ? fetched.find(
+              (source) =>
+                source.name.toLowerCase() === initialSource.toLowerCase() &&
+                (!requestedServer || source.server.id === requestedServer)
+            )
+          : undefined;
         const selected =
+          requested ??
           providerSourceResolver.pickSource(fetched, {
             initialSource,
             defaultProvider: settings.defaultProvider
-          }) ?? fetched[0];
+          }) ??
+          fetched[0];
 
         loadedTargetRef.current = { season, episode };
         setLoadedTarget({ season, episode });
@@ -320,11 +340,17 @@ export function usePlaybackSession({
         setSelectedSourceUrl((current) => {
           const next = fetched.some((source) => source.url === current)
             ? current
-            : (fetched.find((source) => source.key === selectedSourceKeyRef.current)?.url ??
+            : (fetched.find(
+                (source) =>
+                  source.key === selectedSourceKeyRef.current &&
+                  source.server.id === selectedServerIdRef.current
+              )?.url ??
               selected?.url ??
               "");
           selectedSourceUrlRef.current = next;
-          selectedSourceKeyRef.current = fetched.find((source) => source.url === next)?.key;
+          const nextSource = fetched.find((source) => source.url === next);
+          selectedSourceKeyRef.current = nextSource?.key;
+          selectedServerIdRef.current = nextSource?.server.id;
           return next;
         });
         logProviderInfo({
@@ -430,7 +456,10 @@ export function usePlaybackSession({
         dub: animeContent ? isDub : undefined
       });
       const source =
-        fetched.find((candidate) => candidate.key === selectedSource.key) ?? fetched[0];
+        fetched.find(
+          (candidate) =>
+            candidate.key === selectedSource.key && candidate.server.id === selectedSource.server.id
+        ) ?? fetched[0];
       if (!source) return null;
 
       return createProviderEmbedUrl({
@@ -453,6 +482,8 @@ export function usePlaybackSession({
         : new URLSearchParams(searchParams);
       nextSearchParams.set("type", content.type);
       nextSearchParams.set("source", nextSource.name);
+      if (nextSource.server.id === "default") nextSearchParams.delete("server");
+      else nextSearchParams.set("server", nextSource.server.id);
       navigate({ search: nextSearchParams.toString() }, { replace: true });
       setResumePositionSeconds(
         pickResumePositionSeconds(
@@ -466,6 +497,7 @@ export function usePlaybackSession({
       setSelectedSourceUrl(nextUrl);
       selectedSourceUrlRef.current = nextUrl;
       selectedSourceKeyRef.current = nextSource.key;
+      selectedServerIdRef.current = nextSource.server.id;
       logProviderInfo({
         contentType: content.type,
         source: nextSource,
@@ -485,6 +517,7 @@ export function usePlaybackSession({
       setSources([]);
       setSelectedSourceUrl("");
       selectedSourceUrlRef.current = "";
+      selectedServerIdRef.current = undefined;
       fallbackSourcesSeededRef.current = false;
       setLoading(true);
       setError(null);
@@ -498,6 +531,7 @@ export function usePlaybackSession({
     setSources([]);
     setSelectedSourceUrl("");
     selectedSourceUrlRef.current = "";
+    selectedServerIdRef.current = undefined;
     fallbackSourcesSeededRef.current = false;
     setLoading(true);
     setError(null);
@@ -520,6 +554,7 @@ export function usePlaybackSession({
       setSources([]);
       setSelectedSourceUrl("");
       selectedSourceUrlRef.current = "";
+      selectedServerIdRef.current = undefined;
       fallbackSourcesSeededRef.current = false;
       setLoading(true);
       setError(null);
@@ -542,6 +577,9 @@ export function usePlaybackSession({
       const next = sources.find((source) => source.url !== selectedSource.url);
       if (next) {
         setSelectedSourceUrl(next.url);
+        selectedSourceUrlRef.current = next.url;
+        selectedSourceKeyRef.current = next.key;
+        selectedServerIdRef.current = next.server.id;
         logProviderWarning({
           contentType: content.type,
           source: selectedSource,
@@ -557,15 +595,21 @@ export function usePlaybackSession({
 
   const reportPlaybackEvent = useCallback(
     ({ event, currentTime, duration, progress, completed }: PlaybackEvent) => {
-      const nextProgress = clampProgress(progress ?? calculateProgress(currentTime, duration));
+      const previousSample = lastStoredProgressSampleRef.current;
+      const resolvedCurrentTime =
+        currentTime ?? previousSample?.currentTime ?? lastSyncedPositionRef.current;
+      const resolvedDuration = duration ?? previousSample?.duration ?? 0;
+      const nextProgress = clampProgress(
+        progress ?? calculateProgress(resolvedCurrentTime, resolvedDuration)
+      );
       setCurrentProgress(nextProgress);
 
       if (playbackSyncInFlightRef.current) return;
 
       const sample = normalizePlaybackProgressSample({
         event,
-        currentTime,
-        duration,
+        currentTime: resolvedCurrentTime,
+        duration: resolvedDuration,
         progress: nextProgress
       });
       if (!shouldStorePlaybackProgressSample(lastStoredProgressSampleRef.current, sample)) return;
@@ -574,7 +618,7 @@ export function usePlaybackSession({
       updateProgress(
         content._id,
         nextProgress,
-        completed ?? nextProgress >= 95,
+        completed ?? (event === "ended" || nextProgress >= 95),
         sample.currentTime,
         sample.duration,
         content.type === "tv" ? targetRef.current.season : undefined,

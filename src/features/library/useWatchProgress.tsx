@@ -324,7 +324,7 @@ export function useUpdateProgress() {
   );
 
   const scheduleFlush = useCallback(
-    (delayMs = WATCH_PROGRESS_SYNC_INTERVAL_MS) => {
+    (delayMs = WATCH_PROGRESS_REMOTE_DEBOUNCE_MS) => {
       if (!user || timerRef.current) return;
       timerRef.current = setTimeout(() => {
         timerRef.current = null;

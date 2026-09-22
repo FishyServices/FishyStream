@@ -14,7 +14,15 @@ describe("providerCatalog", () => {
   });
 
   it("finds origin", () => {
-    expect(getProviderByOrigin("https://vidcore.net")?.key).toBe("vidcore");
+    expect(getProviderByOrigin("https://vidcore.io")?.key).toBe("vidcore");
+    expect(getProviderByOrigin("https://vidfast.xyz")?.key).toBe("vidfast");
+    expect(getProviderByOrigin("https://player.vidlove.cc")?.key).toBe("vidlove");
+  });
+
+  it("uses VidZee's primary embed endpoints", () => {
+    const provider = getProviderByKey("vidzee");
+    expect(provider?.getMovieUrl("550")).toBe("https://player.vidzee.wtf/embed/movie/550");
+    expect(provider?.getTVUrl("1399", 1, 1)).toBe("https://player.vidzee.wtf/embed/tv/1399/1/1");
   });
 
   it("anilist mappings", async () => {
@@ -36,6 +44,15 @@ describe("providerCatalog", () => {
     });
     expect(sources.find((source) => source.key === "megaplay")?.url).toBe(
       "https://megaplay.buzz/stream/ani/178090/5/dub"
+    );
+    expect(sources.find((source) => source.server.id === "bcdn")?.url).toBe(
+      "https://megaplay.buzz/stream/ani/178090/5/dub?s=bcdn"
+    );
+    expect(sources.find((source) => source.server.id === "tcdn")?.url).toBe(
+      "https://megaplay.buzz/stream/ani/178090/5/dub?s=tcdn"
+    );
+    expect(sources.find((source) => source.key === "zokoanime")?.url).toBe(
+      "https://zokoanime.video/stream/anilist/178090/5/dub"
     );
   });
 

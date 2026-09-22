@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { groupSourcesByProviderCategory, pickPreferredSource } from "./sourceSelection.js";
+import { getNextEpisodeAddress, shouldWaitForAnimeSeasonMetadata } from "./episodePolicy.js";
 import {
-  getNextEpisodeAddress,
   normalizePlaybackProgressSample,
-  pickPreferredSource,
-  shouldWaitForAnimeSeasonMetadata,
   shouldStorePlaybackProgressSample
-} from "./providerPlayback.js";
+} from "./progressPolicy.js";
 import type { StreamSource } from "../catalog/providerCatalog.js";
 
-describe("providerPlayback", () => {
+describe("playback source and progress policies", () => {
   it("normalizes progress samples to valid ranges", () => {
     const sample = normalizePlaybackProgressSample({
       event: "timeupdate",
@@ -62,10 +61,47 @@ describe("providerPlayback", () => {
 
   it("honors an explicit provider before automatic direct fallback", () => {
     const sources: StreamSource[] = [
-      { key: "direct", name: "Direct", url: "https://direct.example" },
-      { key: "megaplay", name: "MegaPlay", url: "https://megaplay.example" }
+      {
+        key: "direct",
+        name: "Direct",
+        url: "https://direct.example",
+        server: { id: "default", label: "Default" }
+      },
+      {
+        key: "megaplay",
+        name: "MegaPlay",
+        url: "https://megaplay.example",
+        server: { id: "default", label: "Default" }
+      }
     ];
 
     expect(pickPreferredSource(sources, { initialSource: "MegaPlay" })?.key).toBe("megaplay");
+  });
+
+  it("keeps server variants under one provider", () => {
+    const groups = groupSourcesByProviderCategory([
+      {
+        key: "megaplay",
+        name: "MegaPlay",
+        url: "https://megaplay.example",
+        server: { id: "default", label: "Default" }
+      },
+      {
+        key: "megaplay",
+        name: "MegaPlay",
+        url: "https://megaplay.example?s=bcdn",
+        server: { id: "bcdn", label: "BCDN", value: "bcdn" }
+      },
+      {
+        key: "megaplay",
+        name: "MegaPlay",
+        url: "https://megaplay.example?s=tcdn",
+        server: { id: "tcdn", label: "TCDN", value: "tcdn" }
+      }
+    ]);
+
+    expect(
+      groups.find((group) => group.key === "primary_anime")?.providers[0]?.sources
+    ).toHaveLength(3);
   });
 });

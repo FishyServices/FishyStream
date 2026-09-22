@@ -375,10 +375,7 @@ export function useUpdateWatchlistFolder() {
   const { user } = useUser();
   const setFolder = useMutation(api.domains.watchlist.watchlist.setWatchlistFolder);
   return useCallback(
-    (
-      input: ContentId | { contentId: ContentId; folder?: string },
-      requestedFolder?: string
-    ) => {
+    (input: ContentId | { contentId: ContentId; folder?: string }, requestedFolder?: string) => {
       const contentId = typeof input === "string" ? input : input.contentId;
       const folder = typeof input === "string" ? requestedFolder : input.folder;
       if (!user) return guestWatchlistPersistence.setFolder(contentId, folder);

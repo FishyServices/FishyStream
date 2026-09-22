@@ -1,10 +1,9 @@
 import { getProviderByOrigin } from "../catalog/providerCatalog.js";
-import type { ProviderCatalogEntry, ProviderKey } from "../catalog/providerCatalog.js";
 
 export interface PlayerEventData {
   event: "timeupdate" | "play" | "pause" | "ended" | "seeked" | "playerstatus";
-  currentTime: number;
-  duration: number;
+  currentTime?: number;
+  duration?: number;
   progress?: number;
   id?: string;
   tmdbId?: number;
@@ -59,6 +58,14 @@ type MegaPlayWatchingLogPayload = {
   type: "watching-log";
   currentTime?: number | string;
   duration?: number | string;
+};
+
+type CineSrcEventPayload = {
+  type: string;
+  currentTime?: number | string;
+  duration?: number | string;
+  volume?: number | string;
+  muted?: boolean;
 };
 
 function toFiniteNumber(value: unknown): number | undefined {
@@ -131,6 +138,10 @@ function isMegaPlayWatchingLogPayload(value: unknown): value is MegaPlayWatching
   return (
     toFiniteNumber(value.currentTime) !== undefined || toFiniteNumber(value.duration) !== undefined
   );
+}
+
+function isCineSrcEventPayload(value: unknown): value is CineSrcEventPayload {
+  return isRecord(value) && typeof value.type === "string" && value.type.startsWith("cinesrc:");
 }
 
 function normalizeMediaType(value: unknown): "movie" | "tv" {
@@ -223,6 +234,39 @@ function megaPlayWatchingLogToPlayerEvent(value: MegaPlayWatchingLogPayload): Pl
   };
 }
 
+function cineSrcEventToPlayerEvent(value: CineSrcEventPayload): PlayerEventPayload | null {
+  const eventName = value.type.slice("cinesrc:".length);
+  const eventMap: Record<string, PlayerEventData["event"]> = {
+    play: "play",
+    pause: "pause",
+    timeupdate: "timeupdate",
+    seeking: "seeked",
+    seeked: "seeked",
+    ended: "ended"
+  };
+  const event = eventMap[eventName];
+  if (!event) return null;
+
+  const rawCurrentTime = toFiniteNumber(value.currentTime);
+  const rawDuration = toFiniteNumber(value.duration);
+  return {
+    type: "PLAYER_EVENT",
+    data: {
+      event,
+      currentTime: rawCurrentTime === undefined ? undefined : Math.max(0, rawCurrentTime),
+      duration: rawDuration === undefined ? undefined : Math.max(0, rawDuration),
+      progress:
+        rawCurrentTime === undefined || rawDuration === undefined
+          ? undefined
+          : calculateProgress(rawCurrentTime, rawDuration),
+      mediaType: "tv",
+      volume: toFiniteNumber(value.volume),
+      muted: value.muted,
+      timestamp: Date.now()
+    }
+  };
+}
+
 export function isKnownPlayerOrigin(origin: string): boolean {
   const provider = getProviderByOrigin(origin);
   return !!provider && !provider.unsafeWildcardOrigin;
@@ -262,6 +306,7 @@ export function parsePlayerMessage(
   if (isRawProgressPayload(payload)) return rawProgressToPlayerEvent(payload);
   if (isMegaPlayTimePayload(payload)) return megaPlayTimeToPlayerEvent(payload);
   if (isMegaPlayWatchingLogPayload(payload)) return megaPlayWatchingLogToPlayerEvent(payload);
+  if (isCineSrcEventPayload(payload)) return cineSrcEventToPlayerEvent(payload);
 
   return null;
 }
@@ -269,132 +314,4 @@ export function parsePlayerMessage(
 export function calculateProgress(currentTime: number, duration: number): number {
   if (!duration || duration <= 0) return 0;
   return Math.min(100, Math.max(0, (currentTime / duration) * 100));
-}
-
-export interface PlayerControls {
-  play: () => void;
-  pause: () => void;
-  seek: (time: number) => void;
-  setVolume: (level: number) => void;
-  mute: (muted: boolean) => void;
-  getStatus: () => void;
-}
-
-export type ProviderContentType = "movie" | "tv";
-
-export type ProviderEmbedUrlProvider = Pick<
-  ProviderCatalogEntry,
-  "key" | "origins" | "progress" | "params"
->;
-
-export interface ProviderEmbedUrlOptions {
-  sourceUrl: string;
-  provider?: ProviderEmbedUrlProvider;
-  contentType: ProviderContentType;
-  resumePositionSeconds?: number;
-  watchCompleted?: boolean;
-  baseUrl?: string;
-}
-
-export function shouldApplyProviderResume(
-  providerKey: ProviderKey | string | undefined,
-  contentType: ProviderContentType
-) {
-  if (!providerKey) return false;
-  if (providerKey === "vidking" && contentType === "tv") return false;
-  if (providerKey === "vidnest" && contentType === "tv") return false;
-  return true;
-}
-
-export function shouldForceProviderStartPosition(providerKey: ProviderKey | string | undefined) {
-  return providerKey === "vidfast";
-}
-
-export function applyProviderEmbedParams(
-  url: URL,
-  provider: ProviderEmbedUrlProvider | undefined,
-  contentType: ProviderContentType
-) {
-  if (contentType !== "tv" || !provider?.params) return;
-
-  const paramsSchema = provider.params;
-
-  const setIfSupported = (key: string, value: string) => {
-    if (key in paramsSchema) {
-      url.searchParams.set(key, value);
-    }
-  };
-
-  setIfSupported("nextButton", "false");
-  setIfSupported("nextbutton", "false");
-  setIfSupported("nextEpisode", "false");
-  setIfSupported("nextepisode", "hide");
-
-  setIfSupported("autoNext", "false");
-  setIfSupported("autonext", "false");
-  setIfSupported("autoplayNextEpisode", "false");
-
-  setIfSupported("prevepisode", "hide");
-
-  setIfSupported("episodelist", "false");
-  setIfSupported("episodeSelector", "false");
-  setIfSupported("episodeselector", "false");
-
-  setIfSupported("hideServerControls", "true");
-  setIfSupported("hideServer", "true");
-}
-
-export function createProviderEmbedUrl({
-  sourceUrl,
-  provider,
-  contentType,
-  resumePositionSeconds = 0,
-  watchCompleted = false,
-  baseUrl = "http://localhost"
-}: ProviderEmbedUrlOptions) {
-  try {
-    const url = new URL(sourceUrl, baseUrl);
-    const providerKey = provider?.key;
-    const shouldResume =
-      resumePositionSeconds > 0 &&
-      !watchCompleted &&
-      shouldApplyProviderResume(providerKey, contentType);
-
-    applyProviderEmbedParams(url, provider, contentType);
-
-    if (provider?.progress?.resumeParam && shouldForceProviderStartPosition(providerKey)) {
-      url.searchParams.set(
-        provider.progress.resumeParam,
-        String(shouldResume ? resumePositionSeconds : 0)
-      );
-    } else if (shouldResume && provider?.progress?.resumeParam) {
-      url.searchParams.set(provider.progress.resumeParam, String(resumePositionSeconds));
-    }
-
-    return url.toString();
-  } catch {
-    return sourceUrl;
-  }
-}
-
-export function postMessageToPlayer(
-  iframe: HTMLIFrameElement | null,
-  command: string,
-  params?: Record<string, unknown>
-): void {
-  if (!iframe?.contentWindow) return;
-  iframe.contentWindow.postMessage({ command, ...params }, "*");
-}
-
-export function createPlayerControls(iframeRef: {
-  current: HTMLIFrameElement | null;
-}): PlayerControls {
-  return {
-    play: () => postMessageToPlayer(iframeRef.current, "play"),
-    pause: () => postMessageToPlayer(iframeRef.current, "pause"),
-    seek: (time: number) => postMessageToPlayer(iframeRef.current, "seek", { time }),
-    setVolume: (level: number) => postMessageToPlayer(iframeRef.current, "volume", { level }),
-    mute: (muted: boolean) => postMessageToPlayer(iframeRef.current, "mute", { muted }),
-    getStatus: () => postMessageToPlayer(iframeRef.current, "getStatus")
-  };
 }
