@@ -44,6 +44,22 @@ import { selectFreshRecommendations, shuffleWithSeed } from "../recommendationSe
 
 export type { TMDBItem, TMDBFullDetail };
 
+export interface OwnerPickItem {
+  tmdbId: string;
+  title: string;
+  rank?: number;
+}
+
+export function sortOwnerPicksByRank<T extends OwnerPickItem>(items: T[]): T[] {
+  return [...items].sort((left, right) => {
+    const leftRank = left.rank ?? Number.MAX_SAFE_INTEGER;
+    const rightRank = right.rank ?? Number.MAX_SAFE_INTEGER;
+
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    return left.title.localeCompare(right.title);
+  });
+}
+
 const imdbRequest = createIMDbProxyRequest("/api/imdb");
 const curatedCache = new Map<string, TMDBContentCard>();
 const queryCache = new Map<string, unknown>();
@@ -243,9 +259,9 @@ export function useCuratedPicks() {
   useEffect(() => {
     const controller = new AbortController();
     const groups = [
-      ["movies", ownersPicksData.movies, "movie"],
-      ["tv", ownersPicksData.tv, "tv"],
-      ["anime", ownersPicksData.anime, "tv"]
+      ["movies", sortOwnerPicksByRank(ownersPicksData.movies as OwnerPickItem[]), "movie"],
+      ["tv", sortOwnerPicksByRank(ownersPicksData.tv as OwnerPickItem[]), "tv"],
+      ["anime", sortOwnerPicksByRank(ownersPicksData.anime as OwnerPickItem[]), "tv"]
     ] as const;
     void Promise.all(
       groups.map(async ([group, items, type]) => {
