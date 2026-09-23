@@ -18,6 +18,7 @@ import { WatchHistoryPage } from "../pages/WatchHistoryPage";
 import { SearchPage } from "../pages/SearchPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { RecommendationsPage } from "../pages/RecommendationsPage";
+import { DmcaPage } from "../pages/DmcaPage";
 import { GlobalWatchlistProvider } from "../features/library/useWatchlist";
 import { WatchProgressProvider } from "../features/library/useWatchProgress";
 import { AppSettingsProvider } from "../features/settings/useAppSettings";
@@ -124,6 +125,7 @@ function AppShell() {
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/discover" element={<App />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/dmca" element={<DmcaPage />} />
                 <Route path="/" element={<App />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

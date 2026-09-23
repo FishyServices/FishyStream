@@ -11,6 +11,7 @@ import {
   Menu,
   Search,
   Settings,
+  ShieldAlert,
   Sparkles,
   Star,
   Tv,
@@ -139,7 +140,8 @@ function SearchDialog({
               {[
                 ...primaryNav,
                 ...libraryNav,
-                { label: "Settings", href: "/settings", icon: Settings }
+                { label: "Settings", href: "/settings", icon: Settings },
+                { label: "DMCA & Legal", href: "/dmca", icon: ShieldAlert }
               ].map((item) => (
                 <CommandItem
                   key={item.href}

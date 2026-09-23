@@ -36,7 +36,10 @@ import {
   Switch,
   ThemeSwitcher
 } from "@fishy/ui";
+import { Link } from "react-router-dom";
 import {
+  ArrowUpRight,
+  Bug,
   Check,
   ChevronsUpDown,
   CircleGauge,
@@ -44,6 +47,7 @@ import {
   Palette,
   PlayCircle,
   RotateCcw,
+  ShieldAlert,
   SlidersHorizontal,
   Tv2
 } from "lucide-react";
@@ -431,6 +435,60 @@ export function SettingsPage() {
                     checked={settings.autoAdvanceEpisodes}
                     onCheckedChange={(checked) => updateSetting("autoAdvanceEpisodes", checked)}
                   />
+                }
+              />
+            </SettingsSection>
+
+            <SettingsSection icon={<ShieldAlert className="h-4 w-4" />} title="Support & Legal">
+              <SettingRow
+                label="Report a bug"
+                description="Found an issue or broken stream? File an issue on GitHub"
+                control={
+                  <a
+                    href="https://github.com/FishyServices/FishyStream/issues/new?template=bug_report.yml"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block"
+                  >
+                    <Button variant="outline" className="w-full justify-between rounded-xl">
+                      <span className="flex items-center gap-2">
+                        <Bug className="h-4 w-4" />
+                        Report Bug
+                      </span>
+                      <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </a>
+                }
+              />
+
+              <SettingRow
+                label="DMCA & Copyright policy"
+                description="Service model, takedown requests, and rights holder info"
+                control={
+                  <Link to="/dmca" className="block">
+                    <Button variant="outline" className="w-full justify-between rounded-xl">
+                      <span>View Policy</span>
+                      <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </Link>
+                }
+              />
+
+              <SettingRow
+                label="Source code"
+                description="FishyStream is open-source on GitHub"
+                control={
+                  <a
+                    href="https://github.com/FishyServices/FishyStream"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block"
+                  >
+                    <Button variant="outline" className="w-full justify-between rounded-xl">
+                      <span>GitHub</span>
+                      <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </a>
                 }
               />
             </SettingsSection>

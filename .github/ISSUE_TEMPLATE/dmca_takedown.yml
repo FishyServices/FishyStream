@@ -1,0 +1,52 @@
+name: DMCA / Copyright Takedown Request
+description: Submit a notice to delist a title from FishyStream's search index
+title: "[DMCA]: Takedown Request for <Title>"
+labels: ["dmca"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Notice to Rights Holders
+        FishyStream functions as a search engine and content aggregator. We do not host, store, or control any media files upstream.
+
+        When a valid takedown notice is submitted with sufficient detail to identify the title, we will delist the title from our search index so it cannot be reached on the site, and we will reply directly on this issue with the upstream source hosts so you can address the files at their actual source.
+  - type: input
+    id: work_title
+    attributes:
+      label: Work Title & Release Year
+      description: The official name and release year of the copyrighted work.
+      placeholder: e.g. Interstellar (2014)
+    validations:
+      required: true
+  - type: input
+    id: identifier
+    attributes:
+      label: TMDB ID or IMDb ID
+      description: To avoid any ambiguity in matching the catalog entry, provide the TMDB or IMDb ID.
+      placeholder: e.g. tmdb:157336 or tt0816692
+    validations:
+      required: true
+  - type: input
+    id: claimant
+    attributes:
+      label: Copyright Owner / Authorised Agent Name
+      description: Who owns the copyright or holds legal authority to submit this notice?
+      placeholder: e.g. Studio / Distributor Name or Agent Full Name
+    validations:
+      required: true
+  - type: textarea
+    id: statement
+    attributes:
+      label: Statement of Ownership & Authority
+      description: A brief statement confirming you own the rights or are authorized to act on behalf of the rights holder.
+      value: |
+        I confirm under penalty of perjury that I am the copyright owner or authorized to act on behalf of the owner of an exclusive right that is allegedly infringed, and that the information in this notice is accurate.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Acknowledgement
+      options:
+        - label: I understand that FishyStream does not host files and that delisting removes access through this index while upstream sources must be handled with the external hosts directly.
+          required: true

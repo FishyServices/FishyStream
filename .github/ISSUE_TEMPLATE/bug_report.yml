@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a broken stream, incorrect metadata, or functional issue in FishyStream
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an issue! Please provide as much context as possible.
+  - type: dropdown
+    id: category
+    attributes:
+      label: Issue Category
+      description: What kind of issue are you encountering?
+      options:
+        - Broken stream / provider error
+        - Video playback issue (audio, subtitles, controls)
+        - Metadata or poster display bug
+        - Watchlist / history sync issue
+        - UI / layout issue
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: title_name
+    attributes:
+      label: Title / Media Name
+      description: If this issue involves a specific movie, TV show, or anime, please provide its name.
+      placeholder: e.g. Inception or Attack on Titan
+  - type: input
+    id: season_episode
+    attributes:
+      label: Season & Episode (if applicable)
+      description: e.g. Season 2 Episode 4
+      placeholder: S02E04
+  - type: input
+    id: provider
+    attributes:
+      label: Provider / Source
+      description: Which provider source was selected in the player when the error happened?
+      placeholder: e.g. auto, superembed, vidsrc, etc.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened, and what did you expect to happen instead?
+      placeholder: Detailed description of the problem...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can someone reproduce this bug?
+      value: |
+        1. Go to '...'
+        2. Click on '....'
+        3. See error
+  - type: input
+    id: environment
+    attributes:
+      label: Device & Browser
+      description: e.g. Chrome on Windows 11, Safari on iOS 18, Android app
+      placeholder: Windows 11, Chrome 132

@@ -1,6 +1,8 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Bug, ShieldAlert } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const GITHUB_URL = "https://github.com/FishyServices/FishyStream";
+const GITHUB_BUG_REPORT_URL = `${GITHUB_URL}/issues/new?template=bug_report.yml`;
 
 export function ProjectCard() {
   return (
@@ -14,16 +16,34 @@ export function ProjectCard() {
           <span className="mx-2 text-muted-foreground/35">|</span>
           Open-source streaming platform
         </p>
-        <a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="focus-ring inline-flex min-h-11 w-fit items-center gap-1.5 font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <div className="h-4 w-4" aria-hidden="true" />
-          GitHub
-          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </a>
+        <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
+          <a
+            href={GITHUB_BUG_REPORT_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="focus-ring inline-flex min-h-11 w-fit items-center gap-1.5 font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Bug className="h-3.5 w-3.5" aria-hidden="true" />
+            Report Bug
+            <ArrowUpRight className="h-3 w-3 text-muted-foreground/70" aria-hidden="true" />
+          </a>
+          <Link
+            to="/dmca"
+            className="focus-ring inline-flex min-h-11 w-fit items-center gap-1.5 font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+            DMCA
+          </Link>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="focus-ring inline-flex min-h-11 w-fit items-center gap-1.5 font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            GitHub
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
+        </div>
       </div>
     </section>
   );

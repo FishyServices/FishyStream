@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Loader2,
   AlertCircle,
+  Bug,
   MonitorPlay,
   RefreshCw,
   SkipForward,
@@ -627,7 +628,7 @@ export function VideoPlayer({
             No source available
           </h2>
           {error ? <p className="mb-6 text-sm text-muted-foreground">{error}</p> : null}
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-wrap gap-3 justify-center">
             <Button onClick={() => navigate(-1)} variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -645,6 +646,22 @@ export function VideoPlayer({
                 Next source
               </Button>
             )}
+            <a
+              href={`https://github.com/FishyServices/FishyStream/issues/new?template=bug_report.yml&title_name=${encodeURIComponent(
+                content.title
+              )}&season_episode=${encodeURIComponent(
+                content.type === "tv" ? `S${tvTarget.season}E${tvTarget.episode}` : "N/A"
+              )}&provider=${encodeURIComponent(selectedSource || "auto")}&title=${encodeURIComponent(
+                `[BUG]: Playback issue on ${content.title}${content.type === "tv" ? ` S${tvTarget.season}E${tvTarget.episode}` : ""}`
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
+                <Bug className="w-4 h-4 mr-2" />
+                Report issue
+              </Button>
+            </a>
           </div>
         </div>
       </div>
