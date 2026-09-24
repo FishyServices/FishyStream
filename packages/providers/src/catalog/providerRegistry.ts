@@ -161,8 +161,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     },
     moviePath: (id) => `/stream/ani/${id}/1/sub`,
     tvPath: (id, _season, episode) => `/stream/ani/${id}/${episode}/sub`,
-    animePath: (id, _season, episode, dub) =>
-      `/stream/anilist/${id}/${episode}/${dub ? "dub" : "sub"}`,
+    animePath: (id, _season, episode, dub) => `/stream/ani/${id}/${episode}/${dub ? "dub" : "sub"}`,
     malAnimePath: (id, _season, episode, dub) =>
       `/stream/mal/${id}/${episode}/${dub ? "dub" : "sub"}`
   }),
