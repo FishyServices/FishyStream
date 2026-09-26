@@ -1,46 +1,46 @@
-import type { ContentId, WatchlistGridItem } from "@content/contentMetadata";
+import type { ContentId, BookmarkGridItem } from "@content/contentMetadata";
 import {
-  getWatchlistIds,
-  getWatchlistSnapshots,
-  setWatchlistIds,
-  setWatchlistSnapshots,
-  setWatchlistTmdbMap
+  getBookmarkIds,
+  getBookmarkSnapshots,
+  setBookmarkIds,
+  setBookmarkSnapshots,
+  setBookmarkTmdbMap
 } from "@/shared/storage/localStorageStore";
 
-export const guestWatchlistPersistence = {
+export const guestBookmarkPersistence = {
   setFolder(contentId: ContentId, folder?: string): void {
-    const snapshots = getWatchlistSnapshots();
+    const snapshots = getBookmarkSnapshots();
     const snapshot = snapshots[contentId];
     if (!snapshot) return;
-    snapshots[contentId] = { ...snapshot, watchlistFolder: folder };
-    setWatchlistSnapshots(snapshots);
+    snapshots[contentId] = { ...snapshot, bookmarkFolder: folder };
+    setBookmarkSnapshots(snapshots);
   },
   removeMany(contentIds: readonly ContentId[]): void {
     const removed = new Set(contentIds);
-    const snapshots = getWatchlistSnapshots();
+    const snapshots = getBookmarkSnapshots();
     for (const contentId of removed) delete snapshots[contentId];
-    setWatchlistSnapshots(snapshots);
-    setWatchlistIds(getWatchlistIds().filter((id) => !removed.has(id)));
+    setBookmarkSnapshots(snapshots);
+    setBookmarkIds(getBookmarkIds().filter((id) => !removed.has(id)));
     const tmdbMap = Object.fromEntries(
       Object.entries(snapshots).map(([contentId, snapshot]) => [contentId, snapshot.tmdbId])
     );
-    setWatchlistTmdbMap(tmdbMap);
+    setBookmarkTmdbMap(tmdbMap);
   },
   setFolderMany(contentIds: readonly ContentId[], folder?: string): void {
     const requested = new Set(contentIds);
-    const snapshots = getWatchlistSnapshots();
+    const snapshots = getBookmarkSnapshots();
     for (const contentId of requested) {
       const snapshot = snapshots[contentId];
-      if (snapshot) snapshots[contentId] = { ...snapshot, watchlistFolder: folder };
+      if (snapshot) snapshots[contentId] = { ...snapshot, bookmarkFolder: folder };
     }
-    setWatchlistSnapshots(snapshots);
+    setBookmarkSnapshots(snapshots);
   }
 };
 
-export function listGuestWatchlist(): WatchlistGridItem[] {
-  const snapshots = getWatchlistSnapshots();
-  return getWatchlistIds()
-    .map<WatchlistGridItem | null>((id) => {
+export function listGuestBookmark(): BookmarkGridItem[] {
+  const snapshots = getBookmarkSnapshots();
+  return getBookmarkIds()
+    .map<BookmarkGridItem | null>((id) => {
       const snapshot = snapshots[id];
       if (!snapshot) return null;
       return {
@@ -49,12 +49,12 @@ export function listGuestWatchlist(): WatchlistGridItem[] {
         type: snapshot.type,
         posterUrl: snapshot.posterUrl,
         tmdbId: snapshot.tmdbId,
-        watchlistFolder: snapshot.watchlistFolder,
+        bookmarkFolder: snapshot.bookmarkFolder,
         genre: snapshot.genre,
         year: snapshot.year,
         voteAverage: snapshot.voteAverage
       };
     })
-    .filter((item): item is WatchlistGridItem => item !== null)
+    .filter((item): item is BookmarkGridItem => item !== null)
     .reverse();
 }

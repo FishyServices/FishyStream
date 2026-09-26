@@ -8,7 +8,7 @@ export type LocalContentSnapshot = {
   genre?: string[];
   year?: number;
   voteAverage?: number;
-  watchlistFolder?: string;
+  bookmarkFolder?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -25,7 +25,7 @@ function isLocalContentSnapshot(value: unknown): value is LocalContentSnapshot {
     (value.genre === undefined || Array.isArray(value.genre)) &&
     (value.year === undefined || typeof value.year === "number") &&
     (value.voteAverage === undefined || typeof value.voteAverage === "number") &&
-    (value.watchlistFolder === undefined || typeof value.watchlistFolder === "string")
+    (value.bookmarkFolder === undefined || typeof value.bookmarkFolder === "string")
   );
 }
 
@@ -60,20 +60,20 @@ function readJson(key: string): unknown {
   return raw === null ? undefined : JSON.parse(raw);
 }
 
-// --- Watchlist ---
-const LS_WATCHLIST_IDS_KEY = "watchlist_ids";
-const LS_WATCHLIST_TMDB_KEY = "watchlist_tmdb_map";
-const LS_WATCHLIST_SNAPSHOTS_KEY = "watchlist_snapshots_v1";
-const LS_WATCHLIST_CACHE_PREFIX = "watchlist_cache_v1:";
+// --- Bookmark ---
+const LS_BOOKMARK_IDS_KEY = "bookmark_ids";
+const LS_BOOKMARK_TMDB_KEY = "bookmark_tmdb_map";
+const LS_BOOKMARK_SNAPSHOTS_KEY = "bookmark_snapshots_v1";
+const LS_BOOKMARK_CACHE_PREFIX = "bookmark_cache_v1:";
 
-export type WatchlistCache = {
+export type BookmarkCache = {
   ids: ContentId[];
   snapshots: Record<string, LocalContentSnapshot>;
 };
 
-export function getWatchlistIds(): ContentId[] {
+export function getBookmarkIds(): ContentId[] {
   try {
-    const value = readJson(LS_WATCHLIST_IDS_KEY);
+    const value = readJson(LS_BOOKMARK_IDS_KEY);
     return Array.isArray(value)
       ? value.filter((id): id is ContentId => typeof id === "string" && parseContentId(id) !== null)
       : [];
@@ -82,15 +82,15 @@ export function getWatchlistIds(): ContentId[] {
   }
 }
 
-export function setWatchlistIds(ids: readonly string[]) {
+export function setBookmarkIds(ids: readonly string[]) {
   try {
-    localStorage.setItem(LS_WATCHLIST_IDS_KEY, JSON.stringify(ids));
+    localStorage.setItem(LS_BOOKMARK_IDS_KEY, JSON.stringify(ids));
   } catch {}
 }
 
-export function getWatchlistTmdbMap(): Record<string, string> {
+export function getBookmarkTmdbMap(): Record<string, string> {
   try {
-    const value = readJson(LS_WATCHLIST_TMDB_KEY);
+    const value = readJson(LS_BOOKMARK_TMDB_KEY);
     if (!isRecord(value)) return {};
     return Object.fromEntries(
       Object.entries(value).filter(
@@ -102,7 +102,7 @@ export function getWatchlistTmdbMap(): Record<string, string> {
   }
 }
 
-export function setWatchlistTmdbMap(map: Map<string, string> | Record<string, string>) {
+export function setBookmarkTmdbMap(map: Map<string, string> | Record<string, string>) {
   try {
     const obj: Record<string, string> = {};
     if (map instanceof Map) {
@@ -112,13 +112,13 @@ export function setWatchlistTmdbMap(map: Map<string, string> | Record<string, st
     } else {
       Object.assign(obj, map);
     }
-    localStorage.setItem(LS_WATCHLIST_TMDB_KEY, JSON.stringify(obj));
+    localStorage.setItem(LS_BOOKMARK_TMDB_KEY, JSON.stringify(obj));
   } catch {}
 }
 
-export function getWatchlistSnapshots(): Record<string, LocalContentSnapshot> {
+export function getBookmarkSnapshots(): Record<string, LocalContentSnapshot> {
   try {
-    const value = readJson(LS_WATCHLIST_SNAPSHOTS_KEY);
+    const value = readJson(LS_BOOKMARK_SNAPSHOTS_KEY);
     if (!isRecord(value)) return {};
     return Object.fromEntries(
       Object.entries(value).filter((entry): entry is [string, LocalContentSnapshot] =>
@@ -130,19 +130,19 @@ export function getWatchlistSnapshots(): Record<string, LocalContentSnapshot> {
   }
 }
 
-export function setWatchlistSnapshots(snapshots: Record<string, LocalContentSnapshot>) {
+export function setBookmarkSnapshots(snapshots: Record<string, LocalContentSnapshot>) {
   try {
-    localStorage.setItem(LS_WATCHLIST_SNAPSHOTS_KEY, JSON.stringify(snapshots));
+    localStorage.setItem(LS_BOOKMARK_SNAPSHOTS_KEY, JSON.stringify(snapshots));
   } catch {}
 }
 
-function getWatchlistCacheKey(userId: string) {
-  return `${LS_WATCHLIST_CACHE_PREFIX}${userId}`;
+function getBookmarkCacheKey(userId: string) {
+  return `${LS_BOOKMARK_CACHE_PREFIX}${userId}`;
 }
 
-export function getWatchlistCache(userId: string): WatchlistCache {
+export function getBookmarkCache(userId: string): BookmarkCache {
   try {
-    const value = readJson(getWatchlistCacheKey(userId));
+    const value = readJson(getBookmarkCacheKey(userId));
     if (!isRecord(value) || !Array.isArray(value.ids) || !isRecord(value.snapshots)) {
       return { ids: [], snapshots: {} };
     }
@@ -161,9 +161,9 @@ export function getWatchlistCache(userId: string): WatchlistCache {
   }
 }
 
-export function setWatchlistCache(userId: string, cache: WatchlistCache) {
+export function setBookmarkCache(userId: string, cache: BookmarkCache) {
   try {
-    localStorage.setItem(getWatchlistCacheKey(userId), JSON.stringify(cache));
+    localStorage.setItem(getBookmarkCacheKey(userId), JSON.stringify(cache));
   } catch {}
 }
 
@@ -227,7 +227,7 @@ export function removeWatchProgressEntry(contentId: string) {
 
 // --- Custom Folders ---
 export function getCustomFoldersKey(userId: string = "guest") {
-  return `watchlist_custom_folders_${userId}`;
+  return `bookmark_custom_folders_${userId}`;
 }
 
 export function getCustomFolders(userId: string = "guest"): string[] {

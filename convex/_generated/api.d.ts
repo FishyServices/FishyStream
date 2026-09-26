@@ -8,12 +8,12 @@
  * @module
  */
 
+import type * as domains_bookmark_bookmark from "../domains/bookmark/bookmark.js";
 import type * as domains_history_mediaStateModel from "../domains/history/mediaStateModel.js";
 import type * as domains_history_watchHistory from "../domains/history/watchHistory.js";
 import type * as domains_progress_watchProgress from "../domains/progress/watchProgress.js";
 import type * as domains_seasons_seasonSync from "../domains/seasons/seasonSync.js";
 import type * as domains_seasons_seasons from "../domains/seasons/seasons.js";
-import type * as domains_watchlist_watchlist from "../domains/watchlist/watchlist.js";
 import type * as lib_auth from "../lib/auth.js";
 
 import type {
@@ -23,12 +23,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "domains/bookmark/bookmark": typeof domains_bookmark_bookmark;
   "domains/history/mediaStateModel": typeof domains_history_mediaStateModel;
   "domains/history/watchHistory": typeof domains_history_watchHistory;
   "domains/progress/watchProgress": typeof domains_progress_watchProgress;
   "domains/seasons/seasonSync": typeof domains_seasons_seasonSync;
   "domains/seasons/seasons": typeof domains_seasons_seasons;
-  "domains/watchlist/watchlist": typeof domains_watchlist_watchlist;
   "lib/auth": typeof lib_auth;
 }>;
 

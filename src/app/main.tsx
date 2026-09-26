@@ -13,13 +13,13 @@ import { WatchPage } from "../pages/WatchPage";
 import { LocalWatchPage } from "../pages/LocalWatchPage";
 import { MediaBrowsePage } from "../pages/MediaBrowsePage";
 import { OwnersPicksPage } from "../pages/OwnersPicksPage";
-import { MyListPage } from "../pages/MyListPage";
+import { BookmarkPage } from "../pages/BookmarkPage";
 import { WatchHistoryPage } from "../pages/WatchHistoryPage";
 import { SearchPage } from "../pages/SearchPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { RecommendationsPage } from "../pages/RecommendationsPage";
 import { DmcaPage } from "../pages/DmcaPage";
-import { GlobalWatchlistProvider } from "../features/library/useWatchlist";
+import { GlobalBookmarkProvider } from "../features/library/useBookmark";
 import { WatchProgressProvider } from "../features/library/useWatchProgress";
 import { AppSettingsProvider } from "../features/settings/useAppSettings";
 import "../index.css";
@@ -108,7 +108,7 @@ function AppShell() {
     <ConvexProviderWithAuth client={convex} useAuth={useStableConvexClerkAuth}>
       <AppSettingsProvider>
         <BrowserRouter>
-          <GlobalWatchlistProvider>
+          <GlobalBookmarkProvider>
             <WatchProgressProvider>
               <Routes>
                 <Route path="/sign-in/*" element={<SignInPage />} />
@@ -119,7 +119,7 @@ function AppShell() {
                 <Route path="/tv-shows" element={<MediaBrowsePage mode="tv" />} />
                 <Route path="/anime/genre/:genre" element={<MediaBrowsePage mode="anime" />} />
                 <Route path="/best" element={<OwnersPicksPage />} />
-                <Route path="/my-list" element={<MyListPage />} />
+                <Route path="/bookmark" element={<BookmarkPage />} />
                 <Route path="/history" element={<WatchHistoryPage />} />
                 <Route path="/recommendations" element={<RecommendationsPage />} />
                 <Route path="/search" element={<SearchPage />} />
@@ -130,7 +130,7 @@ function AppShell() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </WatchProgressProvider>
-          </GlobalWatchlistProvider>
+          </GlobalBookmarkProvider>
         </BrowserRouter>
       </AppSettingsProvider>
     </ConvexProviderWithAuth>

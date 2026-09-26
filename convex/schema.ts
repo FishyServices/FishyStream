@@ -18,7 +18,7 @@ export default defineSchema({
     .index("by_clerk_content", ["clerkUserId", "contentId"])
     .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"]),
 
-  watchlist: defineTable({
+  bookmark: defineTable({
     clerkUserId: v.string(),
     contentId: v.string(),
     addedAt: v.number(),
@@ -28,19 +28,19 @@ export default defineSchema({
     .index("by_clerk_added", ["clerkUserId", "addedAt"])
     .index("by_clerk_folder", ["clerkUserId", "folder", "addedAt"]),
 
-  watchlistIds: defineTable({
+  bookmarkIds: defineTable({
     clerkUserId: v.string(),
     contentIds: v.array(v.string())
   }).index("by_clerk", ["clerkUserId"]),
 
-  watchlistCounts: defineTable({
+  bookmarkCounts: defineTable({
     clerkUserId: v.string(),
     total: v.number(),
     unsorted: v.number(),
     folderCounts: v.array(v.object({ name: v.string(), count: v.number() }))
   }).index("by_clerk", ["clerkUserId"]),
 
-  watchlistContent: defineTable({
+  bookmarkContent: defineTable({
     contentId: v.string(),
     title: v.string(),
     posterUrl: v.string()

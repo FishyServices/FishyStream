@@ -31,10 +31,10 @@ import {
 } from "@fishy/ui";
 import { useUser } from "@clerk/react";
 import {
-  useIsInWatchlist,
-  useToggleWatchlist,
-  type WatchlistSnapshot
-} from "@/features/library/useWatchlist";
+  useIsInBookmark,
+  useToggleBookmark,
+  type BookmarkSnapshot
+} from "@/features/library/useBookmark";
 import { makeContentId } from "@content/contentMetadata";
 import { toast } from "@fishy/ui";
 import {
@@ -394,16 +394,16 @@ export function ContentModal({
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [selectedDownloadEpisodes, setSelectedDownloadEpisodes] = useState<number[]>([]);
 
-  const watchlistTmdbId =
+  const bookmarkTmdbId =
     resolvedContent?.tmdbId && /^\d+$/.test(resolvedContent.tmdbId)
       ? resolvedContent.tmdbId
       : undefined;
-  const watchlistContentId =
-    watchlistTmdbId && resolvedContent
-      ? makeContentId(resolvedContent.type, watchlistTmdbId)
+  const bookmarkContentId =
+    bookmarkTmdbId && resolvedContent
+      ? makeContentId(resolvedContent.type, bookmarkTmdbId)
       : undefined;
-  const isInWatchlist = useIsInWatchlist(watchlistContentId);
-  const toggleWatchlist = useToggleWatchlist();
+  const isInBookmark = useIsInBookmark(bookmarkContentId);
+  const toggleBookmark = useToggleBookmark();
   const isAnimeContent =
     detailContent?.originalLanguage === "ja" ||
     (resolvedContent?.genre ?? []).some((genre) => genre.toLowerCase() === "animation");
@@ -612,20 +612,20 @@ export function ContentModal({
 
   const ratingLabel: string | undefined = detailContent?.rating;
 
-  const handleWatchlist = async () => {
-    if (!watchlistContentId || !watchlistTmdbId) return;
+  const handleBookmark = async () => {
+    if (!bookmarkContentId || !bookmarkTmdbId) return;
     try {
-      const snapshot: WatchlistSnapshot = {
+      const snapshot: BookmarkSnapshot = {
         title: contentData.title,
         type: contentData.type,
         posterUrl: contentData.posterUrl,
-        tmdbId: watchlistTmdbId,
+        tmdbId: bookmarkTmdbId,
         genre: contentData.genre,
         year: contentData.year,
         voteAverage: contentData.voteAverage
       };
-      await toggleWatchlist(watchlistContentId, snapshot);
-      toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
+      await toggleBookmark(bookmarkContentId, snapshot);
+      toast.success(isInBookmark ? "Removed from Bookmarks" : "Added to Bookmarks");
     } catch {
       toast.error("Failed to update list");
     }
@@ -700,15 +700,15 @@ export function ContentModal({
                 {contentData.progress && contentData.progress > 0 ? "Resume" : "Play"}
                 {isTV ? ` S${selectedSeason} E${selectedEpisode}` : ""}
               </Button>
-              {watchlistContentId && (
+              {bookmarkContentId && (
                 <Button
                   variant="ghost"
                   size="icon"
                   className="flex h-10 w-10 rounded-xl border-border/80 bg-background/70 text-foreground hover:bg-accent"
-                  onClick={handleWatchlist}
-                  aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
+                  onClick={handleBookmark}
+                  aria-label={isInBookmark ? "Remove from Bookmarks" : "Add to Bookmarks"}
                 >
-                  {isInWatchlist ? (
+                  {isInBookmark ? (
                     <Check className="h-5 w-5 text-green-400" />
                   ) : (
                     <Plus className="h-5 w-5 text-foreground" />

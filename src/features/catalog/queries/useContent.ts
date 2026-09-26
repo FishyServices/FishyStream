@@ -92,7 +92,7 @@ export interface BrowsePageResult {
 }
 
 export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
-type RecommendationSeedSource = "continue" | "watchlist" | "history";
+type RecommendationSeedSource = "continue" | "bookmark" | "history";
 
 export type RecommendationSeed = {
   tmdbId: string;
@@ -608,8 +608,8 @@ export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 
   const { user } = useUser();
   const { isAuthenticated } = useConvexAuth();
   const { scope } = useRecommendationFolderScope(user?.id ?? "guest");
-  const watchlistSeeds = useQuery(
-    api.domains.watchlist.watchlist.listRecommendationSeeds,
+  const bookmarkSeeds = useQuery(
+    api.domains.bookmark.bookmark.listRecommendationSeeds,
     enabled && user && isAuthenticated
       ? {
           ...(scope.folder ? { folder: scope.folder } : {})
@@ -617,10 +617,10 @@ export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 
       : "skip"
   );
   return useMemo(() => {
-    if (enabled && user && watchlistSeeds === undefined) {
+    if (enabled && user && bookmarkSeeds === undefined) {
       return { tmdbSeeds: [], preferredType: "movie" as TMDBMediaType, genres: [] };
     }
-    const watchlist = watchlistSeeds ?? [];
+    const bookmark = bookmarkSeeds ?? [];
     const weights = new Map<string, number>();
     const genres = new Map<string, number>();
     const seeds = new Map<string, RecommendationSeed>();
@@ -635,7 +635,7 @@ export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 
       const existing = seeds.get(key);
       const sourcePriority: Record<RecommendationSeedSource, number> = {
         continue: 3,
-        watchlist: 2,
+        bookmark: 2,
         history: 1
       };
       seeds.set(key, {
@@ -650,14 +650,14 @@ export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 
       });
       for (const genre of item.genre ?? []) genres.set(genre, (genres.get(genre) ?? 0) + weight);
     };
-    const shuffledWatchlist = shuffleWithSeed(watchlist, refreshSeed * 7919 + 17);
+    const shuffledBookmark = shuffleWithSeed(bookmark, refreshSeed * 7919 + 17);
     if (scope.folder === null)
       shuffleWithSeed(continueWatching ?? [], refreshSeed * 6151 + 31)
         .slice(0, 24)
         .forEach((item, index) => add(item, Math.max(0.5, 1 - index * 0.05), "continue"));
-    shuffledWatchlist
+    shuffledBookmark
       .slice(0, 20)
-      .forEach((item, index) => add(item, 7 * Math.max(0.3, 1 - index * 0.02), "watchlist"));
+      .forEach((item, index) => add(item, 7 * Math.max(0.3, 1 - index * 0.02), "bookmark"));
     if (scope.folder === null)
       shuffleWithSeed(history ?? [], refreshSeed * 4513 + 47)
         .slice(0, 48)
@@ -679,7 +679,7 @@ export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 
         .slice(0, 8)
         .map(([genre]) => genre)
     };
-  }, [continueWatching, enabled, history, refreshSeed, scope, user, watchlistSeeds]);
+  }, [continueWatching, enabled, history, refreshSeed, scope, user, bookmarkSeeds]);
 }
 
 const REC_CACHE = "fishy_recs_cache_v3";

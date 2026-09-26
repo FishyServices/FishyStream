@@ -20,7 +20,7 @@ Use these terms when describing code and tests.
 
 ## Viewer state
 
-**Watchlist** is a viewer's saved content, optionally grouped into folders.
+**Bookmark** is a viewer's saved content, optionally grouped into folders.
 
 **Watch history** is the viewer's recorded playback state, including completion and episode position.
 
@@ -28,4 +28,4 @@ Use these terms when describing code and tests.
 
 ## Ownership rule
 
-Catalog modules own content acquisition and normalization. Playback modules own source selection and session state. Library modules own watchlist, history, and progress. UI modules render these results and send user events through their interfaces.
+Catalog modules own content acquisition and normalization. Playback modules own source selection and session state. Library modules own bookmark, history, and progress. UI modules render these results and send user events through their interfaces.

@@ -13,10 +13,10 @@ import {
 import { Button } from "@fishy/ui";
 import { ContentModal } from "./ContentModal";
 import {
-  useIsInWatchlist,
-  useToggleWatchlist,
-  type WatchlistSnapshot
-} from "@/features/library/useWatchlist";
+  useIsInBookmark,
+  useToggleBookmark,
+  type BookmarkSnapshot
+} from "@/features/library/useBookmark";
 import { toast } from "@fishy/ui";
 import type { PlayHandler } from "@/shared/navigation/watchNavigation";
 import { makeContentId, type ContentFeatured } from "@content/contentMetadata";
@@ -60,10 +60,10 @@ export function Hero({
 
   const tmdbId =
     activeContent?.tmdbId && /^\d+$/.test(activeContent.tmdbId) ? activeContent.tmdbId : undefined;
-  const watchlistContentId =
+  const bookmarkContentId =
     tmdbId && activeContent ? makeContentId(activeContent.type, tmdbId) : undefined;
-  const isInWatchlist = useIsInWatchlist(watchlistContentId);
-  const toggleWatchlist = useToggleWatchlist();
+  const isInBookmark = useIsInBookmark(bookmarkContentId);
+  const toggleBookmark = useToggleBookmark();
 
   useEffect(() => {
     setLoaded(false);
@@ -103,10 +103,10 @@ export function Hero({
 
   if (!activeContent) return null;
 
-  const handleWatchlist = async () => {
-    if (!watchlistContentId || !tmdbId) return;
+  const handleBookmark = async () => {
+    if (!bookmarkContentId || !tmdbId) return;
     try {
-      const snapshot: WatchlistSnapshot = {
+      const snapshot: BookmarkSnapshot = {
         title: activeContent.title,
         type: activeContent.type,
         posterUrl: activeContent.posterUrl,
@@ -115,8 +115,8 @@ export function Hero({
         year: activeContent.year,
         voteAverage: activeContent.voteAverage
       };
-      await toggleWatchlist(watchlistContentId, snapshot);
-      toast.success(isInWatchlist ? "Removed from My List" : "Added to My List");
+      await toggleBookmark(bookmarkContentId, snapshot);
+      toast.success(isInBookmark ? "Removed from Bookmarks" : "Added to Bookmarks");
     } catch {
       toast.error("Something went wrong");
     }
@@ -246,15 +246,15 @@ export function Hero({
               <Info className="mr-2 h-5 w-5" />
               Details
             </Button>
-            {watchlistContentId && (
+            {bookmarkContentId && (
               <Button
                 size="icon"
                 variant="ghost"
                 className="h-11 w-11 rounded-xl border border-border/80 bg-card/75 text-foreground hover:bg-accent"
-                onClick={handleWatchlist}
-                aria-label={isInWatchlist ? "Remove from My List" : "Add to My List"}
+                onClick={handleBookmark}
+                aria-label={isInBookmark ? "Remove from Bookmarks" : "Add to Bookmarks"}
               >
-                {isInWatchlist ? (
+                {isInBookmark ? (
                   <Check className="w-5 text-green-400" />
                 ) : (
                   <Plus className="w-5" />

@@ -26,14 +26,14 @@ import { MovieCard } from "@/ui/components/MovieCard";
 import { RecommendationsSection } from "@/ui/components/RecommendationsSection";
 import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
 import {
-  useMyWatchlistPagination,
-  useUpdateWatchlistFolder,
-  useDeleteWatchlistFolder,
-  useRenameWatchlistFolder,
-  useRemoveWatchlistEntries,
-  useSetWatchlistFolderForEntries,
-  useWatchlistSummary
-} from "@/features/library/useWatchlist";
+  useBookmarkPagination,
+  useUpdateBookmarkFolder,
+  useDeleteBookmarkFolder,
+  useRenameBookmarkFolder,
+  useRemoveBookmarkEntries,
+  useSetBookmarkFolderForEntries,
+  useBookmarkSummary
+} from "@/features/library/useBookmark";
 import { useUser } from "@clerk/react";
 import { createPlayHandler } from "@/shared/navigation/watchNavigation";
 import {
@@ -54,7 +54,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from "@fishy/ui";
-import type { ContentId, WatchlistGridItem } from "@content/contentMetadata";
+import type { ContentId, BookmarkGridItem } from "@content/contentMetadata";
 import {
   getCustomFolders,
   setCustomFolders as setLSCustomFolders
@@ -71,10 +71,10 @@ type SortOption = (typeof SORT_OPTIONS)[number]["id"];
 type ViewLayout = "grid" | "list";
 type TypeFilter = "all" | "movie" | "tv";
 
-const SORT_PREF_KEY = "mylist:sort";
-const VIEW_PREF_KEY = "mylist:view";
-const COLLAPSED_FOLDERS_PREF_KEY = "mylist:collapsed-folders";
-const FILTER_PREF_KEY = "mylist:filters";
+const SORT_PREF_KEY = "bookmark:sort";
+const VIEW_PREF_KEY = "bookmark:view";
+const COLLAPSED_FOLDERS_PREF_KEY = "bookmark:collapsed-folders";
+const FILTER_PREF_KEY = "bookmark:filters";
 
 function pluralize(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
@@ -264,8 +264,8 @@ function ItemActionsMenu({
   );
 }
 
-interface WatchlistCardProps {
-  item: WatchlistGridItem;
+interface BookmarkCardProps {
+  item: BookmarkGridItem;
   layout: ViewLayout;
   selectionMode: boolean;
   isSelected: boolean;
@@ -282,7 +282,7 @@ interface WatchlistCardProps {
   onPlay: ReturnType<typeof createPlayHandler>;
 }
 
-function WatchlistCard({
+function BookmarkCard({
   item,
   layout,
   selectionMode,
@@ -298,7 +298,7 @@ function WatchlistCard({
   onAssignFolder,
   onRemove,
   onPlay
-}: WatchlistCardProps) {
+}: BookmarkCardProps) {
   const containerClass =
     layout === "grid"
       ? `relative duration-150 ${
@@ -476,7 +476,7 @@ function FolderSection({
   renderItem
 }: {
   name: string;
-  items: WatchlistGridItem[];
+  items: BookmarkGridItem[];
   layout: ViewLayout;
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
@@ -488,7 +488,7 @@ function FolderSection({
   canLoadMore: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
-  renderItem: (item: WatchlistGridItem) => ReactNode;
+  renderItem: (item: BookmarkGridItem) => ReactNode;
 }) {
   return (
     <section
@@ -575,7 +575,7 @@ function FolderSection({
   );
 }
 
-export function MyListPage() {
+export function BookmarkPage() {
   const navigate = useNavigate();
   const { user } = useUser();
   const initialFilters = getStoredFilters();
@@ -584,29 +584,29 @@ export function MyListPage() {
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 180);
 
   useSeoMeta({
-    title: "My List",
-    description: "Your personal watchlist on FishyStream. Save movies and TV shows to watch later.",
-    path: "/my-list",
+    title: "Bookmarks",
+    description: "Your personal bookmark on FishyStream. Save movies and TV shows to watch later.",
+    path: "/bookmark",
     noIndex: true
   });
 
   const {
-    items: watchlistData,
+    items: bookmarkData,
     canLoadMore,
     isLoadingMore,
     loadMore
-  } = useMyWatchlistPagination(
+  } = useBookmarkPagination(
     folderFilter === "all" ? undefined : folderFilter === "unsorted" ? null : folderFilter,
     debouncedSearchQuery
   );
-  const watchlistSummary = useWatchlistSummary();
-  const [watchlist, setWatchlist] = useState<typeof watchlistData>(undefined);
+  const bookmarkSummary = useBookmarkSummary();
+  const [bookmark, setBookmark] = useState<typeof bookmarkData>(undefined);
   const pendingFolderMoves = useRef<Map<ContentId, string | undefined>>(new Map());
-  const updateFolder = useUpdateWatchlistFolder();
-  const setFolderForEntries = useSetWatchlistFolderForEntries();
-  const removeEntries = useRemoveWatchlistEntries();
-  const deleteFolder = useDeleteWatchlistFolder();
-  const renameFolder = useRenameWatchlistFolder();
+  const updateFolder = useUpdateBookmarkFolder();
+  const setFolderForEntries = useSetBookmarkFolderForEntries();
+  const removeEntries = useRemoveBookmarkEntries();
+  const deleteFolder = useDeleteBookmarkFolder();
+  const renameFolder = useRenameBookmarkFolder();
   const newFolderNameRef = useRef<HTMLInputElement>(null);
   const [pendingFolderLoad, setPendingFolderLoad] = useState<string | null>(null);
   const [customFolders, setCustomFolders] = useState<string[]>(() =>
@@ -631,12 +631,12 @@ export function MyListPage() {
 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<ContentId>>(() => new Set());
-  const [dismissedWatchlistIds, setDismissedWatchlistIds] = useState<Set<ContentId>>(
+  const [dismissedBookmarkIds, setDismissedBookmarkIds] = useState<Set<ContentId>>(
     () => new Set()
   );
-  const [undoWatchlistId, setUndoWatchlistId] = useState<ContentId | null>(null);
-  const pendingWatchlistRemovals = useRef(
-    new Map<ContentId, { item: WatchlistGridItem; timer: number }>()
+  const [undoBookmarkId, setUndoBookmarkId] = useState<ContentId | null>(null);
+  const pendingBookmarkRemovals = useRef(
+    new Map<ContentId, { item: BookmarkGridItem; timer: number }>()
   );
   const [isBulkMoving, setIsBulkMoving] = useState(false);
   const [pendingBulkRemove, setPendingBulkRemove] = useState(false);
@@ -675,20 +675,20 @@ export function MyListPage() {
   }, [folderFilter, listTypeFilter, searchQuery, user?.id]);
 
   useEffect(() => {
-    if (!watchlistData) return;
-    setWatchlist(
-      watchlistData.map((item) => {
+    if (!bookmarkData) return;
+    setBookmark(
+      bookmarkData.map((item) => {
         const pendingFolder = pendingFolderMoves.current.get(item._id);
         if (pendingFolder === undefined && !pendingFolderMoves.current.has(item._id)) return item;
-        const serverFolder = item.watchlistFolder?.trim() || undefined;
+        const serverFolder = item.bookmarkFolder?.trim() || undefined;
         if (serverFolder === pendingFolder) {
           pendingFolderMoves.current.delete(item._id);
           return item;
         }
-        return { ...item, watchlistFolder: pendingFolder };
+        return { ...item, bookmarkFolder: pendingFolder };
       })
     );
-  }, [watchlistData]);
+  }, [bookmarkData]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -700,18 +700,18 @@ export function MyListPage() {
   }, []);
 
   useEffect(() => {
-    if (!watchlist) return;
+    if (!bookmark) return;
     setSelectedIds((current) => {
       if (current.size === 0) return current;
-      const validIds = new Set(watchlist.map((item) => item._id));
+      const validIds = new Set(bookmark.map((item) => item._id));
       const next = new Set([...current].filter((id) => validIds.has(id)));
       return next.size === current.size ? current : next;
     });
-  }, [watchlist]);
+  }, [bookmark]);
 
   useEffect(
     () => () => {
-      for (const pending of pendingWatchlistRemovals.current.values()) {
+      for (const pending of pendingBookmarkRemovals.current.values()) {
         window.clearTimeout(pending.timer);
       }
     },
@@ -728,9 +728,9 @@ export function MyListPage() {
 
   const folderNames = useMemo(() => {
     return Array.from(
-      new Set([...customFolders, ...(watchlistSummary?.folders.map((folder) => folder.name) ?? [])])
+      new Set([...customFolders, ...(bookmarkSummary?.folders.map((folder) => folder.name) ?? [])])
     ).sort((a, b) => a.localeCompare(b));
-  }, [customFolders, watchlistSummary]);
+  }, [customFolders, bookmarkSummary]);
 
   const folderOptions = useMemo(() => {
     const options = new Set(folderNames);
@@ -741,16 +741,16 @@ export function MyListPage() {
     return Array.from(options).sort((a, b) => a.localeCompare(b));
   }, [folderFilter, folderNames]);
 
-  const filteredWatchlist = useMemo(() => {
-    if (!watchlist) return [];
+  const filteredBookmark = useMemo(() => {
+    if (!bookmark) return [];
     const normalizedQuery = debouncedSearchQuery
       .trim()
       .toLocaleLowerCase()
       .replace(/[^\p{L}\p{N}]/gu, "");
-    return watchlist.filter((item) => {
-      if (dismissedWatchlistIds.has(item._id)) return false;
+    return bookmark.filter((item) => {
+      if (dismissedBookmarkIds.has(item._id)) return false;
       const matchesType = listTypeFilter === "all" || item.type === listTypeFilter;
-      const itemFolder = item.watchlistFolder?.trim() || "";
+      const itemFolder = item.bookmarkFolder?.trim() || "";
       const matchesFolder =
         folderFilter === "all" ||
         (folderFilter === "unsorted" ? !itemFolder : itemFolder === folderFilter);
@@ -763,11 +763,11 @@ export function MyListPage() {
               .includes(normalizedQuery);
       return matchesType && matchesFolder && matchesSearch;
     });
-  }, [debouncedSearchQuery, dismissedWatchlistIds, folderFilter, listTypeFilter, user, watchlist]);
+  }, [debouncedSearchQuery, dismissedBookmarkIds, folderFilter, listTypeFilter, user, bookmark]);
 
-  const sortedFilteredWatchlist = useMemo(() => {
-    const filtered = filteredWatchlist;
-    const originalIndices = new Map(watchlist?.map((item, idx) => [item._id, idx]) ?? []);
+  const sortedFilteredBookmark = useMemo(() => {
+    const filtered = filteredBookmark;
+    const originalIndices = new Map(bookmark?.map((item, idx) => [item._id, idx]) ?? []);
     if (sortBy === "oldest") {
       return [...filtered].sort(
         (a, b) => (originalIndices.get(b._id) ?? 0) - (originalIndices.get(a._id) ?? 0)
@@ -782,12 +782,12 @@ export function MyListPage() {
       return [...filtered].sort((a, b) => a.title.localeCompare(b.title));
     }
     return [...filtered].sort((a, b) => b.title.localeCompare(a.title));
-  }, [filteredWatchlist, watchlist, sortBy]);
+  }, [filteredBookmark, bookmark, sortBy]);
 
-  const groupedWatchlist = useMemo(() => {
-    const groups = new Map<string, WatchlistGridItem[]>();
-    for (const item of sortedFilteredWatchlist) {
-      const key = item.watchlistFolder?.trim() || "Unsorted";
+  const groupedBookmark = useMemo(() => {
+    const groups = new Map<string, BookmarkGridItem[]>();
+    for (const item of sortedFilteredBookmark) {
+      const key = item.bookmarkFolder?.trim() || "Unsorted";
       const current = groups.get(key);
       if (current) current.push(item);
       else groups.set(key, [item]);
@@ -799,11 +799,11 @@ export function MyListPage() {
         if (b === "Unsorted") return -1;
         return a.localeCompare(b);
       });
-  }, [sortedFilteredWatchlist]);
+  }, [sortedFilteredBookmark]);
 
   const allVisibleSelected =
-    sortedFilteredWatchlist.length > 0 &&
-    sortedFilteredWatchlist.every((item) => selectedIds.has(item._id));
+    sortedFilteredBookmark.length > 0 &&
+    sortedFilteredBookmark.every((item) => selectedIds.has(item._id));
 
   const persistCustomFolders = (folders: string[]) => {
     setCustomFolders(folders);
@@ -859,11 +859,11 @@ export function MyListPage() {
   ) => {
     if (!user) return false;
     const nextFolder = folderValue === "unsorted" ? undefined : folderValue;
-    const previousFolder = watchlist?.find((item) => item._id === contentId)?.watchlistFolder;
+    const previousFolder = bookmark?.find((item) => item._id === contentId)?.bookmarkFolder;
     pendingFolderMoves.current.set(contentId, nextFolder);
-    setWatchlist((current) =>
+    setBookmark((current) =>
       current?.map((item) =>
-        item._id === contentId ? { ...item, watchlistFolder: nextFolder } : item
+        item._id === contentId ? { ...item, bookmarkFolder: nextFolder } : item
       )
     );
     try {
@@ -874,9 +874,9 @@ export function MyListPage() {
       return true;
     } catch {
       pendingFolderMoves.current.delete(contentId);
-      setWatchlist((current) =>
+      setBookmark((current) =>
         current?.map((item) =>
-          item._id === contentId ? { ...item, watchlistFolder: previousFolder } : item
+          item._id === contentId ? { ...item, bookmarkFolder: previousFolder } : item
         )
       );
       if (!options?.silent) toast.error("Couldn't update folder");
@@ -897,7 +897,7 @@ export function MyListPage() {
   };
 
   const handleAutoSortFolders = async () => {
-    if (!watchlist) return;
+    if (!bookmark) return;
     const neededFolders = ["Movies", "TV Shows"];
     persistCustomFolders(
       Array.from(new Set([...customFolders, ...neededFolders])).sort((a, b) => a.localeCompare(b))
@@ -905,11 +905,11 @@ export function MyListPage() {
     try {
       await Promise.all([
         setFolderForEntries(
-          watchlist.filter((item) => item.type === "movie").map((item) => item._id),
+          bookmark.filter((item) => item.type === "movie").map((item) => item._id),
           "Movies"
         ),
         setFolderForEntries(
-          watchlist.filter((item) => item.type === "tv").map((item) => item._id),
+          bookmark.filter((item) => item.type === "tv").map((item) => item._id),
           "TV Shows"
         )
       ]);
@@ -926,17 +926,17 @@ export function MyListPage() {
     setDraggedContentId(null);
   };
 
-  const handleRemoveItem = (item: WatchlistGridItem) => {
-    const existing = pendingWatchlistRemovals.current.get(item._id);
+  const handleRemoveItem = (item: BookmarkGridItem) => {
+    const existing = pendingBookmarkRemovals.current.get(item._id);
     if (existing) window.clearTimeout(existing.timer);
-    setDismissedWatchlistIds((current) => new Set(current).add(item._id));
+    setDismissedBookmarkIds((current) => new Set(current).add(item._id));
     const timer = window.setTimeout(() => {
-      pendingWatchlistRemovals.current.delete(item._id);
-      setUndoWatchlistId((current) => (current === item._id ? null : current));
+      pendingBookmarkRemovals.current.delete(item._id);
+      setUndoBookmarkId((current) => (current === item._id ? null : current));
       void removeEntries([item._id]).then(
         () => toast.success(`Removed "${item.title}" from your list`),
         () => {
-          setDismissedWatchlistIds((current) => {
+          setDismissedBookmarkIds((current) => {
             const next = new Set(current);
             next.delete(item._id);
             return next;
@@ -945,23 +945,23 @@ export function MyListPage() {
         }
       );
     }, 5000);
-    pendingWatchlistRemovals.current.set(item._id, { item, timer });
-    setUndoWatchlistId(item._id);
+    pendingBookmarkRemovals.current.set(item._id, { item, timer });
+    setUndoBookmarkId(item._id);
   };
 
-  const handleUndoWatchlistRemoval = () => {
-    if (!undoWatchlistId) return;
-    const pending = pendingWatchlistRemovals.current.get(undoWatchlistId);
+  const handleUndoBookmarkRemoval = () => {
+    if (!undoBookmarkId) return;
+    const pending = pendingBookmarkRemovals.current.get(undoBookmarkId);
     if (!pending) return;
     window.clearTimeout(pending.timer);
-    pendingWatchlistRemovals.current.delete(undoWatchlistId);
-    setDismissedWatchlistIds((current) => {
+    pendingBookmarkRemovals.current.delete(undoBookmarkId);
+    setDismissedBookmarkIds((current) => {
       const next = new Set(current);
-      next.delete(undoWatchlistId);
+      next.delete(undoBookmarkId);
       return next;
     });
-    setUndoWatchlistId(null);
-    toast.success("Restored to My List");
+    setUndoBookmarkId(null);
+    toast.success("Restored to Bookmarks");
   };
 
   function exitSelectionMode() {
@@ -980,7 +980,7 @@ export function MyListPage() {
 
   function handleSelectAllToggle() {
     setSelectedIds(
-      allVisibleSelected ? new Set() : new Set(sortedFilteredWatchlist.map((item) => item._id))
+      allVisibleSelected ? new Set() : new Set(sortedFilteredBookmark.map((item) => item._id))
     );
   }
 
@@ -1008,9 +1008,9 @@ export function MyListPage() {
   }
 
   async function handleBulkRemove() {
-    if (selectedIds.size === 0 || !watchlist) return;
+    if (selectedIds.size === 0 || !bookmark) return;
     setIsBulkRemoving(true);
-    const targets = watchlist.filter((item) => selectedIds.has(item._id));
+    const targets = bookmark.filter((item) => selectedIds.has(item._id));
     try {
       await removeEntries(targets.map((item) => item._id));
       toast.success(`Removed ${pluralize(targets.length, "title")} from your list`);
@@ -1053,7 +1053,7 @@ export function MyListPage() {
     });
   }
 
-  if (watchlist === undefined) {
+  if (bookmark === undefined) {
     return (
       <div className="app-canvas min-h-screen">
         <Header />
@@ -1064,17 +1064,17 @@ export function MyListPage() {
     );
   }
 
-  const totalItemCount = user ? (watchlistSummary?.total ?? watchlist.length) : watchlist.length;
+  const totalItemCount = user ? (bookmarkSummary?.total ?? bookmark.length) : bookmark.length;
   const unsortedItemCount = user
-    ? (watchlistSummary?.unsorted ?? 0)
-    : watchlist.filter((item) => !item.watchlistFolder?.trim()).length;
+    ? (bookmarkSummary?.unsorted ?? 0)
+    : bookmark.filter((item) => !item.bookmarkFolder?.trim()).length;
   const folderItemCount = (folder: string) =>
     user
-      ? (watchlistSummary?.folders.find((entry) => entry.name === folder)?.count ?? 0)
-      : watchlist.filter((item) => item.watchlistFolder?.trim() === folder).length;
-  const hasAnyItems = watchlist.length > 0 || Boolean(searchQuery.trim());
+      ? (bookmarkSummary?.folders.find((entry) => entry.name === folder)?.count ?? 0)
+      : bookmark.filter((item) => item.bookmarkFolder?.trim() === folder).length;
+  const hasAnyItems = bookmark.length > 0 || Boolean(searchQuery.trim());
   const isFolderOnlyEmpty =
-    filteredWatchlist.length === 0 &&
+    filteredBookmark.length === 0 &&
     folderFilter !== "all" &&
     !searchQuery &&
     listTypeFilter === "all";
@@ -1085,7 +1085,7 @@ export function MyListPage() {
 
       <main className="page-shell-wide page-stack pb-28">
         <PageHeader
-          title="My List"
+          title="Bookmarks"
           actions={
             <Button variant="secondary" className="rounded-xl" onClick={() => navigate("/movies")}>
               <Film className="mr-2 h-4 w-4" /> Browse
@@ -1262,7 +1262,7 @@ export function MyListPage() {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <div className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                  {filteredWatchlist.length} titles
+                  {filteredBookmark.length} titles
                 </div>
 
                 {user && (
@@ -1357,7 +1357,7 @@ export function MyListPage() {
                   </Button>
                 }
               />
-            ) : filteredWatchlist.length === 0 ? (
+            ) : filteredBookmark.length === 0 ? (
               <EmptyState
                 title={
                   searchQuery ? `No titles match "${searchQuery}"` : "No titles match these filters"
@@ -1377,7 +1377,7 @@ export function MyListPage() {
                 }
               />
             ) : (
-              groupedWatchlist.map(([groupName, items]) => (
+              groupedBookmark.map(([groupName, items]) => (
                 <FolderSection
                   key={groupName}
                   name={groupName}
@@ -1397,7 +1397,7 @@ export function MyListPage() {
                   isLoadingMore={isLoadingMore}
                   onLoadMore={() => handleLoadMoreForFolder(groupName)}
                   renderItem={(item) => (
-                    <WatchlistCard
+                    <BookmarkCard
                       item={item}
                       layout={viewLayout}
                       selectionMode={selectionMode}
@@ -1427,16 +1427,16 @@ export function MyListPage() {
           </div>
         )}
 
-        {watchlist.length > 0 && <RecommendationsSection layout="section" onPlay={handlePlay} />}
+        {bookmark.length > 0 && <RecommendationsSection layout="section" onPlay={handlePlay} />}
 
-        {undoWatchlistId && pendingWatchlistRemovals.current.get(undoWatchlistId) && (
+        {undoBookmarkId && pendingBookmarkRemovals.current.get(undoBookmarkId) && (
           <div className="fixed inset-x-4 bottom-6 z-50 flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-md sm:left-auto sm:right-6 sm:w-80">
-            <span>Removed from My List</span>
+            <span>Removed from Bookmarks</span>
             <Button
               type="button"
               variant="secondary"
               size="sm"
-              onClick={handleUndoWatchlistRemoval}
+              onClick={handleUndoBookmarkRemoval}
             >
               Undo
             </Button>

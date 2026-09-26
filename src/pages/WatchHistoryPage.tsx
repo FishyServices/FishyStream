@@ -329,7 +329,7 @@ export function WatchHistoryPage() {
           <DialogContent data-content-modal="true">
             <DialogTitle>Clear watch history?</DialogTitle>
             <DialogDescription>
-              This removes your watched progress and history. Saved titles in My List will remain.
+              This removes your watched progress and history. Saved titles in Bookmarks will remain.
             </DialogDescription>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setIsClearDialogOpen(false)}>

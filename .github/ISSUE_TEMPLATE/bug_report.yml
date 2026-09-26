@@ -16,7 +16,7 @@ body:
         - Broken stream / provider error
         - Video playback issue (audio, subtitles, controls)
         - Metadata or poster display bug
-        - Watchlist / history sync issue
+        - Bookmark / history sync issue
         - UI / layout issue
         - Other
     validations:

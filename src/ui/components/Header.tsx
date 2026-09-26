@@ -46,7 +46,7 @@ const primaryNav: NavItem[] = [
 ];
 
 const libraryNav: NavItem[] = [
-  { label: "My List", href: "/my-list", icon: BookMarked },
+  { label: "Bookmarks", href: "/bookmark", icon: BookMarked },
   { label: "History", href: "/history", icon: History }
 ];
 

@@ -6,7 +6,7 @@ FishyStream is a free, open-source streaming hub for movies, TV shows, and anime
 
 - Discovery stays quick: home, browse, search, curated picks, and recommendations show poster-led content.
 - Playback stays direct: a title opens a provider source with movie or episode context preserved.
-- Personal state follows the viewer: watchlist folders, watch history, progress, and playback preferences work for signed-in users.
+- Personal state follows the viewer: bookmark folders, watch history, progress, and playback preferences work for signed-in users.
 - Local watching remains available for files selected on the device.
 
 ## Scope

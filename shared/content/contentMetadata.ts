@@ -53,13 +53,13 @@ export interface ContentPlayback {
   hasSpecials?: boolean;
 }
 
-export interface WatchlistGridItem {
+export interface BookmarkGridItem {
   _id: ContentId;
   title: string;
   type: ContentType;
   posterUrl: string;
   tmdbId?: string;
-  watchlistFolder?: string;
+  bookmarkFolder?: string;
   genre?: string[];
   year?: number;
   voteAverage?: number;

@@ -16,7 +16,7 @@ FishyStream has four practical module groups.
 
 ## Viewer state
 
-`src/features/library/` owns React access to watchlist, history, and progress. `convex/domains/` owns the persisted signed-in state. `src/shared/storage/` owns device-only settings, folders, and caches.
+`src/features/library/` owns React access to bookmark, history, and progress. `convex/domains/` owns the persisted signed-in state. `src/shared/storage/` owns device-only settings, folders, and caches.
 
 ## Seam rules
 

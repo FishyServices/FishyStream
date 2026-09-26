@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getWatchProgressStore,
-  getWatchlistIds,
-  getWatchlistSnapshots,
+  getBookmarkIds,
+  getBookmarkSnapshots,
   setWatchProgressStore,
-  setWatchlistIds,
-  setWatchlistSnapshots,
+  setBookmarkIds,
+  setBookmarkSnapshots,
   getCustomPlayerVolume,
   setCustomPlayerVolume,
   getCustomPlayerVolumeBoost,
@@ -25,9 +25,9 @@ beforeEach(() => {
 });
 
 describe("localStorageStore", () => {
-  it("round-trips watchlist ids and snapshots", () => {
-    setWatchlistIds(["tmdb:movie:1"]);
-    setWatchlistSnapshots({
+  it("round-trips bookmark ids and snapshots", () => {
+    setBookmarkIds(["tmdb:movie:1"]);
+    setBookmarkSnapshots({
       "tmdb:movie:1": {
         title: "Example",
         type: "movie",
@@ -36,18 +36,18 @@ describe("localStorageStore", () => {
       }
     });
 
-    expect(getWatchlistIds()).toEqual(["tmdb:movie:1"]);
-    expect(getWatchlistSnapshots()).toMatchObject({
+    expect(getBookmarkIds()).toEqual(["tmdb:movie:1"]);
+    expect(getBookmarkSnapshots()).toMatchObject({
       "tmdb:movie:1": { title: "Example", tmdbId: "1" }
     });
   });
 
-  it("returns empty watchlist values for malformed data", () => {
-    storage.set("watchlist_ids", '{"ids":[]}');
-    storage.set("watchlist_snapshots_v1", "[]");
+  it("returns empty bookmark values for malformed data", () => {
+    storage.set("bookmark_ids", '{"ids":[]}');
+    storage.set("bookmark_snapshots_v1", "[]");
 
-    expect(getWatchlistIds()).toEqual([]);
-    expect(getWatchlistSnapshots()).toEqual({});
+    expect(getBookmarkIds()).toEqual([]);
+    expect(getBookmarkSnapshots()).toEqual({});
   });
 
   it("returns null for malformed progress data", () => {

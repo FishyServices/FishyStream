@@ -161,7 +161,7 @@ export function MediaBrowsePage({ mode }: { mode: MediaMode }) {
                     content={item}
                     onPlay={handlePlay}
                     layout="grid"
-                    showWatchlistAction={mode !== "anime"}
+                    showBookmarkAction={mode !== "anime"}
                   />
                 ))}
               </div>

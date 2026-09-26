@@ -11,81 +11,81 @@ import {
 import { useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../../convex/_generated/api";
-import { parseContentId, type ContentId, type WatchlistGridItem } from "@content/contentMetadata";
-import { guestWatchlistPersistence, listGuestWatchlist } from "./persistence";
+import { parseContentId, type ContentId, type BookmarkGridItem } from "@content/contentMetadata";
+import { guestBookmarkPersistence, listGuestBookmark } from "./persistence";
 import {
-  getWatchlistIds,
-  getWatchlistCache,
-  getWatchlistSnapshots,
-  getWatchlistTmdbMap,
-  setWatchlistIds,
-  setWatchlistCache,
-  setWatchlistSnapshots,
-  setWatchlistTmdbMap,
-  type LocalContentSnapshot as WatchlistSnapshot
+  getBookmarkIds,
+  getBookmarkCache,
+  getBookmarkSnapshots,
+  getBookmarkTmdbMap,
+  setBookmarkIds,
+  setBookmarkCache,
+  setBookmarkSnapshots,
+  setBookmarkTmdbMap,
+  type LocalContentSnapshot as BookmarkSnapshot
 } from "@/shared/storage/localStorageStore";
 
 const PAGE_SIZE = 20;
 
-export type { WatchlistSnapshot };
+export type { BookmarkSnapshot };
 
 type SavedState = {
   ids: Set<string>;
   ready: boolean;
 };
 
-type WatchlistApi = {
+type BookmarkApi = {
   state: SavedState;
-  save: (contentId: ContentId, snapshot: WatchlistSnapshot) => Promise<void>;
+  save: (contentId: ContentId, snapshot: BookmarkSnapshot) => Promise<void>;
   drop: (contentIds: readonly ContentId[]) => Promise<void>;
 };
 
-const WatchlistContext = createContext<WatchlistApi | null>(null);
+const BookmarkContext = createContext<BookmarkApi | null>(null);
 
 function eraseFromGuestStore(ids: Iterable<string>) {
-  const snapshots = { ...getWatchlistSnapshots() };
-  const tmdbMap = { ...getWatchlistTmdbMap() };
+  const snapshots = { ...getBookmarkSnapshots() };
+  const tmdbMap = { ...getBookmarkTmdbMap() };
   for (const id of ids) {
     delete snapshots[id];
     delete tmdbMap[id];
   }
-  setWatchlistSnapshots(snapshots);
-  setWatchlistTmdbMap(tmdbMap);
+  setBookmarkSnapshots(snapshots);
+  setBookmarkTmdbMap(tmdbMap);
 }
 
-function writeToGuestStore(contentId: string, snapshot: WatchlistSnapshot) {
-  setWatchlistSnapshots({ ...getWatchlistSnapshots(), [contentId]: snapshot });
-  setWatchlistTmdbMap({ ...getWatchlistTmdbMap(), [contentId]: snapshot.tmdbId });
+function writeToGuestStore(contentId: string, snapshot: BookmarkSnapshot) {
+  setBookmarkSnapshots({ ...getBookmarkSnapshots(), [contentId]: snapshot });
+  setBookmarkTmdbMap({ ...getBookmarkTmdbMap(), [contentId]: snapshot.tmdbId });
 }
 
 function clearGuestStore() {
-  setWatchlistIds([]);
-  setWatchlistSnapshots({});
-  setWatchlistTmdbMap({});
+  setBookmarkIds([]);
+  setBookmarkSnapshots({});
+  setBookmarkTmdbMap({});
 }
 
 function updateUserCache(
   userId: string,
   ids: Iterable<string>,
-  snapshots: Record<string, WatchlistSnapshot>
+  snapshots: Record<string, BookmarkSnapshot>
 ) {
-  setWatchlistCache(userId, {
+  setBookmarkCache(userId, {
     ids: [...new Set(ids)].filter((id): id is ContentId => parseContentId(id) !== null),
     snapshots
   });
 }
 
-export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
+export function GlobalBookmarkProvider({ children }: { children: ReactNode }) {
   const { isLoaded, user } = useUser();
   const { isAuthenticated } = useConvexAuth();
   const remoteIds = useQuery(
-    api.domains.watchlist.watchlist.listWatchlistContentIds,
+    api.domains.bookmark.bookmark.listBookmarkContentIds,
     user && isAuthenticated ? {} : "skip"
   );
-  const toggleEntry = useMutation(api.domains.watchlist.watchlist.toggleWatchlistEntry);
-  const dropEntries = useMutation(api.domains.watchlist.watchlist.removeWatchlistEntries);
+  const toggleEntry = useMutation(api.domains.bookmark.bookmark.toggleBookmarkEntry);
+  const dropEntries = useMutation(api.domains.bookmark.bookmark.removeBookmarkEntries);
 
-  const [ids, setIds] = useState<Set<string>>(() => new Set(getWatchlistIds()));
+  const [ids, setIds] = useState<Set<string>>(() => new Set(getBookmarkIds()));
   const idsSnapshotRef = useRef(ids);
   const pendingOpRef = useRef(0);
   const migratedRef = useRef<string | null>(null);
@@ -99,17 +99,17 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
     if (!isLoaded) return;
     if (!user) {
       migratedRef.current = null;
-      applyIds(new Set(getWatchlistIds()));
+      applyIds(new Set(getBookmarkIds()));
       return;
     }
     if (migratedRef.current === user.id) return;
     migratedRef.current = user.id;
 
-    const localIds = getWatchlistIds();
+    const localIds = getBookmarkIds();
     applyIds(new Set());
     if (localIds.length === 0) return;
 
-    const localSnapshots = getWatchlistSnapshots();
+    const localSnapshots = getBookmarkSnapshots();
     updateUserCache(user.id, localIds, localSnapshots);
     let active = true;
 
@@ -121,7 +121,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
           contentId,
           title: snapshot.title,
           posterUrl: snapshot.posterUrl,
-          inWatchlist: true
+          inBookmark: true
         }).catch(() => undefined);
       })
     ).then(() => {
@@ -137,12 +137,12 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
     if (!isLoaded || !user || remoteIds === undefined) return;
     const nextIds = new Set(remoteIds);
     applyIds(nextIds);
-    const cache = getWatchlistCache(user.id);
+    const cache = getBookmarkCache(user.id);
     updateUserCache(user.id, remoteIds, cache.snapshots);
   }, [applyIds, isLoaded, remoteIds, user]);
 
   const save = useCallback(
-    async (contentId: ContentId, snapshot: WatchlistSnapshot) => {
+    async (contentId: ContentId, snapshot: BookmarkSnapshot) => {
       const before = idsSnapshotRef.current;
       const alreadySaved = before.has(contentId);
       const after = new Set(before);
@@ -154,11 +154,11 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
       if (!user) {
         if (alreadySaved) eraseFromGuestStore([contentId]);
         else writeToGuestStore(contentId, snapshot);
-        setWatchlistIds([...after]);
+        setBookmarkIds([...after]);
         return;
       }
 
-      const previousCache = getWatchlistCache(user.id);
+      const previousCache = getBookmarkCache(user.id);
       const nextSnapshots = { ...previousCache.snapshots };
       if (alreadySaved) delete nextSnapshots[contentId];
       else nextSnapshots[contentId] = snapshot;
@@ -169,10 +169,10 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
           contentId,
           title: snapshot.title,
           posterUrl: snapshot.posterUrl,
-          inWatchlist: !alreadySaved
+          inBookmark: !alreadySaved
         });
       } catch (error) {
-        setWatchlistCache(user.id, previousCache);
+        setBookmarkCache(user.id, previousCache);
         if (opId === pendingOpRef.current) applyIds(before);
         throw error;
       }
@@ -190,11 +190,11 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
 
       if (!user) {
         eraseFromGuestStore(removed);
-        setWatchlistIds([...after]);
+        setBookmarkIds([...after]);
         return;
       }
 
-      const previousCache = getWatchlistCache(user.id);
+      const previousCache = getBookmarkCache(user.id);
       const nextSnapshots = { ...previousCache.snapshots };
       for (const contentId of removed) delete nextSnapshots[contentId];
       updateUserCache(user.id, after, nextSnapshots);
@@ -202,7 +202,7 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
       try {
         await dropEntries({ contentIds: [...contentIds] });
       } catch (error) {
-        setWatchlistCache(user.id, previousCache);
+        setBookmarkCache(user.id, previousCache);
         if (opId === pendingOpRef.current) applyIds(before);
         throw error;
       }
@@ -213,25 +213,25 @@ export function GlobalWatchlistProvider({ children }: { children: ReactNode }) {
   const ready = isLoaded && (!user || remoteIds !== undefined);
 
   return (
-    <WatchlistContext.Provider value={{ state: { ids, ready }, save, drop }}>
+    <BookmarkContext.Provider value={{ state: { ids, ready }, save, drop }}>
       {children}
-    </WatchlistContext.Provider>
+    </BookmarkContext.Provider>
   );
 }
 
-function useWatchlistApi() {
-  const ctx = useContext(WatchlistContext);
-  if (!ctx) throw new Error("GlobalWatchlistProvider not found");
+function useBookmarkApi() {
+  const ctx = useContext(BookmarkContext);
+  if (!ctx) throw new Error("GlobalBookmarkProvider not found");
   return ctx;
 }
 
-export function useIsInWatchlist(contentId: string | undefined) {
-  const { state } = useWatchlistApi();
+export function useIsInBookmark(contentId: string | undefined) {
+  const { state } = useBookmarkApi();
   return !!contentId && state.ids.has(contentId);
 }
 
-export function useCheckWatchlistStatus(contentIds: string[]): Record<string, boolean> {
-  const { state } = useWatchlistApi();
+export function useCheckBookmarkStatus(contentIds: string[]): Record<string, boolean> {
+  const { state } = useBookmarkApi();
   return useMemo(() => {
     const statusMap: Record<string, boolean> = {};
     for (const id of contentIds) {
@@ -241,26 +241,26 @@ export function useCheckWatchlistStatus(contentIds: string[]): Record<string, bo
   }, [contentIds, state.ids]);
 }
 
-export function useToggleWatchlist() {
-  return useWatchlistApi().save;
+export function useToggleBookmark() {
+  return useBookmarkApi().save;
 }
 
-export function useWatchlistContentIds(): ContentId[] {
-  const { state } = useWatchlistApi();
+export function useBookmarkContentIds(): ContentId[] {
+  const { state } = useBookmarkApi();
   return useMemo(() => [...state.ids] as ContentId[], [state.ids]);
 }
 
-export function useWatchlistHydrated() {
-  return useWatchlistApi().state.ready;
+export function useBookmarkHydrated() {
+  return useBookmarkApi().state.ready;
 }
 
-export function useMyWatchlistPagination(folder?: string | null, search = "") {
+export function useBookmarkPagination(folder?: string | null, search = "") {
   const { isLoaded, isSignedIn, user } = useUser();
-  const { state } = useWatchlistApi();
+  const { state } = useBookmarkApi();
   const signedIn = isLoaded && isSignedIn && user !== null;
 
   const { results, status, loadMore } = usePaginatedQuery(
-    api.domains.watchlist.watchlist.listWatchlist,
+    api.domains.bookmark.bookmark.listBookmark,
     signedIn
       ? {
           ...(folder !== undefined ? { folder } : {}),
@@ -270,14 +270,14 @@ export function useMyWatchlistPagination(folder?: string | null, search = "") {
     { initialNumItems: PAGE_SIZE }
   );
 
-  const localList = useMemo(() => (signedIn ? [] : listGuestWatchlist()), [signedIn, state.ids]);
+  const localList = useMemo(() => (signedIn ? [] : listGuestBookmark()), [signedIn, state.ids]);
 
   const items = !isLoaded
     ? undefined
     : signedIn
       ? status === "LoadingFirstPage"
         ? undefined
-        : (results as WatchlistGridItem[])
+        : (results as BookmarkGridItem[])
       : localList;
 
   const fetchMore = useCallback(() => loadMore(PAGE_SIZE), [loadMore]);
@@ -292,26 +292,26 @@ export function useMyWatchlistPagination(folder?: string | null, search = "") {
   };
 }
 
-export function useWatchlistSummary() {
+export function useBookmarkSummary() {
   const { user } = useUser();
   const { isAuthenticated } = useConvexAuth();
   return useQuery(
-    api.domains.watchlist.watchlist.listWatchlistSummary,
+    api.domains.bookmark.bookmark.listBookmarkSummary,
     user && isAuthenticated ? {} : "skip"
   );
 }
 
-export function useRemoveWatchlistEntries() {
-  return useWatchlistApi().drop;
+export function useRemoveBookmarkEntries() {
+  return useBookmarkApi().drop;
 }
 
-export function useSetWatchlistFolderForEntries() {
+export function useSetBookmarkFolderForEntries() {
   const { user } = useUser();
-  const setFolderMany = useMutation(api.domains.watchlist.watchlist.setWatchlistFolderForEntries);
+  const setFolderMany = useMutation(api.domains.bookmark.bookmark.setBookmarkFolderForEntries);
   return useCallback(
     async (contentIds: readonly ContentId[], folder?: string) => {
       if (!user) {
-        guestWatchlistPersistence.setFolderMany(contentIds, folder);
+        guestBookmarkPersistence.setFolderMany(contentIds, folder);
         return;
       }
       await setFolderMany({ contentIds: [...contentIds], folder });
@@ -320,9 +320,9 @@ export function useSetWatchlistFolderForEntries() {
   );
 }
 
-export function useRenameWatchlistFolder() {
+export function useRenameBookmarkFolder() {
   const { user } = useUser();
-  const rename = useMutation(api.domains.watchlist.watchlist.renameFolder);
+  const rename = useMutation(api.domains.bookmark.bookmark.renameFolder);
   return useCallback(
     async (from: string, to: string) => {
       if (!user) return;
@@ -332,16 +332,16 @@ export function useRenameWatchlistFolder() {
   );
 }
 
-export function useMyWatchlist() {
-  return useMyWatchlistPagination().items;
+export function useBookmarks() {
+  return useBookmarkPagination().items;
 }
 
-export function useAllMyWatchlist() {
-  return useAllMyWatchlistState().items;
+export function useAllBookmarks() {
+  return useAllBookmarksState().items;
 }
 
-export function useAllMyWatchlistState() {
-  const pagination = useMyWatchlistPagination();
+export function useAllBookmarksState() {
+  const pagination = useBookmarkPagination();
 
   useEffect(() => {
     if (!pagination.canLoadMore || pagination.isLoadingMore) return;
@@ -354,14 +354,14 @@ export function useAllMyWatchlistState() {
   };
 }
 
-export function useWatchlistFolders() {
-  const summary = useWatchlistSummary();
+export function useBookmarkFolders() {
+  const summary = useBookmarkSummary();
   return useMemo(() => summary?.folders.map((folder) => folder.name), [summary]);
 }
 
-export function useDeleteWatchlistFolder() {
+export function useDeleteBookmarkFolder() {
   const { user } = useUser();
-  const remove = useMutation(api.domains.watchlist.watchlist.deleteFolder);
+  const remove = useMutation(api.domains.bookmark.bookmark.deleteFolder);
   return useCallback(
     (name: string) => {
       if (!user) return Promise.resolve();
@@ -371,14 +371,14 @@ export function useDeleteWatchlistFolder() {
   );
 }
 
-export function useUpdateWatchlistFolder() {
+export function useUpdateBookmarkFolder() {
   const { user } = useUser();
-  const setFolder = useMutation(api.domains.watchlist.watchlist.setWatchlistFolder);
+  const setFolder = useMutation(api.domains.bookmark.bookmark.setBookmarkFolder);
   return useCallback(
     (input: ContentId | { contentId: ContentId; folder?: string }, requestedFolder?: string) => {
       const contentId = typeof input === "string" ? input : input.contentId;
       const folder = typeof input === "string" ? requestedFolder : input.folder;
-      if (!user) return guestWatchlistPersistence.setFolder(contentId, folder);
+      if (!user) return guestBookmarkPersistence.setFolder(contentId, folder);
       return setFolder({ contentId, folder });
     },
     [setFolder, user]

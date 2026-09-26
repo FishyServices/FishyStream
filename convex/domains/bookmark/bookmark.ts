@@ -25,12 +25,12 @@ function toStoredFolder(selector: string | null) {
 function entriesForFolder(ctx: QueryCtx, clerkUserId: string, selector: string | null | undefined) {
   if (selector === undefined) {
     return ctx.db
-      .query("watchlist")
+      .query("bookmark")
       .withIndex("by_clerk_added", (q) => q.eq("clerkUserId", clerkUserId).gt("addedAt", 0))
       .order("desc");
   }
   return ctx.db
-    .query("watchlist")
+    .query("bookmark")
     .withIndex("by_clerk_folder", (q) =>
       q.eq("clerkUserId", clerkUserId).eq("folder", toStoredFolder(selector))
     )
@@ -39,7 +39,7 @@ function entriesForFolder(ctx: QueryCtx, clerkUserId: string, selector: string |
 
 async function locateEntry(ctx: QueryCtx, clerkUserId: string, contentId: string) {
   return ctx.db
-    .query("watchlist")
+    .query("bookmark")
     .withIndex("by_clerk_content", (q) =>
       q.eq("clerkUserId", clerkUserId).eq("contentId", contentId)
     )
@@ -47,7 +47,7 @@ async function locateEntry(ctx: QueryCtx, clerkUserId: string, contentId: string
 }
 
 function locateContent(ctx: QueryCtx, contentId: string) {
-  return getOneFrom(ctx.db, "watchlistContent", "by_content", contentId, "contentId");
+  return getOneFrom(ctx.db, "bookmarkContent", "by_content", contentId, "contentId");
 }
 
 function buildGridItem(
@@ -61,7 +61,7 @@ function buildGridItem(
     type: parsed?.type || "movie",
     posterUrl: fromImageWire(content.posterUrl),
     tmdbId: parsed?.tmdbId || "",
-    watchlistFolder: entry.folder
+    bookmarkFolder: entry.folder
   };
 }
 
@@ -85,7 +85,7 @@ async function aggregateFolderSummary(ctx: QueryCtx, clerkUserId: string) {
   const counts = new Map<string, number>();
   let unsorted = 0;
   const rows = await ctx.db
-    .query("watchlist")
+    .query("bookmark")
     .withIndex("by_clerk_folder", (q) => q.eq("clerkUserId", clerkUserId))
     .collect();
   for (const row of rows) {
@@ -117,21 +117,21 @@ async function findByTitle(
 
 async function getCountsDoc(ctx: QueryCtx, clerkUserId: string) {
   return ctx.db
-    .query("watchlistCounts")
+    .query("bookmarkCounts")
     .withIndex("by_clerk", (q) => q.eq("clerkUserId", clerkUserId))
     .first();
 }
 
 async function getIdsDoc(ctx: QueryCtx, clerkUserId: string) {
   return ctx.db
-    .query("watchlistIds")
+    .query("bookmarkIds")
     .withIndex("by_clerk", (q) => q.eq("clerkUserId", clerkUserId))
     .first();
 }
 
-async function scanWatchlist(ctx: QueryCtx, clerkUserId: string) {
+async function scanBookmark(ctx: QueryCtx, clerkUserId: string) {
   return ctx.db
-    .query("watchlist")
+    .query("bookmark")
     .withIndex("by_clerk_added", (q) => q.eq("clerkUserId", clerkUserId).gt("addedAt", 0))
     .collect();
 }
@@ -139,8 +139,8 @@ async function scanWatchlist(ctx: QueryCtx, clerkUserId: string) {
 async function ensureIdsDoc(ctx: MutationCtx, clerkUserId: string) {
   const existing = await getIdsDoc(ctx, clerkUserId);
   if (existing) return existing;
-  const rows = await scanWatchlist(ctx, clerkUserId);
-  const id = await ctx.db.insert("watchlistIds", {
+  const rows = await scanBookmark(ctx, clerkUserId);
+  const id = await ctx.db.insert("bookmarkIds", {
     clerkUserId,
     contentIds: rows.map((row) => row.contentId)
   });
@@ -150,14 +150,14 @@ async function ensureIdsDoc(ctx: MutationCtx, clerkUserId: string) {
 async function ensureCountsDoc(ctx: MutationCtx, clerkUserId: string) {
   const existing = await getCountsDoc(ctx, clerkUserId);
   if (existing) return existing;
-  const rows = await scanWatchlist(ctx, clerkUserId);
+  const rows = await scanBookmark(ctx, clerkUserId);
   const counts = new Map<string, number>();
   let unsorted = 0;
   for (const row of rows) {
     if (row.folder) counts.set(row.folder, (counts.get(row.folder) ?? 0) + 1);
     else unsorted += 1;
   }
-  const _id = await ctx.db.insert("watchlistCounts", {
+  const _id = await ctx.db.insert("bookmarkCounts", {
     clerkUserId,
     total: rows.length,
     unsorted,
@@ -255,7 +255,7 @@ async function renameFolderInCounts(
   await ctx.db.patch(countsDoc._id, { folderCounts });
 }
 
-export const listWatchlist = viewerQuery({
+export const listBookmark = viewerQuery({
   args: {
     paginationOpts: paginationOptsValidator,
     folder: v.optional(v.union(v.string(), v.null())),
@@ -280,7 +280,7 @@ export const listWatchlist = viewerQuery({
   }
 });
 
-export const listWatchlistContentIds = viewerQuery({
+export const listBookmarkContentIds = viewerQuery({
   args: {},
   handler: async (ctx) => {
     const idsDoc = await getIdsDoc(ctx, ctx.viewerId);
@@ -317,7 +317,7 @@ export const listFolders = viewerQuery({
   }
 });
 
-export const listWatchlistSummary = viewerQuery({
+export const listBookmarkSummary = viewerQuery({
   args: {},
   handler: async (ctx) => {
     const clerkUserId = ctx.viewerId;
@@ -357,7 +357,7 @@ export const renameFolder = viewerMutation({
   }
 });
 
-export const removeWatchlistEntries = viewerMutation({
+export const removeBookmarkEntries = viewerMutation({
   args: { contentIds: v.array(v.string()) },
   handler: async (ctx, { contentIds }) => {
     const clerkUserId = ctx.viewerId;
@@ -374,7 +374,7 @@ export const removeWatchlistEntries = viewerMutation({
   }
 });
 
-export const setWatchlistFolderForEntries = viewerMutation({
+export const setBookmarkFolderForEntries = viewerMutation({
   args: {
     contentIds: v.array(v.string()),
     folder: v.optional(folderNameValidator)
@@ -395,17 +395,17 @@ export const setWatchlistFolderForEntries = viewerMutation({
   }
 });
 
-export const toggleWatchlistEntry = viewerMutation({
+export const toggleBookmarkEntry = viewerMutation({
   args: {
     contentId: v.string(),
     title: v.string(),
     posterUrl: v.string(),
-    inWatchlist: v.boolean()
+    inBookmark: v.boolean()
   },
   handler: async (ctx, args) => {
     const alreadyIn = Boolean(await locateEntry(ctx, ctx.viewerId, args.contentId));
 
-    if (!args.inWatchlist) {
+    if (!args.inBookmark) {
       if (!alreadyIn) return;
       const entry = await locateEntry(ctx, ctx.viewerId, args.contentId);
       if (entry) await ctx.db.delete(entry._id);
@@ -419,7 +419,7 @@ export const toggleWatchlistEntry = viewerMutation({
     const wirePoster = toImageWire(args.posterUrl);
     const content = await locateContent(ctx, args.contentId);
     if (!content) {
-      await ctx.db.insert("watchlistContent", {
+      await ctx.db.insert("bookmarkContent", {
         contentId: args.contentId,
         title: args.title,
         posterUrl: wirePoster
@@ -427,7 +427,7 @@ export const toggleWatchlistEntry = viewerMutation({
     } else if (content.title !== args.title || content.posterUrl !== wirePoster) {
       await ctx.db.patch(content._id, { title: args.title, posterUrl: wirePoster });
     }
-    await ctx.db.insert("watchlist", {
+    await ctx.db.insert("bookmark", {
       clerkUserId: ctx.viewerId,
       contentId: args.contentId,
       addedAt: Date.now()
@@ -436,12 +436,12 @@ export const toggleWatchlistEntry = viewerMutation({
   }
 });
 
-export const setWatchlistFolder = viewerMutation({
+export const setBookmarkFolder = viewerMutation({
   args: { contentId: v.string(), folder: v.optional(folderNameValidator) },
   handler: async (ctx, { contentId, folder }) => {
     const clerkUserId = ctx.viewerId;
     const entry = await locateEntry(ctx, clerkUserId, contentId);
-    if (!entry) throw new Error("Watchlist item not found");
+    if (!entry) throw new Error("Bookmark item not found");
     const normalized = folder ? normalizeFolderName(folder) : undefined;
     await ctx.db.patch(entry._id, { folder: normalized });
     await moveFolderCounts(ctx, clerkUserId, entry.folder, normalized, 1);
