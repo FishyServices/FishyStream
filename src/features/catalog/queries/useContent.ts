@@ -63,6 +63,23 @@ export function sortOwnerPicksByRank<T extends OwnerPickItem>(items: T[]): T[] {
 const imdbRequest = createIMDbProxyRequest("/api/imdb");
 const curatedCache = new Map<string, TMDBContentCard>();
 const queryCache = new Map<string, unknown>();
+const imdbSeasonRequests = new Map<
+  string,
+  ReturnType<typeof fetchImdbSeasonEpisodes>
+>();
+
+function loadImdbSeasonEpisodes(imdbId: string, seasonNumber: number, signal: AbortSignal) {
+  const key = `${imdbId}:${seasonNumber}`;
+  const cached = imdbSeasonRequests.get(key);
+  if (cached) return cached;
+
+  const request = fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, signal);
+  imdbSeasonRequests.set(key, request);
+  void request.catch(() => {
+    if (imdbSeasonRequests.get(key) === request) imdbSeasonRequests.delete(key);
+  });
+  return request;
+}
 
 export interface BrowsePageResult {
   items: ContentCard[];
@@ -897,7 +914,8 @@ export function useSeasonEpisodes(
   imdbId?: string,
   animeTitle?: string,
   animeYear?: number,
-  isAnime = false
+  isAnime = false,
+  loadImdbRatings = true
 ) {
   const [season, setSeason] = useState<Season | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
@@ -1043,9 +1061,9 @@ export function useSeasonEpisodes(
     [animeTitle, animeYear, enabled, isAnime, seasonNumber, tmdbId]
   );
   useEffect(() => {
-    if (!enabled || !imdbId) return;
+    if (!enabled || !imdbId || !loadImdbRatings) return;
     const controller = new AbortController();
-    void fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
+    void loadImdbSeasonEpisodes(imdbId, seasonNumber, controller.signal)
       .then((value) => {
         if (controller.signal.aborted) return;
         const next = new Map(
@@ -1067,7 +1085,7 @@ export function useSeasonEpisodes(
       })
       .catch(() => undefined);
     return () => controller.abort();
-  }, [enabled, imdbId, seasonNumber]);
+  }, [enabled, imdbId, loadImdbRatings, seasonNumber]);
   return {
     season,
     isLoading,
@@ -1108,7 +1126,7 @@ export function useSeriesEpisodeRatings(
         seasonNumber,
         episodes:
           (
-            await fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
+            await loadImdbSeasonEpisodes(imdbId, seasonNumber, controller.signal)
           )?.episodes.map(({ episodeNumber, name, voteAverage }) => ({
             episodeNumber,
             name,

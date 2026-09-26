@@ -362,7 +362,7 @@ export function ContentModal({
     tmdbDetailEnabled ? contentIdentifier : undefined,
     tmdbDetailEnabled ? content?.type : undefined,
     tmdbDetailEnabled,
-    true
+    false
   );
 
   const fullContent: ContentDetail | null | undefined = useMemo(() => {
@@ -404,6 +404,9 @@ export function ContentModal({
       : undefined;
   const isInWatchlist = useIsInWatchlist(watchlistContentId);
   const toggleWatchlist = useToggleWatchlist();
+  const isAnimeContent =
+    detailContent?.originalLanguage === "ja" ||
+    (resolvedContent?.genre ?? []).some((genre) => genre.toLowerCase() === "animation");
   const {
     season: tmdbSeason,
     isLoading: tmdbSeasonLoading,
@@ -417,13 +420,13 @@ export function ContentModal({
     getImdbId(resolvedContent),
     resolvedContent?.title,
     resolvedContent?.year,
-    detailContent?.originalLanguage === "ja" ||
-      (resolvedContent?.genre ?? []).some((genre) => genre.toLowerCase() === "animation")
+    isAnimeContent,
+    settings.showEpisodeRatings || isAnimeContent
   );
   const { seasons: ratingSeasons, isLoading: ratingsLoading } = useSeriesEpisodeRatings(
     resolvedContent?.type === "tv" ? resolvedContent.tmdbId : undefined,
     getSeasonCount(resolvedContent) ?? 1,
-    isOpen && activeTab === "ratings" && settings.showEpisodeRatings,
+    isOpen && activeTab === "ratings",
     getImdbId(resolvedContent)
   );
 
