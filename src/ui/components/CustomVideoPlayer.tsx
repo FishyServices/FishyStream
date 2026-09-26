@@ -35,6 +35,7 @@ import {
 } from "@/ui/components/ProviderSourceSelect";
 import type { ContentPlayback } from "@content/contentMetadata";
 import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
+import { getIntroDbPlaybackSegments } from "@fishy/providers/playback";
 import { useVideoDownloads } from "@/ui/components/custom-video-player/downloads";
 import {
   getCustomPlayerVolume,
@@ -109,6 +110,7 @@ export function CustomVideoPlayer({
     intro?: { start: number; end: number };
     outro?: { start: number; end: number };
   }>({});
+  const introDbLookupKeyRef = useRef<string | null>(null);
 
   const [isScraping, setIsScraping] = useState(true);
 
@@ -626,6 +628,71 @@ export function CustomVideoPlayer({
       video.removeEventListener("progress", handleProgress);
     };
   }, [isScraping]);
+
+  useEffect(() => {
+    if (localFile || !content.tmdbId || isScraping) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    let isMounted = true;
+    let controller: AbortController | undefined;
+    const loadIntroDbSegments = () => {
+      const durationSeconds = video.duration;
+      if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return;
+
+      const lookupKey = `${content.tmdbId}:${content.type}:${tvTarget.season}:${tvTarget.episode}:${Math.round(durationSeconds)}`;
+      if (introDbLookupKeyRef.current === lookupKey) return;
+      introDbLookupKeyRef.current = lookupKey;
+      controller?.abort();
+      controller = new AbortController();
+
+      getIntroDbPlaybackSegments({
+        tmdbId: content.tmdbId,
+        imdbId: content.imdbId,
+        type: content.type,
+        season: content.type === "tv" ? tvTarget.season : undefined,
+        episode: content.type === "tv" ? tvTarget.episode : undefined,
+        durationSeconds,
+        signal: controller.signal
+      })
+        .then((segments) => {
+          if (!isMounted || segments.length === 0) return;
+          const intro = segments.find((segment) => segment.kind === "intro");
+          const outro = segments.find(
+            (segment) => segment.kind === "credits" || segment.kind === "preview"
+          );
+          setSkipTimes({
+            intro: intro ? { start: intro.start, end: intro.end } : undefined,
+            outro: outro ? { start: outro.start, end: outro.end } : undefined
+          });
+        })
+        .catch(() => {
+          if (isMounted && controller?.signal.aborted === false) {
+            introDbLookupKeyRef.current = null;
+          }
+        });
+    };
+
+    video.addEventListener("loadedmetadata", loadIntroDbSegments);
+    video.addEventListener("durationchange", loadIntroDbSegments);
+    loadIntroDbSegments();
+
+    return () => {
+      isMounted = false;
+      controller?.abort();
+      video.removeEventListener("loadedmetadata", loadIntroDbSegments);
+      video.removeEventListener("durationchange", loadIntroDbSegments);
+    };
+  }, [
+    content.imdbId,
+    content.tmdbId,
+    content.type,
+    isScraping,
+    localFile,
+    tvTarget.episode,
+    tvTarget.season
+  ]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
