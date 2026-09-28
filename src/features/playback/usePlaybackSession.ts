@@ -294,9 +294,15 @@ export function usePlaybackSession({
                 episode,
                 dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
               })
-            : providerSourceResolver.buildMovieSources({
+            : await providerSourceResolver.buildMovieSources({
                 imdbId: content.imdbId ?? undefined,
-                tmdbId: content.tmdbId ?? undefined
+                tmdbId: content.tmdbId ?? undefined,
+                isAnime: animeContent,
+                anilistId: content.anilistId ?? undefined,
+                providerIdType,
+                title: content.title,
+                year: content.year,
+                dub: animeContent ? isDub : undefined
               });
 
         if (requestId !== sourceRequestIdRef.current) return;

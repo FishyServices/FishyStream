@@ -147,11 +147,42 @@ function dedupeSources(sources: StreamSource[]) {
   return result;
 }
 
-export function buildMovieSources(args: { imdbId?: string; tmdbId?: string }): StreamSource[] {
-  const { imdbId, tmdbId } = args;
+export async function buildMovieSources(args: {
+  imdbId?: string;
+  tmdbId?: string;
+  isAnime?: boolean;
+  anilistId?: string;
+  providerIdType?: "anilist" | "mal";
+  title?: string;
+  year?: number;
+  dub?: boolean;
+}): Promise<StreamSource[]> {
+  const { imdbId, tmdbId, isAnime, anilistId, providerIdType = "anilist", title, year, dub } = args;
+  const animeAddress =
+    isAnime && anilistId && providerIdType !== "mal"
+      ? { anilistId, episode: 1 }
+      : isAnime
+        ? await resolveAniListEpisodeAddress({
+            anilistId,
+            title,
+            season: 1,
+            year,
+            episode: 1
+          })
+        : undefined;
   const sources = STREAM_PROVIDERS.flatMap((provider) => {
     if (provider.key === "direct") return [];
-    if (provider.animeOnly) return [];
+
+    if (provider.animeOnly) {
+      if (!isAnime || !animeAddress) return [];
+      const useMalId = providerIdType === "mal" && !!provider.getMalAnimeTVUrl;
+      const id = useMalId ? animeAddress.malId : animeAddress.anilistId;
+      if (!id) return [];
+      return buildProviderSources(
+        provider,
+        (useMalId ? provider.getMalAnimeTVUrl : provider.getAnimeTVUrl)!(id, 1, 1, dub ?? false)
+      );
+    }
 
     const id = getProviderId(provider, imdbId, tmdbId);
     if (!id) return [];

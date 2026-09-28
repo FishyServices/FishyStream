@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   STREAM_PROVIDERS,
+  buildMovieSources,
   buildTvSources,
   getProviderByKey,
   getProviderByOrigin
@@ -23,6 +24,25 @@ describe("providerCatalog", () => {
     const provider = getProviderByKey("vidzee");
     expect(provider?.getMovieUrl("550")).toBe("https://player.vidzee.wtf/embed/movie/550");
     expect(provider?.getTVUrl("1399", 1, 1)).toBe("https://player.vidzee.wtf/embed/tv/1399/1/1");
+  });
+
+  it("uses anime episode routes for anime movies", async () => {
+    const sources = await buildMovieSources({
+      tmdbId: "569094",
+      isAnime: true,
+      anilistId: "151807",
+      dub: true
+    });
+
+    expect(sources.find((source) => source.key === "aniembed")?.url).toBe(
+      "https://aniembed.se/e/151807/1?lang=dub"
+    );
+    expect(sources.find((source) => source.key === "megavid")?.url).toBe(
+      "https://megavid.buzz/ani/151807/1/dub"
+    );
+    expect(sources.find((source) => source.key === "vidhawk")?.url).toBe(
+      "https://vidhawk.buzz/embed/ani/151807/1/dub"
+    );
   });
 
   it("anilist mappings", async () => {

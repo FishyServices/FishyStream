@@ -14,7 +14,7 @@ import {
 import { getSeasonYear } from "./episodePolicy.js";
 
 export interface PlaybackSourceResolver {
-  buildMovieSources(args: { imdbId?: string; tmdbId?: string }): StreamSource[];
+  buildMovieSources(args: Parameters<typeof buildMovieSources>[0]): Promise<StreamSource[]>;
   buildTvFallbackSources(args: {
     imdbId?: string;
     tmdbId?: string;

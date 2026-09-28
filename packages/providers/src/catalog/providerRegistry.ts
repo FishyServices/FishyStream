@@ -32,6 +32,23 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
       `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
   }),
   defineProvider({
+    key: "aniembed",
+    name: "AniEmbed",
+    category: "other",
+    idType: "tmdb",
+    website: "https://aniembed.se",
+    animeOnly: true,
+    animeIdType: "anilist",
+    dubSupport: true,
+    params: {
+      autoplay: { type: "boolean" },
+      t: { type: "time" }
+    },
+    moviePath: (id) => `/e/${id}/1?lang=sub`,
+    tvPath: (id, _season, episode) => `/e/${id}/${episode}?lang=sub`,
+    animePath: (id, _season, episode, dub) => `/e/${id}/${episode}?lang=${dub ? "dub" : "sub"}`
+  }),
+  defineProvider({
     key: "cinesrc",
     name: "CineSrc",
     category: "other",
@@ -116,6 +133,24 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`,
     animePath: (id, _season, episode, dub) =>
       `/embed/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
+  }),
+  defineProvider({
+    key: "megavid",
+    name: "MegaVid",
+    category: "other",
+    idType: "tmdb",
+    website: "https://megavid.buzz",
+    animeOnly: true,
+    animeIdType: "anilist",
+    dubSupport: true,
+    params: {
+      color: { type: "hex" },
+      autoplay: { type: "boolean" }
+    },
+    moviePath: (id) => `/ani/${id}/1/sub`,
+    tvPath: (id, _season, episode) => `/ani/${id}/${episode}/sub`,
+    animePath: (id, _season, episode, dub) => `/ani/${id}/${episode}/${dub ? "dub" : "sub"}`,
+    malAnimePath: (id, _season, episode, dub) => `/mal/${id}/${episode}/${dub ? "dub" : "sub"}`
   }),
   defineProvider({
     key: "megaplay",
@@ -298,6 +333,33 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     params: STANDARD_EMBED_PLAYER_PARAMS,
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidhawk",
+    name: "VidHawk",
+    category: "other",
+    idType: "tmdb",
+    website: "https://vidhawk.buzz",
+    animeOnly: true,
+    animeIdType: "anilist",
+    dubSupport: true,
+    progress: { resumeParam: "startAt" },
+    serverParam: "server",
+    servers: [
+      { id: "flow", label: "Flow" },
+      { id: "zuri", label: "Zuri", value: "zuri" }
+    ],
+    params: {
+      startAt: { type: "time" },
+      progress: { type: "time" },
+      autoskipIntro: { type: "boolean", default: true },
+      autoskipOutro: { type: "boolean", default: true }
+    },
+    moviePath: (id) => `/embed/ani/${id}/1/sub`,
+    tvPath: (id, _season, episode) => `/embed/ani/${id}/${episode}/sub`,
+    animePath: (id, _season, episode, dub) => `/embed/ani/${id}/${episode}/${dub ? "dub" : "sub"}`,
+    malAnimePath: (id, _season, episode, dub) =>
+      `/embed/mal/${id}/${episode}/${dub ? "dub" : "sub"}`
   }),
   defineProvider({
     key: "vidlove",

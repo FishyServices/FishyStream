@@ -26,8 +26,6 @@ export interface NextEpisodeArgs {
 }
 
 export function isAnimeProviderContent(content: AnimeContentLike) {
-  if (content.type !== "tv") return false;
-
   const genres = new Set((content.genre ?? []).map((genre) => genre.toLowerCase()));
   return genres.has("animation");
 }
