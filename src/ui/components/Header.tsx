@@ -41,7 +41,7 @@ const primaryNav: NavItem[] = [
   { label: "Discover", href: "/discover", icon: Compass },
   { label: "Movies", href: "/movies", icon: Film },
   { label: "TV Shows", href: "/tv-shows", icon: Tv },
-  { label: "Anime", href: "/anime/genre/all", icon: Sparkles },
+  { label: "Anime", href: "/anime", icon: Sparkles },
   { label: "Picks", href: "/best", icon: Star }
 ];
 

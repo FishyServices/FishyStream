@@ -254,11 +254,7 @@ export function Hero({
                 onClick={handleBookmark}
                 aria-label={isInBookmark ? "Remove from Bookmarks" : "Add to Bookmarks"}
               >
-                {isInBookmark ? (
-                  <Check className="w-5 text-green-400" />
-                ) : (
-                  <Plus className="w-5" />
-                )}
+                {isInBookmark ? <Check className="w-5 text-green-400" /> : <Plus className="w-5" />}
               </Button>
             )}
 

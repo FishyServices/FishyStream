@@ -63,10 +63,7 @@ export function sortOwnerPicksByRank<T extends OwnerPickItem>(items: T[]): T[] {
 const imdbRequest = createIMDbProxyRequest("/api/imdb");
 const curatedCache = new Map<string, TMDBContentCard>();
 const queryCache = new Map<string, unknown>();
-const imdbSeasonRequests = new Map<
-  string,
-  ReturnType<typeof fetchImdbSeasonEpisodes>
->();
+const imdbSeasonRequests = new Map<string, ReturnType<typeof fetchImdbSeasonEpisodes>>();
 
 function loadImdbSeasonEpisodes(imdbId: string, seasonNumber: number, signal: AbortSignal) {
   const key = `${imdbId}:${seasonNumber}`;
@@ -92,6 +89,14 @@ export interface BrowsePageResult {
 }
 
 export type ContentSort = "trending" | "popular" | "new" | "rating" | "year";
+export type AnimeMediaFilter = "all" | "movie" | "tv";
+export type AnimeSort = "popular" | "newest" | "oldest" | "top-rated";
+
+interface AnimeCatalogApiResponse {
+  items: ContentCard[];
+  totalPages: number;
+  totalResults?: number;
+}
 type RecommendationSeedSource = "continue" | "bookmark" | "history";
 
 export type RecommendationSeed = {
@@ -137,6 +142,8 @@ function cardFromProvider(
         genre: card.genre,
         year: card.year,
         voteAverage: card.voteAverage,
+        releaseDate: card.releaseDate,
+        popularity: card.popularity,
         posterUrl: card.posterUrl,
         tmdbId: card.tmdbId,
         new: card.isNew
@@ -153,6 +160,8 @@ function cardFromTmdb(card: TMDBContentCard): ContentCard | null {
     genre: card.genre,
     year: card.year,
     voteAverage: card.voteAverage,
+    releaseDate: card.releaseDate,
+    popularity: card.popularity,
     posterUrl: card.posterUrl,
     tmdbId: card.tmdbId,
     new: card.isNew
@@ -509,10 +518,11 @@ export function useSearchAll(query: string) {
 export function usePaginatedContent(
   type: TMDBMediaType,
   genre: string | null | undefined,
-  sortBy: ContentSort,
+  sortBy: ContentSort | AnimeSort,
   limit = 24,
   page = 1,
-  source: "tmdb" | "imdb" = "tmdb"
+  source: "tmdb" | "imdb" | "anime" = "tmdb",
+  animeMedia: AnimeMediaFilter = "all"
 ): BrowsePageResult {
   const [result, setResult] = useState<BrowsePageResult>({
     items: [],
@@ -535,10 +545,20 @@ export function usePaginatedContent(
     }
     setResult((old) => ({ ...old, currentPage: page, isLoading: true }));
     const load = async () => {
+      if (source === "anime") {
+        const data = await fetchAnimeCatalogPage({
+          genre: genre ?? undefined,
+          media: animeMedia,
+          page,
+          sort: sortBy as AnimeSort,
+          signal: controller.signal
+        });
+        return { items: data.items, totalPages: data.totalPages, totalResults: data.totalResults };
+      }
       if (source === "imdb") {
         const data = await fetchImdbDiscover(type, imdbRequest, controller.signal, {
           page,
-          sortBy,
+          sortBy: sortBy as ContentSort,
           genres: genre?.split(",")
         });
         const items = data.items.map(
@@ -560,7 +580,7 @@ export function usePaginatedContent(
 
       const data = await fetchTmdbDiscover(type, apiKey(), controller.signal, {
         page,
-        sortBy,
+        sortBy: sortBy as ContentSort,
         genreId: genre
           ?.split(",")
           .map((name) => {
@@ -598,8 +618,206 @@ export function usePaginatedContent(
         if (!controller.signal.aborted) setResult((old) => ({ ...old, isLoading: false }));
       });
     return () => controller.abort();
-  }, [genre, limit, page, sortBy, source, type]);
+  }, [animeMedia, genre, limit, page, sortBy, source, type]);
   return result;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseAnimeCatalogResponse(value: unknown): AnimeCatalogApiResponse {
+  if (!isRecord(value) || !Array.isArray(value.items))
+    throw new Error("Invalid Anime catalog response");
+  const items = value.items.flatMap((item): ContentCard[] => {
+    if (!isRecord(item)) return [];
+    const { type, tmdbId, title, posterUrl, year } = item;
+    if (
+      (type !== "movie" && type !== "tv") ||
+      typeof tmdbId !== "string" ||
+      typeof title !== "string" ||
+      typeof posterUrl !== "string" ||
+      typeof year !== "number"
+    )
+      return [];
+    return [
+      {
+        _id: makeContentId(type, tmdbId),
+        title,
+        type,
+        genre: Array.isArray(item.genre)
+          ? item.genre.filter((value): value is string => typeof value === "string")
+          : [],
+        year,
+        posterUrl,
+        tmdbId,
+        voteAverage: typeof item.voteAverage === "number" ? item.voteAverage : undefined,
+        releaseDate: typeof item.releaseDate === "string" ? item.releaseDate : undefined,
+        popularity: typeof item.popularity === "number" ? item.popularity : undefined,
+        new: false
+      }
+    ];
+  });
+  return {
+    items,
+    totalPages: typeof value.totalPages === "number" ? value.totalPages : 1,
+    totalResults: typeof value.totalResults === "number" ? value.totalResults : items.length
+  };
+}
+
+async function fetchAnimeCatalogPage(args: {
+  genre?: string;
+  media: AnimeMediaFilter;
+  page: number;
+  sort: AnimeSort;
+  signal: AbortSignal;
+}): Promise<AnimeCatalogApiResponse> {
+  const params = new URLSearchParams({
+    media: args.media,
+    page: String(args.page),
+    sort: args.sort
+  });
+  if (args.genre) params.set("genre", args.genre);
+  const response = await fetch(`/api/anime?${params}`, { signal: args.signal });
+  if (!response.ok) throw new Error(`Anime catalog failed (${response.status})`);
+  return parseAnimeCatalogResponse(await response.json());
+}
+
+export interface AnimeBrowseResult {
+  items: ContentCard[];
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  hasNextPage: boolean;
+  error: string | null;
+  loadMore: () => void;
+}
+
+function mergeAnimeItems(current: ContentCard[], next: ContentCard[]) {
+  const seen = new Set(current.map((item) => item._id));
+  return [
+    ...current,
+    ...next.filter((item) => {
+      if (seen.has(item._id)) return false;
+      seen.add(item._id);
+      return true;
+    })
+  ];
+}
+
+export function useAnimeBrowseContent(
+  genre: string | undefined,
+  media: AnimeMediaFilter,
+  sortBy: AnimeSort
+): AnimeBrowseResult {
+  const [allItems, setAllItems] = useState<ContentCard[]>([]);
+  const [visibleCount, setVisibleCount] = useState(32);
+  const [loadedPage, setLoadedPage] = useState(2);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const generation = useRef(0);
+  const loadMoreGeneration = useRef<number | null>(null);
+
+  useEffect(() => {
+    const currentGeneration = ++generation.current;
+    const controller = new AbortController();
+    setAllItems([]);
+    setVisibleCount(32);
+    setLoadedPage(2);
+    setTotalPages(1);
+    setIsLoading(true);
+    setError(null);
+
+    void Promise.all(
+      [1, 2].map((page) =>
+        fetchAnimeCatalogPage({
+          page,
+          media,
+          sort: sortBy,
+          genre,
+          signal: controller.signal
+        })
+      )
+    )
+      .then((responses) => {
+        if (controller.signal.aborted || currentGeneration !== generation.current) return;
+        const items = responses.reduce(
+          (merged, response) => mergeAnimeItems(merged, response.items),
+          [] as ContentCard[]
+        );
+        setAllItems(items);
+        setTotalPages(Math.max(...responses.map((response) => response.totalPages)));
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted && currentGeneration === generation.current)
+          setError(message(reason, "Anime catalog failed"));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted && currentGeneration === generation.current)
+          setIsLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [genre, media, sortBy]);
+
+  const loadMore = useCallback(() => {
+    if (isLoading || isLoadingMore || loadMoreGeneration.current === generation.current) return;
+    if (visibleCount < allItems.length) {
+      setVisibleCount((current) => current + 32);
+      return;
+    }
+    if (loadedPage >= totalPages) return;
+
+    const currentGeneration = generation.current;
+    const controller = new AbortController();
+    loadMoreGeneration.current = currentGeneration;
+    setIsLoadingMore(true);
+    void fetchAnimeCatalogPage({
+      page: loadedPage + 1,
+      media,
+      sort: sortBy,
+      genre,
+      signal: controller.signal
+    })
+      .then((response) => {
+        if (currentGeneration !== generation.current) return;
+        setAllItems((current) => mergeAnimeItems(current, response.items));
+        setLoadedPage((current) => current + 1);
+        setTotalPages((current) => Math.max(current, response.totalPages));
+        setVisibleCount((current) => current + 32);
+      })
+      .catch((reason: unknown) => {
+        if (currentGeneration === generation.current)
+          setError(message(reason, "Anime catalog failed"));
+      })
+      .finally(() => {
+        if (currentGeneration === generation.current) {
+          loadMoreGeneration.current = null;
+          setIsLoadingMore(false);
+        }
+      });
+  }, [
+    allItems.length,
+    genre,
+    isLoading,
+    isLoadingMore,
+    loadedPage,
+    media,
+    sortBy,
+    totalPages,
+    visibleCount
+  ]);
+
+  const items = allItems.slice(0, visibleCount);
+  return {
+    items,
+    isLoading,
+    isLoadingMore,
+    hasNextPage: visibleCount < allItems.length || loadedPage < totalPages,
+    error,
+    loadMore
+  };
 }
 
 export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 0) {
@@ -1125,13 +1343,13 @@ export function useSeriesEpisodeRatings(
       Array.from({ length: seasonCount }, (_, index) => index + 1).map(async (seasonNumber) => ({
         seasonNumber,
         episodes:
-          (
-            await loadImdbSeasonEpisodes(imdbId, seasonNumber, controller.signal)
-          )?.episodes.map(({ episodeNumber, name, voteAverage }) => ({
-            episodeNumber,
-            name,
-            voteAverage
-          })) ?? []
+          (await loadImdbSeasonEpisodes(imdbId, seasonNumber, controller.signal))?.episodes.map(
+            ({ episodeNumber, name, voteAverage }) => ({
+              episodeNumber,
+              name,
+              voteAverage
+            })
+          ) ?? []
       }))
     )
       .then((value) => {

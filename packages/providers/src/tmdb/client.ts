@@ -214,7 +214,9 @@ export function toTMDBContentCard(
     posterUrl: image(item.poster_path),
     voteAverage: item.vote_average,
     genre: mediaGenres(item),
-    isNew: false
+    isNew: false,
+    releaseDate: resolved === "movie" ? item.release_date : item.first_air_date,
+    popularity: item.popularity
   };
 }
 export function collectTmdbCards(
@@ -297,6 +299,7 @@ export async function fetchTmdbDiscover(
     totalResults: data.total_results ?? 0
   };
 }
+
 export async function fetchTmdbIdByImdbId(
   imdbId: string,
   type: MediaType,

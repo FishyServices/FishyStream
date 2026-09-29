@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { readFileSync, existsSync } from "fs";
 import { pathToFileURL } from "url";
+import { fetchAnimeCatalog } from "./functions/_shared/catalog/animeCatalog";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
 const devDeps = Object.keys(pkg.devDependencies ?? {});
@@ -25,11 +26,56 @@ function fishyProvidersPlugin(): Plugin {
   };
 }
 
+function fishyAnimeApiPlugin(apiKey: string | undefined): Plugin {
+  return {
+    name: "fishy-anime-api",
+    configureServer(server) {
+      server.middlewares.use("/api/anime", async (request, response, next) => {
+        if (request.method !== "GET") {
+          next();
+          return;
+        }
+
+        if (!apiKey) {
+          response.statusCode = 500;
+          response.setHeader("Content-Type", "application/json");
+          response.end(JSON.stringify({ message: "TMDB_API_KEY is not configured" }));
+          return;
+        }
+
+        try {
+          const result = await fetchAnimeCatalog(
+            `http://${request.headers.host ?? "localhost"}${request.url ?? "/api/anime"}`,
+            apiKey
+          );
+          response.statusCode = 200;
+          response.setHeader("Content-Type", "application/json");
+          response.setHeader("Cache-Control", "no-store");
+          response.end(JSON.stringify(result));
+        } catch (error) {
+          response.statusCode = 502;
+          response.setHeader("Content-Type", "application/json");
+          response.end(
+            JSON.stringify({
+              message: error instanceof Error ? error.message : "Anime catalog failed"
+            })
+          );
+        }
+      });
+    }
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL;
   return {
-    plugins: [fishyProvidersPlugin(), tailwindcss(), react()],
+    plugins: [
+      fishyProvidersPlugin(),
+      fishyAnimeApiPlugin(env.TMDB_API_KEY),
+      tailwindcss(),
+      react()
+    ],
     resolve: {
       alias: [
         { find: "@", replacement: path.resolve(__dirname, "./src") },

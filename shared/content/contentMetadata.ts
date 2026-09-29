@@ -9,6 +9,8 @@ export interface ContentCard {
   genre?: string[];
   year?: number;
   voteAverage?: number;
+  releaseDate?: string;
+  popularity?: number;
   posterUrl: string;
   tmdbId?: string;
   imdbId?: string;

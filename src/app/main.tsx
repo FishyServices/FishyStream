@@ -117,7 +117,7 @@ function AppShell() {
                 <Route path="/watch/local" element={<LocalWatchPage />} />
                 <Route path="/movies" element={<MediaBrowsePage mode="movie" />} />
                 <Route path="/tv-shows" element={<MediaBrowsePage mode="tv" />} />
-                <Route path="/anime/genre/:genre" element={<MediaBrowsePage mode="anime" />} />
+                <Route path="/anime" element={<MediaBrowsePage mode="anime" />} />
                 <Route path="/best" element={<OwnersPicksPage />} />
                 <Route path="/bookmark" element={<BookmarkPage />} />
                 <Route path="/history" element={<WatchHistoryPage />} />

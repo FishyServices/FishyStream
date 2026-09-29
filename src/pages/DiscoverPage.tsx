@@ -208,7 +208,7 @@ function AnimeGenreRail({
       title={genre.label}
       items={paginated.items}
       onPlay={onPlay}
-      viewAllHref={`/anime/genre/${genre.slug}`}
+      viewAllHref={genre.href}
     />
   );
 }

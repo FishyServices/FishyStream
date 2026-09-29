@@ -30,27 +30,44 @@ export const TV_GENRES = [
 ] as const;
 
 export const ANIME_GENRES = [
-  { slug: "all", label: "All Anime", query: "Animation", href: "/anime/genre/all" },
-  { slug: "action", label: "Action", query: "Animation,Action", href: "/anime/genre/action" },
+  { slug: "all", label: "All Anime", query: "Animation", href: "/anime" },
+  { slug: "action", label: "Action", query: "action", href: "/anime?genre=Action" },
   {
     slug: "adventure",
     label: "Adventure",
-    query: "Animation,Adventure",
-    href: "/anime/genre/adventure"
+    query: "adventure",
+    href: "/anime?genre=Adventure"
   },
-  { slug: "comedy", label: "Comedy", query: "Animation,Comedy", href: "/anime/genre/comedy" },
-  { slug: "drama", label: "Drama", query: "Animation,Drama", href: "/anime/genre/drama" },
-  { slug: "fantasy", label: "Fantasy", query: "Animation,Fantasy", href: "/anime/genre/fantasy" },
-  //{ slug: "horror", label: "Horror", query: null, href: "/anime/genre/horror" },
-  //{ slug: "isekai", label: "Isekai", query: null, href: "/anime/genre/isekai" },
-  { slug: "romance", label: "Romance", query: "Animation,Romance", href: "/anime/genre/romance" },
-  /*
+  { slug: "comedy", label: "Comedy", query: "comedy", href: "/anime?genre=Comedy" },
+  { slug: "drama", label: "Drama", query: "drama", href: "/anime?genre=Drama" },
+  { slug: "fantasy", label: "Fantasy", query: "fantasy", href: "/anime?genre=Fantasy" },
+  { slug: "historical", label: "Historical", query: "historical", href: "/anime?genre=Historical" },
+  { slug: "horror", label: "Horror", query: "horror", href: "/anime?genre=Horror" },
+  { slug: "isekai", label: "Isekai", query: "isekai", href: "/anime?genre=Isekai" },
+  { slug: "mecha", label: "Mecha", query: "mecha", href: "/anime?genre=Mecha" },
+  { slug: "music", label: "Music", query: "music", href: "/anime?genre=Music" },
+  { slug: "mystery", label: "Mystery", query: "mystery", href: "/anime?genre=Mystery" },
   {
-    slug: "sci-fi",
-    label: "Sci-Fi",
-    query: "Animation,Science Fiction",
-    href: "/anime/genre/sci-fi"
+    slug: "psychological",
+    label: "Psychological",
+    query: "psychological",
+    href: "/anime?genre=Psychological"
   },
-  */
-  { slug: "mystery", label: "Mystery", query: "Animation,Mystery", href: "/anime/genre/mystery" }
+  { slug: "romance", label: "Romance", query: "romance", href: "/anime?genre=Romance" },
+  { slug: "school", label: "School", query: "school", href: "/anime?genre=School" },
+  { slug: "sci-fi", label: "Sci-Fi", query: "sci-fi", href: "/anime?genre=Sci-Fi" },
+  {
+    slug: "slice-of-life",
+    label: "Slice of Life",
+    query: "slice-of-life",
+    href: "/anime?genre=Slice%20of%20Life"
+  },
+  { slug: "sports", label: "Sports", query: "sports", href: "/anime?genre=Sports" },
+  {
+    slug: "supernatural",
+    label: "Supernatural",
+    query: "supernatural",
+    href: "/anime?genre=Supernatural"
+  },
+  { slug: "thriller", label: "Thriller", query: "thriller", href: "/anime?genre=Thriller" }
 ] as const;

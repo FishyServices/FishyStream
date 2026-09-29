@@ -21,6 +21,8 @@ export type TMDBContentCard = {
   voteAverage?: number;
   genre: string[];
   isNew: boolean;
+  releaseDate?: string;
+  popularity?: number;
 };
 export type TMDBCreditResult = {
   cast: Array<{ id: number; name: string; character: string; profileUrl?: string; order: number }>;
@@ -76,6 +78,7 @@ export type TMDBBrowseListItem = {
   first_air_date?: string;
   vote_average?: number;
   vote_count?: number;
+  popularity?: number;
   genre_ids?: number[];
   overview?: string;
   original_language?: string;

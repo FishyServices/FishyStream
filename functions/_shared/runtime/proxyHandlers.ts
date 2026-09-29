@@ -36,6 +36,7 @@ export interface PagesFunctionContext {
   env: {
     VITE_CONVEX_SITE_URL?: string;
     CONVEX_SITE_URL?: string;
+    TMDB_API_KEY?: string;
   };
   params: Record<string, RouteParam>;
 }
@@ -48,6 +49,7 @@ function getSegments(value: RouteParam) {
 
 import scraperApp from "@fishy/scraper";
 import puppeteer from "@cloudflare/puppeteer";
+import { fetchAnimeCatalog } from "../catalog/animeCatalog";
 
 export async function handleApiRequest(context: PagesFunctionContext) {
   const { request, env, params } = context;
@@ -90,6 +92,37 @@ export async function handleApiRequest(context: PagesFunctionContext) {
       },
       body: request.body
     });
+  }
+
+  if (subpath === "anime") {
+    if (request.method !== "GET") {
+      return new Response(JSON.stringify({ message: "Method Not Allowed" }), {
+        status: 405,
+        headers: { Allow: "GET", "Content-Type": "application/json" }
+      });
+    }
+    if (!env.TMDB_API_KEY) {
+      return new Response(JSON.stringify({ message: "TMDB_API_KEY is not configured" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    try {
+      const result = await fetchAnimeCatalog(request.url, env.TMDB_API_KEY);
+      return new Response(JSON.stringify(result), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600"
+        }
+      });
+    } catch (error) {
+      return new Response(
+        JSON.stringify({
+          message: error instanceof Error ? error.message : "Anime catalog failed"
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } }
+      );
+    }
   }
 
   const siteUrl = env.VITE_CONVEX_SITE_URL ?? env.CONVEX_SITE_URL ?? "";

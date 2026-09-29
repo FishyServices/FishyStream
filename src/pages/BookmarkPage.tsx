@@ -631,9 +631,7 @@ export function BookmarkPage() {
 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<ContentId>>(() => new Set());
-  const [dismissedBookmarkIds, setDismissedBookmarkIds] = useState<Set<ContentId>>(
-    () => new Set()
-  );
+  const [dismissedBookmarkIds, setDismissedBookmarkIds] = useState<Set<ContentId>>(() => new Set());
   const [undoBookmarkId, setUndoBookmarkId] = useState<ContentId | null>(null);
   const pendingBookmarkRemovals = useRef(
     new Map<ContentId, { item: BookmarkGridItem; timer: number }>()
@@ -1432,12 +1430,7 @@ export function BookmarkPage() {
         {undoBookmarkId && pendingBookmarkRemovals.current.get(undoBookmarkId) && (
           <div className="fixed inset-x-4 bottom-6 z-50 flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-md sm:left-auto sm:right-6 sm:w-80">
             <span>Removed from Bookmarks</span>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleUndoBookmarkRemoval}
-            >
+            <Button type="button" variant="secondary" size="sm" onClick={handleUndoBookmarkRemoval}>
               Undo
             </Button>
           </div>
