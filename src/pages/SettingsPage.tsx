@@ -24,7 +24,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  Label,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -42,13 +41,11 @@ import {
   Bug,
   Check,
   ChevronsUpDown,
-  CircleGauge,
   MonitorPlay,
   Palette,
   PlayCircle,
   RotateCcw,
   ShieldAlert,
-  SlidersHorizontal,
   Tv2
 } from "lucide-react";
 

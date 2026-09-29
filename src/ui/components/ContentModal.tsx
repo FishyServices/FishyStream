@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   Play,
   Plus,
@@ -12,7 +12,6 @@ import {
   Loader2,
   Download,
   Globe,
-  FileVideo,
   ExternalLink,
   AlertTriangle,
   Calendar,
@@ -29,7 +28,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@fishy/ui";
-import { useUser } from "@clerk/react";
 import {
   useIsInBookmark,
   useToggleBookmark,
@@ -244,8 +242,6 @@ function EpisodeRatingsGrid({
     );
   }
 
-  const average =
-    ratedEpisodes.reduce((total, episode) => total + episode.voteAverage, 0) / ratedEpisodes.length;
   const episodeCount = Math.max(...seasons.map((season) => season.episodes.length));
 
   return (
@@ -388,8 +384,6 @@ export function ContentModal({
   );
 
   const detailContent = hasFullContent(resolvedContent) ? resolvedContent : null;
-  const navigate = useNavigate();
-  const { isSignedIn } = useUser();
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [selectedDownloadEpisodes, setSelectedDownloadEpisodes] = useState<number[]>([]);

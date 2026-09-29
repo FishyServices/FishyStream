@@ -8,12 +8,7 @@ import {
 import { ContentModal } from "./ContentModal";
 import { Button, toast } from "@fishy/ui";
 import type { PlayHandler } from "@/shared/navigation/watchNavigation";
-import {
-  makeContentId,
-  type ContentCard,
-  type ContentId,
-  type ContentType
-} from "@content/contentMetadata";
+import { makeContentId, type ContentId, type ContentType } from "@content/contentMetadata";
 
 interface WatchHistoryFields {
   progress?: number;

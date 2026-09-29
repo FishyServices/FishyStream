@@ -9,7 +9,7 @@ import type {
   TMDBItem,
   TMDBVideoResult
 } from "./types.js";
-import type { EpisodePage, MediaType, MetadataClient, Rating, TitleReference } from "../types.js";
+import type { EpisodePage, MediaType, MetadataClient, TitleReference } from "../types.js";
 import { resolveAniListEpisodeAddress, resolveAniListId } from "../anime/anilistResolver.js";
 
 export const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";

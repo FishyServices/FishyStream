@@ -1,9 +1,8 @@
-import { defineConfig, loadEnv, type Connect, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { readFileSync, existsSync } from "fs";
-import { pathToFileURL } from "url";
 import { fetchAnimeCatalog } from "./functions/_shared/catalog/animeCatalog";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));

@@ -1,12 +1,4 @@
-import type {
-  Episode,
-  EpisodePage,
-  MediaType,
-  MetadataClient,
-  Rating,
-  Title,
-  TitleReference
-} from "../types.js";
+import type { Episode, EpisodePage, MediaType, MetadataClient, Rating, Title } from "../types.js";
 
 export type {
   Episode,

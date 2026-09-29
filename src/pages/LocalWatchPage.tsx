@@ -24,7 +24,6 @@ export function LocalWatchPage() {
         localFile={file}
         content={LOCAL_CONTENT}
         tvTarget={{ season: 1, episode: 1 }}
-        animeContent={false}
         isDub={false}
         onPlaybackEvent={() => {}}
         showDubToggle={false}

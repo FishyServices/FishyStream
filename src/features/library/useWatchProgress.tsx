@@ -10,13 +10,12 @@ import {
 import { useMutation, useConvex } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../../convex/_generated/api";
-import type { ContentId, ContentType, WatchProgressEntryMeta } from "@content/contentMetadata";
+import type { ContentId } from "@content/contentMetadata";
 import { WATCH_PROGRESS_SYNC_INTERVAL_MS } from "@fishy/providers/playback";
 
 import {
   type ProgressState,
   type StoredProgress,
-  type ProgressStore,
   type LocalContentSnapshot as WatchProgressSnapshot,
   getWatchProgressStore,
   setWatchProgressStore

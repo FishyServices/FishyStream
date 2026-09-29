@@ -1,11 +1,10 @@
 import { createRoot } from "react-dom/client";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
-import { ClerkProvider, useAuth, useUser } from "@clerk/react";
-import { dark } from "@clerk/themes";
+import { ClerkProvider, useAuth } from "@clerk/react";
 import { applyFishyTheme } from "@fishy/ui";
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { App } from "./App";
 import { SignInPage } from "../pages/SignInPage";
 import { SignUpPage } from "../pages/SignUpPage";

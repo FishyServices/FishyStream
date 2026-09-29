@@ -21,7 +21,6 @@ import { ProviderSourceSelect, type ProviderUiMode } from "@/ui/components/Provi
 import { useGetProgress, useUpdateProgress } from "@/features/library/useWatchProgress";
 import { useAppSettings } from "@/features/settings/useAppSettings";
 import { useOneShotConvexQuery } from "@/shared/useOneShotConvexQuery";
-import type { PlayerEventPayload } from "@fishy/providers/playback";
 import {
   parsePlayerMessage,
   isTrustedPlayerMessageOrigin,
@@ -31,8 +30,7 @@ import {
   getNextEpisodeAddress,
   hasNextEpisode as hasProviderNextEpisode,
   isAnimeProviderContent,
-  shouldWaitForAnimeSeasonMetadata,
-  WATCH_PROGRESS_STATUS_POLL_MS
+  shouldWaitForAnimeSeasonMetadata
 } from "@fishy/providers/playback";
 import { buildWatchPath } from "@/shared/navigation/watchNavigation";
 import type { ContentPlayback } from "@content/contentMetadata";
@@ -776,7 +774,6 @@ export function VideoPlayer({
               setShowInfoModal(true);
             }}
             downloadRequest={downloadRequest}
-            animeContent={animeContent}
             isDub={isDub}
             onPlaybackEvent={reportPlaybackEvent}
             showDubToggle={showDubToggle}

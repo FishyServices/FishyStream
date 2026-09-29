@@ -1,6 +1,5 @@
 import { useUser } from "@clerk/react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useConvexAuth } from "convex/react";
 import { Header } from "@/ui/components/Header";
 import { Hero } from "@/ui/components/Hero";
 import { ContentRow } from "@/ui/components/ContentRow";
@@ -11,14 +10,13 @@ import { useContinueWatching } from "@/features/library/useWatchHistory";
 import { useAppSettings } from "@/features/settings/useAppSettings";
 import { createPlayHandler, type PlayHandler } from "@/shared/navigation/watchNavigation";
 import { Film, Loader2 } from "lucide-react";
-import { Button, Toaster } from "@fishy/ui";
+import { Toaster } from "@fishy/ui";
 import { DiscoverContentMode } from "@/pages/DiscoverPage";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
 import { UrlContentModal } from "@/ui/components/ContentModal";
 
 export function App() {
   const { isLoaded, isSignedIn } = useUser();
-  const { isLoading: isConvexAuthLoading } = useConvexAuth();
   const navigate = useNavigate();
   const { settings } = useAppSettings();
 

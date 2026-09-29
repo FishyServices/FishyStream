@@ -54,7 +54,6 @@ interface CustomVideoPlayerProps {
   onOpenEpisodePicker?: () => void;
   downloadRequest?: { season: number; episodes: number[] } | null;
   onDownloadRequestConsumed?: () => void;
-  animeContent: boolean;
   isDub: boolean;
   onPlaybackEvent: (event: PlaybackEvent) => void;
   showDubToggle: boolean;
@@ -88,7 +87,6 @@ export function CustomVideoPlayer({
   onOpenEpisodePicker,
   downloadRequest,
   onDownloadRequestConsumed,
-  animeContent,
   isDub,
   onPlaybackEvent,
   showDubToggle,
@@ -167,12 +165,9 @@ export function CustomVideoPlayer({
     batchDownloadState,
     downloadProgress,
     batchDownloadProgress,
-    selectedBatchEpisodes,
-    setSelectedBatchEpisodes,
     prepareDownload,
     resetDownload,
-    handleDownload,
-    handleBatchDownload
+    handleDownload
   } = useVideoDownloads({
     contentId: content._id,
     contentTitle: content.title,

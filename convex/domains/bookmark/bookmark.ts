@@ -3,7 +3,6 @@ import { v } from "convex/values";
 import { getOneFrom, getOrThrow } from "convex-helpers/server/relationships";
 import { viewerMutation, viewerQuery } from "../../lib/auth";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import type { Id } from "../../_generated/dataModel";
 import {
   fromImageWire,
   parseContentId,

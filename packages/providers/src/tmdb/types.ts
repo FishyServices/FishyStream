@@ -1,4 +1,4 @@
-import type { EpisodePage, MediaType, MetadataClient, Rating, TitleReference } from "../types.js";
+import type { MediaType } from "../types.js";
 
 export type { EpisodePage, MediaType, MetadataClient, Rating, TitleReference } from "../types.js";
 export type TMDBMediaType = MediaType;

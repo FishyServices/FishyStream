@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
 import { Filter, Search, X, Tv, Film } from "lucide-react";
@@ -50,7 +50,6 @@ export function SearchPage() {
       "Search for movies and TV shows on FishyStream. Find your next favourite thing to watch.",
     path: "/search"
   });
-  const lastTrackedSearchRef = useRef<string | null>(null);
   const query = searchParams.get("q") ?? "";
   const typeParam = searchParams.get("type");
   const sortParam = searchParams.get("sort");
