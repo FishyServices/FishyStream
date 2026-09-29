@@ -31,6 +31,10 @@
       "types": "./dist/anime/index.d.ts",
       "import": "./dist/anime/index.js"
     },
+    "./subtitles": {
+      "types": "./dist/subtitles/index.d.ts",
+      "import": "./dist/subtitles/index.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "import": "./dist/*.js"

@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { readFileSync, existsSync } from "fs";
 import { fetchAnimeCatalog } from "./functions/_shared/catalog/animeCatalog";
+import { handleOpenSubtitlesRequest } from "./functions/_shared/subtitles/openSubtitlesApi";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
 const devDeps = Object.keys(pkg.devDependencies ?? {});
@@ -65,6 +66,27 @@ function fishyAnimeApiPlugin(apiKey: string | undefined): Plugin {
   };
 }
 
+function fishySubtitlesApiPlugin(): Plugin {
+  return {
+    name: "fishy-subtitles-api",
+    configureServer(server) {
+      server.middlewares.use("/api/subtitles", async (request, response) => {
+        const requestUrl = request.url ?? "/";
+        const mountedPath = requestUrl.startsWith("/api/subtitles")
+          ? requestUrl
+          : `/api/subtitles${requestUrl === "/" ? "" : requestUrl}`;
+        const target = new URL(mountedPath, `http://${request.headers.host ?? "localhost"}`);
+        const result = await handleOpenSubtitlesRequest(
+          new Request(target, { method: request.method })
+        );
+        response.statusCode = result.status;
+        result.headers.forEach((value, key) => response.setHeader(key, value));
+        response.end(Buffer.from(await result.arrayBuffer()));
+      });
+    }
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL;
@@ -72,6 +94,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       fishyProvidersPlugin(),
       fishyAnimeApiPlugin(env.TMDB_API_KEY),
+      fishySubtitlesApiPlugin(),
       tailwindcss(),
       react()
     ],
