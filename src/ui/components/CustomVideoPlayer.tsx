@@ -22,6 +22,10 @@ import { getIntroDbPlaybackSegments } from "@fishy/providers/playback";
 import type { ContentPlayback } from "@content/contentMetadata";
 import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
 import { useVideoDownloads } from "@/ui/components/custom-video-player/downloads";
+import {
+  getCustomPlayerVolumeBoost,
+  setCustomPlayerVolumeBoost
+} from "@/shared/storage/localStorageStore";
 
 interface CustomVideoPlayerProps {
   embedUrl: string;
@@ -155,6 +159,29 @@ function getSubtitleFormat(url: string): SubtitleFormat {
   return extension === "srt" || extension === "ass" ? extension : "vtt";
 }
 
+type AudioContextWindow = Window &
+  typeof globalThis & {
+    webkitAudioContext?: typeof AudioContext;
+  };
+
+function fillNativeFullscreen(art: Artplayer) {
+  const player = art.template.$player;
+  const video = art.template.$video;
+
+  art.on("fullscreen", (isFullscreen) => {
+    if (isFullscreen) {
+      player.style.width = "100%";
+      player.style.height = "100%";
+      video.style.objectFit = "cover";
+      return;
+    }
+
+    player.style.width = "";
+    player.style.height = "";
+    video.style.objectFit = "";
+  });
+}
+
 export function CustomVideoPlayer({
   embedUrl,
   resumePositionSeconds,
@@ -181,6 +208,10 @@ export function CustomVideoPlayer({
   const playerRef = useRef<Artplayer | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const volumeBoostRef = useRef(getCustomPlayerVolumeBoost());
   const onPlaybackEventRef = useRef(onPlaybackEvent);
   const introDbLookupKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -224,6 +255,43 @@ export function CustomVideoPlayer({
     onPlaybackEventRef.current = onPlaybackEvent;
   }, [onPlaybackEvent]);
 
+  const initAudioBoost = () => {
+    const video = playerRef.current?.video;
+    if (!video || volumeBoostRef.current <= 1) return;
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = volumeBoostRef.current;
+      if (audioContextRef.current?.state === "suspended") void audioContextRef.current.resume();
+      return;
+    }
+    try {
+      const AudioContextConstructor =
+        window.AudioContext ?? (window as AudioContextWindow).webkitAudioContext;
+      if (!AudioContextConstructor) return;
+      const audioContext = new AudioContextConstructor();
+      const source = audioContext.createMediaElementSource(video);
+      const gain = audioContext.createGain();
+      gain.gain.value = volumeBoostRef.current;
+      source.connect(gain);
+      gain.connect(audioContext.destination);
+      audioContextRef.current = audioContext;
+      audioSourceRef.current = source;
+      gainNodeRef.current = gain;
+      if (audioContext.state === "suspended") void audioContext.resume();
+    } catch {
+      audioSourceRef.current = null;
+      gainNodeRef.current = null;
+      audioContextRef.current = null;
+    }
+  };
+
+  const handleVolumeBoostChange = (value: number) => {
+    const nextBoost = Math.min(3, Math.max(1, value));
+    volumeBoostRef.current = nextBoost;
+    setCustomPlayerVolumeBoost(nextBoost);
+    initAudioBoost();
+    if (gainNodeRef.current) gainNodeRef.current.gain.value = nextBoost;
+  };
+
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
@@ -236,6 +304,13 @@ export function CustomVideoPlayer({
     };
     const destroy = () => {
       destroyHls();
+      audioSourceRef.current?.disconnect();
+      gainNodeRef.current?.disconnect();
+      if (audioContextRef.current && audioContextRef.current.state !== "closed")
+        void audioContextRef.current.close();
+      audioSourceRef.current = null;
+      gainNodeRef.current = null;
+      audioContextRef.current = null;
       playerRef.current?.destroy(false);
       playerRef.current = null;
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -336,6 +411,16 @@ export function CustomVideoPlayer({
             }))
           ]
         };
+        const volumeBoostSetting: Setting = {
+          name: "volume-boost",
+          html: "Volume boost",
+          range: [volumeBoostRef.current, 1, 3, 0.05],
+          onChange(this: Artplayer, item: SettingOption) {
+            const value = item.$range?.valueAsNumber ?? volumeBoostRef.current;
+            handleVolumeBoostChange(value);
+            return `${Math.round(volumeBoostRef.current * 100)}%`;
+          }
+        };
         const option: Option = {
           container: containerRef.current,
           url,
@@ -350,10 +435,9 @@ export function CustomVideoPlayer({
           playbackRate: true,
           aspectRatio: true,
           setting: true,
-          settings: [subtitleSetting],
-          screenshot: true,
-          fullscreen: false,
-          fullscreenWeb: true,
+          settings: [subtitleSetting, volumeBoostSetting],
+          screenshot: false,
+          fullscreen: true,
           hotkey: true,
           lock: true,
           gesture: true,
@@ -362,7 +446,7 @@ export function CustomVideoPlayer({
           subtitleOffset: true,
           mutex: true,
           pip: true,
-          autoSize: true,
+          plugins: [fillNativeFullscreen],
           cssVar: {
             "--art-font-color": "var(--color-foreground)",
             "--art-background-color": "var(--color-background)",
@@ -398,17 +482,6 @@ export function CustomVideoPlayer({
         if (initialSubtitle) option.subtitle = initialSubtitle;
         const player = new Artplayer(option);
         playerRef.current = player;
-        const restoreWebFullscreen = () => {
-          window.setTimeout(() => {
-            if (active && !document.fullscreenElement && !player.isDestroy && !player.fullscreenWeb)
-              player.fullscreenWeb = true;
-          }, 0);
-        };
-        document.addEventListener("fullscreenchange", restoreWebFullscreen);
-        player.once("destroy", () => {
-          document.removeEventListener("fullscreenchange", restoreWebFullscreen);
-        });
-        player.on("fullscreen", restoreWebFullscreen);
         const report = (event: PlaybackEvent["event"]) => {
           const videoDuration = player.duration;
           onPlaybackEventRef.current({
@@ -420,43 +493,15 @@ export function CustomVideoPlayer({
           });
         };
         player.on("ready", () => {
-          player.controls.remove("fullscreenWeb");
-          player.controls.add({
-            name: "fullscreen",
-            position: "right",
-            index: 70,
-            html: "",
-            tooltip: "Fullscreen",
-            mounted(this: Artplayer, element: HTMLElement) {
-              const updateIcon = () => {
-                element.replaceChildren(
-                  document.fullscreenElement ? this.icons.fullscreenOff : this.icons.fullscreenOn
-                );
-              };
-              updateIcon();
-              document.addEventListener("fullscreenchange", updateIcon);
-              this.once("destroy", () => {
-                document.removeEventListener("fullscreenchange", updateIcon);
-              });
-            },
-            click(this: Artplayer) {
-              if (document.fullscreenElement) {
-                void document.exitFullscreen();
-              } else {
-                void document.documentElement.requestFullscreen().catch((error: unknown) => {
-                  this.notice.show =
-                    error instanceof Error ? error.message : "Unable to enter fullscreen.";
-                });
-              }
-            }
-          });
-          player.fullscreenWeb = true;
+          initAudioBoost();
           const resume = getResumePosition(embedUrl, resumePositionSeconds);
           if (resume > 0 && resume < player.duration) player.seek = resume;
           setDuration(player.duration);
           void player.play().catch(() => {});
         });
         player.on("play", () => {
+          initAudioBoost();
+          if (audioContextRef.current?.state === "suspended") void audioContextRef.current.resume();
           setIsPlaying(true);
           report("play");
         });
@@ -560,10 +605,10 @@ export function CustomVideoPlayer({
   const skipLabel = skipSegment === skipTimes.intro ? "intro" : "outro";
 
   return (
-    <div className="relative h-auto max-h-[calc(100dvh-10rem)] min-h-0 w-full max-w-full overflow-hidden rounded-2xl border border-border/60 bg-background shadow-2xl shadow-black/40 ring-1 ring-white/5 aspect-video">
+    <div className="relative h-[min(100dvh,56.25vw)] min-h-0 w-full max-w-full overflow-hidden rounded-2xl border border-border/60 bg-background shadow-2xl shadow-black/40 ring-1 ring-white/5">
       <div
         ref={containerRef}
-        className="artplayer-app absolute inset-0 [&_.art-video-player]:h-full [&_.art-video-player]:w-full [&_.art-video-player]:overflow-hidden"
+        className="artplayer-app absolute inset-0 [&_.art-video-player]:h-full [&_.art-video-player]:w-full [&_.art-video-player]:overflow-hidden [&_.art-video]:object-cover"
       />
       {isLoading && (
         <div
