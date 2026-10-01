@@ -12,7 +12,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "both",
     website: "https://111movies.net",
-    canBeScraped: true,
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
@@ -367,6 +366,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://player.vidlove.cc",
+    canBeScraped: true,
     progress: { controlApi: true },
     referrerPolicy: "no-referrer",
     params: {
@@ -450,6 +450,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "both",
     website: "https://vidrock.ru",
+    canBeScraped: true,
     animeIdType: "anilist",
     dubSupport: true,
     referrerPolicy: "strict-origin-when-cross-origin",
@@ -504,6 +505,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://player.vidzee.wtf",
+    canBeScraped: true,
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
@@ -514,6 +516,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "primary",
     idType: "tmdb",
     website: "https://vidzen.fun",
+    canBeScraped: true,
     progress: { controlApi: true },
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/movie/${id}`,

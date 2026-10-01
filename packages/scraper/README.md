@@ -1,6 +1,6 @@
 # Scraper
 
-The scraper uses Puppeteer to extract video metadata and playable embed URLs from streaming providers.
+The scraper resolves playable media URLs from streaming providers and proxies them to the player.
 
 ## Known to work
 

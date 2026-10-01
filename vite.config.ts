@@ -3,14 +3,14 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { readFileSync, existsSync } from "fs";
-import { fetchAnimeCatalog } from "./functions/_shared/catalog/animeCatalog";
-import { handleOpenSubtitlesRequest } from "./functions/_shared/subtitles/openSubtitlesApi";
+import { fetchAnimeCatalog } from "./functions/_shared/catalog/animeCatalog.ts";
+import { handleOpenSubtitlesRequest } from "./functions/_shared/subtitles/openSubtitlesApi.ts";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
 const devDeps = Object.keys(pkg.devDependencies ?? {});
 
 function fishyProvidersPlugin(): Plugin {
-  const providersRoot = path.resolve(__dirname, "./packages/providers/src");
+  const providersRoot = path.resolve(import.meta.dirname, "./packages/providers/src");
   return {
     name: "fishy-providers",
     enforce: "pre",
@@ -100,10 +100,13 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       alias: [
-        { find: "@", replacement: path.resolve(__dirname, "./src") },
-        { find: "@content", replacement: path.resolve(__dirname, "./shared/content") },
-        { find: "react", replacement: path.resolve(__dirname, "./node_modules/react") },
-        { find: "react-dom", replacement: path.resolve(__dirname, "./node_modules/react-dom") }
+        { find: "@", replacement: path.resolve(import.meta.dirname, "./src") },
+        { find: "@content", replacement: path.resolve(import.meta.dirname, "./shared/content") },
+        { find: "react", replacement: path.resolve(import.meta.dirname, "./node_modules/react") },
+        {
+          find: "react-dom",
+          replacement: path.resolve(import.meta.dirname, "./node_modules/react-dom")
+        }
       ]
     },
     build: {

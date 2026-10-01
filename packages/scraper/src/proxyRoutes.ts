@@ -1,5 +1,9 @@
 import { Hono } from "hono";
-import { fetchSegment, fetchWithBrowserFallback, fetchWithRateLimitRetry } from "./fetcher";
+import {
+  fetchSegment,
+  fetchWithBrowserFallback,
+  fetchWithRateLimitRetry
+} from "./puppeteer/fetcher";
 import { getOriginHeaders, isFetchableUrl, sanitizeFilename } from "./media";
 import { rewriteHlsPlaylist } from "./playlist";
 import type { Bindings, StreamHeaders } from "./types";

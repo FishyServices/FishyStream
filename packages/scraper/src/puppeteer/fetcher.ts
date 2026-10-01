@@ -1,5 +1,5 @@
-import { getOriginHeaders, isFetchableUrl, isRecord } from "./media";
-import type { StreamHeaders } from "./types";
+import { getOriginHeaders, isFetchableUrl, isRecord } from "../media";
+import type { StreamHeaders } from "../types";
 
 export function getRequestHeaders(response: any, fallback: StreamHeaders): StreamHeaders {
   const request = response.request?.();
@@ -95,6 +95,33 @@ export async function fetchWithBrowserFallback(
           await page.setExtraHTTPHeaders(browserHeaders);
         }
 
+        const isLikelyPlaylist = /\.m3u8(?:[?#]|$)|\/api\/stream\//i.test(url);
+        if (isLikelyPlaylist) {
+          const origin = new URL(variant.Referer ?? url).origin;
+          await page.goto(`${origin}/`, {
+            waitUntil: "domcontentloaded",
+            timeout: 20_000
+          });
+          const playlistResponse = await page.evaluate(async (targetUrl: string) => {
+            const response = await fetch(targetUrl);
+            return {
+              body: await response.text(),
+              contentType: response.headers.get("content-type") ?? "",
+              status: response.status
+            };
+          }, url);
+          lastStatus = playlistResponse.status;
+          if (playlistResponse.status >= 200 && playlistResponse.status < 300) {
+            return {
+              body: await new Response(
+                new TextEncoder().encode(playlistResponse.body)
+              ).arrayBuffer(),
+              contentType: playlistResponse.contentType || "application/vnd.apple.mpegurl"
+            };
+          }
+          continue;
+        }
+
         const response = await page.goto(url, {
           waitUntil: "domcontentloaded",
           timeout: 20_000,
@@ -103,9 +130,21 @@ export async function fetchWithBrowserFallback(
         lastStatus = response?.status() ?? "no response";
 
         if (response && response.status() >= 200 && response.status() < 300) {
+          const contentType = response.headers()["content-type"] ?? "";
+          if (/mpegurl|m3u8/i.test(contentType) || /\.m3u8(?:[?#]|$)/i.test(url)) {
+            const playlist = await page.evaluate(async (targetUrl: string) => {
+              const playlistResponse = await fetch(targetUrl);
+              return await playlistResponse.text();
+            }, url);
+            return {
+              body: await new Response(new TextEncoder().encode(playlist)).arrayBuffer(),
+              contentType: contentType || "application/vnd.apple.mpegurl"
+            };
+          }
+
           return {
             body: await response.buffer(),
-            contentType: response.headers()["content-type"] ?? "application/octet-stream"
+            contentType: contentType || "application/octet-stream"
           };
         }
       } finally {

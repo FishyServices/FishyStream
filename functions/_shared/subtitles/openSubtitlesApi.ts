@@ -2,7 +2,7 @@ import {
   downloadOpenSubtitle,
   searchOpenSubtitles,
   type OpenSubtitleSearchOptions
-} from "../../../packages/providers/src/subtitles/index";
+} from "../../../packages/providers/src/subtitles/index.ts";
 
 function parseNumber(value: string | null): number | undefined {
   if (value === null || !/^\d+$/.test(value)) return undefined;

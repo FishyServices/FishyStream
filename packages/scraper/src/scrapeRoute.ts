@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getDiscoveredMediaHeaders, getRequestHeaders, releaseBrowser } from "./fetcher";
+import { getDiscoveredMediaHeaders, getRequestHeaders, releaseBrowser } from "./puppeteer/fetcher";
 import {
   buildProxyUrl,
   deriveOriginAndReferer,
@@ -12,10 +12,35 @@ import {
   unwrapMediaProxy
 } from "./media";
 import type { Bindings, StreamHeaders, StreamResult } from "./types";
-import { resolveVidLux } from "./providerResolvers";
+import { resolverEmbeds, resolverSources, runResolvers } from "./resolvers/providerResolvers";
 
 function shouldUseMediaResult(current: StreamResult | null): boolean {
   return !current || current.mediaType !== "hls";
+}
+
+function buildStreamProxyResponse(host: string, found: StreamResult, headers: StreamHeaders) {
+  const base = `${host.includes("localhost") ? "http" : "https"}://${host}`;
+  const proxyUrl = buildProxyUrl(
+    base,
+    found.mediaType === "hls" ? "/api/m3u8-proxy" : "/api/media-proxy",
+    found.url,
+    headers
+  );
+  const proxiedTracks = Array.isArray(found.tracks)
+    ? found.tracks.map((track: any) =>
+        typeof track?.file === "string"
+          ? { ...track, file: buildProxyUrl(base, "/api/subtitle-proxy", track.file, headers) }
+          : track
+      )
+    : found.tracks;
+
+  return {
+    streamUrl: proxyUrl,
+    mediaType: found.mediaType,
+    tracks: proxiedTracks ?? null,
+    intro: found.intro ?? null,
+    outro: found.outro ?? null
+  };
 }
 
 export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
@@ -36,6 +61,17 @@ export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
     };
 
     try {
+      const resolverResult = await runResolvers(targetUrl, {
+        sources: resolverSources,
+        embeds: resolverEmbeds
+      });
+      if (resolverResult) {
+        const providerResult = resolverResult.stream;
+        const host = c.req.header("host") ?? "localhost:4000";
+        console.log("[Scraper] Success — direct provider stream proxied");
+        return c.json(buildStreamProxyResponse(host, providerResult, providerResult.headers));
+      }
+
       browser = await c.env.launchBrowser();
       const page = await browser.newPage();
       const pageHeaders = deriveOriginAndReferer(targetUrl);
@@ -187,22 +223,17 @@ export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
         } catch {}
       });
 
-      const providerResult = await resolveVidLux(targetUrl);
       let shouldInspectDom = true;
-      if (providerResult) {
-        setResult(providerResult);
-      } else {
-        const navigation = page.goto(targetUrl, {
-          waitUntil: "domcontentloaded",
-          timeout: 20000
-        });
-        const navigationOutcome = await Promise.race([
-          navigation.then(() => "navigation" as const),
-          resultAvailable.then(() => "result" as const)
-        ]);
+      const navigation = page.goto(targetUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 20000
+      });
+      const navigationOutcome = await Promise.race([
+        navigation.then(() => "navigation" as const),
+        resultAvailable.then(() => "result" as const)
+      ]);
 
-        shouldInspectDom = navigationOutcome === "navigation";
-      }
+      shouldInspectDom = navigationOutcome === "navigation";
 
       const pageMediaUrlsRaw: unknown = shouldInspectDom
         ? await page.evaluate(`
@@ -237,31 +268,8 @@ export function registerScrapeRoute(app: Hono<{ Bindings: Bindings }>): void {
         ? { ...found.headers, Cookie: cookies }
         : found.headers;
       const host = c.req.header("host") ?? "localhost:4000";
-      const base = `${host.includes("localhost") ? "http" : "https"}://${host}`;
-      const proxyUrl = buildProxyUrl(
-        base,
-        found.mediaType === "hls" ? "/api/m3u8-proxy" : "/api/media-proxy",
-        found.url,
-        proxyHeaders
-      );
-      const proxiedTracks = Array.isArray(found.tracks)
-        ? found.tracks.map((track: any) =>
-            typeof track?.file === "string"
-              ? {
-                  ...track,
-                  file: buildProxyUrl(base, "/api/subtitle-proxy", track.file, proxyHeaders)
-                }
-              : track
-          )
-        : found.tracks;
       console.log("[Scraper] Success — stream proxied");
-      return c.json({
-        streamUrl: proxyUrl,
-        mediaType: found.mediaType,
-        tracks: proxiedTracks ?? null,
-        intro: found.intro ?? null,
-        outro: found.outro ?? null
-      });
+      return c.json(buildStreamProxyResponse(host, found, proxyHeaders));
     } catch (error: any) {
       console.error("[Scraper] Error:", error);
       return c.json({ error: "Scraping failed", details: error.message }, 500);
