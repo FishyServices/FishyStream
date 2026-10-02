@@ -124,7 +124,7 @@ export function ProviderSourceSelect({
           role="listbox"
           className={
             isHeader
-              ? "absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-sm"
+              ? "absolute left-0 right-auto z-50 mt-2 w-[min(18rem,calc(100vw-1rem))] overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-sm sm:left-auto sm:right-0 sm:w-72"
               : "mt-2 w-full overflow-hidden rounded-xl border border-border/70 bg-popover/98 text-popover-foreground shadow-lg"
           }
         >
