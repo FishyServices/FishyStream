@@ -48,4 +48,15 @@ describe("AniList resolver", () => {
       })
     ).resolves.toBe("999999");
   });
+
+  it("matches a numeric sequel suffix to its season", async () => {
+    mockAniList([{ id: 97765, title: { english: "Isekai Quartet 2" } }]);
+
+    await expect(
+      resolveAniListId({
+        title: "Isekai Quartet",
+        season: 2
+      })
+    ).resolves.toBe("97765");
+  });
 });

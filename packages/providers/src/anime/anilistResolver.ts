@@ -183,16 +183,22 @@ function scoreAniListCandidate(
 
     const { explicitSeasonNumbers, partNumbers, courNumbers } = getSeasonSignals(candidate);
     const romanSeasonNumber = parseRomanSeasonSignal(candidate, baseTitle);
+    const numericSeasonNumber = parseNumericSeasonSignal(candidate, baseTitle);
     const hasExplicitSeasonMatch = explicitSeasonNumbers.has(season);
     const hasExplicitSeasonMismatch =
       explicitSeasonNumbers.size > 0 && !explicitSeasonNumbers.has(season);
     const hasRomanSeasonMatch = romanSeasonNumber === season;
     const hasRomanSeasonMismatch = romanSeasonNumber !== undefined && romanSeasonNumber !== season;
+    const hasNumericSeasonMatch = numericSeasonNumber === season;
+    const hasNumericSeasonMismatch =
+      numericSeasonNumber !== undefined && numericSeasonNumber !== season;
 
     if (hasExplicitSeasonMatch) score += 14;
     if (hasExplicitSeasonMismatch) score -= 24;
     if (hasRomanSeasonMatch) score += 14;
     if (hasRomanSeasonMismatch) score -= 18;
+    if (hasNumericSeasonMatch) score += 14;
+    if (hasNumericSeasonMismatch) score -= 18;
 
     const hasCourMatch = courNumbers.has(season);
     const hasCourMismatch = courNumbers.size > 0 && !courNumbers.has(season);
@@ -206,12 +212,14 @@ function scoreAniListCandidate(
       hasExplicitSeasonMatch ||
       hasExplicitSeasonMismatch ||
       hasRomanSeasonMatch ||
-      hasRomanSeasonMismatch;
+      hasRomanSeasonMismatch ||
+      hasNumericSeasonMatch ||
+      hasNumericSeasonMismatch;
 
     if (!hasSeasonSignal) {
       if (hasPartMatch) score += 4;
       if (hasCourMatch) score += 3;
-    } else if (hasExplicitSeasonMatch || hasRomanSeasonMatch) {
+    } else if (hasExplicitSeasonMatch || hasRomanSeasonMatch || hasNumericSeasonMatch) {
       if (hasPartMatch || hasCourMatch) score -= 16;
     }
 
@@ -266,7 +274,9 @@ function hasStrongAniListTitleMatch(media: AniListSearchMedia, title: string, se
     if (season <= 1) return true;
     const { explicitSeasonNumbers } = getSeasonSignals(candidate);
     return (
-      explicitSeasonNumbers.has(season) || parseRomanSeasonSignal(candidate, baseTitle) === season
+      explicitSeasonNumbers.has(season) ||
+      parseRomanSeasonSignal(candidate, baseTitle) === season ||
+      parseNumericSeasonSignal(candidate, baseTitle) === season
     );
   });
 }
@@ -286,6 +296,17 @@ function parseRomanSeasonSignal(candidate: string, baseTitle: string) {
     vi: 6
   };
   return romanValues[firstToken];
+}
+
+function parseNumericSeasonSignal(candidate: string, baseTitle: string) {
+  if (!candidate.startsWith(`${baseTitle} `)) return undefined;
+
+  const suffix = candidate.slice(baseTitle.length).trim();
+  const number = suffix.match(/^(\d+)(?:\b|$)/)?.[1];
+  if (!number) return undefined;
+
+  const season = Number(number);
+  return Number.isSafeInteger(season) && season > 0 ? season : undefined;
 }
 
 async function searchAniListCandidate(search: string): Promise<AniListSearchMedia[]> {
