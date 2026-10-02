@@ -3,5 +3,3 @@ pages_build_output_dir = "dist"
 compatibility_date = "2024-07-02"
 compatibility_flags = ["nodejs_compat"]
 
-[browser]
-binding = "MYBROWSER"

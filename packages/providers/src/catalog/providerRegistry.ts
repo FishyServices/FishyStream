@@ -449,7 +449,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidRock",
     category: "other",
     idType: "both",
-    website: "https://vidrock.ru",
+    website: "https://vidrock.to",
     canBeScraped: true,
     animeIdType: "anilist",
     dubSupport: true,
