@@ -30,7 +30,6 @@ interface VideoDownloadOptions {
   contentType: "movie" | "tv";
   tvTarget: EpisodeTarget;
   selectedSource: string;
-  localFile?: File;
   downloadReady: boolean;
   getEpisodeEmbedUrl?: (target: EpisodeTarget) => Promise<string | null>;
   downloadRequest?: { season: number; episodes: number[] } | null;
@@ -117,7 +116,6 @@ export function useVideoDownloads(options: VideoDownloadOptions): VideoDownloads
     contentType,
     tvTarget,
     selectedSource,
-    localFile,
     downloadReady,
     getEpisodeEmbedUrl,
     downloadRequest,
@@ -137,7 +135,7 @@ export function useVideoDownloads(options: VideoDownloadOptions): VideoDownloads
   const contentTypeRef = useRef("video/mp4");
   const lastPersistedRef = useRef(0);
   const modeRef = useRef<DownloadMode>("file");
-  const persistRef = useRef(!localFile);
+  const persistRef = useRef(true);
   const storageKey = `${contentId}:${tvTarget.season}:${tvTarget.episode}:${selectedSource}`;
 
   const filenameFor = (target = tvTarget) =>
@@ -494,7 +492,7 @@ export function useVideoDownloads(options: VideoDownloadOptions): VideoDownloads
     downloadProgress,
     batchDownloadProgress,
     downloadActionLabel,
-    hasDownloadControl: !!downloadUrl || (!localFile && downloadReady),
+    hasDownloadControl: !!downloadUrl || downloadReady,
     selectedBatchEpisodes,
     setSelectedBatchEpisodes,
     prepareDownload,

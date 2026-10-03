@@ -30,7 +30,6 @@ import {
 interface CustomVideoPlayerProps {
   embedUrl: string;
   resumePositionSeconds?: number;
-  localFile?: File;
   content: ContentPlayback;
   tvTarget: { season: number; episode: number };
   getEpisodeEmbedUrl?: (target: { season: number; episode: number }) => Promise<string | null>;
@@ -209,7 +208,6 @@ function fillNativeFullscreen(art: Artplayer) {
 export function CustomVideoPlayer({
   embedUrl,
   resumePositionSeconds,
-  localFile,
   content,
   tvTarget,
   getEpisodeEmbedUrl,
@@ -267,7 +265,6 @@ export function CustomVideoPlayer({
     contentType: content.type,
     tvTarget,
     selectedSource,
-    localFile,
     downloadReady: !isLoading,
     getEpisodeEmbedUrl,
     downloadRequest,
@@ -363,33 +360,26 @@ export function CustomVideoPlayer({
         let url: string;
         let mediaType: "hls" | "file";
         let tracks: SubtitleTrack[] = [];
-        if (localFile) {
-          url = URL.createObjectURL(localFile);
-          objectUrlRef.current = url;
-          mediaType = "file";
-          prepareDownloadRef.current({ url, mode: "file", persist: false });
-        } else {
-          const endpoint = import.meta.env.DEV ? "http://localhost:4000/api/scrape" : "/api/scrape";
-          const response = await fetch(`${endpoint}?url=${encodeURIComponent(embedUrl)}`, {
-            signal: controller.signal
-          });
-          if (!response.ok) throw new Error("Unable to load the stream.");
-          const data = parseScrapeResponse(await response.json());
-          if (!data.streamUrl) throw new Error("No playable stream was found.");
-          url = data.streamUrl;
-          mediaType = data.mediaType ?? (url.includes(".m3u8") ? "hls" : "file");
-          tracks = data.tracks ?? [];
-          setSkipTimes({ intro: data.intro, outro: data.outro });
-          if (mediaType === "hls") prepareDownloadRef.current({ url, mode: "hls", persist: true });
-          else {
-            const download = new URL(url, window.location.origin);
-            download.searchParams.set("download", "1");
-            download.searchParams.set(
-              "filename",
-              `${content.title}${content.type === "tv" ? ` - S${tvTarget.season}E${tvTarget.episode}` : ""}.mp4`
-            );
-            prepareDownloadRef.current({ url: download.href, mode: "file", persist: true });
-          }
+        const endpoint = import.meta.env.DEV ? "http://localhost:4000/api/scrape" : "/api/scrape";
+        const response = await fetch(`${endpoint}?url=${encodeURIComponent(embedUrl)}`, {
+          signal: controller.signal
+        });
+        if (!response.ok) throw new Error("Unable to load the stream.");
+        const data = parseScrapeResponse(await response.json());
+        if (!data.streamUrl) throw new Error("No playable stream was found.");
+        url = data.streamUrl;
+        mediaType = data.mediaType ?? (url.includes(".m3u8") ? "hls" : "file");
+        tracks = data.tracks ?? [];
+        setSkipTimes({ intro: data.intro, outro: data.outro });
+        if (mediaType === "hls") prepareDownloadRef.current({ url, mode: "hls", persist: true });
+        else {
+          const download = new URL(url, window.location.origin);
+          download.searchParams.set("download", "1");
+          download.searchParams.set(
+            "filename",
+            `${content.title}${content.type === "tv" ? ` - S${tvTarget.season}E${tvTarget.episode}` : ""}.mp4`
+          );
+          prepareDownloadRef.current({ url: download.href, mode: "file", persist: true });
         }
         if (!active || !containerRef.current) return;
         const providerSubtitleSources: SubtitleSource[] = tracks.map((track, index) => ({
@@ -611,7 +601,7 @@ export function CustomVideoPlayer({
           report("timeupdate");
         });
         player.on("error", (error) => setMediaError(error.message || "Unable to play this video."));
-        if (content.tmdbId && !localFile) {
+        if (content.tmdbId) {
           player.on("ready", () => {
             const seconds = player.duration;
             if (!Number.isFinite(seconds) || seconds <= 0) return;
@@ -662,7 +652,6 @@ export function CustomVideoPlayer({
     content.tmdbId,
     content.type,
     embedUrl,
-    localFile,
     resumePositionSeconds,
     tvTarget.episode,
     tvTarget.season
@@ -856,7 +845,7 @@ export function CustomVideoPlayer({
           <p className="mt-2 font-display text-lg">Video unavailable</p>
           <p className="mt-2 text-sm text-white/55">{mediaError}</p>
           <Button onClick={() => navigate("/")} className="mt-5 rounded-full">
-            Choose another file from Home
+            Choose another title
           </Button>
         </div>
       )}
