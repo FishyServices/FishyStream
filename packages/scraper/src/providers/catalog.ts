@@ -1,12 +1,9 @@
 import { resolveProvider } from "./fetcher";
 import { resolveMegaPlay } from "./catalog/megaPlay";
-import { resolveVidLux } from "./catalog/vidLux";
 import { resolvePeachify } from "./catalog/peachify";
 import { resolveVidLove } from "./catalog/vidLove";
 import { resolveVidNest } from "./catalog/vidNest";
 import { resolveVidRock } from "./catalog/vidRock";
-import { resolveVidZee } from "./catalog/vidZee";
-import { resolveVidZen } from "./catalog/vidZen";
 import type { Stream } from "../types";
 
 export type Provider = {
@@ -27,18 +24,6 @@ const megaPlayProvider: Provider = {
   resolve: resolveMegaPlay
 };
 
-const vidZenProvider: Provider = {
-  id: "vidzen",
-  matches: (url) => url.hostname === "vidzen.fun",
-  resolve: resolveVidZen
-};
-
-const vidZeeProvider: Provider = {
-  id: "vidzee",
-  matches: (url) => url.hostname === "player.vidzee.wtf",
-  resolve: resolveVidZee
-};
-
 const vidRockProvider: Provider = {
   id: "vidrock",
   matches: (url) => ["vidrock.ru", "vidrock.to", "vidrock.net"].includes(url.hostname),
@@ -49,12 +34,6 @@ const vidLoveProvider: Provider = {
   id: "vidlove",
   matches: (url) => url.hostname === "player.vidlove.cc",
   resolve: resolveVidLove
-};
-
-const vidLuxProvider: Provider = {
-  id: "vidlux",
-  matches: (url) => url.hostname === "vidlux.xyz" || url.hostname.endsWith(".vidlux.xyz"),
-  resolve: resolveVidLux
 };
 
 const peachifyProvider: Provider = {
@@ -72,11 +51,8 @@ const genericProvider: Provider = {
 export const providers: readonly Provider[] = [
   vidNestProvider,
   megaPlayProvider,
-  vidZenProvider,
-  vidZeeProvider,
   vidRockProvider,
   vidLoveProvider,
-  vidLuxProvider,
   peachifyProvider,
   genericProvider
 ];

@@ -1,5 +1,3 @@
-// DOES NOT WORK
-import { INSECURE_TLS } from "../fetcher";
 import { findMedia, isHttpUrl, originHeaders } from "../media";
 import type { MediaType, Stream, StreamHeaders } from "../../types";
 
@@ -66,7 +64,7 @@ async function fetchJson(label: string, url: string, init: RequestInit): Promise
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   const started = Date.now();
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal, ...INSECURE_TLS });
+    const response = await fetch(url, { ...init, signal: controller.signal });
     log(`${label} -> ${response.status} (${Date.now() - started}ms)`);
     const text = await response.text();
     if (!response.ok) {
@@ -133,7 +131,6 @@ async function probe(url: string, mediaType: MediaType, headers: StreamHeaders):
     const response = await fetch(url, {
       headers: { ...headers, ...(mediaType === "file" ? { Range: "bytes=0-1023" } : {}) },
       signal: controller.signal,
-      ...INSECURE_TLS
     });
     if (mediaType === "hls") {
       const body = (await response.text()).replace(/^\uFEFF/, "").trimStart();
@@ -146,8 +143,8 @@ async function probe(url: string, mediaType: MediaType, headers: StreamHeaders):
     log(`  probe file -> ${response.status} ${contentType}`);
     return response.ok && !/text\/|html|json|xml/.test(contentType);
   } catch (error) {
-    log("  probe threw, accepting stream anyway:", error instanceof Error ? error.message : error);
-    return true;
+    log("  probe failed:", error instanceof Error ? error.message : error);
+    return false;
   } finally {
     clearTimeout(timer);
   }

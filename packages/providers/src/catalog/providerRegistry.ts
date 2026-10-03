@@ -395,7 +395,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vidlux.xyz",
-    canBeScraped: true,
+    // this provider does not work for the scraper
     params: {
       key: { type: "string" },
       color: { type: "hex" },
@@ -505,7 +505,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://player.vidzee.wtf",
-    canBeScraped: true,
+    // this provider does not work for the scraper
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
@@ -516,7 +516,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "primary",
     idType: "tmdb",
     website: "https://vidzen.fun",
-    canBeScraped: true,
+    // this provider does not work for the scraper
     progress: { controlApi: true },
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/movie/${id}`,
