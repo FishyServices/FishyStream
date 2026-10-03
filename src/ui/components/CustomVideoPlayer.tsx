@@ -442,7 +442,7 @@ export function CustomVideoPlayer({
           lock: true,
           gesture: true,
           fastForward: true,
-          miniProgressBar: true,
+          miniProgressBar: false,
           subtitleOffset: true,
           mutex: true,
           pip: true,
@@ -482,6 +482,9 @@ export function CustomVideoPlayer({
         if (initialSubtitle) option.subtitle = initialSubtitle;
         const player = new Artplayer(option);
         playerRef.current = player;
+        player.hotkey.add("KeyF", () => {
+          player.fullscreen = !player.fullscreen;
+        });
         const report = (event: PlaybackEvent["event"]) => {
           const videoDuration = player.duration;
           onPlaybackEventRef.current({
