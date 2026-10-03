@@ -1,9 +1,15 @@
 import { resolveProvider } from "./fetcher";
+import { resolve111Movies } from "./catalog/111Movies";
 import { resolveMegaPlay } from "./catalog/megaPlay";
 import { resolvePeachify } from "./catalog/peachify";
+import { resolveVaplayer } from "./catalog/vaplayer";
+import { resolveVideasy } from "./catalog/videasy";
 import { resolveVidLove } from "./catalog/vidLove";
 import { resolveVidNest } from "./catalog/vidNest";
 import { resolveVidRock } from "./catalog/vidRock";
+import { resolveVixSrc } from "./catalog/vixSrc";
+import { resolveVidZee } from "./catalog/vidZee";
+import { resolveVidZen } from "./catalog/vidZen";
 import type { Stream } from "../types";
 
 export type Provider = {
@@ -16,6 +22,12 @@ const vidNestProvider: Provider = {
   id: "vidnest",
   matches: (url) => url.hostname === "vidnest.fun",
   resolve: resolveVidNest
+};
+
+const oneOneOneMoviesProvider: Provider = {
+  id: "111movies",
+  matches: (url) => url.hostname === "111movies.net",
+  resolve: resolve111Movies
 };
 
 const megaPlayProvider: Provider = {
@@ -42,6 +54,36 @@ const peachifyProvider: Provider = {
   resolve: resolvePeachify
 };
 
+const vaplayerProvider: Provider = {
+  id: "vaplayer",
+  matches: (url) => url.hostname === "vaplayer.ru",
+  resolve: resolveVaplayer
+};
+
+const videasyProvider: Provider = {
+  id: "videasy",
+  matches: (url) => url.hostname === "player.videasy.net",
+  resolve: resolveVideasy
+};
+
+const vidZenProvider: Provider = {
+  id: "vidzen",
+  matches: (url) => url.hostname === "vidzen.fun",
+  resolve: resolveVidZen
+};
+
+const vidZeeProvider: Provider = {
+  id: "vidzee",
+  matches: (url) => url.hostname === "player.vidzee.wtf",
+  resolve: resolveVidZee
+};
+
+const vixSrcProvider: Provider = {
+  id: "vixsrc",
+  matches: (url) => url.hostname === "vixsrc.to",
+  resolve: resolveVixSrc
+};
+
 const genericProvider: Provider = {
   id: "direct-fetch",
   matches: () => true,
@@ -49,11 +91,17 @@ const genericProvider: Provider = {
 };
 
 export const providers: readonly Provider[] = [
+  oneOneOneMoviesProvider,
   vidNestProvider,
   megaPlayProvider,
   vidRockProvider,
   vidLoveProvider,
   peachifyProvider,
+  vaplayerProvider,
+  videasyProvider,
+  vidZeeProvider,
+  vidZenProvider,
+  vixSrcProvider,
   genericProvider
 ];
 

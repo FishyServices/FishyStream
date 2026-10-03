@@ -12,6 +12,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "both",
     website: "https://111movies.net",
+    canBeScraped: true,
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
@@ -255,6 +256,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "both",
     website: "https://vaplayer.ru",
+    canBeScraped: true,
     params: {
       primaryColor: { type: "hex" },
       color: { type: "hex" },
@@ -297,6 +299,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://player.videasy.net",
     animeIdType: "anilist",
     progress: { resumeParam: "progress" },
+    canBeScraped: true,
     referrerPolicy: "no-referrer",
     params: {
       color: { type: "hex" },
@@ -505,7 +508,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://player.vidzee.wtf",
-    // this provider does not work for the scraper
+    canBeScraped: true,
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
@@ -516,7 +519,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "primary",
     idType: "tmdb",
     website: "https://vidzen.fun",
-    // this provider does not work for the scraper
+    canBeScraped: true,
     progress: { controlApi: true },
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/movie/${id}`,
@@ -528,6 +531,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vixsrc.to",
+    canBeScraped: true,
     progress: { resumeParam: "startAt" },
     referrerPolicy: "no-referrer",
     params: {

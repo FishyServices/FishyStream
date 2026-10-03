@@ -1,5 +1,5 @@
-import { fetchWithRetry } from "../fetcher";
-import { isHttpUrl, resolveMedia } from "../media";
+import { fetchWithRetry, INSECURE_TLS } from "../fetcher";
+import { isHttpUrl, originHeaders, resolveMedia } from "../media";
 import type { Stream, StreamHeaders } from "../../types";
 
 const API_ORIGIN = "https://new.vidnest.fun";
@@ -129,7 +129,7 @@ function sourceUrl(sourcePath: string, request: Request): string {
   return new URL(`/${path}`, API_ORIGIN).href;
 }
 
-const log = (...args: unknown[]) => null; //console.log("[vidnest]", ...args);
+const log = (...args: unknown[]) => console.log("[vidnest]", ...args);
 
 function preview(value: unknown): string {
   const text = typeof value === "string" ? value : JSON.stringify(value);
@@ -162,6 +162,44 @@ async function fetchJson(url: string, referer: string): Promise<unknown | null> 
   }
 }
 
+async function probe(stream: Stream): Promise<boolean> {
+  if (/\/demo-video\.mp4(?:[?#]|$)/i.test(stream.url)) {
+    log("  rejected demo media URL");
+    return false;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    ...(Object.keys(stream.headers).length ? stream.headers : originHeaders(stream.url)),
+    ...(stream.mediaType === "file" ? { Range: "bytes=0-1023" } : {})
+  };
+  try {
+    const response = await fetch(stream.url, {
+      headers,
+      signal: controller.signal,
+      ...INSECURE_TLS
+    });
+    if (stream.mediaType === "hls") {
+      const body = (await response.text()).replace(/^\uFEFF/, "").trimStart();
+      const playable = response.ok && body.startsWith("#EXTM3U");
+      log(`  probe hls -> ${response.status}${playable ? " ok" : ` bad: ${preview(body)}`}`);
+      return playable;
+    }
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    await response.body?.cancel().catch(() => undefined);
+    const playable =
+      (response.status === 200 || response.status === 206) && !/text\/|html|json|xml/.test(contentType);
+    log(`  probe file -> ${response.status} ${contentType}${playable ? " ok" : " rejected"}`);
+    return playable;
+  } catch (error) {
+    log("  media probe failed:", error instanceof Error ? error.message : error);
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function resolveVidNest(target: string): Promise<Stream | null> {
   const request = parseRequest(target);
   if (!request) {
@@ -184,8 +222,13 @@ export async function resolveVidNest(target: string): Promise<Stream | null> {
     log("  unwrapped:", preview(unwrapped));
     const stream = findStream(unwrapped, new URL(url).origin);
     if (stream) {
-      log(`  FOUND ${stream.mediaType} stream via ${path}:`, stream.url);
-      return stream;
+      log(`  candidate ${stream.mediaType} stream via ${path}:`, stream.url);
+      if (await probe(stream)) {
+        log(`  FOUND ${stream.mediaType} stream via ${path}`);
+        return stream;
+      }
+      log("  candidate failed media probe; trying next source");
+      continue;
     }
     log("  no stream in payload");
   }
