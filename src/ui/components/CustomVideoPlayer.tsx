@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Artplayer, { type Option, type Setting, type SettingOption } from "artplayer";
 import Hls from "hls.js";
 import { useNavigate } from "react-router-dom";
-import { Download, FastForward, Info, Mic2, MoreHorizontal } from "lucide-react";
+import { Download, Info, Mic2, MoreHorizontal } from "lucide-react";
 import {
   Button,
   Popover,
@@ -167,16 +167,25 @@ type AudioContextWindow = Window &
     webkitAudioContext?: typeof AudioContext;
   };
 
-const NEXT_EPISODE_LAYER_NAME = "next-episode";
-const NEXT_EPISODE_LAYER_HTML = `
-  <span aria-hidden="true" style="display:flex;align-items:center;gap:0.35rem;white-space:nowrap;font-size:0.75rem;">
-    <svg style="width:1rem;height:1rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m13 5 7 7-7 7"></path>
-      <path d="M4 5v14"></path>
-      <path d="m11 5 7 7-7 7"></path>
-    </svg>
-    <span>Next episode</span>
-  </span>
+const PLAYBACK_ACTIONS_LAYER_NAME = "playback-actions";
+const PLAYBACK_ACTIONS_LAYER_HTML = `
+  <div style="display:flex;align-items:stretch;overflow:hidden;border:1px solid color-mix(in oklab, var(--color-border) 80%, transparent);border-radius:9999px;background:color-mix(in oklab, var(--color-card) 92%, transparent);box-shadow:0 8px 24px color-mix(in oklab, var(--color-background) 60%, transparent);backdrop-filter:blur(12px);">
+    <span data-action="skip" role="button" tabindex="0" style="display:flex;flex:1 1 0%;align-items:center;justify-content:center;gap:0.35rem;min-height:2.25rem;padding:0.45rem 0.75rem;color:var(--color-foreground);font-size:0.75rem;white-space:nowrap;cursor:pointer;">
+      <span data-action-label>Skip intro</span>
+      <svg style="width:1rem;height:1rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 4v16"></path>
+        <path d="m9 4 8 8-8 8"></path>
+      </svg>
+    </span>
+    <span data-action="next" role="button" tabindex="0" style="display:flex;flex:1 1 0%;align-items:center;justify-content:center;gap:0.35rem;min-height:2.25rem;padding:0.45rem 0.75rem;color:var(--color-foreground);font-size:0.75rem;white-space:nowrap;cursor:pointer;">
+      <span>Next episode</span>
+      <svg style="width:1rem;height:1rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m13 5 7 7-7 7"></path>
+        <path d="M4 5v14"></path>
+        <path d="m11 5 7 7-7 7"></path>
+      </svg>
+    </span>
+  </div>
 `;
 
 function fillNativeFullscreen(art: Artplayer) {
@@ -234,6 +243,7 @@ export function CustomVideoPlayer({
   const onNextEpisodeRef = useRef(onNextEpisode);
   const showNextEpisodeButtonRef = useRef(showNextEpisodeButton);
   const isNextEpisodeCooldownRef = useRef(isNextEpisodeCooldown);
+  const skipSegmentRef = useRef<SkipSegment | undefined>(undefined);
   const introDbLookupKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -467,37 +477,40 @@ export function CustomVideoPlayer({
             content.type === "tv"
               ? [
                   {
-                    name: NEXT_EPISODE_LAYER_NAME,
-                    html: NEXT_EPISODE_LAYER_HTML,
+                    name: PLAYBACK_ACTIONS_LAYER_NAME,
+                    html: PLAYBACK_ACTIONS_LAYER_HTML,
                     style: {
                       position: "absolute",
                       right: "1rem",
                       bottom: "clamp(4.5rem, 11vh, 6rem)",
                       zIndex: "30",
-                      display: "flex",
-                      alignItems: "center",
-                      minHeight: "2.25rem",
-                      padding: "0.45rem 0.75rem",
-                      border: "1px solid color-mix(in oklab, var(--color-border) 80%, transparent)",
-                      borderRadius: "9999px",
-                      background: "color-mix(in oklab, var(--color-card) 92%, transparent)",
-                      color: "var(--color-foreground)",
-                      boxShadow:
-                        "0 8px 24px color-mix(in oklab, var(--color-background) 60%, transparent)",
-                      cursor: "pointer",
-                      backdropFilter: "blur(12px)"
+                      padding: "0",
+                      cursor: "pointer"
                     },
-                    tooltip: "Next episode",
                     mounted(element: HTMLElement) {
-                      element.setAttribute("aria-label", "Play next episode");
-                      element.setAttribute("role", "button");
-                      element.classList.add("touch-target");
+                      element.setAttribute("aria-label", "Playback actions");
+                      const layers = element.parentElement;
+                      if (layers) {
+                        layers.style.display = "flex";
+                        layers.style.pointerEvents = "none";
+                      }
                     },
-                    click() {
-                      if (!showNextEpisodeButtonRef.current || isNextEpisodeCooldownRef.current) {
+                    click(this: Artplayer, _component, event) {
+                      if (!(event.target instanceof Element)) return;
+                      const action =
+                        event.target.closest<HTMLElement>("[data-action]")?.dataset.action;
+                      if (action === "skip") {
+                        const segment = skipSegmentRef.current;
+                        if (segment) this.seek = segment.end;
                         return;
                       }
-                      onNextEpisodeRef.current();
+                      if (
+                        action === "next" &&
+                        showNextEpisodeButtonRef.current &&
+                        !isNextEpisodeCooldownRef.current
+                      ) {
+                        onNextEpisodeRef.current();
+                      }
                     }
                   }
                 ]
@@ -549,8 +562,15 @@ export function CustomVideoPlayer({
         const player = new Artplayer(option);
         playerRef.current = player;
         player.on("fullscreen", (isFullscreen) => {
-          const layer = player.layers[NEXT_EPISODE_LAYER_NAME];
-          if (layer) layer.hidden = isFullscreen || !showNextEpisodeButtonRef.current;
+          const layer = player.layers[PLAYBACK_ACTIONS_LAYER_NAME];
+          if (layer) {
+            const skipAction = layer.querySelector<HTMLElement>('[data-action="skip"]');
+            const nextAction = layer.querySelector<HTMLElement>('[data-action="next"]');
+            const hasSkip = skipSegmentRef.current !== undefined;
+            if (skipAction) skipAction.hidden = !hasSkip;
+            if (nextAction) nextAction.hidden = isFullscreen || !showNextEpisodeButtonRef.current;
+            layer.hidden = !hasSkip && !showNextEpisodeButtonRef.current;
+          }
         });
         player.hotkey.add("KeyF", () => {
           player.fullscreen = !player.fullscreen;
@@ -649,19 +669,6 @@ export function CustomVideoPlayer({
   ]);
 
   useEffect(() => {
-    const player = playerRef.current;
-    const layer = player?.layers[NEXT_EPISODE_LAYER_NAME];
-    if (!layer) return;
-
-    const isAvailable = showNextEpisodeButton && !isNextEpisodeCooldown;
-    const element = layer;
-    element.hidden = !showNextEpisodeButton || player.fullscreen;
-    element.setAttribute("aria-disabled", String(!isAvailable));
-    element.style.pointerEvents = isAvailable ? "" : "none";
-    element.style.opacity = isAvailable ? "" : "0.5";
-  }, [isNextEpisodeCooldown, showNextEpisodeButton]);
-
-  useEffect(() => {
     const flush = () => {
       const player = playerRef.current;
       if (player && player.duration > 0 && player.currentTime > 0)
@@ -689,6 +696,33 @@ export function CustomVideoPlayer({
         ? skipTimes.outro
         : undefined;
   const skipLabel = skipSegment === skipTimes.intro ? "intro" : "outro";
+
+  useEffect(() => {
+    skipSegmentRef.current = skipSegment;
+
+    const player = playerRef.current;
+    const layer = player?.layers[PLAYBACK_ACTIONS_LAYER_NAME];
+    if (!layer) return;
+
+    const skipAction = layer.querySelector<HTMLElement>('[data-action="skip"]');
+    const nextAction = layer.querySelector<HTMLElement>('[data-action="next"]');
+    const skipLabelElement = layer.querySelector<HTMLElement>("[data-action-label]");
+    const hasNextEpisode = showNextEpisodeButton && !isNextEpisodeCooldown;
+    const hasSkip = skipSegment !== undefined;
+
+    layer.hidden = !hasSkip && !showNextEpisodeButton;
+    if (skipAction) {
+      skipAction.hidden = !hasSkip;
+      skipAction.setAttribute("aria-disabled", String(!hasSkip));
+    }
+    if (skipLabelElement) skipLabelElement.textContent = `Skip ${skipLabel}`;
+    if (nextAction) {
+      nextAction.hidden = player.fullscreen || !showNextEpisodeButton;
+      nextAction.setAttribute("aria-disabled", String(!hasNextEpisode));
+      nextAction.style.pointerEvents = hasNextEpisode ? "" : "none";
+      nextAction.style.opacity = hasNextEpisode ? "" : "0.5";
+    }
+  }, [isNextEpisodeCooldown, showNextEpisodeButton, skipLabel, skipSegment]);
 
   return (
     <div className="relative h-[min(100dvh,56.25vw)] min-h-0 w-full max-w-full overflow-hidden rounded-2xl border border-border/60 bg-background shadow-2xl shadow-black/40 ring-1 ring-white/5">
@@ -825,18 +859,6 @@ export function CustomVideoPlayer({
             Choose another file from Home
           </Button>
         </div>
-      )}
-      {skipSegment && (
-        <Button
-          variant="secondary"
-          onClick={() => {
-            if (playerRef.current) playerRef.current.seek = skipSegment.end;
-          }}
-          className="absolute bottom-20 right-4 z-30 gap-2 rounded-full bg-white/10 text-white backdrop-blur-xl sm:bottom-24 sm:right-8"
-        >
-          <span>Skip {skipLabel}</span>
-          <FastForward className="h-4 w-4" />
-        </Button>
       )}
     </div>
   );
