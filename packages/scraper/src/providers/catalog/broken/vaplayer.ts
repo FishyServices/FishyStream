@@ -1,6 +1,6 @@
-import { INSECURE_TLS } from "../fetcher";
-import { isHttpUrl, originHeaders, resolveMedia } from "../media";
-import type { Stream, StreamHeaders } from "../../types";
+import { INSECURE_TLS } from "../../fetcher";
+import { isHttpUrl, originHeaders, resolveMedia } from "../../media";
+import type { Stream, StreamHeaders } from "../../../types";
 
 const HOST = "vaplayer.ru";
 const API_URL = "https://streamdata.vaplayer.ru/api.php";
@@ -24,8 +24,7 @@ function hostOf(value: string): string {
 }
 
 type Request =
-  | { id: string; type: "movie" }
-  | { id: string; type: "tv"; season: string; episode: string };
+  { id: string; type: "movie" } | { id: string; type: "tv"; season: string; episode: string };
 
 const headers: StreamHeaders = {
   "User-Agent": USER_AGENT,
@@ -65,7 +64,9 @@ async function fetchText(url: string, requestHeaders: StreamHeaders): Promise<st
       ...INSECURE_TLS
     });
     const body = await response.text();
-    log(`GET ${url} -> ${response.status} ${response.headers.get("content-type") ?? ""} (${Date.now() - started}ms)`);
+    log(
+      `GET ${url} -> ${response.status} ${response.headers.get("content-type") ?? ""} (${Date.now() - started}ms)`
+    );
     if (!response.ok) log("  response body:", preview(body));
     return body || null;
   } catch (error) {
@@ -103,7 +104,9 @@ function readTracks(payload: unknown): unknown[] | undefined {
       const file = new URL(track.url, API_URL).href;
       if (!isHttpUrl(file) || seen.has(file)) return [];
       seen.add(file);
-      return [{ file, label: typeof track.lang === "string" ? track.lang : "Subtitle", type: "vtt" }];
+      return [
+        { file, label: typeof track.lang === "string" ? track.lang : "Subtitle", type: "vtt" }
+      ];
     } catch {
       return [];
     }
@@ -115,28 +118,46 @@ async function probe(stream: Stream): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const response = await fetch(stream.url, {
-      headers: {
-        ...headers,
-        ...stream.headers,
-        ...(stream.mediaType === "file" ? { Range: "bytes=0-1023" } : {})
-      },
+    const requestHeaders = {
+      ...headers,
+      ...stream.headers,
+      ...(stream.mediaType === "file" ? { Range: "bytes=0-1023" } : {})
+    };
+    let response = await fetch(stream.url, {
+      headers: requestHeaders,
       signal: controller.signal,
       ...INSECURE_TLS
     });
+    if (response.status === 403) {
+      await response.body?.cancel().catch(() => undefined);
+      log("retrying media probe with source-origin headers");
+      response = await fetch(stream.url, {
+        headers: { ...requestHeaders, ...originHeaders(stream.url) },
+        signal: controller.signal,
+        ...INSECURE_TLS
+      });
+    }
     if (stream.mediaType === "hls") {
       const body = (await response.text()).replace(/^\uFEFF/, "").trimStart();
       const ok = response.ok && body.startsWith("#EXTM3U");
-      log(`probe HLS ${response.status} ${response.headers.get("content-type") ?? ""}:`, ok ? "playlist" : preview(body));
+      log(
+        `probe HLS ${response.status} ${response.headers.get("content-type") ?? ""}:`,
+        ok ? "playlist" : preview(body)
+      );
       return ok;
     }
     const type = response.headers.get("content-type")?.toLowerCase() ?? "";
     await response.body?.cancel().catch(() => undefined);
-    const ok = (response.status === 200 || response.status === 206) && !/text\/|html|json|xml/.test(type);
+    const ok =
+      (response.status === 200 || response.status === 206) && !/text\/|html|json|xml/.test(type);
     log(`probe file ${response.status} ${type}:`, ok ? "video file" : "rejected");
     return ok;
   } catch (error) {
-    log("media probe failed for", hostOf(stream.url), error instanceof Error ? error.message : error);
+    log(
+      "media probe failed for",
+      hostOf(stream.url),
+      error instanceof Error ? error.message : error
+    );
     return false;
   } finally {
     clearTimeout(timer);

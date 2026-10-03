@@ -54,7 +54,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://cinesrc.st",
-    canBeScraped: true,
     progress: { resumeParam: "time", controlApi: true },
     params: {
       seek: { type: "number" },
@@ -207,7 +206,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://peachify.top",
     progress: { resumeParam: "startAt" },
-    canBeScraped: true,
     referrerPolicy: "no-referrer",
     params: {
       server: { type: "string" },
@@ -256,7 +254,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "both",
     website: "https://vaplayer.ru",
-    canBeScraped: true,
     params: {
       primaryColor: { type: "hex" },
       color: { type: "hex" },
@@ -299,7 +296,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     website: "https://player.videasy.net",
     animeIdType: "anilist",
     progress: { resumeParam: "progress" },
-    canBeScraped: true,
     referrerPolicy: "no-referrer",
     params: {
       color: { type: "hex" },
@@ -508,7 +504,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://player.vidzee.wtf",
-    canBeScraped: true,
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
@@ -531,7 +526,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vixsrc.to",
-    canBeScraped: true,
     progress: { resumeParam: "startAt" },
     referrerPolicy: "no-referrer",
     params: {

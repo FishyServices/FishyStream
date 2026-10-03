@@ -1,6 +1,6 @@
-import { INSECURE_TLS } from "../fetcher";
-import { findMedia, isHttpUrl, originHeaders } from "../media";
-import type { MediaType, Stream, StreamHeaders } from "../../types";
+import { INSECURE_TLS } from "../../fetcher";
+import { findMedia, isHttpUrl, originHeaders } from "../../media";
+import type { MediaType, Stream, StreamHeaders } from "../../../types";
 
 const ORIGIN = "https://peachify.top";
 const SERVER_API = "https://x.eat-peach.sbs";

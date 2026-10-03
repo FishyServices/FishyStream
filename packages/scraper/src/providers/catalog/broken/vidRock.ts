@@ -1,8 +1,10 @@
-import { INSECURE_TLS } from "../fetcher";
-import { resolveMedia } from "../media";
-import type { Stream, StreamHeaders } from "../../types";
+// WORKS ON LOCALHOST BUT NOT CLOUDFLARE PAGES??????????
+import { INSECURE_TLS } from "../../fetcher";
+import { resolveMedia } from "../../media";
+import type { Stream, StreamHeaders } from "../../../types";
 
-const API = "https://vidrock.net/api";
+const API_ORIGIN = "https://vidrock.net";
+const API = `${API_ORIGIN}/api`;
 const HOSTS = new Set(["vidrock.ru", "vidrock.to", "vidrock.net"]);
 const TMDB_API = "https://api.themoviedb.org/3";
 const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
@@ -16,6 +18,11 @@ const log = (...args: unknown[]) => console.log("[vidrock]", ...args);
 function preview(value: unknown): string {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   return (text ?? "undefined").slice(0, 300);
+}
+
+function endpointName(value: string): string {
+  const url = new URL(value);
+  return `${url.origin}${url.pathname}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -32,7 +39,7 @@ async function fetchJson(
   const started = Date.now();
   try {
     const response = await fetch(url, { headers, signal: controller.signal, ...INSECURE_TLS });
-    log(`${label} GET ${url} -> ${response.status} (${Date.now() - started}ms)`);
+    log(`${label} GET ${endpointName(url)} -> ${response.status} (${Date.now() - started}ms)`);
     const text = await response.text();
     if (!response.ok) {
       log("  body:", preview(text));
@@ -45,7 +52,7 @@ async function fetchJson(
       return null;
     }
   } catch (error) {
-    log(`${label} GET ${url} threw after ${Date.now() - started}ms:`, error);
+    log(`${label} GET ${endpointName(url)} threw after ${Date.now() - started}ms:`, error);
     return null;
   } finally {
     clearTimeout(timer);
@@ -89,7 +96,7 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> {
 async function decryptSource(value: string): Promise<string | null> {
   const encrypted = decodeBase64Url(value);
   if (encrypted.length < 28) {
-    log("  encrypted value too short / not base64url:", preview(value));
+    log("  encrypted value too short / not base64url:", { characters: value.length });
     return null;
   }
   try {
@@ -146,7 +153,8 @@ export async function resolveVidRock(target: string): Promise<Stream | null> {
     {
       "User-Agent": USER_AGENT,
       Accept: "application/json, text/plain, */*",
-      Referer: `${origin}/`
+      Origin: API_ORIGIN,
+      Referer: `${API_ORIGIN}/`
     },
     "sources"
   );
@@ -154,24 +162,25 @@ export async function resolveVidRock(target: string): Promise<Stream | null> {
     log("  payload is not an object:", preview(payload));
     return null;
   }
-  log("  raw payload:", preview(payload));
+  log("  source entries:", Object.keys(payload).length);
 
   const headers: StreamHeaders = {
     "User-Agent": USER_AGENT,
-    Origin: origin,
-    Referer: `${origin}/`
+    Origin: API_ORIGIN,
+    Referer: `${API_ORIGIN}/`
   };
+  const seenUrls = new Set<string>();
   for (const [name, source] of Object.entries(payload)) {
     if (!isRecord(source) || typeof source.url !== "string") continue;
-    const decrypted = await decryptSource(source.url);
-    if (!decrypted) continue;
-    log(`  ${name} decrypted:`, preview(decrypted));
-    if (/\/demo-video\.mp4(?:[?#]|$)/i.test(decrypted)) continue;
-    const stream = resolveMedia(decrypted, origin, source.type);
+    let stream = resolveMedia(source.url, origin, source.type);
     if (!stream) {
-      log(`  ${name}: not a recognised media url`);
-      continue;
+      const decrypted = await decryptSource(source.url);
+      if (!decrypted) continue;
+      stream = resolveMedia(decrypted, origin, source.type);
     }
+    if (!stream || seenUrls.has(stream.url)) continue;
+    seenUrls.add(stream.url);
+    if (/\/(?:demo-video|sample-video)\.mp4(?:[?#]|$)/i.test(stream.url)) continue;
     if (stream.mediaType === "hls") {
       const seconds = await playlistDuration(stream.url, headers, name);
       if (seconds !== null && seconds < MIN_DURATION_SECONDS) {
@@ -179,7 +188,7 @@ export async function resolveVidRock(target: string): Promise<Stream | null> {
         continue;
       }
     }
-    log(`FOUND ${stream.mediaType} stream via "${name}":`, stream.url);
+    log(`FOUND ${stream.mediaType} stream via "${name}" on ${new URL(stream.url).hostname}`);
     return { ...stream, headers };
   }
   log("no playable source found");

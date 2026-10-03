@@ -1,15 +1,16 @@
 import { resolveProvider } from "./fetcher";
 import { resolve111Movies } from "./catalog/111Movies";
 import { resolveMegaPlay } from "./catalog/megaPlay";
-import { resolvePeachify } from "./catalog/peachify";
-import { resolveVaplayer } from "./catalog/vaplayer";
-import { resolveVideasy } from "./catalog/videasy";
+import { resolvePeachify } from "./catalog/broken/peachify";
+import { resolveVaplayer } from "./catalog/broken/vaplayer";
+import { resolveVideasy } from "./catalog/broken/videasy";
 import { resolveVidLove } from "./catalog/vidLove";
 import { resolveVidNest } from "./catalog/vidNest";
-import { resolveVidRock } from "./catalog/vidRock";
-import { resolveVixSrc } from "./catalog/vixSrc";
-import { resolveVidZee } from "./catalog/vidZee";
+import { resolveVidRock } from "./catalog/broken/vidRock";
+import { resolveVixSrc } from "./catalog/broken/vixSrc";
+import { resolveVidZee } from "./catalog/broken/vidZee";
 import { resolveVidZen } from "./catalog/vidZen";
+import { resolveVidFast } from "./catalog/broken/vidFast";
 import type { Stream } from "../types";
 
 export type Provider = {
@@ -84,6 +85,23 @@ const vixSrcProvider: Provider = {
   resolve: resolveVixSrc
 };
 
+const vidFastProvider: Provider = {
+  id: "vidfast",
+  matches: (url) =>
+    [
+      "vidfast.pro",
+      "vidfast.in",
+      "vidfast.io",
+      "vidfast.me",
+      "vidfast.net",
+      "vidfast.pm",
+      "vidfast.vc",
+      "vidfast.bz",
+      "vidfast.xyz"
+    ].includes(url.hostname),
+  resolve: resolveVidFast
+};
+
 const genericProvider: Provider = {
   id: "direct-fetch",
   matches: () => true,
@@ -102,6 +120,7 @@ export const providers: readonly Provider[] = [
   vidZeeProvider,
   vidZenProvider,
   vixSrcProvider,
+  vidFastProvider,
   genericProvider
 ];
 

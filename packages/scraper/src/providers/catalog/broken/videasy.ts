@@ -1,6 +1,6 @@
-import { INSECURE_TLS } from "../fetcher";
-import { isHttpUrl, originHeaders, resolveMedia } from "../media";
-import type { Stream, StreamHeaders } from "../../types";
+import { INSECURE_TLS } from "../../fetcher";
+import { isHttpUrl, originHeaders, resolveMedia } from "../../media";
+import type { Stream, StreamHeaders } from "../../../types";
 
 const HOST = "player.videasy.net";
 const TMDB_API = "https://api.themoviedb.org/3";
@@ -27,8 +27,7 @@ const API_HEADERS: StreamHeaders = {
 };
 
 type Request =
-  | { id: string; type: "movie" }
-  | { id: string; type: "tv"; season: string; episode: string };
+  { id: string; type: "movie" } | { id: string; type: "tv"; season: string; episode: string };
 
 type Metadata = { title: string; year: string; imdbId: string };
 type RawSource = { url: string; type?: string };
@@ -53,7 +52,11 @@ function parseRequest(target: string): Request | null {
   }
 }
 
-async function fetchText(url: string, headers: StreamHeaders, body?: string): Promise<string | null> {
+async function fetchText(
+  url: string,
+  headers: StreamHeaders,
+  body?: string
+): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -65,7 +68,9 @@ async function fetchText(url: string, headers: StreamHeaders, body?: string): Pr
       ...INSECURE_TLS
     });
     const text = await response.text();
-    console.log(`[videasy] ${body === undefined ? "GET" : "POST"} ${url} -> ${response.status} (${response.headers.get("content-type") ?? ""})`);
+    console.log(
+      `[videasy] ${body === undefined ? "GET" : "POST"} ${url} -> ${response.status} (${response.headers.get("content-type") ?? ""})`
+    );
     if (!response.ok) console.log(`[videasy] response body: ${text.slice(0, 180)}`);
     return text || null;
   } catch (error) {
@@ -96,7 +101,8 @@ async function loadMetadata(request: Request): Promise<Metadata> {
   const titleValue = request.type === "movie" ? value.title : value.name;
   const dateValue = request.type === "movie" ? value.release_date : value.first_air_date;
   const externalIds = value.external_ids;
-  const imdbId = isRecord(externalIds) && typeof externalIds.imdb_id === "string" ? externalIds.imdb_id : "";
+  const imdbId =
+    isRecord(externalIds) && typeof externalIds.imdb_id === "string" ? externalIds.imdb_id : "";
   const year = typeof dateValue === "string" ? dateValue.slice(0, 4) : "";
   return {
     title: typeof titleValue === "string" ? titleValue : "",
@@ -164,7 +170,12 @@ function readTracks(value: unknown): unknown[] | undefined {
       const file = new URL(track.url, PLAYER_ORIGIN).href;
       if (!isHttpUrl(file) || seen.has(file)) return [];
       seen.add(file);
-      const label = typeof track.lang === "string" ? track.lang : typeof track.language === "string" ? track.language : "Unknown";
+      const label =
+        typeof track.lang === "string"
+          ? track.lang
+          : typeof track.language === "string"
+            ? track.language
+            : "Unknown";
       return [{ file, label, type: "vtt" }];
     } catch {
       return [];
@@ -189,13 +200,19 @@ async function probe(stream: Stream): Promise<boolean> {
     if (stream.mediaType === "hls") {
       const body = (await response.text()).replace(/^\uFEFF/, "").trimStart();
       const playable = response.ok && body.startsWith("#EXTM3U");
-      console.log(`[videasy] HLS probe ${response.status}: ${playable ? "valid playlist" : body.slice(0, 120)}`);
+      console.log(
+        `[videasy] HLS probe ${response.status}: ${playable ? "valid playlist" : body.slice(0, 120)}`
+      );
       return playable;
     }
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
     await response.body?.cancel().catch(() => undefined);
-    const playable = (response.status === 200 || response.status === 206) && !/text\/|html|json|xml/.test(contentType);
-    console.log(`[videasy] file probe ${response.status} ${contentType}: ${playable ? "valid file" : "rejected"}`);
+    const playable =
+      (response.status === 200 || response.status === 206) &&
+      !/text\/|html|json|xml/.test(contentType);
+    console.log(
+      `[videasy] file probe ${response.status} ${contentType}: ${playable ? "valid file" : "rejected"}`
+    );
     return playable;
   } catch (error) {
     console.log(`[videasy] media probe failed: ${error instanceof Error ? error.message : error}`);
@@ -205,7 +222,12 @@ async function probe(stream: Stream): Promise<boolean> {
   }
 }
 
-async function resolveServer(request: Request, metadata: Metadata, seed: string, server: (typeof SERVERS)[number]): Promise<Stream | null> {
+async function resolveServer(
+  request: Request,
+  metadata: Metadata,
+  seed: string,
+  server: (typeof SERVERS)[number]
+): Promise<Stream | null> {
   const apiUrl = buildApiUrl(server.url, request, metadata);
   const sourceUrl = new URL(apiUrl);
   sourceUrl.searchParams.set("enc", "2");
@@ -232,7 +254,9 @@ async function resolveServer(request: Request, metadata: Metadata, seed: string,
 export async function resolveVideasy(target: string): Promise<Stream | null> {
   const request = parseRequest(target);
   if (!request) return null;
-  console.log(`[videasy] resolving ${request.type} ${request.id}${request.type === "tv" ? ` S${request.season}E${request.episode}` : ""}`);
+  console.log(
+    `[videasy] resolving ${request.type} ${request.id}${request.type === "tv" ? ` S${request.season}E${request.episode}` : ""}`
+  );
   const metadata = await loadMetadata(request);
   if (!metadata.title || !metadata.year) {
     console.log("[videasy] TMDB metadata is missing a title or year");
@@ -240,10 +264,15 @@ export async function resolveVideasy(target: string): Promise<Stream | null> {
   }
   const seed = await loadSeed(request.id);
   if (!seed) return null;
-  const attempts = SERVERS.map((server) => resolveServer(request, metadata, seed, server).catch((error) => {
-    console.log(`[videasy] ${server.name} failed:`, error instanceof Error ? error.message : error);
-    return null;
-  }));
+  const attempts = SERVERS.map((server) =>
+    resolveServer(request, metadata, seed, server).catch((error) => {
+      console.log(
+        `[videasy] ${server.name} failed:`,
+        error instanceof Error ? error.message : error
+      );
+      return null;
+    })
+  );
   for (const attempt of attempts) {
     const stream = await attempt;
     if (stream) return stream;

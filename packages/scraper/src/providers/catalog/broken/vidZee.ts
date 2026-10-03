@@ -1,6 +1,6 @@
-import { INSECURE_TLS } from "../fetcher";
-import { isHttpUrl, originHeaders, resolveMedia } from "../media";
-import type { Stream, StreamHeaders } from "../../types";
+import { INSECURE_TLS } from "../../fetcher";
+import { isHttpUrl, originHeaders, resolveMedia } from "../../media";
+import type { Stream, StreamHeaders } from "../../../types";
 
 const PLAYER_ORIGIN = "https://player.vidzee.wtf";
 const CORE_ORIGIN = "https://core.vidzee.wtf";

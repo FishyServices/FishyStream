@@ -1,7 +1,5 @@
 # Scraper
 
-The scraper resolves playable media URLs from streaming providers and proxies them to the player.
-
 ## Known to work
 
 ### Anime
@@ -12,9 +10,10 @@ The scraper resolves playable media URLs from streaming providers and proxies th
 ### Movies & TV
 
 - [111movies](https://111movies.net)
-- [CineSrc](https://cinesrc.st)
-- [Peachify](https://peachify.top)
-- [VidLux](https://vidlux.xyz)
+- [vidZen](https://vidzen.fun)
+- [vidLove](https://vidlove.cc)
+
+// not setup yet
 
 ## Downloads
 

@@ -1,6 +1,6 @@
-import { INSECURE_TLS } from "../fetcher";
-import { isHttpUrl, resolveMedia } from "../media";
-import type { Stream, StreamHeaders } from "../../types";
+import { INSECURE_TLS } from "../../fetcher";
+import { isHttpUrl, resolveMedia } from "../../media";
+import type { Stream, StreamHeaders } from "../../../types";
 
 const HOST = "vixsrc.to";
 const ORIGIN = `https://${HOST}`;
