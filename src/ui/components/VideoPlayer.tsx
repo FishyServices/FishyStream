@@ -257,6 +257,7 @@ export function VideoPlayer({
   } = session;
   const selectedSource = selectedSourceConfig?.url ?? "";
   const supportsProgressEvents = !!selectedProvider?.progress;
+  const canRequestStatus = !!selectedProvider?.progress?.statusRequest;
   const iframeReferrerPolicy = selectedProvider?.referrerPolicy ?? "no-referrer-when-downgrade";
 
   useEffect(() => {
@@ -575,10 +576,11 @@ export function VideoPlayer({
       ? clamp(watchState?.progress ?? 0)
       : 0;
   const nextEpisodeProgress = Math.max(currentProgress, matchingEpisodeWatchProgress);
+  const showNextEpisodeFallback = content.type === "tv" && hasNextEpisode && !canRequestStatus;
   const showNextEpisodeButton =
     content.type === "tv" &&
     hasNextEpisode &&
-    nextEpisodeProgress >= 85;
+    (nextEpisodeProgress >= 85 || showNextEpisodeFallback);
   const autoAdvancedRef = useRef<string | null>(null);
 
   useEffect(() => {
