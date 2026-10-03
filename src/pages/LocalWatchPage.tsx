@@ -34,6 +34,9 @@ export function LocalWatchPage() {
         onProviderIdTypeChange={() => {}}
         groupedSources={[]}
         onInfoClick={() => {}}
+        showNextEpisodeButton={false}
+        isNextEpisodeCooldown={false}
+        onNextEpisode={() => {}}
       />
     </main>
   );

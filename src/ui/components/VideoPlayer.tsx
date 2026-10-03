@@ -784,6 +784,9 @@ export function VideoPlayer({
             onProviderIdTypeChange={setProviderIdType}
             groupedSources={groupedSources}
             onInfoClick={() => setShowInfoModal(true)}
+            showNextEpisodeButton={showNextEpisodeButton}
+            isNextEpisodeCooldown={isNextEpisodeCooldown}
+            onNextEpisode={() => handleNextEpisode({ fromClick: true })}
           />
         ) : (
           <iframe
@@ -798,7 +801,7 @@ export function VideoPlayer({
           />
         )}
 
-        {showNextEpisodeButton && (
+        {!useCustomPlayer && showNextEpisodeButton && (
           <Button
             onClick={(e) => {
               e.stopPropagation();

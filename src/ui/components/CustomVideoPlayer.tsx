@@ -47,6 +47,9 @@ interface CustomVideoPlayerProps {
   onProviderIdTypeChange: (idType: ProviderIdType) => void;
   groupedSources: ProviderGroupedSources[];
   onInfoClick: () => void;
+  showNextEpisodeButton: boolean;
+  isNextEpisodeCooldown: boolean;
+  onNextEpisode: () => void;
 }
 
 interface SkipSegment {
@@ -164,6 +167,18 @@ type AudioContextWindow = Window &
     webkitAudioContext?: typeof AudioContext;
   };
 
+const NEXT_EPISODE_LAYER_NAME = "next-episode";
+const NEXT_EPISODE_LAYER_HTML = `
+  <span aria-hidden="true" style="display:flex;align-items:center;gap:0.35rem;white-space:nowrap;font-size:0.75rem;">
+    <svg style="width:1rem;height:1rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m13 5 7 7-7 7"></path>
+      <path d="M4 5v14"></path>
+      <path d="m11 5 7 7-7 7"></path>
+    </svg>
+    <span>Next episode</span>
+  </span>
+`;
+
 function fillNativeFullscreen(art: Artplayer) {
   const player = art.template.$player;
   const video = art.template.$video;
@@ -201,7 +216,10 @@ export function CustomVideoPlayer({
   providerIdType,
   onProviderIdTypeChange,
   groupedSources,
-  onInfoClick
+  onInfoClick,
+  showNextEpisodeButton,
+  isNextEpisodeCooldown,
+  onNextEpisode
 }: CustomVideoPlayerProps) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -213,6 +231,9 @@ export function CustomVideoPlayer({
   const gainNodeRef = useRef<GainNode | null>(null);
   const volumeBoostRef = useRef(getCustomPlayerVolumeBoost());
   const onPlaybackEventRef = useRef(onPlaybackEvent);
+  const onNextEpisodeRef = useRef(onNextEpisode);
+  const showNextEpisodeButtonRef = useRef(showNextEpisodeButton);
+  const isNextEpisodeCooldownRef = useRef(isNextEpisodeCooldown);
   const introDbLookupKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -254,6 +275,12 @@ export function CustomVideoPlayer({
   useEffect(() => {
     onPlaybackEventRef.current = onPlaybackEvent;
   }, [onPlaybackEvent]);
+
+  useEffect(() => {
+    onNextEpisodeRef.current = onNextEpisode;
+    showNextEpisodeButtonRef.current = showNextEpisodeButton;
+    isNextEpisodeCooldownRef.current = isNextEpisodeCooldown;
+  }, [isNextEpisodeCooldown, onNextEpisode, showNextEpisodeButton]);
 
   const initAudioBoost = () => {
     const video = playerRef.current?.video;
@@ -436,6 +463,45 @@ export function CustomVideoPlayer({
           aspectRatio: true,
           setting: true,
           settings: [subtitleSetting, volumeBoostSetting],
+          layers:
+            content.type === "tv"
+              ? [
+                  {
+                    name: NEXT_EPISODE_LAYER_NAME,
+                    html: NEXT_EPISODE_LAYER_HTML,
+                    style: {
+                      position: "absolute",
+                      right: "1rem",
+                      bottom: "clamp(4.5rem, 11vh, 6rem)",
+                      zIndex: "30",
+                      display: "flex",
+                      alignItems: "center",
+                      minHeight: "2.25rem",
+                      padding: "0.45rem 0.75rem",
+                      border: "1px solid color-mix(in oklab, var(--color-border) 80%, transparent)",
+                      borderRadius: "9999px",
+                      background: "color-mix(in oklab, var(--color-card) 92%, transparent)",
+                      color: "var(--color-foreground)",
+                      boxShadow:
+                        "0 8px 24px color-mix(in oklab, var(--color-background) 60%, transparent)",
+                      cursor: "pointer",
+                      backdropFilter: "blur(12px)"
+                    },
+                    tooltip: "Next episode",
+                    mounted(element: HTMLElement) {
+                      element.setAttribute("aria-label", "Play next episode");
+                      element.setAttribute("role", "button");
+                      element.classList.add("touch-target");
+                    },
+                    click() {
+                      if (!showNextEpisodeButtonRef.current || isNextEpisodeCooldownRef.current) {
+                        return;
+                      }
+                      onNextEpisodeRef.current();
+                    }
+                  }
+                ]
+              : [],
           screenshot: false,
           fullscreen: true,
           hotkey: true,
@@ -482,6 +548,10 @@ export function CustomVideoPlayer({
         if (initialSubtitle) option.subtitle = initialSubtitle;
         const player = new Artplayer(option);
         playerRef.current = player;
+        player.on("fullscreen", (isFullscreen) => {
+          const layer = player.layers[NEXT_EPISODE_LAYER_NAME];
+          if (layer) layer.hidden = isFullscreen || !showNextEpisodeButtonRef.current;
+        });
         player.hotkey.add("KeyF", () => {
           player.fullscreen = !player.fullscreen;
         });
@@ -577,6 +647,19 @@ export function CustomVideoPlayer({
     tvTarget.episode,
     tvTarget.season
   ]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    const layer = player?.layers[NEXT_EPISODE_LAYER_NAME];
+    if (!layer) return;
+
+    const isAvailable = showNextEpisodeButton && !isNextEpisodeCooldown;
+    const element = layer;
+    element.hidden = !showNextEpisodeButton || player.fullscreen;
+    element.setAttribute("aria-disabled", String(!isAvailable));
+    element.style.pointerEvents = isAvailable ? "" : "none";
+    element.style.opacity = isAvailable ? "" : "0.5";
+  }, [isNextEpisodeCooldown, showNextEpisodeButton]);
 
   useEffect(() => {
     const flush = () => {
