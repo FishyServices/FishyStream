@@ -40,6 +40,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animeOnly: true,
     animeIdType: "anilist",
     dubSupport: true,
+    canBeScraped: true,
     params: {
       autoplay: { type: "boolean" },
       t: { type: "time" }

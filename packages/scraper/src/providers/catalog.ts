@@ -11,6 +11,7 @@ import { resolveVixSrc } from "./catalog/broken/vixSrc";
 import { resolveVidZee } from "./catalog/broken/vidZee";
 import { resolveVidZen } from "./catalog/vidZen";
 import { resolveVidFast } from "./catalog/broken/vidFast";
+import { resolveAniEmbed } from "./catalog/aniEmbed";
 import type { Stream } from "../types";
 
 export type Provider = {
@@ -102,6 +103,12 @@ const vidFastProvider: Provider = {
   resolve: resolveVidFast
 };
 
+const aniEmbedProvider: Provider = {
+  id: "aniembed",
+  matches: (url) => url.hostname === "aniembed.se",
+  resolve: resolveAniEmbed
+};
+
 const genericProvider: Provider = {
   id: "direct-fetch",
   matches: () => true,
@@ -121,6 +128,7 @@ export const providers: readonly Provider[] = [
   vidZenProvider,
   vixSrcProvider,
   vidFastProvider,
+  aniEmbedProvider,
   genericProvider
 ];
 
