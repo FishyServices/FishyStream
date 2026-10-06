@@ -44,11 +44,10 @@ jobs:
           "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/fishystream"
           --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
           --header "Content-Type: application/json"
-          --data '{"production_branch":"master"}'
+          --data '{"production_branch":"master"}' >/dev/null 2>&1
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=fishystream
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler@4 pages deploy dist --project-name=fishystream >/dev/null 2>&1
