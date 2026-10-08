@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import Artplayer, { type Option, type Setting, type SettingOption } from "artplayer";
+import artplayerPluginAnime4k, {
+  type ActiveMode,
+  type Anime4kPlugin
+} from "artplayer-plugin-anime4k";
 import Hls from "hls.js";
 import { useNavigate } from "react-router-dom";
 import { Download, Info, Mic2, MoreHorizontal } from "lucide-react";
 import {
+  Badge,
   Button,
   Popover,
   PopoverContent,
@@ -272,6 +277,7 @@ export function CustomVideoPlayer({
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
+  const anime4kPluginRef = useRef<Anime4kPlugin | null>(null);
   const volumeBoostRef = useRef(getCustomPlayerVolumeBoost());
   const onPlaybackEventRef = useRef(onPlaybackEvent);
   const onNextEpisodeRef = useRef(onNextEpisode);
@@ -286,6 +292,8 @@ export function CustomVideoPlayer({
   const [duration, setDuration] = useState(0);
   const [skipTimes, setSkipTimes] = useState<{ intro?: SkipSegment; outro?: SkipSegment }>({});
   const [showSettings, setShowSettings] = useState(false);
+  const [anime4kActiveMode, setAnime4kActiveMode] = useState<ActiveMode>("off");
+  const [anime4kSupported, setAnime4kSupported] = useState<boolean | null>(null);
   const [scrapeSelection, setScrapeSelection] = useState<ScrapeSelection | null>(null);
   const [pendingSourceName, setPendingSourceName] = useState<string | null>(null);
   const sourcePageCacheRef = useRef<{
@@ -390,6 +398,9 @@ export function CustomVideoPlayer({
       audioContextRef.current = null;
       playerRef.current?.destroy(false);
       playerRef.current = null;
+      anime4kPluginRef.current = null;
+      setAnime4kActiveMode("off");
+      setAnime4kSupported(null);
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
     };
@@ -501,6 +512,47 @@ export function CustomVideoPlayer({
             return `${Math.round(volumeBoostRef.current * 100)}%`;
           }
         };
+        const anime4kCompareSetting: Setting = {
+          name: "anime4k-compare",
+          html: "Anime4K comparison",
+          onSelect(this: Artplayer, item: SettingOption) {
+            const plugin = anime4kPluginRef.current;
+            if (!plugin?.supported) {
+              this.notice.show = "Anime4K is not available in this browser.";
+              return "Unavailable";
+            }
+            const enabled = item.name === "anime4k-compare-on";
+            plugin.setCompare(enabled);
+            return enabled ? "Split view" : "Off";
+          },
+          selector: [
+            { name: "anime4k-compare-off", html: "Off", default: true },
+            { name: "anime4k-compare-on", html: "Original / Anime4K split" }
+          ]
+        };
+        const anime4kFactory = artplayerPluginAnime4k({
+          mode: "auto",
+          syncAudio: false,
+          maxOutputPixels: 3840 * 2160,
+          onModeChange: (_mode, activeMode) => setAnime4kActiveMode(activeMode),
+          onError: (error) => {
+            const player = playerRef.current;
+            if (player) {
+              player.notice.show =
+                error instanceof Error ? error.message : "Anime4K could not process this stream.";
+            }
+          }
+        });
+        const anime4kPlugin = (player: Artplayer) => {
+          const plugin = anime4kFactory(player);
+          anime4kPluginRef.current = plugin;
+          void plugin.ready.then((supported) => {
+            if (playerRef.current !== player) return;
+            setAnime4kSupported(supported);
+            if (!supported) player.notice.show = "Anime4K requires browser support for WebGPU.";
+          });
+          return plugin;
+        };
         const sourceEndpoint = import.meta.env.DEV
           ? "http://localhost:4000/api/scrape/source"
           : "/api/scrape/source";
@@ -566,6 +618,7 @@ export function CustomVideoPlayer({
           settings: [
             subtitleSetting,
             volumeBoostSetting,
+            anime4kCompareSetting,
             ...(streamSetting ? [streamSetting] : [])
           ],
           layers:
@@ -620,7 +673,7 @@ export function CustomVideoPlayer({
           subtitleOffset: true,
           mutex: true,
           pip: true,
-          plugins: [fillNativeFullscreen],
+          plugins: [fillNativeFullscreen, anime4kPlugin],
           cssVar: {
             "--art-font-color": "var(--color-foreground)",
             "--art-background-color": "var(--color-background)",
@@ -833,6 +886,19 @@ export function CustomVideoPlayer({
         ref={containerRef}
         className="artplayer-app absolute inset-0 [&_.art-video-player]:h-full [&_.art-video-player]:w-full [&_.art-video-player]:overflow-hidden [&_.art-video]:object-cover"
       />
+      {anime4kSupported === false ? (
+        <div className="pointer-events-none absolute left-3 top-3 z-[10001]">
+          <Badge variant="secondary" role="status">
+            Anime4K unavailable · WebGPU unsupported
+          </Badge>
+        </div>
+      ) : anime4kActiveMode !== "off" ? (
+        <div className="pointer-events-none absolute left-3 top-3 z-[10001]">
+          <Badge variant="fishy" role="status">
+            Anime4K · {anime4kActiveMode}
+          </Badge>
+        </div>
+      ) : null}
       {(isLoading || pendingSourceName) && (
         <div
           className="absolute inset-0 z-20 grid place-items-center bg-background/75 text-sm text-muted-foreground backdrop-blur-sm"

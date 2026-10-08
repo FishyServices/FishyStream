@@ -1,0 +1,56 @@
+diff --git a/dist/gpu.js b/dist/gpu.js
+index 2339c7fdfec77a685ad61574ef456840fc53e84d..bc4572e11ea60642be8ee16e6dc46ab698e3a0d8
+--- a/dist/gpu.js
++++ b/dist/gpu.js
+@@ -98,7 +98,13 @@ async function buildChain(gpu, preset, native, target) {
+                 GPUTextureUsage.RENDER_ATTACHMENT,
+         });
+         const pipeline = buildPreset(scope.device, input, preset, native, target);
+-        return { scope, input, pipeline, native };
++        const frameCanvas = document.createElement('canvas');
++        frameCanvas.width = native.width;
++        frameCanvas.height = native.height;
++        const frameContext = frameCanvas.getContext('2d');
++        if (!frameContext)
++            throw new Error('Could not create a 2D context for video frame upload');
++        return { scope, input, pipeline, native, frameCanvas, frameContext, videoCopyViaCanvas: false };
+     }
+     catch (error) {
+         scope.destroy();
+@@ -108,10 +114,32 @@ async function buildChain(gpu, preset, native, target) {
+ /** Copies the current frame in and records the chain. Throws `SecurityError` for a tainted video. */
+ async function encodeChain(gpu, chain, video) {
+     const { recordPipelineList } = await loadPipelines();
+-    gpu.device.queue.copyExternalImageToTexture({ source: video }, { texture: chain.input }, [
+-        chain.native.width,
+-        chain.native.height,
+-    ]);
++    if (chain.videoCopyViaCanvas) {
++        chain.frameContext.drawImage(video, 0, 0, chain.native.width, chain.native.height);
++        gpu.device.queue.copyExternalImageToTexture({ source: chain.frameCanvas }, { texture: chain.input }, [
++            chain.native.width,
++            chain.native.height,
++        ]);
++    }
++    else {
++        try {
++            gpu.device.queue.copyExternalImageToTexture({ source: video }, { texture: chain.input }, [
++                chain.native.width,
++                chain.native.height,
++            ]);
++        }
++        catch (error) {
++            if (!(error instanceof TypeError))
++                throw error;
++            // Some WebGPU implementations omit HTMLVideoElement from this source union.
++            chain.frameContext.drawImage(video, 0, 0, chain.native.width, chain.native.height);
++            gpu.device.queue.copyExternalImageToTexture({ source: chain.frameCanvas }, { texture: chain.input }, [
++                chain.native.width,
++                chain.native.height,
++            ]);
++            chain.videoCopyViaCanvas = true;
++        }
++    }
+     const encoder = gpu.device.createCommandEncoder();
+     await recordPipelineList(encoder, [chain.pipeline]);
+     return encoder;
