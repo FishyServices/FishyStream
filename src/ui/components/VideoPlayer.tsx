@@ -34,6 +34,7 @@ import {
 } from "@fishy/providers/playback";
 import { buildWatchPath } from "@/shared/navigation/watchNavigation";
 import type { ContentPlayback } from "@content/contentMetadata";
+import { getSessionStorageItem, setSessionStorageItem } from "@/shared/storage/browserStorage";
 import {
   usePlaybackSession,
   type PlaybackSeasonMeta
@@ -47,7 +48,7 @@ interface VideoPlayerProps {
 }
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
-const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:anime-season-sync-keys:v5";
+const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:playback:anime-season-sync-keys";
 const ANIME_SEASON_PLAYBACK_CACHE_VERSION = 5;
 
 function clamp(v: number) {
@@ -56,7 +57,7 @@ function clamp(v: number) {
 
 function readSessionAnimeSeasonSyncKeys() {
   try {
-    const raw = window.sessionStorage.getItem(ANIME_SEASON_SYNC_SESSION_KEY);
+    const raw = getSessionStorageItem(ANIME_SEASON_SYNC_SESSION_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
       ? parsed.filter((key): key is string => typeof key === "string")
@@ -70,7 +71,7 @@ function rememberSessionAnimeSeasonSyncKey(key: string) {
   try {
     const keys = readSessionAnimeSeasonSyncKeys();
     if (keys.includes(key)) return;
-    window.sessionStorage.setItem(ANIME_SEASON_SYNC_SESSION_KEY, JSON.stringify([...keys, key]));
+    setSessionStorageItem(ANIME_SEASON_SYNC_SESSION_KEY, JSON.stringify([...keys, key]));
   } catch {}
 }
 

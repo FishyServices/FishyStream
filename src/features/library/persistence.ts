@@ -3,9 +3,8 @@ import {
   getBookmarkIds,
   getBookmarkSnapshots,
   setBookmarkIds,
-  setBookmarkSnapshots,
-  setBookmarkTmdbMap
-} from "@/shared/storage/localStorageStore";
+  setBookmarkSnapshots
+} from "@/shared/storage/viewerStateStorage";
 
 export const guestBookmarkPersistence = {
   setFolder(contentId: ContentId, folder?: string): void {
@@ -21,10 +20,6 @@ export const guestBookmarkPersistence = {
     for (const contentId of removed) delete snapshots[contentId];
     setBookmarkSnapshots(snapshots);
     setBookmarkIds(getBookmarkIds().filter((id) => !removed.has(id)));
-    const tmdbMap = Object.fromEntries(
-      Object.entries(snapshots).map(([contentId, snapshot]) => [contentId, snapshot.tmdbId])
-    );
-    setBookmarkTmdbMap(tmdbMap);
   },
   setFolderMany(contentIds: readonly ContentId[], folder?: string): void {
     const requested = new Set(contentIds);

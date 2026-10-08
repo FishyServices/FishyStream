@@ -4,6 +4,8 @@ import type { FishyThemeRadius, FishyThemeAccent } from "@fishy/ui";
 
 export type ThemePreference = "dark" | "light";
 export type AnimeLanguagePreference = "sub" | "dub";
+export type BookmarkSort = "recently" | "oldest" | "title-az" | "title-za";
+export type BookmarkView = "grid" | "list";
 
 export interface SortOption {
   label: string;
@@ -16,6 +18,8 @@ export interface AppSettings {
   accent: FishyThemeAccent;
   defaultMovieSort: ContentSort;
   defaultTVSort: ContentSort;
+  bookmarkSort: BookmarkSort;
+  bookmarkView: BookmarkView;
   defaultProvider: ProviderKey | "auto";
   autoPlayHeroTrailer: boolean;
   heroTrailerMuted: boolean;
@@ -48,6 +52,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   accent: "indigo",
   defaultMovieSort: "popular",
   defaultTVSort: "popular",
+  bookmarkSort: "recently",
+  bookmarkView: "grid",
   defaultProvider: "auto",
   autoPlayHeroTrailer: false,
   heroTrailerMuted: true,
@@ -57,5 +63,3 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   showEpisodeRatings: false,
   showFillerEpisodes: true
 };
-
-export const APP_SETTINGS_STORAGE_KEY = "fishystream:settings";

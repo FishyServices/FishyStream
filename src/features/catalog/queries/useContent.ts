@@ -1,3 +1,4 @@
+import { getLocalStorageItem, setLocalStorageItem } from "@/shared/storage/browserStorage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/react";
 import { useConvexAuth, useQuery } from "convex/react";
@@ -900,8 +901,8 @@ export function usePersonalizedRecommendationSeed(enabled = true, refreshSeed = 
   }, [continueWatching, enabled, history, refreshSeed, scope, user, bookmarkSeeds]);
 }
 
-const REC_CACHE = "fishy_recs_cache_v3";
-const RECENT_RECOMMENDATIONS = "fishy_recent_recommendations_v2";
+const REC_CACHE = "fishystream:catalog:recommendations";
+const RECENT_RECOMMENDATIONS = "fishystream:catalog:recent-recommendations";
 type CacheEntry = { timestamp: number; cards: ContentCard[] };
 type Cache = Record<string, CacheEntry>;
 function isCachedCard(value: unknown): value is ContentCard {
@@ -917,7 +918,7 @@ function isCachedCard(value: unknown): value is ContentCard {
 }
 function readCache(): Cache {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(REC_CACHE) ?? "{}");
+    const value: unknown = JSON.parse(getLocalStorageItem(REC_CACHE) ?? "{}");
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
     const cache: Cache = {};
     for (const [key, entry] of Object.entries(value)) {
@@ -936,7 +937,7 @@ function readCache(): Cache {
 }
 function writeCache(value: Cache): void {
   try {
-    localStorage.setItem(REC_CACHE, JSON.stringify(value));
+    setLocalStorageItem(REC_CACHE, JSON.stringify(value));
   } catch {
     /* optional */
   }
@@ -944,7 +945,7 @@ function writeCache(value: Cache): void {
 
 function readRecentRecommendations(): Record<string, string[]> {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(RECENT_RECOMMENDATIONS) ?? "{}");
+    const value: unknown = JSON.parse(getLocalStorageItem(RECENT_RECOMMENDATIONS) ?? "{}");
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
     return Object.fromEntries(
       Object.entries(value).flatMap(([key, entry]) =>
@@ -960,7 +961,7 @@ function readRecentRecommendations(): Record<string, string[]> {
 
 function writeRecentRecommendations(value: Record<string, string[]>): void {
   try {
-    localStorage.setItem(RECENT_RECOMMENDATIONS, JSON.stringify(value));
+    setLocalStorageItem(RECENT_RECOMMENDATIONS, JSON.stringify(value));
   } catch {
     /* optional */
   }

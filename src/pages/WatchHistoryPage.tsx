@@ -26,6 +26,8 @@ import {
   toast
 } from "@fishy/ui";
 
+import { getLocalStorageItem, setLocalStorageItem } from "@/shared/storage/browserStorage";
+
 const HISTORY_SORT_OPTIONS = [
   { id: "recently", label: "Recently watched" },
   { id: "progress", label: "Most progress" },
@@ -34,12 +36,12 @@ const HISTORY_SORT_OPTIONS = [
 ] as const;
 
 type HistorySortOption = (typeof HISTORY_SORT_OPTIONS)[number]["id"];
-const HISTORY_SEARCH_KEY = "history:search";
-const HISTORY_SORT_KEY = "history:sort";
+const HISTORY_SEARCH_KEY = "fishystream:history:search";
+const HISTORY_SORT_KEY = "fishystream:history:sort";
 
 function readHistoryPreference<T extends string>(key: string, fallback: T, allowed: readonly T[]) {
   if (typeof window === "undefined") return fallback;
-  const stored = window.localStorage.getItem(key);
+  const stored = getLocalStorageItem(key);
   return stored && allowed.includes(stored as T) ? (stored as T) : fallback;
 }
 
@@ -55,7 +57,7 @@ export function WatchHistoryPage() {
 
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState(() =>
-    typeof window === "undefined" ? "" : (window.localStorage.getItem(HISTORY_SEARCH_KEY) ?? "")
+    typeof window === "undefined" ? "" : (getLocalStorageItem(HISTORY_SEARCH_KEY) ?? "")
   );
   const [sortBy, setSortBy] = useState<HistorySortOption>(() =>
     readHistoryPreference(
@@ -75,8 +77,8 @@ export function WatchHistoryPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(HISTORY_SEARCH_KEY, searchQuery);
-      window.localStorage.setItem(HISTORY_SORT_KEY, sortBy);
+      setLocalStorageItem(HISTORY_SEARCH_KEY, searchQuery);
+      setLocalStorageItem(HISTORY_SORT_KEY, sortBy);
     }
   }, [searchQuery, sortBy]);
 

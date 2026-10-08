@@ -19,7 +19,7 @@ import {
   type LocalContentSnapshot as WatchProgressSnapshot,
   getWatchProgressStore,
   setWatchProgressStore
-} from "@/shared/storage/localStorageStore";
+} from "@/shared/storage/viewerStateStorage";
 
 export type { ProgressState, WatchProgressSnapshot };
 

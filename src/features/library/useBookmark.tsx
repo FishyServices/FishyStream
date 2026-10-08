@@ -17,13 +17,11 @@ import {
   getBookmarkIds,
   getBookmarkCache,
   getBookmarkSnapshots,
-  getBookmarkTmdbMap,
   setBookmarkIds,
   setBookmarkCache,
   setBookmarkSnapshots,
-  setBookmarkTmdbMap,
   type LocalContentSnapshot as BookmarkSnapshot
-} from "@/shared/storage/localStorageStore";
+} from "@/shared/storage/viewerStateStorage";
 
 const PAGE_SIZE = 20;
 
@@ -44,24 +42,19 @@ const BookmarkContext = createContext<BookmarkApi | null>(null);
 
 function eraseFromGuestStore(ids: Iterable<string>) {
   const snapshots = { ...getBookmarkSnapshots() };
-  const tmdbMap = { ...getBookmarkTmdbMap() };
   for (const id of ids) {
     delete snapshots[id];
-    delete tmdbMap[id];
   }
   setBookmarkSnapshots(snapshots);
-  setBookmarkTmdbMap(tmdbMap);
 }
 
 function writeToGuestStore(contentId: string, snapshot: BookmarkSnapshot) {
   setBookmarkSnapshots({ ...getBookmarkSnapshots(), [contentId]: snapshot });
-  setBookmarkTmdbMap({ ...getBookmarkTmdbMap(), [contentId]: snapshot.tmdbId });
 }
 
 function clearGuestStore() {
   setBookmarkIds([]);
   setBookmarkSnapshots({});
-  setBookmarkTmdbMap({});
 }
 
 function updateUserCache(

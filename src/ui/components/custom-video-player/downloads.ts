@@ -3,7 +3,7 @@ import {
   getStoredDownload,
   removeStoredDownload,
   setStoredDownload
-} from "@/shared/storage/downloadStore";
+} from "@/shared/storage/downloadDatabase";
 
 export type DownloadState =
   | { status: "idle" }

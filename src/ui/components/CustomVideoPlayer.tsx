@@ -28,9 +28,9 @@ import type { ContentPlayback } from "@content/contentMetadata";
 import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
 import { useVideoDownloads } from "@/ui/components/custom-video-player/downloads";
 import {
-  getCustomPlayerVolumeBoost,
-  setCustomPlayerVolumeBoost
-} from "@/shared/storage/localStorageStore";
+  readPlayerVolumeBoost,
+  savePlayerVolumeBoost
+} from "@/shared/storage/playerPreferencesStorage";
 
 interface CustomVideoPlayerProps {
   embedUrl: string;
@@ -278,7 +278,7 @@ export function CustomVideoPlayer({
   const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const anime4kPluginRef = useRef<Anime4kPlugin | null>(null);
-  const volumeBoostRef = useRef(getCustomPlayerVolumeBoost());
+  const volumeBoostRef = useRef(readPlayerVolumeBoost());
   const onPlaybackEventRef = useRef(onPlaybackEvent);
   const onNextEpisodeRef = useRef(onNextEpisode);
   const showNextEpisodeButtonRef = useRef(showNextEpisodeButton);
@@ -372,7 +372,7 @@ export function CustomVideoPlayer({
   const handleVolumeBoostChange = (value: number) => {
     const nextBoost = Math.min(3, Math.max(1, value));
     volumeBoostRef.current = nextBoost;
-    setCustomPlayerVolumeBoost(nextBoost);
+    savePlayerVolumeBoost(nextBoost);
     initAudioBoost();
     if (gainNodeRef.current) gainNodeRef.current.gain.value = nextBoost;
   };

@@ -58,7 +58,9 @@ import type { ContentId, BookmarkGridItem } from "@content/contentMetadata";
 import {
   getCustomFolders,
   setCustomFolders as setLSCustomFolders
-} from "@/shared/storage/localStorageStore";
+} from "@/shared/storage/viewerStateStorage";
+import { getSessionStorageItem, setSessionStorageItem } from "@/shared/storage/browserStorage";
+import { useAppSettings } from "@/features/settings/useAppSettings";
 
 const SORT_OPTIONS = [
   { id: "recently", label: "Recently added" },
@@ -71,32 +73,10 @@ type SortOption = (typeof SORT_OPTIONS)[number]["id"];
 type ViewLayout = "grid" | "list";
 type TypeFilter = "all" | "movie" | "tv";
 
-const SORT_PREF_KEY = "bookmark:sort";
-const VIEW_PREF_KEY = "bookmark:view";
-const COLLAPSED_FOLDERS_PREF_KEY = "bookmark:collapsed-folders";
-const FILTER_PREF_KEY = "bookmark:filters";
+const FILTER_PREF_KEY = "fishystream:bookmarks:filters";
 
 function pluralize(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
-
-function readStoredPref<T extends string>(key: string, fallback: T, allowed: readonly T[]): T {
-  if (typeof window === "undefined") return fallback;
-  const stored = window.localStorage.getItem(key);
-  return stored && (allowed as readonly string[]).includes(stored) ? (stored as T) : fallback;
-}
-
-function getCollapsedFolders(userId: string): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const stored = window.localStorage.getItem(`${COLLAPSED_FOLDERS_PREF_KEY}:${userId}`);
-    const folders = stored ? (JSON.parse(stored) as unknown) : [];
-    return new Set(
-      Array.isArray(folders) ? folders.filter((folder) => typeof folder === "string") : []
-    );
-  } catch {
-    return new Set();
-  }
 }
 
 function getStoredFilters(): {
@@ -106,7 +86,7 @@ function getStoredFilters(): {
 } {
   if (typeof window === "undefined") return { folder: "all", search: "", type: "all" };
   try {
-    const stored = window.sessionStorage.getItem(FILTER_PREF_KEY);
+    const stored = getSessionStorageItem(FILTER_PREF_KEY);
     const value = stored ? (JSON.parse(stored) as Partial<Record<string, unknown>>) : {};
     return {
       folder: typeof value.folder === "string" ? value.folder : "all",
@@ -576,6 +556,7 @@ function FolderSection({
 }
 
 export function BookmarkPage() {
+  const { settings, updateSetting } = useAppSettings();
   const navigate = useNavigate();
   const { user } = useUser();
   const initialFilters = getStoredFilters();
@@ -616,16 +597,8 @@ export function BookmarkPage() {
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<string | null>(null);
   const [isAutoSortDialogOpen, setIsAutoSortDialogOpen] = useState(false);
   const [folderMenuForContentId, setFolderMenuForContentId] = useState<ContentId | null>(null);
-  const [sortBy, setSortBy] = useState<SortOption>(() =>
-    readStoredPref(
-      SORT_PREF_KEY,
-      "recently",
-      SORT_OPTIONS.map((o) => o.id)
-    )
-  );
-  const [viewLayout, setViewLayout] = useState<ViewLayout>(() =>
-    readStoredPref(VIEW_PREF_KEY, "grid", ["grid", "list"] as const)
-  );
+  const sortBy: SortOption = settings.bookmarkSort;
+  const viewLayout: ViewLayout = settings.bookmarkView;
   const [listTypeFilter, setListTypeFilter] = useState<TypeFilter>(initialFilters.type);
   const [canDragCards, setCanDragCards] = useState(false);
 
@@ -642,31 +615,14 @@ export function BookmarkPage() {
 
   const [renameFolderTarget, setRenameFolderTarget] = useState<string | null>(null);
 
-  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() =>
-    getCollapsedFolders(user?.id ?? "guest")
-  );
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(SORT_PREF_KEY, sortBy);
-  }, [sortBy]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(VIEW_PREF_KEY, viewLayout);
-  }, [viewLayout]);
-  useEffect(() => {
-    setCollapsedFolders(getCollapsedFolders(user?.id ?? "guest"));
+    setCollapsedFolders(new Set());
   }, [user?.id]);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      `${COLLAPSED_FOLDERS_PREF_KEY}:${user?.id ?? "guest"}`,
-      JSON.stringify([...collapsedFolders])
-    );
-  }, [collapsedFolders, user?.id]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.sessionStorage.setItem(
+    setSessionStorageItem(
       FILTER_PREF_KEY,
       JSON.stringify({ folder: folderFilter, search: searchQuery, type: listTypeFilter })
     );
@@ -1303,7 +1259,7 @@ export function BookmarkPage() {
                             ? "bg-accent text-accent-foreground"
                             : "text-muted-foreground"
                         }`}
-                        onClick={() => setSortBy(option.id)}
+                        onClick={() => updateSetting("bookmarkSort", option.id)}
                       >
                         {option.label}
                       </DropdownMenuItem>
@@ -1320,7 +1276,7 @@ export function BookmarkPage() {
                         ? "bg-primary text-primary-foreground hover:bg-primary"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
-                    onClick={() => setViewLayout("grid")}
+                    onClick={() => updateSetting("bookmarkView", "grid")}
                     aria-label="Grid view"
                   >
                     <LayoutGrid className="h-4 w-4" />
@@ -1333,7 +1289,7 @@ export function BookmarkPage() {
                         ? "bg-primary text-primary-foreground hover:bg-primary"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
-                    onClick={() => setViewLayout("list")}
+                    onClick={() => updateSetting("bookmarkView", "list")}
                     aria-label="List view"
                   >
                     <List className="h-4 w-4" />

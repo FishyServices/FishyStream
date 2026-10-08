@@ -5,7 +5,7 @@ import { api } from "../../../convex/_generated/api";
 import { useWatchProgressContext } from "./useWatchProgress";
 import { type ContentId, type WatchHistoryItemMeta } from "@content/contentMetadata";
 import { useOneShotConvexQuery } from "@/shared/useOneShotConvexQuery";
-import { removeWatchProgressEntry } from "@/shared/storage/localStorageStore";
+import { removeWatchProgressEntry } from "@/shared/storage/viewerStateStorage";
 
 const WATCH_HISTORY_PAGE_SIZE = 20;
 

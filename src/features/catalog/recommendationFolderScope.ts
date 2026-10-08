@@ -1,3 +1,5 @@
+import { getLocalStorageItem, setLocalStorageItem } from "@/shared/storage/browserStorage";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export type RecommendationFolderScope = {
@@ -5,7 +7,7 @@ export type RecommendationFolderScope = {
 };
 
 const DEFAULT_SCOPE: RecommendationFolderScope = { folder: null };
-const scopeKey = (userId: string) => `fishystream:recommendation-folder-scope:${userId}`;
+const scopeKey = (userId: string) => `fishystream:catalog:recommendation-folder-scope:${userId}`;
 const SCOPE_CHANGED_EVENT = "fishystream:recommendation-folder-scope-changed";
 
 function normalizeScope(value: unknown): RecommendationFolderScope {
@@ -21,7 +23,7 @@ function normalizeScope(value: unknown): RecommendationFolderScope {
 
 export function getRecommendationFolderScope(userId = "guest"): RecommendationFolderScope {
   try {
-    return normalizeScope(JSON.parse(localStorage.getItem(scopeKey(userId)) ?? "null"));
+    return normalizeScope(JSON.parse(getLocalStorageItem(scopeKey(userId)) ?? "null"));
   } catch {
     return DEFAULT_SCOPE;
   }
@@ -30,7 +32,7 @@ export function getRecommendationFolderScope(userId = "guest"): RecommendationFo
 export function setRecommendationFolderScope(userId: string, scope: RecommendationFolderScope) {
   const normalized = normalizeScope(scope);
   try {
-    localStorage.setItem(scopeKey(userId), JSON.stringify(normalized));
+    setLocalStorageItem(scopeKey(userId), JSON.stringify(normalized));
     window.dispatchEvent(
       new CustomEvent(SCOPE_CHANGED_EVENT, { detail: { userId, scope: normalized } })
     );

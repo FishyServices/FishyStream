@@ -7,11 +7,8 @@ import {
   type PropsWithChildren
 } from "react";
 import { applyFishyTheme } from "@fishy/ui";
-import {
-  APP_SETTINGS_STORAGE_KEY,
-  DEFAULT_APP_SETTINGS,
-  type AppSettings
-} from "@/shared/config/appSettings";
+import { DEFAULT_APP_SETTINGS, type AppSettings } from "@/shared/config/appSettings";
+import { readAppSettings, saveAppSettings } from "@/shared/storage/appSettingsStorage";
 
 interface AppSettingsContextValue {
   settings: AppSettings;
@@ -21,25 +18,11 @@ interface AppSettingsContextValue {
 
 const AppSettingsContext = createContext<AppSettingsContextValue | null>(null);
 
-function loadSettings(): AppSettings {
-  if (typeof window === "undefined") return DEFAULT_APP_SETTINGS;
-
-  try {
-    const raw = window.localStorage.getItem(APP_SETTINGS_STORAGE_KEY);
-    if (!raw) return DEFAULT_APP_SETTINGS;
-
-    const parsed = JSON.parse(raw) as Partial<AppSettings>;
-    return { ...DEFAULT_APP_SETTINGS, ...parsed };
-  } catch {
-    return DEFAULT_APP_SETTINGS;
-  }
-}
-
 export function AppSettingsProvider({ children }: PropsWithChildren) {
-  const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
+  const [settings, setSettings] = useState<AppSettings>(() => readAppSettings());
 
   useEffect(() => {
-    window.localStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    saveAppSettings(settings);
   }, [settings]);
 
   useEffect(() => {
