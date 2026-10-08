@@ -189,7 +189,8 @@ async function probe(stream: Stream): Promise<boolean> {
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
     await response.body?.cancel().catch(() => undefined);
     const playable =
-      (response.status === 200 || response.status === 206) && !/text\/|html|json|xml/.test(contentType);
+      (response.status === 200 || response.status === 206) &&
+      !/text\/|html|json|xml/.test(contentType);
     log(`  probe file -> ${response.status} ${contentType}${playable ? " ok" : " rejected"}`);
     return playable;
   } catch (error) {

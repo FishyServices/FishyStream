@@ -66,11 +66,29 @@ interface SubtitleSource {
   type: SubtitleFormat;
 }
 interface ScrapeResponse {
-  streamUrl?: string;
-  mediaType?: "hls" | "file";
-  tracks?: SubtitleTrack[];
+  source: ScrapeSource | null;
+  sourceOptions: ScrapeSourceOption[];
+}
+
+interface ScrapeSource {
+  name: string;
+  sourceKey?: string;
+  streamUrl: string;
+  mediaType: "hls" | "file";
+  tracks: SubtitleTrack[];
   intro?: SkipSegment;
   outro?: SkipSegment;
+}
+
+interface ScrapeSourceOption {
+  key: string;
+  name: string;
+}
+
+interface ScrapeSelection {
+  embedUrl: string;
+  source: ScrapeSource;
+  resumePosition: number;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -91,14 +109,32 @@ function isSegment(value: unknown): value is SkipSegment {
 }
 
 function parseScrapeResponse(value: unknown): ScrapeResponse {
-  if (!isObject(value)) return {};
+  if (!isObject(value)) return { source: null, sourceOptions: [] };
+  let source: ScrapeSource | null = null;
+  if (
+    typeof value.streamUrl === "string" &&
+    (value.mediaType === "hls" || value.mediaType === "file")
+  ) {
+    source = {
+      name: typeof value.name === "string" ? value.name : "Stream",
+      sourceKey: typeof value.sourceKey === "string" ? value.sourceKey : undefined,
+      streamUrl: value.streamUrl,
+      mediaType: value.mediaType,
+      tracks: Array.isArray(value.tracks) ? value.tracks.filter(isTrack) : [],
+      intro: isSegment(value.intro) ? value.intro : undefined,
+      outro: isSegment(value.outro) ? value.outro : undefined
+    };
+  }
+  const sourceOptions = Array.isArray(value.sourceOptions)
+    ? value.sourceOptions.flatMap((item): ScrapeSourceOption[] =>
+        isObject(item) && typeof item.key === "string" && typeof item.name === "string"
+          ? [{ key: item.key, name: item.name }]
+          : []
+      )
+    : [];
   return {
-    streamUrl: typeof value.streamUrl === "string" ? value.streamUrl : undefined,
-    mediaType:
-      value.mediaType === "hls" || value.mediaType === "file" ? value.mediaType : undefined,
-    tracks: Array.isArray(value.tracks) ? value.tracks.filter(isTrack) : [],
-    intro: isSegment(value.intro) ? value.intro : undefined,
-    outro: isSegment(value.outro) ? value.outro : undefined
+    source,
+    sourceOptions
   };
 }
 
@@ -250,6 +286,13 @@ export function CustomVideoPlayer({
   const [duration, setDuration] = useState(0);
   const [skipTimes, setSkipTimes] = useState<{ intro?: SkipSegment; outro?: SkipSegment }>({});
   const [showSettings, setShowSettings] = useState(false);
+  const [scrapeSelection, setScrapeSelection] = useState<ScrapeSelection | null>(null);
+  const [pendingSourceName, setPendingSourceName] = useState<string | null>(null);
+  const sourcePageCacheRef = useRef<{
+    embedUrl: string;
+    response: ScrapeResponse;
+  } | null>(null);
+  const sourceRequestControllerRef = useRef<AbortController | null>(null);
   const {
     downloadUrl,
     downloadState,
@@ -361,16 +404,26 @@ export function CustomVideoPlayer({
         let mediaType: "hls" | "file";
         let tracks: SubtitleTrack[] = [];
         const endpoint = import.meta.env.DEV ? "http://localhost:4000/api/scrape" : "/api/scrape";
-        const response = await fetch(`${endpoint}?url=${encodeURIComponent(embedUrl)}`, {
-          signal: controller.signal
-        });
-        if (!response.ok) throw new Error("Unable to load the stream.");
-        const data = parseScrapeResponse(await response.json());
-        if (!data.streamUrl) throw new Error("No playable stream was found.");
-        url = data.streamUrl;
-        mediaType = data.mediaType ?? (url.includes(".m3u8") ? "hls" : "file");
-        tracks = data.tracks ?? [];
-        setSkipTimes({ intro: data.intro, outro: data.outro });
+        let scrapeResponse =
+          sourcePageCacheRef.current?.embedUrl === embedUrl
+            ? sourcePageCacheRef.current.response
+            : undefined;
+        if (!scrapeResponse) {
+          const response = await fetch(`${endpoint}?url=${encodeURIComponent(embedUrl)}`, {
+            signal: controller.signal
+          });
+          if (!response.ok) throw new Error("Unable to load the stream.");
+          scrapeResponse = parseScrapeResponse(await response.json());
+          sourcePageCacheRef.current = { embedUrl, response: scrapeResponse };
+        }
+        const selectedScrapeSource =
+          scrapeSelection?.embedUrl === embedUrl ? scrapeSelection.source : undefined;
+        const initialScrapeSource = selectedScrapeSource ?? scrapeResponse.source;
+        if (!initialScrapeSource) throw new Error("No playable stream was found.");
+        url = initialScrapeSource.streamUrl;
+        mediaType = initialScrapeSource.mediaType;
+        tracks = initialScrapeSource.tracks;
+        setSkipTimes({ intro: initialScrapeSource.intro, outro: initialScrapeSource.outro });
         if (mediaType === "hls") prepareDownloadRef.current({ url, mode: "hls", persist: true });
         else {
           const download = new URL(url, window.location.origin);
@@ -448,6 +501,54 @@ export function CustomVideoPlayer({
             return `${Math.round(volumeBoostRef.current * 100)}%`;
           }
         };
+        const sourceEndpoint = import.meta.env.DEV
+          ? "http://localhost:4000/api/scrape/source"
+          : "/api/scrape/source";
+        const resolveSelectedSource = async (
+          sourceOption: ScrapeSourceOption,
+          player: Artplayer,
+          resumePosition: number
+        ) => {
+          sourceRequestControllerRef.current?.abort();
+          const sourceController = new AbortController();
+          sourceRequestControllerRef.current = sourceController;
+          setPendingSourceName(sourceOption.name);
+          try {
+            const sourceUrl = new URL(sourceEndpoint, window.location.origin);
+            sourceUrl.searchParams.set("url", embedUrl);
+            sourceUrl.searchParams.set("source", sourceOption.key);
+            const response = await fetch(sourceUrl, { signal: sourceController.signal });
+            if (!response.ok) throw new Error("This source could not be loaded.");
+            const next = parseScrapeResponse(await response.json()).source;
+            if (!next) throw new Error("This source returned no playable stream.");
+            setScrapeSelection({ embedUrl, source: next, resumePosition });
+          } catch (error) {
+            if (error instanceof DOMException && error.name === "AbortError") return;
+            setPendingSourceName(null);
+            player.notice.show =
+              error instanceof Error ? error.message : "This source could not be loaded.";
+          }
+        };
+        const sourceOptions = scrapeResponse.sourceOptions;
+        const streamSetting: Setting | undefined =
+          sourceOptions.length > 1
+            ? {
+                name: "stream-source",
+                html: "Stream source",
+                onSelect(this: Artplayer, item: SettingOption) {
+                  const selected = sourceOptions.find((option) => option.key === item.name);
+                  if (selected && selected.key !== initialScrapeSource.sourceKey) {
+                    void resolveSelectedSource(selected, this, this.currentTime);
+                  }
+                  return selected?.name ?? initialScrapeSource.name;
+                },
+                selector: sourceOptions.map((source) => ({
+                  name: source.key,
+                  html: source.name,
+                  default: source.key === initialScrapeSource.sourceKey
+                }))
+              }
+            : undefined;
         const option: Option = {
           container: containerRef.current,
           url,
@@ -462,7 +563,11 @@ export function CustomVideoPlayer({
           playbackRate: true,
           aspectRatio: true,
           setting: true,
-          settings: [subtitleSetting, volumeBoostSetting],
+          settings: [
+            subtitleSetting,
+            volumeBoostSetting,
+            ...(streamSetting ? [streamSetting] : [])
+          ],
           layers:
             content.type === "tv"
               ? [
@@ -577,7 +682,11 @@ export function CustomVideoPlayer({
         };
         player.on("ready", () => {
           initAudioBoost();
-          const resume = getResumePosition(embedUrl, resumePositionSeconds);
+          setPendingSourceName(null);
+          const resume =
+            selectedScrapeSource && scrapeSelection?.embedUrl === embedUrl
+              ? scrapeSelection.resumePosition
+              : getResumePosition(embedUrl, resumePositionSeconds);
           if (resume > 0 && resume < player.duration) player.seek = resume;
           setDuration(player.duration);
           void player.play().catch(() => {});
@@ -600,7 +709,10 @@ export function CustomVideoPlayer({
           setDuration(player.duration);
           report("timeupdate");
         });
-        player.on("error", (error) => setMediaError(error.message || "Unable to play this video."));
+        player.on("error", (error) => {
+          setPendingSourceName(null);
+          setMediaError(error.message || "Unable to play this video.");
+        });
         if (content.tmdbId) {
           player.on("ready", () => {
             const seconds = player.duration;
@@ -642,6 +754,7 @@ export function CustomVideoPlayer({
     return () => {
       active = false;
       controller.abort();
+      sourceRequestControllerRef.current?.abort();
       destroy();
     };
   }, [
@@ -652,6 +765,7 @@ export function CustomVideoPlayer({
     content.tmdbId,
     content.type,
     embedUrl,
+    scrapeSelection,
     resumePositionSeconds,
     tvTarget.episode,
     tvTarget.season
@@ -719,12 +833,12 @@ export function CustomVideoPlayer({
         ref={containerRef}
         className="artplayer-app absolute inset-0 [&_.art-video-player]:h-full [&_.art-video-player]:w-full [&_.art-video-player]:overflow-hidden [&_.art-video]:object-cover"
       />
-      {isLoading && (
+      {(isLoading || pendingSourceName) && (
         <div
           className="absolute inset-0 z-20 grid place-items-center bg-background/75 text-sm text-muted-foreground backdrop-blur-sm"
           role="status"
         >
-          Finding a playable stream…
+          {pendingSourceName ? `Loading ${pendingSourceName}…` : "Finding a playable stream…"}
         </div>
       )}
       <div className="absolute right-3 top-3 z-[10001]">

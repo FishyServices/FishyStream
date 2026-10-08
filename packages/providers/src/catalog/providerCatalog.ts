@@ -275,10 +275,19 @@ export async function buildTvSources(args: {
   const getAniListAddress = () => {
     if (!aniListAddressPromise) {
       aniListAddressPromise = storedAniListAddress
-        ? Promise.resolve({
-            anilistId: storedAniListAddress.anilistId,
-            episode: storedAniListAddress.anilistEpisodeNumber
-          })
+        ? providerIdType === "mal"
+          ? resolveAniListEpisodeAddress({
+              anilistId: storedAniListAddress.anilistId,
+              title,
+              season: aniListTarget.season,
+              seasonTitle,
+              year,
+              episode: storedAniListAddress.anilistEpisodeNumber
+            })
+          : Promise.resolve({
+              anilistId: storedAniListAddress.anilistId,
+              episode: storedAniListAddress.anilistEpisodeNumber
+            })
         : resolveAniListEpisodeAddress({
             anilistId,
             title,
@@ -319,7 +328,7 @@ export async function buildTvSources(args: {
         : (aniListAddress?.anilistId ?? null)
       : null;
 
-    const id = animeId ?? fallbackId;
+    const id = usesAniList ? animeId : fallbackId;
     if (!id) continue;
 
     const isAnimeMatch =

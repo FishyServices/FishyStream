@@ -32,11 +32,7 @@ export async function handleApiRequest(context: PagesFunctionContext) {
     subpath === "ts-proxy" ||
     subpath.startsWith("download/")
   ) {
-    return scraperApp.fetch(
-      request,
-      env,
-      context as any
-    );
+    return scraperApp.fetch(request, env, context as any);
   }
 
   if (subpath === "imdb") {

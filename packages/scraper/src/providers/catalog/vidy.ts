@@ -1,5 +1,5 @@
 import { resolveMedia } from "../media";
-import type { Stream, StreamHeaders } from "../../types";
+import type { Stream, StreamHeaders, StreamSourceOption } from "../../types";
 
 const PLAYER_ORIGIN = "https://www.vidy.st";
 const API_ORIGIN = "https://api.wecollege.net";
@@ -10,9 +10,10 @@ const USER_AGENT =
 const TIMEOUT_MS = 10_000;
 const MAX_PLAYER_SCRIPTS = 40;
 const GOLDEN_RATIO = 2_654_435_769;
+const playerCitiesCache = new Map<string, { cities: string[]; expiresAt: number }>();
 
 type Request = {
-  kind: "movie" | "tv";
+  kind: "movie" | "tv" | "anime";
   id: string;
   season?: string;
   episode?: string;
@@ -26,6 +27,8 @@ type TitleDetails = {
   totalSeasons?: number;
 };
 
+type CatalogRequest = Omit<Request, "kind"> & { kind: "movie" | "tv" };
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -37,6 +40,9 @@ function parseRequest(target: string): Request | null {
     const parts = url.pathname.split("/").filter(Boolean);
     const [kind, id, season, episode] = parts;
     if (!id || !/^\d+$/.test(id)) return null;
+    if (kind === "anime" && parts.length === 3 && season && /^\d+$/.test(season)) {
+      return { kind, id, episode: season, pageUrl: url.href };
+    }
     if (kind === "movie" && parts.length === 2) return { kind, id, pageUrl: url.href };
     if (
       kind === "tv" &&
@@ -119,7 +125,6 @@ async function readPlayerScripts(pageUrl: string): Promise<string[]> {
     scripts.push(result.text);
 
     for (const match of result.text.matchAll(/(\d+)===[\w$]+\?["']([^"']+\.js)["']/g)) {
-      // The webpack runtime maps lazy chunk ids (including Vidy’s source module) to file names.
       if (!result.text.includes(`.e(${match[1]})`)) continue;
       const chunkPath = match[2]!.startsWith("static/") ? `/_next/${match[2]}` : match[2]!;
       const chunkUrl = new URL(chunkPath, PLAYER_ORIGIN).href;
@@ -140,15 +145,28 @@ async function readPlayerScripts(pageUrl: string): Promise<string[]> {
 }
 
 async function discoverSourceCities(pageUrl: string): Promise<string[]> {
+  const cached = playerCitiesCache.get(pageUrl);
+  if (cached && cached.expiresAt > Date.now()) return cached.cities;
   const scripts = await readPlayerScripts(pageUrl);
   const cities = new Set<string>();
   for (const script of scripts) {
     for (const match of script.matchAll(/["'`]\/([a-z]+)\/sources["'`]/g)) cities.add(match[1]!);
   }
-  return [...cities];
+  const discovered = [...cities];
+  playerCitiesCache.set(pageUrl, { cities: discovered, expiresAt: Date.now() + 60_000 });
+  return discovered;
 }
 
-function readTitleDetails(value: unknown, kind: Request["kind"]): TitleDetails | null {
+export async function getVidySourceOptions(target: string): Promise<StreamSourceOption[]> {
+  const request = parseRequest(target);
+  if (!request) return [];
+  return (await discoverSourceCities(request.pageUrl)).map((city) => ({
+    key: city,
+    name: city[0]!.toUpperCase() + city.slice(1)
+  }));
+}
+
+function readTitleDetails(value: unknown, kind: CatalogRequest["kind"]): TitleDetails | null {
   if (!isRecord(value)) return null;
   const title = kind === "movie" ? value.title : value.name;
   const date = kind === "movie" ? value.release_date : value.first_air_date;
@@ -166,11 +184,77 @@ function readTitleDetails(value: unknown, kind: Request["kind"]): TitleDetails |
   };
 }
 
-async function getTitleDetails(request: Request): Promise<TitleDetails | null> {
+async function getTitleDetails(request: CatalogRequest): Promise<TitleDetails | null> {
   const url = new URL(`${TMDB_API}/${request.kind}/${request.id}`);
   url.searchParams.set("api_key", TMDB_API_KEY);
   url.searchParams.set("append_to_response", "external_ids");
   return readTitleDetails(await fetchJson(url.href, `${PLAYER_ORIGIN}/`), request.kind);
+}
+
+async function mapAnimeRequest(request: Request): Promise<CatalogRequest | null> {
+  if (request.kind !== "anime") {
+    return {
+      kind: request.kind,
+      id: request.id,
+      season: request.season,
+      episode: request.episode,
+      pageUrl: request.pageUrl
+    };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch("https://graphql.anilist.co", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: PLAYER_ORIGIN },
+      body: JSON.stringify({
+        query:
+          "query ($id: Int) { Media(id: $id, type: ANIME) { title { english romaji } startDate { year } } }",
+        variables: { id: Number(request.id) }
+      }),
+      signal: controller.signal
+    });
+    if (!response.ok) return null;
+    const payload: unknown = await response.json();
+    if (!isRecord(payload) || !isRecord(payload.data) || !isRecord(payload.data.Media)) return null;
+    const media = payload.data.Media;
+    const titles = media.title;
+    if (!isRecord(titles)) return null;
+    const title = typeof titles.english === "string" ? titles.english : titles.romaji;
+    if (typeof title !== "string" || !title) return null;
+    const year =
+      isRecord(media.startDate) && typeof media.startDate.year === "number"
+        ? media.startDate.year
+        : undefined;
+    const searchUrl = new URL(`${TMDB_API}/search/tv`);
+    searchUrl.searchParams.set("api_key", TMDB_API_KEY);
+    searchUrl.searchParams.set("query", title);
+    if (year) searchUrl.searchParams.set("first_air_date_year", String(year));
+    const searchPayload = await fetchJson(searchUrl.href, request.pageUrl);
+    if (!isRecord(searchPayload) || !Array.isArray(searchPayload.results)) return null;
+    const normalizedTitle = title.toLocaleLowerCase();
+    const match =
+      searchPayload.results.find(
+        (result) =>
+          isRecord(result) &&
+          [result.name, result.original_name].some(
+            (candidate) =>
+              typeof candidate === "string" && candidate.toLocaleLowerCase() === normalizedTitle
+          )
+      ) ?? searchPayload.results.find(isRecord);
+    if (!isRecord(match) || typeof match.id !== "number") return null;
+    return {
+      kind: "tv",
+      id: String(match.id),
+      season: "1",
+      episode: request.episode,
+      pageUrl: request.pageUrl
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function rotateLeft(value: number, shift: number): number {
@@ -321,8 +405,13 @@ async function probe(stream: Stream): Promise<boolean> {
   }
 }
 
-export async function resolveVidy(target: string): Promise<Stream | null> {
-  const request = parseRequest(target);
+async function resolveVidySourceInternal(
+  target: string,
+  selectedSourceKey?: string
+): Promise<Stream | null> {
+  const parsed = parseRequest(target);
+  if (!parsed) return null;
+  const request = await mapAnimeRequest(parsed);
   if (!request) return null;
   const details = await getTitleDetails(request);
   if (!details) return null;
@@ -332,16 +421,20 @@ export async function resolveVidy(target: string): Promise<Stream | null> {
   const seedPayload = await fetchJson(seedUrl.href, request.pageUrl);
   if (!isRecord(seedPayload) || typeof seedPayload.seed !== "string" || !seedPayload.seed)
     return null;
+  const seed = seedPayload.seed;
 
   const headers: StreamHeaders = { Origin: PLAYER_ORIGIN, Referer: `${PLAYER_ORIGIN}/` };
-  for (const city of await discoverSourceCities(request.pageUrl)) {
+  const seen = new Set<string>();
+  const cities = await discoverSourceCities(request.pageUrl);
+  if (selectedSourceKey && !cities.includes(selectedSourceKey)) return null;
+  for (const city of selectedSourceKey ? [selectedSourceKey] : cities) {
     try {
       const sourceResult = await fetchText(
-        sourceUrl(request, details, seedPayload.seed, city),
+        sourceUrl(request, details, seed, city),
         request.pageUrl
       );
       if (!sourceResult?.response.ok) continue;
-      const decoded = decodeSources(sourceResult.text.trim(), seedPayload.seed, Number(request.id));
+      const decoded = decodeSources(sourceResult.text.trim(), seed, Number(request.id));
       if (!decoded) continue;
 
       const payload: unknown = JSON.parse(decoded);
@@ -356,11 +449,32 @@ export async function resolveVidy(target: string): Promise<Stream | null> {
       for (const candidate of candidates) {
         if (!isRecord(candidate) || typeof candidate.url !== "string") continue;
         const media = resolveMedia(candidate.url, API_ORIGIN, candidate.type);
-        if (!media) continue;
-        const stream: Stream = { ...media, headers, ...(tracks ? { tracks } : {}) };
-        if (await probe(stream)) return stream;
+        if (!media || seen.has(media.url)) continue;
+        const cityName = city[0]!.toUpperCase() + city.slice(1);
+        const sourceDetail =
+          (typeof candidate.name === "string" && candidate.name) ||
+          (typeof candidate.quality === "string" && candidate.quality);
+        const stream: Stream = {
+          ...media,
+          sourceKey: city,
+          name:
+            sourceDetail && sourceDetail !== cityName ? `${cityName} · ${sourceDetail}` : cityName,
+          headers,
+          ...(tracks ? { tracks } : {})
+        };
+        if (seen.has(stream.url) || !(await probe(stream))) continue;
+        seen.add(stream.url);
+        return stream;
       }
     } catch {}
   }
   return null;
+}
+
+export async function resolveVidy(target: string): Promise<Stream | null> {
+  return resolveVidySourceInternal(target);
+}
+
+export async function resolveVidySource(target: string, sourceKey: string): Promise<Stream | null> {
+  return resolveVidySourceInternal(target, sourceKey);
 }

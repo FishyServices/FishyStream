@@ -1,5 +1,5 @@
 import { isHttpUrl, resolveMedia } from "../media";
-import type { Stream, StreamHeaders } from "../../types";
+import type { Stream, StreamHeaders, StreamSourceOption } from "../../types";
 
 const PROVIDER_ORIGIN = "https://vidbolt.xyz";
 const SCRAPER_ORIGIN = "https://scraper.vidbolt.xyz";
@@ -9,12 +9,17 @@ const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const TIMEOUT_MS = 10_000;
 const MAX_PLAYER_SCRIPTS = 60;
+const playerScriptsCache = new Map<
+  string,
+  { value: { scripts: string[]; pageHtml: string }; expiresAt: number }
+>();
 
 type Request = {
-  kind: "movie" | "tv";
+  kind: "movie" | "tv" | "anime";
   id: string;
   season?: string;
   episode?: string;
+  dub: boolean;
   pageUrl: string;
 };
 
@@ -29,7 +34,16 @@ function parseRequest(target: string): Request | null {
     const parts = url.pathname.split("/").filter(Boolean);
     const [kind, id, season, episode] = parts;
     if (!id || !/^\d+$/.test(id)) return null;
-    if (kind === "movie" && parts.length === 2) return { kind, id, pageUrl: url.href };
+    if (kind === "movie" && parts.length === 2) return { kind, id, dub: false, pageUrl: url.href };
+    if (kind === "anime" && parts.length === 3 && season && /^\d+$/.test(season)) {
+      return {
+        kind: "anime",
+        id,
+        episode: season,
+        dub: url.searchParams.get("dub") === "true",
+        pageUrl: url.href
+      };
+    }
     if (
       kind === "tv" &&
       parts.length === 4 &&
@@ -38,7 +52,7 @@ function parseRequest(target: string): Request | null {
       /^\d+$/.test(season) &&
       /^\d+$/.test(episode)
     ) {
-      return { kind, id, season, episode, pageUrl: url.href };
+      return { kind, id, season, episode, dub: false, pageUrl: url.href };
     }
     return null;
   } catch {
@@ -73,6 +87,8 @@ async function fetchText(
 async function readPlayerScripts(
   pageUrl: string
 ): Promise<{ scripts: string[]; pageHtml: string }> {
+  const cached = playerScriptsCache.get(pageUrl);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
   const page = await fetchText(pageUrl, pageUrl);
   if (!page?.response.ok) return { scripts: [], pageHtml: "" };
 
@@ -107,7 +123,9 @@ async function readPlayerScripts(
       }
     }
   }
-  return { scripts, pageHtml: page.text };
+  const value = { scripts, pageHtml: page.text };
+  playerScriptsCache.set(pageUrl, { value, expiresAt: Date.now() + 60_000 });
+  return value;
 }
 
 function discoverSourceProviders(scripts: string[]): string[] {
@@ -116,6 +134,17 @@ function discoverSourceProviders(scripts: string[]): string[] {
     for (const match of script.matchAll(/\/scrape\/([A-Za-z0-9_-]+)/g)) providers.add(match[1]!);
   }
   return [...providers];
+}
+
+export async function getVidBoltSourceOptions(target: string): Promise<StreamSourceOption[]> {
+  const request = parseRequest(target);
+  if (!request) return [];
+  const player = await readPlayerScripts(request.pageUrl);
+  const providers = discoverSourceProviders(player.scripts);
+  const options = providers
+    .filter((provider) => request.kind !== "anime" || provider.toLowerCase() === "animex")
+    .map((provider) => ({ key: provider, name: provider }));
+  return request.kind === "anime" ? options : [...options, { key: "direct", name: "Direct" }];
 }
 
 function readPageTitle(scripts: string[], pageHtml: string): string | undefined {
@@ -160,21 +189,46 @@ function mediaHeaders(): StreamHeaders {
   return { Origin: PROVIDER_ORIGIN, Referer: `${PROVIDER_ORIGIN}/` };
 }
 
-export async function resolveVidBolt(target: string): Promise<Stream | null> {
+async function resolveVidBoltSourceInternal(
+  target: string,
+  selectedSourceKey?: string
+): Promise<Stream | null> {
   const request = parseRequest(target);
   if (!request) return null;
 
   const player = await readPlayerScripts(request.pageUrl);
   const title = readPageTitle(player.scripts, player.pageHtml);
-  for (const provider of discoverSourceProviders(player.scripts)) {
-    const sourceUrl = new URL(
-      `/scrape/${provider}/${request.kind}/tmdb${request.id}`,
-      SCRAPER_ORIGIN
-    );
-    sourceUrl.searchParams.set("tmdbId", request.id);
-    if (title) sourceUrl.searchParams.set("title", title);
-    if (request.season) sourceUrl.searchParams.set("season", request.season);
-    if (request.episode) sourceUrl.searchParams.set("episode", request.episode);
+  const discoveredProviders = discoverSourceProviders(player.scripts);
+  if (
+    selectedSourceKey &&
+    selectedSourceKey !== "direct" &&
+    !discoveredProviders.includes(selectedSourceKey)
+  ) {
+    return null;
+  }
+  const providersToTry =
+    selectedSourceKey === "direct"
+      ? []
+      : selectedSourceKey
+        ? [selectedSourceKey]
+        : discoveredProviders.filter(
+            (provider) => request.kind !== "anime" || provider === "AnimeX"
+          );
+  for (const provider of providersToTry) {
+    const sourceKind = request.kind === "anime" ? "tv" : request.kind;
+    const sourceId = request.kind === "anime" ? `anilist${request.id}` : `tmdb${request.id}`;
+    const sourceUrl = new URL(`/scrape/${provider}/${sourceKind}/${sourceId}`, SCRAPER_ORIGIN);
+    if (request.kind === "anime") {
+      sourceUrl.searchParams.set("animeId", request.id);
+      sourceUrl.searchParams.set("anilistId", request.id);
+      if (request.episode) sourceUrl.searchParams.set("episode", request.episode);
+      if (title) sourceUrl.searchParams.set("title", title);
+    } else {
+      sourceUrl.searchParams.set("tmdbId", request.id);
+      if (title) sourceUrl.searchParams.set("title", title);
+      if (request.season) sourceUrl.searchParams.set("season", request.season);
+      if (request.episode) sourceUrl.searchParams.set("episode", request.episode);
+    }
 
     const sourceResult = await fetchText(sourceUrl.href, request.pageUrl);
     if (!sourceResult?.response.ok) continue;
@@ -198,11 +252,19 @@ export async function resolveVidBolt(target: string): Promise<Stream | null> {
         : {};
       const stream: Stream = {
         ...media,
+        sourceKey: provider,
+        name:
+          (typeof source.name === "string" && source.name) ||
+          (typeof payload.name === "string" && payload.name) ||
+          provider,
         headers: { ...mediaHeaders(), ...sourceHeaders }
       };
       if (await probe(stream)) return stream;
     }
   }
+
+  if ((selectedSourceKey && selectedSourceKey !== "direct") || request.kind === "anime")
+    return null;
 
   const path =
     request.kind === "movie"
@@ -227,11 +289,30 @@ export async function resolveVidBolt(target: string): Promise<Stream | null> {
       if (!isRecord(source) || typeof source.url !== "string") continue;
       const media = resolveMedia(source.url, API_ORIGIN, source.type);
       if (!media || !isHttpUrl(media.url)) continue;
-      const stream: Stream = { ...media, headers: mediaHeaders() };
+      const stream: Stream = {
+        ...media,
+        sourceKey: "direct",
+        name:
+          (typeof source.name === "string" && source.name) ||
+          (typeof source.quality === "string" && source.quality) ||
+          "VidBolt",
+        headers: mediaHeaders()
+      };
       if (await probe(stream)) return stream;
     }
     return null;
   } catch {
     return null;
   }
+}
+
+export async function resolveVidBolt(target: string): Promise<Stream | null> {
+  return resolveVidBoltSourceInternal(target);
+}
+
+export async function resolveVidBoltSource(
+  target: string,
+  sourceKey: string
+): Promise<Stream | null> {
+  return resolveVidBoltSourceInternal(target, sourceKey);
 }

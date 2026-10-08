@@ -300,8 +300,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     dubSupport: true,
     moviePath: (id) => `/movie/${id}`,
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
-    animePath: (id, _season, episode, dub) => `/anime/${id}/${episode}${dub ? "?dub=true" : ""}`,
-    malAnimePath: (id, _season, episode, dub) => `/mal/${id}/${episode}${dub ? "?dub=true" : ""}`
+    animePath: (id, _season, episode, dub) => `/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
   }),
   defineProvider({
     key: "videasy",

@@ -10,16 +10,18 @@ import { resolveVidRock } from "./catalog/broken/vidRock";
 import { resolveVixSrc } from "./catalog/broken/vixSrc";
 import { resolveVidZee } from "./catalog/broken/vidZee";
 import { resolveVidZen } from "./catalog/vidZen";
-import { resolveVidBolt } from "./catalog/vidBolt";
-import { resolveVidy } from "./catalog/vidy";
+import { getVidBoltSourceOptions, resolveVidBolt, resolveVidBoltSource } from "./catalog/vidBolt";
+import { getVidySourceOptions, resolveVidy, resolveVidySource } from "./catalog/vidy";
 import { resolveVidFast } from "./catalog/broken/vidFast";
 import { resolveAniEmbed } from "./catalog/aniEmbed";
-import type { Stream } from "../types";
+import type { Stream, StreamSourceOption } from "../types";
 
 export type Provider = {
   id: string;
   matches: (url: URL) => boolean;
   resolve: (url: string) => Promise<Stream | null>;
+  sourceOptions?: (url: string) => Promise<StreamSourceOption[]>;
+  resolveSource?: (url: string, sourceKey: string) => Promise<Stream | null>;
 };
 
 const vidNestProvider: Provider = {
@@ -79,13 +81,17 @@ const vidZenProvider: Provider = {
 const vidBoltProvider: Provider = {
   id: "vidbolt",
   matches: (url) => url.hostname === "vidbolt.xyz",
-  resolve: resolveVidBolt
+  resolve: resolveVidBolt,
+  sourceOptions: getVidBoltSourceOptions,
+  resolveSource: resolveVidBoltSource
 };
 
 const vidyProvider: Provider = {
   id: "vidy",
   matches: (url) => url.hostname === "www.vidy.st",
-  resolve: resolveVidy
+  resolve: resolveVidy,
+  sourceOptions: getVidySourceOptions,
+  resolveSource: resolveVidySource
 };
 
 const vidZeeProvider: Provider = {
@@ -173,4 +179,25 @@ export async function resolveWithProviders(target: string): Promise<Stream | nul
     () => recent.delete(target)
   );
   return promise;
+}
+
+export async function getSourceOptionsWithProviders(target: string): Promise<StreamSourceOption[]> {
+  const url = new URL(target);
+  for (const provider of providers) {
+    if (!provider.matches(url)) continue;
+    return provider.sourceOptions ? provider.sourceOptions(target) : [];
+  }
+  return [];
+}
+
+export async function resolveSourceWithProviders(
+  target: string,
+  sourceKey: string
+): Promise<Stream | null> {
+  const url = new URL(target);
+  for (const provider of providers) {
+    if (!provider.matches(url)) continue;
+    return provider.resolveSource ? provider.resolveSource(target, sourceKey) : null;
+  }
+  return null;
 }
