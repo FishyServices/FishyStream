@@ -101,6 +101,10 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: [
         { find: "@", replacement: path.resolve(import.meta.dirname, "./src") },
+        {
+          find: "@fishy/scraper/client",
+          replacement: path.resolve(import.meta.dirname, "./packages/scraper/src/client.ts")
+        },
         { find: "@content", replacement: path.resolve(import.meta.dirname, "./shared/content") },
         { find: "react", replacement: path.resolve(import.meta.dirname, "./node_modules/react") },
         {

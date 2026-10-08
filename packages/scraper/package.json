@@ -8,10 +8,13 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
     }
   },
   "type": "module",
-  "private": true,
   "scripts": {
     "build": "tsc",
     "dev": "bun --hot src/dev.ts",

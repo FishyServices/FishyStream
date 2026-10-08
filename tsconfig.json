@@ -29,6 +29,7 @@
       "@fishy/providers/proxy": ["./packages/providers/src/proxy/index.ts"],
       "@fishy/providers/*": ["./packages/providers/src/*/index.ts"],
       "@fishy/scraper": ["./packages/scraper/src/index.ts"],
+      "@fishy/scraper/client": ["./packages/scraper/src/client.ts"],
       "react": ["./node_modules/@types/react"],
       "react-dom": ["./node_modules/@types/react-dom"]
     },

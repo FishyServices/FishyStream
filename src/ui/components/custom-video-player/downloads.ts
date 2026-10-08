@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createScraperClient } from "@fishy/scraper/client";
 import {
   getStoredDownload,
   removeStoredDownload,
@@ -104,10 +105,9 @@ function parseHlsPlaylist(text: string, baseUrl: string): HlsPlaylist {
   return { kind: "media", parts, encrypted };
 }
 
-function scraperUrl(embedUrl: string) {
-  const endpoint = import.meta.env.DEV ? "http://localhost:4000/api/scrape" : "/api/scrape";
-  return `${endpoint}?url=${encodeURIComponent(embedUrl)}`;
-}
+const scraper = createScraperClient({
+  baseUrl: import.meta.env.DEV ? "http://localhost:4000" : window.location.origin
+});
 
 export function useVideoDownloads(options: VideoDownloadOptions): VideoDownloads {
   const {
@@ -343,20 +343,17 @@ export function useVideoDownloads(options: VideoDownloadOptions): VideoDownloads
     if (!getEpisodeEmbedUrl) throw new Error("Episode downloads are unavailable.");
     const embedUrl = await getEpisodeEmbedUrl(target);
     if (!embedUrl) throw new Error(`No stream found for episode ${target.episode}.`);
-    const scrapeResponse = await fetch(scraperUrl(embedUrl), { signal });
-    if (!scrapeResponse.ok) throw new Error(`Could not load episode ${target.episode}.`);
-    const data: unknown = await scrapeResponse.json();
-    if (
-      !data ||
-      typeof data !== "object" ||
-      !("streamUrl" in data) ||
-      typeof data.streamUrl !== "string" ||
-      !data.streamUrl
-    ) {
+    let data;
+    try {
+      data = (await scraper.scrape(embedUrl, signal)).source;
+    } catch {
+      throw new Error(`Could not load episode ${target.episode}.`);
+    }
+    if (!data) {
       throw new Error(`No downloadable stream found for episode ${target.episode}.`);
     }
     const filename = filenameFor(target);
-    if (!("mediaType" in data && data.mediaType === "hls") && !data.streamUrl.includes(".m3u8")) {
+    if (data.mediaType !== "hls" && !data.streamUrl.includes(".m3u8")) {
       const response = await fetch(data.streamUrl, { signal });
       if (!response.ok) throw new Error(`Episode ${target.episode} download failed.`);
       saveDownloadPart(await response.blob(), filename);

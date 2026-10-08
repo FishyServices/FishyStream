@@ -23,6 +23,13 @@ import {
   type ProviderUiMode
 } from "@/ui/components/ProviderSourceSelect";
 import type { ProviderGroupedSources } from "@fishy/providers/playback";
+import { createScraperClient } from "@fishy/scraper/client";
+import type {
+  ScrapeResult,
+  ScrapedStream,
+  ScraperSourceOption,
+  ScraperTrack
+} from "@fishy/scraper/client";
 import { getIntroDbPlaybackSegments } from "@fishy/providers/playback";
 import type { ContentPlayback } from "@content/contentMetadata";
 import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
@@ -60,87 +67,24 @@ interface SkipSegment {
   start: number;
   end: number;
 }
-interface SubtitleTrack {
-  file: string;
-  label?: string;
-}
 type SubtitleFormat = "vtt" | "srt" | "ass";
 interface SubtitleSource {
   url: string;
   name: string;
   type: SubtitleFormat;
 }
-interface ScrapeResponse {
-  source: ScrapeSource | null;
-  sourceOptions: ScrapeSourceOption[];
-}
-
-interface ScrapeSource {
-  name: string;
-  sourceKey?: string;
-  streamUrl: string;
-  mediaType: "hls" | "file";
-  tracks: SubtitleTrack[];
-  intro?: SkipSegment;
-  outro?: SkipSegment;
-}
-
-interface ScrapeSourceOption {
-  key: string;
-  name: string;
-}
-
 interface ScrapeSelection {
   embedUrl: string;
-  source: ScrapeSource;
+  source: ScrapedStream;
   resumePosition: number;
 }
 
+const scraper = createScraperClient({
+  baseUrl: import.meta.env.DEV ? "http://localhost:4000" : window.location.origin
+});
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function isTrack(value: unknown): value is SubtitleTrack {
-  return isObject(value) && typeof value.file === "string" && value.file.length > 0;
-}
-
-function isSegment(value: unknown): value is SkipSegment {
-  return (
-    isObject(value) &&
-    typeof value.start === "number" &&
-    typeof value.end === "number" &&
-    value.end > value.start
-  );
-}
-
-function parseScrapeResponse(value: unknown): ScrapeResponse {
-  if (!isObject(value)) return { source: null, sourceOptions: [] };
-  let source: ScrapeSource | null = null;
-  if (
-    typeof value.streamUrl === "string" &&
-    (value.mediaType === "hls" || value.mediaType === "file")
-  ) {
-    source = {
-      name: typeof value.name === "string" ? value.name : "Stream",
-      sourceKey: typeof value.sourceKey === "string" ? value.sourceKey : undefined,
-      streamUrl: value.streamUrl,
-      mediaType: value.mediaType,
-      tracks: Array.isArray(value.tracks) ? value.tracks.filter(isTrack) : [],
-      intro: isSegment(value.intro) ? value.intro : undefined,
-      outro: isSegment(value.outro) ? value.outro : undefined
-    };
-  }
-  const sourceOptions = Array.isArray(value.sourceOptions)
-    ? value.sourceOptions.flatMap((item): ScrapeSourceOption[] =>
-        isObject(item) && typeof item.key === "string" && typeof item.name === "string"
-          ? [{ key: item.key, name: item.name }]
-          : []
-      )
-    : [];
-  return {
-    source,
-    sourceOptions
-  };
 }
 
 function getResumePosition(embedUrl: string, resume?: number): number {
@@ -298,7 +242,7 @@ export function CustomVideoPlayer({
   const [pendingSourceName, setPendingSourceName] = useState<string | null>(null);
   const sourcePageCacheRef = useRef<{
     embedUrl: string;
-    response: ScrapeResponse;
+    response: ScrapeResult;
   } | null>(null);
   const sourceRequestControllerRef = useRef<AbortController | null>(null);
   const {
@@ -413,18 +357,13 @@ export function CustomVideoPlayer({
       try {
         let url: string;
         let mediaType: "hls" | "file";
-        let tracks: SubtitleTrack[] = [];
-        const endpoint = import.meta.env.DEV ? "http://localhost:4000/api/scrape" : "/api/scrape";
+        let tracks: ScraperTrack[] = [];
         let scrapeResponse =
           sourcePageCacheRef.current?.embedUrl === embedUrl
             ? sourcePageCacheRef.current.response
             : undefined;
         if (!scrapeResponse) {
-          const response = await fetch(`${endpoint}?url=${encodeURIComponent(embedUrl)}`, {
-            signal: controller.signal
-          });
-          if (!response.ok) throw new Error("Unable to load the stream.");
-          scrapeResponse = parseScrapeResponse(await response.json());
+          scrapeResponse = await scraper.scrape(embedUrl, controller.signal);
           sourcePageCacheRef.current = { embedUrl, response: scrapeResponse };
         }
         const selectedScrapeSource =
@@ -553,11 +492,8 @@ export function CustomVideoPlayer({
           });
           return plugin;
         };
-        const sourceEndpoint = import.meta.env.DEV
-          ? "http://localhost:4000/api/scrape/source"
-          : "/api/scrape/source";
         const resolveSelectedSource = async (
-          sourceOption: ScrapeSourceOption,
+          sourceOption: ScraperSourceOption,
           player: Artplayer,
           resumePosition: number
         ) => {
@@ -566,12 +502,11 @@ export function CustomVideoPlayer({
           sourceRequestControllerRef.current = sourceController;
           setPendingSourceName(sourceOption.name);
           try {
-            const sourceUrl = new URL(sourceEndpoint, window.location.origin);
-            sourceUrl.searchParams.set("url", embedUrl);
-            sourceUrl.searchParams.set("source", sourceOption.key);
-            const response = await fetch(sourceUrl, { signal: sourceController.signal });
-            if (!response.ok) throw new Error("This source could not be loaded.");
-            const next = parseScrapeResponse(await response.json()).source;
+            const next = await scraper.resolveSource(
+              embedUrl,
+              sourceOption.key,
+              sourceController.signal
+            );
             if (!next) throw new Error("This source returned no playable stream.");
             setScrapeSelection({ embedUrl, source: next, resumePosition });
           } catch (error) {
@@ -618,7 +553,7 @@ export function CustomVideoPlayer({
           settings: [
             subtitleSetting,
             volumeBoostSetting,
-            anime4kCompareSetting,
+            //anime4kCompareSetting,
             ...(streamSetting ? [streamSetting] : [])
           ],
           layers:

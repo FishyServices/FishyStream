@@ -72,7 +72,7 @@ describe("providerCatalog", () => {
       "https://megaplay.buzz/stream/ani/178090/5/dub?s=tcdn"
     );
     expect(sources.find((source) => source.key === "zokoanime")?.url).toBe(
-      "https://zokoanime.video/stream/anilist/178090/5/dub"
+      "https://zokoanime.video/stream/ani/178090/5/dub"
     );
   });
 
