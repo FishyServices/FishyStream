@@ -1,7 +1,5 @@
 # Scraper
 
-The scraper uses Puppeteer to extract video metadata and playable embed URLs from streaming providers.
-
 ## Known to work
 
 ### Anime
@@ -12,9 +10,10 @@ The scraper uses Puppeteer to extract video metadata and playable embed URLs fro
 ### Movies & TV
 
 - [111movies](https://111movies.net)
-- [CineSrc](https://cinesrc.st)
-- [Peachify](https://peachify.top)
-- [VidLux](https://vidlux.xyz)
+- [vidZen](https://vidzen.fun)
+- [vidLove](https://vidlove.cc)
+
+// not setup yet
 
 ## Downloads
 
