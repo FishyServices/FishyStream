@@ -40,6 +40,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     animeOnly: true,
     animeIdType: "anilist",
     dubSupport: true,
+    canBeScraped: true,
     params: {
       autoplay: { type: "boolean" },
       t: { type: "time" }
@@ -54,7 +55,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://cinesrc.st",
-    canBeScraped: true,
     progress: { resumeParam: "time", controlApi: true },
     params: {
       seek: { type: "number" },
@@ -207,7 +207,6 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://peachify.top",
     progress: { resumeParam: "startAt" },
-    canBeScraped: true,
     referrerPolicy: "no-referrer",
     params: {
       server: { type: "string" },
@@ -367,6 +366,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://player.vidlove.cc",
+    canBeScraped: true,
     progress: { controlApi: true },
     referrerPolicy: "no-referrer",
     params: {
@@ -395,7 +395,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://vidlux.xyz",
-    canBeScraped: true,
+    // this provider does not work for the scraper
     params: {
       key: { type: "string" },
       color: { type: "hex" },
@@ -449,7 +449,8 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     name: "VidRock",
     category: "other",
     idType: "both",
-    website: "https://vidrock.ru",
+    website: "https://vidrock.to",
+    canBeScraped: true,
     animeIdType: "anilist",
     dubSupport: true,
     referrerPolicy: "strict-origin-when-cross-origin",
@@ -514,6 +515,7 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     category: "primary",
     idType: "tmdb",
     website: "https://vidzen.fun",
+    canBeScraped: true,
     progress: { controlApi: true },
     referrerPolicy: "no-referrer",
     moviePath: (id) => `/movie/${id}`,

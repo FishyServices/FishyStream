@@ -1,34 +1,3 @@
-const BROWSER_KEEP_ALIVE_MS = 10 * 60 * 1000;
-
-async function acquireBrowser(binding: any, maxRetries = 3) {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      if (typeof puppeteer.sessions === "function") {
-        try {
-          const sessions = await puppeteer.sessions(binding);
-          const availableSession = sessions?.find((s: any) => !s.connectionId);
-          if (availableSession?.sessionId) {
-            return await puppeteer.connect(binding, availableSession.sessionId);
-          }
-        } catch {}
-      }
-
-      return await puppeteer.launch(binding, { keep_alive: BROWSER_KEEP_ALIVE_MS });
-    } catch (err: any) {
-      const isRateLimit =
-        err?.message?.includes("429") ||
-        err?.message?.includes("Rate limit exceeded") ||
-        err?.code === 429;
-      if (isRateLimit && attempt < maxRetries - 1) {
-        const delay = (attempt + 1) * 1000 + Math.random() * 500;
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
-      }
-      throw err;
-    }
-  }
-}
-
 type RouteParam = string | string[] | undefined;
 
 export interface PagesFunctionContext {
@@ -48,7 +17,6 @@ function getSegments(value: RouteParam) {
 }
 
 import scraperApp from "@fishy/scraper";
-import puppeteer from "@cloudflare/puppeteer";
 import { fetchAnimeCatalog } from "../catalog/animeCatalog";
 
 export async function handleApiRequest(context: PagesFunctionContext) {
@@ -66,10 +34,7 @@ export async function handleApiRequest(context: PagesFunctionContext) {
   ) {
     return scraperApp.fetch(
       request,
-      {
-        ...env,
-        launchBrowser: () => acquireBrowser((env as any).MYBROWSER)
-      },
+      env,
       context as any
     );
   }

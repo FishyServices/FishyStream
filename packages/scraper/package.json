@@ -1,6 +1,6 @@
 {
   "name": "@fishy/scraper",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,22 +14,18 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "dev": "bun run --hot src/dev.ts",
-    "postinstall": "puppeteer browsers install chrome",
+    "dev": "bun --hot src/dev.ts",
     "lint": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\""
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260729.1",
     "@types/bun": "latest",
-    "puppeteer": "25.4.0",
     "prettier": "3.9.6"
   },
   "peerDependencies": {
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@cloudflare/puppeteer": "1.2.0",
     "hono": "4.12.32"
   }
 }
