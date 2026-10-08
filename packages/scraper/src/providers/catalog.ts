@@ -10,6 +10,8 @@ import { resolveVidRock } from "./catalog/broken/vidRock";
 import { resolveVixSrc } from "./catalog/broken/vixSrc";
 import { resolveVidZee } from "./catalog/broken/vidZee";
 import { resolveVidZen } from "./catalog/vidZen";
+import { resolveVidBolt } from "./catalog/vidBolt";
+import { resolveVidy } from "./catalog/vidy";
 import { resolveVidFast } from "./catalog/broken/vidFast";
 import { resolveAniEmbed } from "./catalog/aniEmbed";
 import type { Stream } from "../types";
@@ -74,6 +76,18 @@ const vidZenProvider: Provider = {
   resolve: resolveVidZen
 };
 
+const vidBoltProvider: Provider = {
+  id: "vidbolt",
+  matches: (url) => url.hostname === "vidbolt.xyz",
+  resolve: resolveVidBolt
+};
+
+const vidyProvider: Provider = {
+  id: "vidy",
+  matches: (url) => url.hostname === "www.vidy.st",
+  resolve: resolveVidy
+};
+
 const vidZeeProvider: Provider = {
   id: "vidzee",
   matches: (url) => url.hostname === "player.vidzee.wtf",
@@ -126,6 +140,8 @@ export const providers: readonly Provider[] = [
   videasyProvider,
   vidZeeProvider,
   vidZenProvider,
+  vidBoltProvider,
+  vidyProvider,
   vixSrcProvider,
   vidFastProvider,
   aniEmbedProvider,

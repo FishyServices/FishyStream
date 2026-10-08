@@ -290,6 +290,20 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`
   }),
   defineProvider({
+    key: "vidbolt",
+    name: "VidBolt",
+    category: "other",
+    idType: "tmdb",
+    website: "https://vidbolt.xyz",
+    canBeScraped: true,
+    animeIdType: "anilist",
+    dubSupport: true,
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) => `/anime/${id}/${episode}${dub ? "?dub=true" : ""}`,
+    malAnimePath: (id, _season, episode, dub) => `/mal/${id}/${episode}${dub ? "?dub=true" : ""}`
+  }),
+  defineProvider({
     key: "videasy",
     name: "VidEasy",
     category: "other",
@@ -388,6 +402,20 @@ export const STREAM_PROVIDERS: ProviderCatalogEntry[] = [
     },
     moviePath: (id) => `/embed/movie/${id}`,
     tvPath: (id, season, episode) => `/embed/tv/${id}/${season}/${episode}`
+  }),
+  defineProvider({
+    key: "vidy",
+    name: "Vidy",
+    category: "other",
+    idType: "tmdb",
+    website: "https://www.vidy.st",
+    canBeScraped: true,
+    animeIdType: "anilist",
+    dubSupport: true,
+    params: STANDARD_EMBED_PLAYER_PARAMS,
+    moviePath: (id) => `/movie/${id}`,
+    tvPath: (id, season, episode) => `/tv/${id}/${season}/${episode}`,
+    animePath: (id, _season, episode, dub) => `/anime/${id}/${episode}${dub ? "?dub=true" : ""}`
   }),
   defineProvider({
     key: "vidlux",

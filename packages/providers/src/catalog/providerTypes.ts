@@ -25,6 +25,8 @@ export type ProviderKey =
   | "vidzee"
   | "vidzen"
   | "vixsrc"
+  | "vidbolt"
+  | "vidy"
   | "zxcstream"
   | "zokoanime";
 
