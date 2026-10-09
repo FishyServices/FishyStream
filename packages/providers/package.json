@@ -10,44 +10,66 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./tmdb": {
-      "types": "./dist/tmdb/index.d.ts",
-      "import": "./dist/tmdb/index.js"
+    "./metadata": {
+      "types": "./dist/metadata/index.d.ts",
+      "import": "./dist/metadata/index.js"
     },
-    "./imdb": {
-      "types": "./dist/imdb/index.d.ts",
-      "import": "./dist/imdb/index.js"
+    "./metadata/imdb": {
+      "types": "./dist/metadata/imdb/index.d.ts",
+      "import": "./dist/metadata/imdb/index.js"
     },
-    "./catalog": {
-      "types": "./dist/catalog/index.d.ts",
-      "import": "./dist/catalog/index.js"
-    },
-    "./playback": {
-      "types": "./dist/playback/index.d.ts",
-      "import": "./dist/playback/index.js"
+    "./metadata/tmdb": {
+      "types": "./dist/metadata/tmdb/index.d.ts",
+      "import": "./dist/metadata/tmdb/index.js"
     },
     "./anime": {
       "types": "./dist/anime/index.d.ts",
       "import": "./dist/anime/index.js"
     },
+    "./anime/anilist": {
+      "types": "./dist/anime/anilist/index.d.ts",
+      "import": "./dist/anime/anilist/index.js"
+    },
+    "./anime/jikan": {
+      "types": "./dist/anime/jikan/index.d.ts",
+      "import": "./dist/anime/jikan/index.js"
+    },
+    "./anime/tsuzuki": {
+      "types": "./dist/anime/tsuzuki/index.d.ts",
+      "import": "./dist/anime/tsuzuki/index.js"
+    },
+    "./anime/episodes": {
+      "types": "./dist/anime/episodes/index.d.ts",
+      "import": "./dist/anime/episodes/index.js"
+    },
+    "./ordering": {
+      "types": "./dist/ordering/index.d.ts",
+      "import": "./dist/ordering/index.js"
+    },
+    "./streaming": {
+      "types": "./dist/streaming/index.d.ts",
+      "import": "./dist/streaming/index.js"
+    },
+    "./playback": {
+      "types": "./dist/playback/index.d.ts",
+      "import": "./dist/playback/index.js"
+    },
     "./subtitles": {
       "types": "./dist/subtitles/index.d.ts",
       "import": "./dist/subtitles/index.js"
-    },
-    "./*": {
-      "types": "./dist/*.d.ts",
-      "import": "./dist/*.js"
     }
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc -w",
-    "lint": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json -w",
+    "lint": "tsc",
     "test": "vitest run",
     "format": "prettier --write \"src/**/*.ts\""
   },
   "devDependencies": {
+    "@types/node": "^26.6.4",
+    "prettier": "3.9.6",
     "typescript": "~6.0.3",
-    "prettier": "3.9.6"
+    "vitest": "^5.0.3"
   }
 }

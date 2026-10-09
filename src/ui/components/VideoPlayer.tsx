@@ -258,7 +258,7 @@ export function VideoPlayer({
   } = session;
   const selectedSource = selectedSourceConfig?.url ?? "";
   const supportsProgressEvents = !!selectedProvider?.progress;
-  const canRequestStatus = !!selectedProvider?.progress?.statusRequest;
+  const canRequestStatus = !!selectedProvider?.progress?.controlApi;
   const iframeReferrerPolicy = selectedProvider?.referrerPolicy ?? "no-referrer-when-downgrade";
 
   useEffect(() => {
@@ -482,14 +482,18 @@ export function VideoPlayer({
         iframe,
         "seek",
         { time: resumePositionSeconds },
-        selectedProvider?.key === "vidzen"
+        { serialize: selectedProvider?.key === "vidzen" }
       );
     };
     iframe.addEventListener("load", seekToSavedPosition);
     return () => iframe.removeEventListener("load", seekToSavedPosition);
   }, [embedUrl, resumePositionSeconds, selectedProvider?.key, useCustomPlayer]);
 
-  const handleProviderSelect = async (nextUrl: string, mode: ProviderUiMode) => {
+  const handleProviderSelect = async (
+    nextUrl: string,
+    mode: ProviderUiMode,
+    providerParams?: Record<string, boolean | string | number>
+  ) => {
     if (!nextUrl) return;
 
     const nextParams = new URLSearchParams(searchParams);
@@ -500,7 +504,7 @@ export function VideoPlayer({
     }
 
     setSearchParams(nextParams, { replace: true });
-    await session.setSourceByUrl(nextUrl, nextParams);
+    await session.setSourceByUrl(nextUrl, nextParams, providerParams);
   };
 
   const handleDubToggle = (newIsDub: boolean) => {

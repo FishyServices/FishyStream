@@ -1,5 +1,5 @@
 import { makeContentId, type ContentDetail, type ContentId } from "@content/contentMetadata";
-import type { TMDBFullDetail } from "@fishy/providers/tmdb";
+import type { TMDBFullDetail } from "@fishy/providers/metadata/tmdb";
 
 export function contentDetailFromTmdb(
   detail: TMDBFullDetail,

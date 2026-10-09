@@ -3,32 +3,17 @@ import {
   buildTvFallbackSources,
   buildTvSources,
   getProviderByKey,
-  type ProviderCatalogEntry,
-  type StreamSource
-} from "../catalog/providerCatalog.js";
-import {
   groupSourcesByProviderCategory,
   pickPreferredSource,
-  type ProviderGroupedSources
-} from "./sourceSelection.js";
-import { getSeasonYear } from "./episodePolicy.js";
+  type SourceBuilder
+} from "../streaming/index.js";
+import { getSeasonYear } from "./episodes.js";
 
-export interface PlaybackSourceResolver {
-  buildMovieSources(args: Parameters<typeof buildMovieSources>[0]): Promise<StreamSource[]>;
-  buildTvFallbackSources(args: {
-    imdbId?: string;
-    tmdbId?: string;
-    season: number;
-    episode: number;
-  }): StreamSource[];
-  buildTvSources(args: Parameters<typeof buildTvSources>[0]): Promise<StreamSource[]>;
-  groupSources(sources: StreamSource[]): ProviderGroupedSources[];
-  pickSource(
-    sources: StreamSource[],
-    options: { initialSource?: string; defaultProvider?: string }
-  ): StreamSource | undefined;
-  getProvider(key: string): ProviderCatalogEntry | undefined;
-  getSeasonYear(airDate?: string): number | undefined;
+export interface PlaybackSourceResolver extends SourceBuilder {
+  groupSources: typeof groupSourcesByProviderCategory;
+  pickSource: typeof pickPreferredSource;
+  getProvider: typeof getProviderByKey;
+  getSeasonYear: typeof getSeasonYear;
 }
 
 export const providerSourceResolver: PlaybackSourceResolver = {

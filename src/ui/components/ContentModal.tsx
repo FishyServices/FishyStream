@@ -44,7 +44,7 @@ import {
   useSeriesEpisodeRatings
 } from "@/features/catalog/queries/useContent";
 import type { TMDBItem } from "@/features/catalog/queries/useContent";
-import { getCanonicalSeasonCount } from "@fishy/providers/anime";
+import { getCanonicalSeasonCount } from "@fishy/providers/ordering";
 import type { PlayHandler } from "@/shared/navigation/watchNavigation";
 import type { ContentDetail, ContentId, ContentType } from "@content/contentMetadata";
 import { fetchDownloads, type DownloadItem } from "@/shared/downloads";

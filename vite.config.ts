@@ -3,8 +3,8 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { readFileSync, existsSync } from "fs";
-import { fetchAnimeCatalog } from "./functions/_shared/catalog/animeCatalog.ts";
-import { handleOpenSubtitlesRequest } from "./functions/_shared/subtitles/openSubtitlesApi.ts";
+import { fetchAnimeCatalog } from "./packages/providers/src/anime/anilist/index.ts";
+import { handleOpenSubtitlesRequest } from "./packages/providers/src/subtitles/index.ts";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
 const devDeps = Object.keys(pkg.devDependencies ?? {});

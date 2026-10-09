@@ -1,35 +1,53 @@
 # Providers
 
-Providers api for https://github.com/FishyServices/FishyStream
+Provider package for https://github.com/FishyServices/FishyStream. Covers TMDB, IMDb, AniList, Jikan, Tsuzuki, OpenSubtitles, TheIntroDB, and the embed stream providers.
 
-Works with TMDB, IMDb, and AniList.
+## Layout
 
-## Matching TMDB and IMDb client APIs
+| Path                             | Contents                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `metadata/tmdb`, `metadata/imdb` | Metadata clients sharing the `MetadataClient` interface                       |
+| `anime`                          | AniList resolver and catalog, Jikan, Tsuzuki, episode mappings, filler lookup |
+| `ordering`                       | Canonical season ordering overrides and direct video urls                     |
+| `streaming`                      | Provider registry, source building, embed urls, source selection              |
+| `playback`                       | Player messages, controls, progress and episode policies, TheIntroDB          |
+| `subtitles`                      | OpenSubtitles search and request handler                                      |
 
-TMDB and IMDb expose the same client methods: `getTitle`, `getTitleRating`,
-and `getEpisodePage`. Each takes a title-reference object and an optional abort
-signal. TMDB references must include a `type` (`"movie"` or `"tv"`), and
-TMDB episode references must include `seasonNumber`.
-
-```ts
-import { createTMDBClient, createTMDBRequest } from "@fishy/providers/tmdb";
-
-const tmdb = createTMDBClient(createTMDBRequest(apiKey));
-const title = await tmdb.getTitle({ id: "550", type: "movie" });
-```
-
-## IMDb
-
-`@fishy/providers/imdb` wraps the official IMDb GraphQL API for title ratings and
-paginated series episodes. IMDb distributes this API through AWS Data Exchange,
-which requires an IMDb subscription, an API key, and AWS SigV4 request signing.
-
-Keep those credentials on the server. Point the browser client at a signed
-same-origin proxy:
+## Metadata
 
 ```ts
-import { createIMDbClient, createIMDbProxyRequest } from "@fishy/providers/imdb";
+import { tmdb } from "@fishy/providers/metadata";
 
-const imdb = createIMDbClient(createIMDbProxyRequest("/api/imdb"));
-const rating = await imdb.getTitleRating({ id: "tt0944947", type: "tv" });
+const client = tmdb.createTMDBClient(tmdb.createTMDBRequest(apiKey));
+const title = await client.getTitle({ id: "550", type: "movie" });
+const results = await client.search("fight club", "movie");
 ```
+
+IMDb uses the same base methods and needs a signed same-origin proxy:
+
+```ts
+import { imdb } from "@fishy/providers/metadata";
+
+const client = imdb.createIMDbClient(imdb.createIMDbProxyRequest("/api/imdb"));
+const rating = await client.getTitleRating({ id: "tt0944947", type: "tv" });
+```
+
+## Streaming
+
+```ts
+import { buildTvSources, pickPreferredSource } from "@fishy/providers/streaming";
+
+const sources = await buildTvSources({
+  tmdbId: "1399",
+  imdbId: "tt0944947",
+  season: 1,
+  episode: 1
+});
+const source = pickPreferredSource(sources, { defaultProvider: "auto" });
+```
+
+Use `createSourceBuilder` to inject the TMDB and AniList lookups.
+
+## Scripts
+
+`npm run lint` type-checks, `npm test` runs the suite, `npm run build` emits `dist`. Set `PROVIDER_CONNECTIVITY=1` to also probe every provider over the network.

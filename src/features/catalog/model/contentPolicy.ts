@@ -1,4 +1,4 @@
-import type { TMDBMediaType } from "@fishy/providers/tmdb";
+import type { MediaType as TMDBMediaType } from "@fishy/providers/metadata";
 
 // rights-holder takedown policy.
 // not getting DMCA agian

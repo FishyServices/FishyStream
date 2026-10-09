@@ -1,5 +1,6 @@
-import { handleApiRequest, type PagesFunctionContext } from "../_shared/runtime/proxyHandlers";
-import { handleOpenSubtitlesRequest } from "../_shared/subtitles/openSubtitlesApi";
+import { fetchAnimeCatalog } from "@fishy/providers/anime/anilist";
+import { handleOpenSubtitlesRequest } from "@fishy/providers/subtitles";
+import { handleApiRequest, type PagesFunctionContext } from "@fishy/scraper/pages-handler";
 
 export function onRequest(context: PagesFunctionContext) {
   const path = Array.isArray(context.params.path)
@@ -7,5 +8,5 @@ export function onRequest(context: PagesFunctionContext) {
     : (context.params.path ?? "");
   if (path === "subtitles" || path.startsWith("subtitles/"))
     return handleOpenSubtitlesRequest(context.request);
-  return handleApiRequest(context);
+  return handleApiRequest(context, fetchAnimeCatalog);
 }

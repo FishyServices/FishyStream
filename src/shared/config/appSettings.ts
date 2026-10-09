@@ -1,5 +1,5 @@
 import type { ContentSort } from "@/features/catalog/queries/useContent";
-import type { ProviderKey } from "@fishy/providers/catalog";
+import type { ProviderKey } from "@fishy/providers/streaming";
 import type { FishyThemeRadius, FishyThemeAccent } from "@fishy/ui";
 
 export type ThemePreference = "dark" | "light";

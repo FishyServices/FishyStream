@@ -1,2 +1,2 @@
-export { downloadOpenSubtitle, searchOpenSubtitles } from "./openSubtitles.js";
-export type { OpenSubtitleSearchOptions, OpenSubtitleTrack } from "./openSubtitles.js";
+export * from "./handler.js";
+export * from "./openSubtitles.js";

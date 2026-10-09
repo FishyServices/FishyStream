@@ -22,7 +22,7 @@ import {
   type ProviderIdType,
   type ProviderUiMode
 } from "@/ui/components/ProviderSourceSelect";
-import type { ProviderGroupedSources } from "@fishy/providers/playback";
+import type { ProviderGroupedSources } from "@fishy/providers/streaming";
 import { createScraperClient } from "@fishy/scraper/client";
 import type {
   ScrapeResult,
@@ -53,7 +53,11 @@ interface CustomVideoPlayerProps {
   showDubToggle: boolean;
   handleDubToggle: (isDub: boolean) => void;
   selectedSource: string;
-  onSelectProvider: (nextUrl: string, mode: ProviderUiMode) => void;
+  onSelectProvider: (
+    nextUrl: string,
+    mode: ProviderUiMode,
+    providerParams?: Record<string, boolean | string | number>
+  ) => void;
   providerIdType: ProviderIdType;
   onProviderIdTypeChange: (idType: ProviderIdType) => void;
   groupedSources: ProviderGroupedSources[];
@@ -891,8 +895,8 @@ export function CustomVideoPlayer({
                     groupedSources={groupedSources}
                     selectedSource={selectedSource}
                     useCustomPlayer
-                    onSelect={(url, mode) => {
-                      onSelectProvider(url, mode);
+                    onSelect={(url, mode, providerParams) => {
+                      onSelectProvider(url, mode, providerParams);
                       setShowSettings(false);
                     }}
                     providerIdType={providerIdType}

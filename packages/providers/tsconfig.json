@@ -2,19 +2,20 @@
   "compilerOptions": {
     "target": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "allowJs": false,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "resolveJsonModule": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
     "isolatedModules": true,
-    "noEmit": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "noEmit": true,
     "outDir": "dist",
-    "rootDir": "src",
-    "declaration": true
+    "rootDir": "src"
   },
   "include": ["src"]
 }

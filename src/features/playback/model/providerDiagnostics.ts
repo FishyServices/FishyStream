@@ -1,5 +1,5 @@
 import type { ContentType } from "@content/contentMetadata";
-import type { StreamSource } from "@fishy/providers/catalog";
+import type { StreamSource } from "@fishy/providers/streaming";
 
 export interface ProviderDiagnosticEvent {
   providerKey?: string;

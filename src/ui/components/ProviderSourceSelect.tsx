@@ -1,13 +1,17 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Globe, MonitorPlay, Settings2, Sparkles } from "lucide-react";
-import type { ProviderGroupedSources } from "@fishy/providers/playback";
+import type { ProviderGroupedSources } from "@fishy/providers/streaming";
+import type { ProviderParamDef } from "@fishy/providers/streaming";
 import {
   Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  Input,
+  Label,
+  Switch
 } from "@fishy/ui";
 
 export type ProviderUiMode = "custom" | "embedded";
@@ -17,7 +21,11 @@ export interface ProviderSourceSelectProps {
   groupedSources: ProviderGroupedSources[];
   selectedSource: string;
   useCustomPlayer: boolean;
-  onSelect: (url: string, mode: ProviderUiMode) => void;
+  onSelect: (
+    url: string,
+    mode: ProviderUiMode,
+    providerParams?: Record<string, boolean | string | number>
+  ) => void;
   triggerLabel?: string;
   variant?: "header" | "panel";
   className?: string;
@@ -53,6 +61,9 @@ export function ProviderSourceSelect({
 
   const [open, setOpen] = useState(false);
   const [settingsProviderKey, setSettingsProviderKey] = useState<string | null>(null);
+  const [providerParamValues, setProviderParamValues] = useState<
+    Record<string, Record<string, boolean | string | number>>
+  >({});
   const [activeTab, setActiveTab] = useState<ProviderUiMode>(
     useCustomPlayer && hasCustomOption ? "custom" : "embedded"
   );
@@ -236,6 +247,7 @@ export function ProviderSourceSelect({
                         <span className="min-w-0 flex-1 truncate">{provider.name}</span>
                         <span className="flex shrink-0 items-center gap-1">
                           {(provider.servers?.length ?? 0) > 1 ||
+                          Object.keys(provider.params ?? {}).length > 0 ||
                           (provider.getMalAnimeTVUrl && onProviderIdTypeChange) ? (
                             <Button
                               type="button"
@@ -281,9 +293,7 @@ export function ProviderSourceSelect({
                 : "Provider"}{" "}
               settings
             </DialogTitle>
-            <DialogDescription>
-              Choose the server and anime ID this provider should use.
-            </DialogDescription>
+            <DialogDescription>Choose a server and anime ID for this provider.</DialogDescription>
           </DialogHeader>
           {(() => {
             const providerSet = groupedSources
@@ -297,27 +307,31 @@ export function ProviderSourceSelect({
 
             return (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Server</p>
-                  <div className="grid gap-2">
-                    {providerSet.sources.map((source) => (
-                      <Button
-                        key={source.url}
-                        type="button"
-                        variant={currentServer === source.server.id ? "default" : "outline"}
-                        className="justify-between"
-                        onClick={() => {
-                          onSelect(source.url, activeTab);
-                          setSettingsProviderKey(null);
-                          setOpen(false);
-                        }}
-                      >
-                        {source.server.label}
-                        {currentServer === source.server.id ? <Check className="h-4 w-4" /> : null}
-                      </Button>
-                    ))}
+                {(providerSet.provider.servers?.length ?? 0) > 1 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Server</p>
+                    <div className="grid gap-2">
+                      {providerSet.sources.map((source) => (
+                        <Button
+                          key={source.url}
+                          type="button"
+                          variant={currentServer === source.server.id ? "default" : "outline"}
+                          className="justify-between"
+                          onClick={() => {
+                            onSelect(source.url, activeTab);
+                            setSettingsProviderKey(null);
+                            setOpen(false);
+                          }}
+                        >
+                          {source.server.label}
+                          {currentServer === source.server.id ? (
+                            <Check className="h-4 w-4" />
+                          ) : null}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : null}
                 {providerSet.provider.getMalAnimeTVUrl && onProviderIdTypeChange ? (
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Anime ID</p>
@@ -337,11 +351,109 @@ export function ProviderSourceSelect({
                     </div>
                   </div>
                 ) : null}
+                {Object.entries(providerSet.provider.params ?? {}).map(([name, definition]) => {
+                  const value =
+                    providerParamValues[providerSet.provider.key]?.[name] ?? definition.default;
+                  const label = name
+                    .replace(/([a-z])([A-Z])/g, "$1 $2")
+                    .replace(/^./, (letter) => letter.toUpperCase());
+                  return (
+                    <ProviderParamControl
+                      key={name}
+                      name={name}
+                      label={label}
+                      definition={definition}
+                      value={value}
+                      onChange={(next) =>
+                        setProviderParamValues((current) => ({
+                          ...current,
+                          [providerSet.provider.key]: {
+                            ...current[providerSet.provider.key],
+                            [name]: next
+                          }
+                        }))
+                      }
+                    />
+                  );
+                })}
+                {Object.keys(providerSet.provider.params ?? {}).length > 0 ? (
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={() => {
+                      const source =
+                        providerSet.sources.find((item) => item.url === selectedSource) ??
+                        providerSet.sources[0];
+                      if (source) {
+                        const values = providerParamValues[providerSet.provider.key] ?? {};
+                        const params = Object.fromEntries(
+                          Object.entries(providerSet.provider.params ?? {}).flatMap(
+                            ([name, definition]) => {
+                              const value = values[name] ?? definition.default;
+                              return value === undefined ? [] : [[name, value]];
+                            }
+                          )
+                        );
+                        onSelect(source.url, activeTab, params);
+                      }
+                      setSettingsProviderKey(null);
+                      setOpen(false);
+                    }}
+                  >
+                    Apply settings
+                  </Button>
+                ) : null}
               </div>
             );
           })()}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function ProviderParamControl({
+  name,
+  label,
+  definition,
+  value,
+  onChange
+}: {
+  name: string;
+  label: string;
+  definition: ProviderParamDef;
+  value: boolean | string | number | undefined;
+  onChange: (value: boolean | string | number) => void;
+}) {
+  if (definition.type === "boolean") {
+    return (
+      <div className="flex items-center justify-between gap-4">
+        <Label htmlFor={`provider-setting-${name}`} className="text-sm">
+          {label}
+        </Label>
+        <Switch
+          id={`provider-setting-${name}`}
+          checked={typeof value === "boolean" ? value : false}
+          onCheckedChange={onChange}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={`provider-setting-${name}`} className="text-sm">
+        {label}
+      </Label>
+      <Input
+        id={`provider-setting-${name}`}
+        type={definition.type === "number" || definition.type === "time" ? "number" : "text"}
+        value={value === undefined ? "" : String(value)}
+        placeholder={definition.type === "hex" ? "#RRGGBB" : undefined}
+        onChange={(event) =>
+          onChange(definition.type === "number" ? Number(event.target.value) : event.target.value)
+        }
+      />
     </div>
   );
 }

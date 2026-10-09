@@ -1,16 +1,6 @@
-export * from "./anime/index.js";
-export * from "./playback/index.js";
-export * from "./catalog/index.js";
-export * from "./tmdb/index.js";
-export * from "./subtitles/index.js";
-export { createIMDbClient, createIMDbProxyRequest } from "./imdb/index.js";
-export type {
-  IMDbClient,
-  IMDbEpisode,
-  IMDbEpisodePage,
-  IMDbGraphQLResponse,
-  IMDbId,
-  IMDbRating,
-  IMDbRequest,
-  IMDbTitle
-} from "./imdb/index.js";
+export * as anime from "./anime/index.js";
+export * as metadata from "./metadata/index.js";
+export * as ordering from "./ordering/index.js";
+export * as playback from "./playback/index.js";
+export * as streaming from "./streaming/index.js";
+export * as subtitles from "./subtitles/index.js";

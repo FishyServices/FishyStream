@@ -7,7 +7,7 @@ import {
   type AnimeLanguagePreference
 } from "@/shared/config/appSettings";
 import type { ContentSort } from "@/features/catalog/queries/useContent";
-import { STREAM_PROVIDERS, type ProviderKey } from "@fishy/providers/catalog";
+import { STREAM_PROVIDERS, type ProviderKey } from "@fishy/providers/streaming";
 import type { FishyThemeAccent, FishyThemeRadius } from "@fishy/ui";
 import { getLocalStorageItem, setLocalStorageItem } from "./browserStorage";
 

@@ -2,11 +2,9 @@
 import { v } from "convex/values";
 import { action } from "../../_generated/server";
 import { internal } from "../../_generated/api";
-import {
-  buildAniListEpisodeMappings,
-  buildCanonicalSeasonPayload,
-  resolveSeasonAniListId
-} from "@fishy/providers/tmdb";
+import { buildAniListEpisodeMappings } from "@fishy/providers/anime/episodes";
+import { resolveAniListId as resolveSeasonAniListId } from "@fishy/providers/anime/anilist";
+import { createTMDBClient } from "@fishy/providers/metadata/tmdb";
 
 type SeasonPlaybackMetaResult = {
   seasonNumber: number;
@@ -50,7 +48,7 @@ export const syncAnimeSeasonPlaybackMeta = action({
       seasonNumber: args.seasonNumber
     });
 
-    const payload = await buildCanonicalSeasonPayload(args.tmdbId, args.seasonNumber);
+    const payload = await createTMDBClient().canonicalSeason(args.tmdbId, args.seasonNumber);
     if (!payload) return null;
 
     const episodes = payload.episodes.map((episode) => ({
@@ -63,14 +61,14 @@ export const syncAnimeSeasonPlaybackMeta = action({
     try {
       anilistId = await resolveSeasonAniListId({
         title: args.title,
-        seasonNumber: payload.seasonNumber,
+        season: payload.seasonNumber,
         seasonTitle: payload.name,
         year: payload.year
       });
       if (!anilistId && payload.seasonNumber > 1) {
         anilistId = await resolveSeasonAniListId({
           title: args.title,
-          seasonNumber: 1,
+          season: 1,
           year: payload.year ? payload.year - 1 : undefined
         });
       }

@@ -8,37 +8,24 @@ import { useRecommendationFolderScope } from "@/features/catalog/recommendationF
 import type { ContentCard, ContentFeatured, ContentPlayback } from "@content/contentMetadata";
 import { makeContentId } from "@content/contentMetadata";
 import {
-  TMDB_API_KEY,
-  TMDB_DISCOVER_GENRES,
-  TMDB_TV_DISCOVER_GENRES,
-  collectTmdbCards,
-  fetchTmdbCardDetail,
-  fetchTmdbCredits,
-  fetchTmdbDetails,
-  fetchTmdbDiscover,
-  fetchTmdbFullDetail,
-  fetchTmdbIdByImdbId,
-  fetchTmdbListOrEmpty,
-  fetchTmdbRelated,
-  fetchTmdbSearch,
-  fetchTmdbSeasonEpisodes,
-  fetchTmdbVideos,
-  toTMDBContentCard,
-  type TMDBBrowseListResponse,
+  DEFAULT_TMDB_API_KEY,
+  collectContentCards,
+  createTMDBClient,
+  createTMDBRequest,
+  toContentCard,
+  TMDB_GENRE_IDS,
+  type TMDBListResponse,
   type TMDBContentCard,
   type TMDBCreditResult,
   type TMDBFullDetail,
   type TMDBItem,
-  type TMDBMediaType,
   type TMDBVideoResult
-} from "@fishy/providers/tmdb";
-import {
-  createIMDbProxyRequest,
-  fetchImdbDiscover,
-  fetchImdbFullDetail,
-  fetchImdbSeasonEpisodes
-} from "@fishy/providers/imdb";
-import { fetchAnimeFillerEpisodes } from "@fishy/providers/anime";
+} from "@fishy/providers/metadata/tmdb";
+import type { MediaType as TMDBMediaType } from "@fishy/providers/metadata";
+import { createIMDbClient, createIMDbProxyRequest } from "@fishy/providers/metadata/imdb";
+import type { IMDbDiscoverOptions } from "@fishy/providers/metadata/imdb";
+import type { TMDBListItem } from "@fishy/providers/metadata/tmdb";
+import { fetchAnimeFillerEpisodes } from "@fishy/providers/anime/episodes";
 import ownersPicksData from "../ownersPicks.json";
 import { isBlockedContent } from "../model/contentPolicy";
 import { selectFreshRecommendations, shuffleWithSeed } from "../recommendationSelection";
@@ -64,14 +51,17 @@ export function sortOwnerPicksByRank<T extends OwnerPickItem>(items: T[]): T[] {
 const imdbRequest = createIMDbProxyRequest("/api/imdb");
 const curatedCache = new Map<string, TMDBContentCard>();
 const queryCache = new Map<string, unknown>();
-const imdbSeasonRequests = new Map<string, ReturnType<typeof fetchImdbSeasonEpisodes>>();
+const imdbSeasonRequests = new Map<
+  string,
+  ReturnType<ReturnType<typeof createIMDbClient>["seasonEpisodes"]>
+>();
 
 function loadImdbSeasonEpisodes(imdbId: string, seasonNumber: number, signal: AbortSignal) {
   const key = `${imdbId}:${seasonNumber}`;
   const cached = imdbSeasonRequests.get(key);
   if (cached) return cached;
 
-  const request = fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, signal);
+  const request = createIMDbClient(imdbRequest).seasonEpisodes(imdbId, seasonNumber, signal);
   imdbSeasonRequests.set(key, request);
   void request.catch(() => {
     if (imdbSeasonRequests.get(key) === request) imdbSeasonRequests.delete(key);
@@ -110,7 +100,88 @@ export type RecommendationSeed = {
 
 function apiKey(): string {
   const configured = import.meta.env.VITE_TMDB_KEY;
-  return typeof configured === "string" && configured.trim() ? configured : TMDB_API_KEY;
+  return typeof configured === "string" && configured.trim() ? configured : DEFAULT_TMDB_API_KEY;
+}
+
+function tmdbFor(type: TMDBMediaType) {
+  const client = createTMDBClient(createTMDBRequest(apiKey()));
+  return {
+    details: (id: string, _key?: string, signal?: AbortSignal) => client.details(id, type, signal),
+    fullDetail: (id: string, _key?: string, signal?: AbortSignal) =>
+      client.fullDetail(id, type, signal),
+    cardDetail: (id: string, _key?: string, signal?: AbortSignal) =>
+      client.cardDetail(id, type, signal),
+    related: (id: number, _key?: string, limit?: number, signal?: AbortSignal) =>
+      client.related(id, type, limit, signal),
+    credits: (id: number, _key?: string, signal?: AbortSignal) => client.credits(id, type, signal),
+    videos: (id: number, _key?: string, signal?: AbortSignal) => client.videos(id, type, signal),
+    seasonEpisodes: (id: string, season: number, _key?: string, signal?: AbortSignal) =>
+      client.seasonEpisodes(id, season, signal),
+    findByImdbId: (id: string, signal?: AbortSignal) => client.findByImdbId(id, type, signal)
+  };
+}
+
+function imdbFor(type: TMDBMediaType) {
+  const client = createIMDbClient(imdbRequest);
+  return {
+    fullDetail: (id: string, _request?: typeof imdbRequest, signal?: AbortSignal) =>
+      client.fullDetail(id, type, signal),
+    discover: (_request: typeof imdbRequest, signal: AbortSignal, options: IMDbDiscoverOptions) =>
+      client.discover(type, { ...options, signal }),
+    seasonEpisodes: (
+      id: string,
+      season: number,
+      _request?: typeof imdbRequest,
+      signal?: AbortSignal
+    ) => client.seasonEpisodes(id, season, signal)
+  };
+}
+
+const tmdbMovies = {
+  ...tmdbFor("movie"),
+  popularList: (signal?: AbortSignal, _key?: string) =>
+    createTMDBClient(createTMDBRequest(apiKey())).popular("movie", signal),
+  nowPlayingList: (signal?: AbortSignal, _key?: string) =>
+    createTMDBClient(createTMDBRequest(apiKey())).nowPlaying(signal),
+  search: (query: string, _key: string, signal?: AbortSignal, page = 1) =>
+    createTMDBClient(createTMDBRequest(apiKey())).search(query, "movie", { signal, page }),
+  discover: (
+    _signal: AbortSignal,
+    _key: string,
+    options: Parameters<ReturnType<typeof createTMDBClient>["discover"]>[1]
+  ) => createTMDBClient(createTMDBRequest(apiKey())).discover("movie", options),
+  genres: TMDB_GENRE_IDS.movie
+};
+const tmdbTvShows = {
+  ...tmdbFor("tv"),
+  popularList: (signal?: AbortSignal, _key?: string) =>
+    createTMDBClient(createTMDBRequest(apiKey())).popular("tv", signal),
+  search: (query: string, _key: string, signal?: AbortSignal, page = 1) =>
+    createTMDBClient(createTMDBRequest(apiKey())).search(query, "tv", { signal, page }),
+  discover: (
+    _signal: AbortSignal,
+    _key: string,
+    options: Parameters<ReturnType<typeof createTMDBClient>["discover"]>[1]
+  ) => createTMDBClient(createTMDBRequest(apiKey())).discover("tv", options),
+  genres: TMDB_GENRE_IDS.tv
+};
+const imdbTvShows = {
+  seasonEpisodes: (id: string, season: number, request: typeof imdbRequest, signal?: AbortSignal) =>
+    imdbFor("tv").seasonEpisodes(id, season, request, signal)
+};
+
+function fetchTmdbListOrEmpty(
+  path: string,
+  key: string,
+  signal: AbortSignal
+): Promise<TMDBListResponse> {
+  return createTMDBClient(createTMDBRequest(key))
+    .list(path, {}, signal)
+    .catch(() => ({ results: [] }));
+}
+
+function fetchTmdbIdByImdbId(id: string, type: TMDBMediaType, key: string, signal?: AbortSignal) {
+  return createTMDBClient(createTMDBRequest(key)).findByImdbId(id, type, signal);
 }
 
 function cardKey(value: Pick<ContentCard, "type" | "tmdbId">): string {
@@ -129,11 +200,8 @@ function aborted(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-function cardFromProvider(
-  value: Parameters<typeof toTMDBContentCard>[0],
-  hint?: TMDBMediaType
-): ContentCard | null {
-  const card = toTMDBContentCard(value, hint);
+function cardFromProvider(value: TMDBListItem, hint?: TMDBMediaType): ContentCard | null {
+  const card = toContentCard(value, hint);
   if (card && isBlockedContent({ tmdbId: card.tmdbId, type: card.type })) return null;
   return card
     ? {
@@ -169,7 +237,7 @@ function cardFromTmdb(card: TMDBContentCard): ContentCard | null {
   };
 }
 
-function cardsFromList(response: TMDBBrowseListResponse, type: TMDBMediaType): ContentCard[] {
+function cardsFromList(response: TMDBListResponse, type: TMDBMediaType): ContentCard[] {
   return (response.results ?? [])
     .map((item) => cardFromProvider(item, type))
     .filter((item): item is ContentCard => item !== null);
@@ -228,9 +296,9 @@ export function useHomepageContent() {
     [],
     async (signal) => {
       const [movies, shows, releases] = await Promise.all([
-        fetchTmdbListOrEmpty("/movie/popular", apiKey(), signal),
-        fetchTmdbListOrEmpty("/tv/popular", apiKey(), signal),
-        fetchTmdbListOrEmpty("/movie/now_playing", apiKey(), signal)
+        tmdbMovies.popularList(signal, apiKey()),
+        tmdbTvShows.popularList(signal, apiKey()),
+        tmdbMovies.nowPlayingList(signal, apiKey())
       ]);
       const popularMovies = cardsFromList(movies, "movie");
       const popularTv = cardsFromList(shows, "tv");
@@ -238,7 +306,7 @@ export function useHomepageContent() {
       const featured = await Promise.all(
         [...popularMovies.slice(0, 2), ...popularTv.slice(0, 2)].map(
           async (card): Promise<ContentFeatured | null> => {
-            const detail = await fetchTmdbDetails(card.tmdbId ?? "", card.type, apiKey(), signal);
+            const detail = await tmdbFor(card.type).details(card.tmdbId ?? "", apiKey(), signal);
             return detail
               ? ({
                   ...card,
@@ -269,8 +337,7 @@ export function useNewReleases() {
   return useCancellableLoad(
     true,
     [],
-    async (signal) =>
-      cardsFromList(await fetchTmdbListOrEmpty("/movie/now_playing", apiKey(), signal), "movie"),
+    async (signal) => cardsFromList(await tmdbMovies.nowPlayingList(signal, apiKey()), "movie"),
     undefined,
     "new-releases-v1"
   ).value;
@@ -299,7 +366,7 @@ export function useCuratedPicks() {
               let providerCard = curatedCache.get(key);
               if (!providerCard) {
                 providerCard =
-                  (await fetchTmdbCardDetail(item.tmdbId, type, apiKey(), controller.signal)) ??
+                  (await tmdbFor(type).cardDetail(item.tmdbId, apiKey(), controller.signal)) ??
                   undefined;
                 if (providerCard) curatedCache.set(key, providerCard);
               }
@@ -344,7 +411,7 @@ export function useContentPlaybackByTmdbId(tmdbId: string | undefined, typeHint?
       }
       if (isBlockedContent({ tmdbId, type: typeHint })) return null;
       for (const type of typeHint ? [typeHint] : (["movie", "tv"] as const)) {
-        const detail = await fetchTmdbFullDetail(tmdbId!, type, apiKey(), signal);
+        const detail = await tmdbFor(type).fullDetail(tmdbId!, apiKey(), signal);
         if (detail && !isBlockedContent({ tmdbId: detail.tmdbId, type, imdbId: detail.imdbId }))
           return {
             _id: makeContentId(type, detail.tmdbId),
@@ -381,9 +448,11 @@ export function useRelatedContent(
     (signal) =>
       tmdbId === undefined || type === undefined
         ? Promise.resolve([])
-        : fetchTmdbRelated(tmdbId, type, apiKey(), limit, signal).then((items) =>
-            items.filter((item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type }))
-          ),
+        : tmdbFor(type)
+            .related(tmdbId, apiKey(), limit, signal)
+            .then((items) =>
+              items.filter((item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type }))
+            ),
     [] as TMDBItem[],
     tmdbId !== undefined && type !== undefined ? `related:${type}:${tmdbId}:${limit}` : undefined
   );
@@ -401,7 +470,7 @@ export function useContentCredits(
     (signal) =>
       tmdbId === undefined || type === undefined
         ? Promise.resolve(null)
-        : fetchTmdbCredits(tmdbId, type, apiKey(), signal),
+        : tmdbFor(type).credits(tmdbId, apiKey(), signal),
     null as TMDBCreditResult | null,
     tmdbId !== undefined && type !== undefined ? `credits:${type}:${tmdbId}` : undefined
   );
@@ -419,7 +488,7 @@ export function useContentVideos(
     (signal) =>
       tmdbId === undefined || type === undefined
         ? Promise.resolve([])
-        : fetchTmdbVideos(tmdbId, type, apiKey(), signal),
+        : tmdbFor(type).videos(tmdbId, apiKey(), signal),
     [] as TMDBVideoResult[],
     tmdbId !== undefined && type !== undefined ? `videos:${type}:${tmdbId}` : undefined
   );
@@ -454,16 +523,19 @@ export function useSearchAll(query: string) {
     setError(null);
     const timer = window.setTimeout(
       () =>
-        void fetchTmdbSearch(normalized, apiKey(), controller.signal, 1)
-          .then((data) => {
+        void Promise.all([
+          tmdbMovies.search(normalized, apiKey(), controller.signal, 1),
+          tmdbTvShows.search(normalized, apiKey(), controller.signal, 1)
+        ])
+          .then(([movies, shows]) => {
             if (current !== generation.current) return;
             setResults(
-              [...data.movies, ...data.shows].filter(
+              [...movies.items, ...shows.items].filter(
                 (item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type })
               )
             );
             setPage(1);
-            setTotalPages(Math.max(data.movieTotalPages, data.showTotalPages));
+            setTotalPages(Math.max(movies.totalPages, shows.totalPages));
           })
           .catch((reason: unknown) => {
             if (!controller.signal.aborted && current === generation.current)
@@ -488,16 +560,19 @@ export function useSearchAll(query: string) {
     setLoadingMore(true);
     setError(null);
     try {
-      const data = await fetchTmdbSearch(normalized, apiKey(), controller.signal, page + 1);
+      const [movies, shows] = await Promise.all([
+        tmdbMovies.search(normalized, apiKey(), controller.signal, page + 1),
+        tmdbTvShows.search(normalized, apiKey(), controller.signal, page + 1)
+      ]);
       if (current === generation.current) {
         setResults((old) => [
           ...old,
-          ...[...data.movies, ...data.shows].filter(
+          ...[...movies.items, ...shows.items].filter(
             (item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type })
           )
         ]);
         setPage((old) => old + 1);
-        setTotalPages(Math.max(data.movieTotalPages, data.showTotalPages));
+        setTotalPages(Math.max(movies.totalPages, shows.totalPages));
       }
     } catch (reason: unknown) {
       if (!controller.signal.aborted && current === generation.current)
@@ -557,11 +632,12 @@ export function usePaginatedContent(
         return { items: data.items, totalPages: data.totalPages, totalResults: data.totalResults };
       }
       if (source === "imdb") {
-        const data = await fetchImdbDiscover(type, imdbRequest, controller.signal, {
+        const options = {
           page,
-          sortBy: sortBy as ContentSort,
+          sortBy: sortBy === "rating" ? ("rating" as const) : ("popularity" as const),
           genres: genre?.split(",")
-        });
+        };
+        const data = await imdbFor(type).discover(imdbRequest, controller.signal, options);
         const items = data.items.map(
           (item): ContentCard =>
             ({
@@ -579,19 +655,28 @@ export function usePaginatedContent(
         return { items, totalPages: data.totalPages, totalResults: data.totalResults };
       }
 
-      const data = await fetchTmdbDiscover(type, apiKey(), controller.signal, {
+      const options = {
         page,
-        sortBy: sortBy as ContentSort,
+        sortBy:
+          sortBy === "rating"
+            ? ("rating" as const)
+            : sortBy === "trending"
+              ? ("trending" as const)
+              : ("popularity" as const),
         genreId: genre
           ?.split(",")
           .map((name) => {
             const normalized = name.trim().toLowerCase();
-            return (type === "tv" ? TMDB_TV_DISCOVER_GENRES : TMDB_DISCOVER_GENRES)[normalized];
+            return (type === "tv" ? tmdbTvShows.genres : tmdbMovies.genres)[normalized];
           })
           .filter((id): id is number => id !== undefined)
           .join(","),
         minVoteCount: sortBy === "rating" ? 100 : 25
-      });
+      };
+      const data =
+        type === "tv"
+          ? await tmdbTvShows.discover(controller.signal, apiKey(), options)
+          : await tmdbMovies.discover(controller.signal, apiKey(), options);
       return {
         items: data.items
           .filter((item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type }))
@@ -1016,7 +1101,7 @@ export function useRecommendations(
           controller.signal
         )
       ]);
-      const cards = collectTmdbCards(
+      const cards = collectContentCards(
         responses.map((data) => ({ data, type: seedItem.type })),
         { typeFilter, excludedIds }
       )
@@ -1091,12 +1176,12 @@ export function useContentDetail(
         ? await fetchTmdbIdByImdbId(tmdbId, type, apiKey(), signal)
         : tmdbId;
       if (!resolvedTmdbId || isBlockedContent({ tmdbId: resolvedTmdbId, type })) return null;
-      const tmdb = await fetchTmdbFullDetail(resolvedTmdbId, type, apiKey(), signal);
+      const tmdb = await tmdbFor(type).fullDetail(resolvedTmdbId, apiKey(), signal);
       if (!tmdb || isBlockedContent({ tmdbId: tmdb.tmdbId, type, imdbId: tmdb.imdbId }))
         return null;
       const imdb =
         includeImdb && tmdb.imdbId
-          ? await fetchImdbFullDetail(tmdb.imdbId, type, imdbRequest, signal)
+          ? await imdbFor(type).fullDetail(tmdb.imdbId, imdbRequest, signal)
           : null;
       return {
         ...tmdb,
@@ -1158,7 +1243,8 @@ export function useSeasonEpisodes(
     setSeason(undefined);
     setIsLoading(true);
     ratings.current.clear();
-    void fetchTmdbSeasonEpisodes(tmdbId, seasonNumber, apiKey(), controller.signal)
+    void tmdbTvShows
+      .seasonEpisodes(tmdbId, seasonNumber, apiKey(), controller.signal)
       .then(async (value) => {
         if (!controller.signal.aborted) {
           if (value?.episodes.length) {
@@ -1182,7 +1268,7 @@ export function useSeasonEpisodes(
           }
 
           const imdbSeason = imdbId
-            ? await fetchImdbSeasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
+            ? await imdbTvShows.seasonEpisodes(imdbId, seasonNumber, imdbRequest, controller.signal)
             : null;
           if (!imdbSeason?.episodes.length) {
             queryCache.set(cacheKey, null);
@@ -1192,7 +1278,7 @@ export function useSeasonEpisodes(
 
           const previousSeason =
             seasonNumber > 1 && imdbId
-              ? await fetchImdbSeasonEpisodes(
+              ? await imdbTvShows.seasonEpisodes(
                   imdbId,
                   seasonNumber - 1,
                   imdbRequest,

@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NavigateFunction, URLSearchParamsInit } from "react-router-dom";
+import { calculateProgress } from "@fishy/providers/playback";
 import {
-  calculateProgress,
   createProviderEmbedUrl,
-  type ProviderContentType
-} from "@fishy/providers/playback";
-import { type ProviderCatalogEntry, type StreamSource } from "@fishy/providers/catalog";
+  type ProviderCatalogEntry,
+  type StreamSource
+} from "@fishy/providers/streaming";
+import type { MediaType as ProviderContentType } from "@fishy/providers/metadata";
 import {
   isAnimeProviderContent,
   normalizePlaybackProgressSample,
   shouldStorePlaybackProgressSample
 } from "@fishy/providers/playback";
-import type { ProviderGroupedSources } from "@fishy/providers/playback";
+import type { ProviderGroupedSources } from "@fishy/providers/streaming";
 import type { AppSettings } from "@/shared/config/appSettings";
 import { logProviderInfo, logProviderWarning } from "./model/providerDiagnostics";
 import type { ContentPlayback } from "@content/contentMetadata";
@@ -71,7 +72,11 @@ export interface PlaybackSession {
   canTryNextSource: boolean;
   currentProgress: number;
   reportPlaybackEvent(event: PlaybackEvent): void;
-  setSourceByUrl(url: string, params?: URLSearchParams): Promise<void>;
+  setSourceByUrl(
+    url: string,
+    params?: URLSearchParams,
+    providerParams?: Record<string, boolean | string | number>
+  ): Promise<void>;
   setDub(enabled: boolean): void;
   providerIdType: ProviderIdType;
   setProviderIdType(idType: ProviderIdType): void;
@@ -117,6 +122,9 @@ export function usePlaybackSession({
   const animeContent = isAnimeProviderContent(content);
   const [sources, setSources] = useState<StreamSource[]>([]);
   const [selectedSourceUrl, setSelectedSourceUrl] = useState("");
+  const [selectedProviderParams, setSelectedProviderParams] = useState<
+    Record<string, boolean | string | number> | undefined
+  >();
   const [providerIdType, setProviderIdTypeState] = useState<ProviderIdType>("anilist");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -425,6 +433,7 @@ export function usePlaybackSession({
     return createProviderEmbedUrl({
       sourceUrl: selectedSource.url,
       provider: selectedProvider,
+      providerParams: selectedProviderParams,
       contentType: content.type as ProviderContentType,
       resumePositionSeconds,
       watchCompleted: watchState?.completed ?? false,
@@ -435,6 +444,7 @@ export function usePlaybackSession({
     resumePositionSeconds,
     selectedProvider,
     selectedSource,
+    selectedProviderParams,
     watchState?.completed
   ]);
 
@@ -476,15 +486,28 @@ export function usePlaybackSession({
       return createProviderEmbedUrl({
         sourceUrl: source.url,
         provider: providerSourceResolver.getProvider(source.key),
+        providerParams: selectedProviderParams,
         contentType: content.type as ProviderContentType,
         baseUrl: window.location.origin
       });
     },
-    [animeContent, content, currentSeasonData, isDub, providerIdType, selectedSource]
+    [
+      animeContent,
+      content,
+      currentSeasonData,
+      isDub,
+      providerIdType,
+      selectedProviderParams,
+      selectedSource
+    ]
   );
 
   const setSourceByUrl = useCallback(
-    async (nextUrl: string, params?: URLSearchParams) => {
+    async (
+      nextUrl: string,
+      params?: URLSearchParams,
+      providerParams?: Record<string, boolean | string | number>
+    ) => {
       const nextSource = sources.find((source) => source.url === nextUrl);
       if (!nextSource) return;
 
@@ -506,6 +529,7 @@ export function usePlaybackSession({
         )
       );
       setSelectedSourceUrl(nextUrl);
+      setSelectedProviderParams(providerParams);
       selectedSourceUrlRef.current = nextUrl;
       selectedSourceKeyRef.current = nextSource.key;
       selectedServerIdRef.current = nextSource.server.id;
@@ -538,6 +562,7 @@ export function usePlaybackSession({
 
   const setProviderIdType = useCallback((idType: ProviderIdType) => {
     setProviderIdTypeState(idType);
+    setSelectedProviderParams(undefined);
     sourceRequestIdRef.current += 1;
     setSources([]);
     setSelectedSourceUrl("");

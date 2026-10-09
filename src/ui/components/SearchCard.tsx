@@ -4,7 +4,11 @@ import { useNavigate } from "react-router-dom";
 import type { TMDBItem, TMDBFullDetail } from "@/features/catalog/queries/useContent";
 import { ContentModal } from "./ContentModal";
 import { Button } from "@fishy/ui";
-import { TMDB_API_KEY, fetchTmdbFullDetail } from "@fishy/providers/tmdb";
+import {
+  DEFAULT_TMDB_API_KEY,
+  createTMDBClient,
+  createTMDBRequest
+} from "@fishy/providers/metadata/tmdb";
 import { buildWatchPath } from "@/shared/navigation/watchNavigation";
 import { isBlockedContent } from "@/features/catalog/model/contentPolicy";
 
@@ -31,14 +35,20 @@ export function SearchCard({
   const [isResolvingContent, setIsResolvingContent] = useState(false);
   const navigate = useNavigate();
 
-  const apiKey = (import.meta.env.VITE_TMDB_KEY as string | undefined) ?? TMDB_API_KEY;
+  const apiKey = (import.meta.env.VITE_TMDB_KEY as string | undefined) ?? DEFAULT_TMDB_API_KEY;
 
   const ensureDetail = async () => {
     if (tmdbDetail) return tmdbDetail;
     if (isResolvingContent) return null;
     setIsResolvingContent(true);
     try {
-      const result = await fetchTmdbFullDetail(String(item.tmdbId), item.type, apiKey);
+      const result =
+        item.type === "tv"
+          ? await createTMDBClient(createTMDBRequest(apiKey)).fullDetail(String(item.tmdbId), "tv")
+          : await createTMDBClient(createTMDBRequest(apiKey)).fullDetail(
+              String(item.tmdbId),
+              "movie"
+            );
       setTmdbDetail(result);
       return result;
     } finally {
