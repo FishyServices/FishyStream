@@ -654,8 +654,15 @@ export function CustomVideoPlayer({
             const skipAction = layer.querySelector<HTMLElement>('[data-action="skip"]');
             const nextAction = layer.querySelector<HTMLElement>('[data-action="next"]');
             const hasSkip = skipSegmentRef.current !== undefined;
-            if (skipAction) skipAction.hidden = !hasSkip;
-            if (nextAction) nextAction.hidden = isFullscreen || !showNextEpisodeButtonRef.current;
+            if (skipAction) {
+              skipAction.hidden = !hasSkip;
+              skipAction.style.display = hasSkip ? "flex" : "none";
+            }
+            if (nextAction) {
+              const showNext = !isFullscreen && showNextEpisodeButtonRef.current;
+              nextAction.hidden = !showNext;
+              nextAction.style.display = showNext ? "flex" : "none";
+            }
             layer.hidden = !hasSkip && !showNextEpisodeButtonRef.current;
           }
         });
@@ -808,11 +815,14 @@ export function CustomVideoPlayer({
     layer.hidden = !hasSkip && !showNextEpisodeButton;
     if (skipAction) {
       skipAction.hidden = !hasSkip;
+      skipAction.style.display = hasSkip ? "flex" : "none";
       skipAction.setAttribute("aria-disabled", String(!hasSkip));
     }
     if (skipLabelElement) skipLabelElement.textContent = `Skip ${skipLabel}`;
     if (nextAction) {
-      nextAction.hidden = player.fullscreen || !showNextEpisodeButton;
+      const showNext = !player.fullscreen && showNextEpisodeButton;
+      nextAction.hidden = !showNext;
+      nextAction.style.display = showNext ? "flex" : "none";
       nextAction.setAttribute("aria-disabled", String(!hasNextEpisode));
       nextAction.style.pointerEvents = hasNextEpisode ? "" : "none";
       nextAction.style.opacity = hasNextEpisode ? "" : "0.5";
