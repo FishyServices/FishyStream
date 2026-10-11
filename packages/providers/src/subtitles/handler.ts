@@ -25,7 +25,8 @@ async function handleDownload(downloadUrl: string): Promise<Response> {
         "Access-Control-Allow-Origin": "*"
       }
     });
-  } catch {
+  } catch (error) {
+    console.error("OpenSubtitles subtitle download failed", error);
     return new Response("OpenSubtitles is unavailable.", { status: 502 });
   }
 }

@@ -67,7 +67,7 @@ async function searchLanguage(
   language: string
 ): Promise<OpenSubtitleTrack | null> {
   const response = await fetch(buildSearchUrl(options, language), {
-    headers: { "X-User-Agent": USER_AGENT }
+    headers: { "User-Agent": USER_AGENT, "X-User-Agent": USER_AGENT }
   });
   if (!response.ok) return null;
 
@@ -108,7 +108,9 @@ export async function downloadOpenSubtitle(downloadUrl: string): Promise<ArrayBu
   ) {
     throw new Error("Invalid OpenSubtitles download URL");
   }
-  const response = await fetch(url, { headers: { "X-User-Agent": USER_AGENT } });
+  const response = await fetch(url, {
+    headers: { "User-Agent": USER_AGENT, "X-User-Agent": USER_AGENT }
+  });
   if (!response.ok) throw new Error(`OpenSubtitles download failed: ${response.status}`);
   return response.arrayBuffer();
 }
