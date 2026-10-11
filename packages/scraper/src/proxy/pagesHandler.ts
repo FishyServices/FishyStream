@@ -30,6 +30,7 @@ export async function handleApiRequest(
 
   if (
     subpath === "scrape" ||
+    subpath.startsWith("scrape/") ||
     subpath === "m3u8-proxy" ||
     subpath === "media-proxy" ||
     subpath === "subtitle-proxy" ||
