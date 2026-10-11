@@ -99,7 +99,10 @@ export async function searchOpenSubtitles(
   return results.filter((track): track is OpenSubtitleTrack => track !== null);
 }
 
-export async function downloadOpenSubtitle(downloadUrl: string): Promise<ArrayBuffer> {
+export async function downloadOpenSubtitle(
+  downloadUrl: string,
+  signal?: AbortSignal
+): Promise<ArrayBuffer> {
   const url = new URL(downloadUrl);
   if (
     url.protocol !== "https:" ||
@@ -108,9 +111,11 @@ export async function downloadOpenSubtitle(downloadUrl: string): Promise<ArrayBu
   ) {
     throw new Error("Invalid OpenSubtitles download URL");
   }
-  const response = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT, "X-User-Agent": USER_AGENT }
-  });
+  const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`OpenSubtitles download failed: ${response.status}`);
-  return response.arrayBuffer();
+  const bytes = await response.arrayBuffer();
+  const view = new Uint8Array(bytes);
+  if (view[0] !== 0x1f || view[1] !== 0x8b) return bytes;
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Response(stream).arrayBuffer();
 }

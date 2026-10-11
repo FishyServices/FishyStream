@@ -31,6 +31,7 @@ import type {
   ScraperTrack
 } from "@fishy/scraper/client";
 import { getIntroDbPlaybackSegments } from "@fishy/providers/playback";
+import { downloadOpenSubtitle } from "@fishy/providers/subtitles";
 import type { ContentPlayback } from "@content/contentMetadata";
 import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
 import { useVideoDownloads } from "@/ui/components/custom-video-player/downloads";
@@ -80,6 +81,7 @@ interface SubtitleSource {
   url: string;
   name: string;
   type: SubtitleFormat;
+  openSubtitles?: boolean;
 }
 interface ScrapeSelection {
   embedUrl: string;
@@ -123,7 +125,8 @@ function parseOpenSubtitleSources(value: unknown): SubtitleSource[] {
       {
         url: track.url,
         name: `${track.label} · OpenSubtitles`,
-        type: isSubtitleFormat(track.type) ? track.type : getSubtitleFormat(track.url)
+        type: isSubtitleFormat(track.type) ? track.type : getSubtitleFormat(track.url),
+        openSubtitles: true
       }
     ];
   });
@@ -228,13 +231,14 @@ export function CustomVideoPlayer({
   const selectedProviderName =
     groupedSources
       .flatMap((group) => group.providers)
-      .find(({ sources }) => sources.some((source) => source.url === selectedSource))?.provider.name ??
-    "Provider";
+      .find(({ sources }) => sources.some((source) => source.url === selectedSource))?.provider
+      .name ?? "Provider";
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Artplayer | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const subtitleObjectUrlRef = useRef<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
@@ -367,6 +371,8 @@ export function CustomVideoPlayer({
       setAnime4kSupported(null);
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
+      if (subtitleObjectUrlRef.current) URL.revokeObjectURL(subtitleObjectUrlRef.current);
+      subtitleObjectUrlRef.current = null;
     };
     const load = async () => {
       setIsLoading(true);
@@ -379,9 +385,7 @@ export function CustomVideoPlayer({
         let mediaType: "hls" | "file";
         let tracks: ScraperTrack[] = [];
         let scrapeTarget = embedUrl;
-        const scrapeCacheKey = autoProviderEnabled
-          ? `auto:${autoSourceUrls.join("|")}`
-          : embedUrl;
+        const scrapeCacheKey = autoProviderEnabled ? `auto:${autoSourceUrls.join("|")}` : embedUrl;
         if (autoAttemptKeyRef.current !== scrapeCacheKey) {
           autoAttemptKeyRef.current = scrapeCacheKey;
           autoAttemptedUrlsRef.current.clear();
@@ -436,16 +440,33 @@ export function CustomVideoPlayer({
         const switchSubtitle = (source: SubtitleSource) => {
           const player = playerRef.current;
           if (!player) return;
-          void player.subtitle
-            .switch(source.url, { name: source.name, type: source.type })
-            .then(() => {
+          void (async () => {
+            let sourceUrl = source.url;
+            if (source.openSubtitles) {
+              const bytes = await downloadOpenSubtitle(source.url, controller.signal);
+              if (!active) return;
+              sourceUrl = URL.createObjectURL(new Blob([bytes], { type: "text/plain" }));
+            }
+            try {
+              await player.subtitle.switch(sourceUrl, { name: source.name, type: source.type });
+              if (source.openSubtitles) {
+                if (subtitleObjectUrlRef.current) URL.revokeObjectURL(subtitleObjectUrlRef.current);
+                subtitleObjectUrlRef.current = sourceUrl;
+              } else if (subtitleObjectUrlRef.current) {
+                URL.revokeObjectURL(subtitleObjectUrlRef.current);
+                subtitleObjectUrlRef.current = null;
+              }
               player.subtitle.update({});
               window.setTimeout(() => player.subtitle.update({}), 0);
-            })
-            .catch((error: unknown) => {
+            } catch (error: unknown) {
+              if (source.openSubtitles) URL.revokeObjectURL(sourceUrl);
               player.notice.show =
                 error instanceof Error ? error.message : "Unable to load subtitles.";
-            });
+            }
+          })().catch((error: unknown) => {
+            player.notice.show =
+              error instanceof Error ? error.message : "Unable to load subtitles.";
+          });
         };
         const subtitleSetting: Setting = {
           name: "subtitles",
@@ -678,7 +699,6 @@ export function CustomVideoPlayer({
           moreVideoAttr: { playsInline: true, crossOrigin: "anonymous" }
         };
         const initialSubtitle = subtitleSources[0];
-        if (initialSubtitle) option.subtitle = initialSubtitle;
         const player = new Artplayer(option);
         playerRef.current = player;
         player.on("fullscreen", (isFullscreen) => {
@@ -714,6 +734,7 @@ export function CustomVideoPlayer({
         };
         player.on("ready", () => {
           initAudioBoost();
+          if (initialSubtitle) switchSubtitle(initialSubtitle);
           setPendingSourceName(null);
           const resume =
             selectedScrapeSource && scrapeSelection?.embedUrl === embedUrl
@@ -783,7 +804,9 @@ export function CustomVideoPlayer({
               return;
             }
           }
-          setMediaError(`${selectedProviderName} did not work. ${error.message || "Unable to play this video."}`);
+          setMediaError(
+            `${selectedProviderName} did not work. ${error.message || "Unable to play this video."}`
+          );
         });
         if (content.tmdbId) {
           player.on("ready", () => {

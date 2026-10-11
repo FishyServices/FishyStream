@@ -1,41 +1,11 @@
-import { downloadOpenSubtitle, searchOpenSubtitles } from "./openSubtitles.js";
-
-const DOWNLOAD_PATH = "/api/subtitles/download";
-const GZIP_MAGIC = [0x1f, 0x8b] as const;
+import { searchOpenSubtitles } from "./openSubtitles.js";
 
 function parseNumber(value: string | null): number | undefined {
   return value !== null && /^\d+$/.test(value) ? Number(value) : undefined;
 }
 
-async function decodeSubtitle(bytes: ArrayBuffer): Promise<string> {
-  const view = new Uint8Array(bytes);
-  if (view[0] !== GZIP_MAGIC[0] || view[1] !== GZIP_MAGIC[1])
-    return new TextDecoder().decode(bytes);
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-  return new Response(stream).text();
-}
-
-async function handleDownload(downloadUrl: string): Promise<Response> {
-  try {
-    const subtitle = await decodeSubtitle(await downloadOpenSubtitle(downloadUrl));
-    return new Response(subtitle, {
-      headers: {
-        "Content-Type": "application/x-subrip; charset=utf-8",
-        "Cache-Control": "public, max-age=3600",
-        "Access-Control-Allow-Origin": "*"
-      }
-    });
-  } catch (error) {
-    console.error("OpenSubtitles subtitle download failed", error);
-    return new Response("OpenSubtitles is unavailable.", { status: 502 });
-  }
-}
-
 export async function handleOpenSubtitlesRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  const downloadUrl = url.pathname === DOWNLOAD_PATH ? url.searchParams.get("url") : null;
-  if (downloadUrl) return handleDownload(downloadUrl);
-
   if (request.method !== "GET") return new Response("Method Not Allowed", { status: 405 });
 
   const imdbId = url.searchParams.get("imdbId")?.replace(/^tt/i, "");
@@ -58,8 +28,7 @@ export async function handleOpenSubtitlesRequest(request: Request): Promise<Resp
     const tracks = await searchOpenSubtitles({ imdbId, season, episode });
     return Response.json({
       tracks: tracks.map((track) => ({
-        url: new URL(`${DOWNLOAD_PATH}?url=${encodeURIComponent(track.downloadUrl)}`, request.url)
-          .href,
+        url: track.downloadUrl,
         label: track.languageName,
         language: track.languageCode,
         type: track.format
