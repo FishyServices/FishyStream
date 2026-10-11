@@ -4,7 +4,7 @@ FishyStream has four practical module groups.
 
 ## App and UI
 
-`src/app/` starts the React tree, authentication, Convex, routing, settings, and analytics. `src/pages/` composes route-level views. `src/ui/components/` renders reusable views such as cards, rows, the content detail modal, and video players.
+`src/app/` starts the React tree, authentication, Convex, routing, settings, and analytics. `packages/mobile/` owns native platform detection, native authentication flows, and the Android project. `src/pages/` composes route-level views. `src/ui/components/` renders reusable views such as cards, rows, the content detail modal, and video players.
 
 ## Catalog
 

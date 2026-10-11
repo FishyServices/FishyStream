@@ -33,6 +33,8 @@
       "@fishy/scraper": ["./packages/scraper/src/index.ts"],
       "@fishy/scraper/client": ["./packages/scraper/src/client.ts"],
       "@fishy/scraper/pages-handler": ["./packages/scraper/src/proxy/pagesHandler.ts"],
+      "@fishy/mobile": ["./packages/mobile/src/index.ts"],
+      "@fishy/mobile/*": ["./packages/mobile/src/*"],
       "react": ["./node_modules/@types/react"],
       "react-dom": ["./node_modules/@types/react-dom"]
     },

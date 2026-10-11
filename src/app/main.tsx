@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Capacitor } from "@capacitor/core";
+import { isNativePlatform } from "@fishy/mobile";
 import { ClerkProvider, useAuth } from "@clerk/react";
 import { applyFishyTheme } from "@fishy/ui";
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
@@ -22,7 +22,7 @@ import { WatchProgressProvider } from "../features/library/useWatchProgress";
 import { AppSettingsProvider } from "../features/settings/useAppSettings";
 import "../index.css";
 
-const isNativeShell = Capacitor.isNativePlatform();
+const isNativeShell = isNativePlatform();
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {

@@ -24,15 +24,5 @@
     "dev": "bun --hot src/dev.ts",
     "lint": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\""
-  },
-  "devDependencies": {
-    "@types/bun": "latest",
-    "prettier": "3.9.6"
-  },
-  "peerDependencies": {
-    "typescript": "^6.0.3"
-  },
-  "dependencies": {
-    "hono": "4.12.32"
   }
 }

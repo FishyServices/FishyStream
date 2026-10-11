@@ -1,0 +1,10 @@
+{
+  "name": "@fishy/mobile",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth/SignIn": "./src/auth/SignIn.tsx",
+    "./auth/SignUp": "./src/auth/SignUp.tsx"
+  }
+}
