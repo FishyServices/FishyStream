@@ -21,7 +21,7 @@ async function isReachable(url: string): Promise<boolean> {
   }
 }
 
-describe.runIf(process.env.PROVIDER_CONNECTIVITY === "1")("provider connectivity", () => {
+describe.runIf(Bun.env.PROVIDER_CONNECTIVITY === "1")("provider connectivity", () => {
   for (const provider of STREAM_PROVIDERS) {
     it(`${provider.key} responds`, async () => {
       const movieUrl = provider.getMovieUrl(MOVIE_ID);

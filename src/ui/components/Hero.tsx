@@ -54,7 +54,7 @@ export function Hero({
   const [muted, setMuted] = useState(trailerMuted);
   const [showTrailer, setShowTrailer] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoPlayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const activeContent = contents[currentIndex] || null;
 
