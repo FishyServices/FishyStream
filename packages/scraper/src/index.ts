@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
   getSourceOptionsWithProviders,
+  resolveFirstWorkingWithProviders,
   resolveSourceWithProviders,
   resolveWithProviders
 } from "./providers/catalog";
@@ -54,6 +55,38 @@ app.get("/api/scrape", async (c) => {
     return c.json({
       ...proxiedStream(stream, c.req.header("host")),
       sourceOptions
+    });
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : "Scraping failed" }, 502);
+  }
+});
+
+app.post("/api/scrape/auto", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Expected a JSON body with candidate urls" }, 400);
+  }
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("urls" in body) ||
+    !Array.isArray(body.urls) ||
+    body.urls.length === 0 ||
+    body.urls.length > 50 ||
+    !body.urls.every((url) => typeof url === "string")
+  ) {
+    return c.json({ error: "Expected between 1 and 50 candidate urls" }, 400);
+  }
+
+  try {
+    const result = await resolveFirstWorkingWithProviders(body.urls);
+    if (!result) return c.json({ error: "Could not find a playable stream" }, 404);
+    return c.json({
+      ...proxiedStream(result.stream, c.req.header("host")),
+      sourceOptions: result.sourceOptions,
+      resolvedUrl: result.target
     });
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : "Scraping failed" }, 502);

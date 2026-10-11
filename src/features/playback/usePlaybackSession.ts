@@ -19,11 +19,20 @@ import type { ContentPlayback } from "@content/contentMetadata";
 import type { ProgressState, useUpdateProgress } from "@/features/library/useWatchProgress";
 import { providerSourceResolver } from "@fishy/providers/playback";
 import {
-  clampProgress,
+  getPlaybackPlayer,
+  getPlaybackProvider,
+  getPlaybackServer,
   getEffectiveAnimeDub,
+  isPlaybackAuto,
+  readPlaybackRouteParams,
+  setAnimeDubSearchParam,
+  setPlaybackContentParams,
+  setPlaybackProviderParams
+} from "./model/playbackUrl";
+import {
+  clampProgress,
   isMatchingEpisodeProgress,
-  pickResumePositionSeconds,
-  setAnimeDubSearchParam
+  pickResumePositionSeconds
 } from "./model/playbackState";
 
 type UpdateProgress = ReturnType<typeof useUpdateProgress>;
@@ -83,14 +92,13 @@ export interface PlaybackSession {
   goToEpisode(target: PlaybackTarget): void;
   getEpisodeEmbedUrl(target: PlaybackTarget): Promise<string | null>;
   retry(): void;
-  tryNextSource(reason?: string): void;
+  tryNextSource(reason?: string): boolean;
 }
 
 export interface UsePlaybackSessionArgs {
   content: ContentPlayback;
   initialSeason?: number;
   initialEpisode?: number;
-  initialSource?: string;
   settings: AppSettings;
   watchState?: ProgressState;
   currentSeasonData?: PlaybackSeasonMeta | null;
@@ -102,13 +110,12 @@ export interface UsePlaybackSessionArgs {
   updateProgress: UpdateProgress;
 }
 
-export { getEffectiveAnimeDub, setAnimeDubSearchParam } from "./model/playbackState";
+export { getEffectiveAnimeDub, setAnimeDubSearchParam } from "./model/playbackUrl";
 
 export function usePlaybackSession({
   content,
   initialSeason,
   initialEpisode,
-  initialSource,
   settings,
   watchState,
   currentSeasonData,
@@ -131,6 +138,7 @@ export function usePlaybackSession({
   const [reloadKey, setReloadKey] = useState(0);
   const sourceRequestIdRef = useRef(0);
   const selectedSourceUrlRef = useRef("");
+  const failedSourceUrlsRef = useRef(new Set<string>());
   const selectedSourceKeyRef = useRef<string | undefined>(undefined);
   const selectedServerIdRef = useRef<string | undefined>(undefined);
   const fallbackSourcesSeededRef = useRef(false);
@@ -143,6 +151,9 @@ export function usePlaybackSession({
     season: initialSeason ?? 1,
     episode: initialEpisode ?? 1
   });
+  useEffect(() => {
+    failedSourceUrlsRef.current.clear();
+  }, [content._id, target.season, target.episode]);
   const [loadedTarget, setLoadedTarget] = useState<PlaybackTarget>({ season: 1, episode: 1 });
   const [resumePositionSeconds, setResumePositionSeconds] = useState(0);
   const [currentProgress, setCurrentProgress] = useState(0);
@@ -154,10 +165,11 @@ export function usePlaybackSession({
   const isDub = animeContent ? getEffectiveAnimeDub(searchParams, prefersDub) : false;
 
   useEffect(() => {
-    if (!animeContent || !prefersDub || searchParams.has("dub")) return;
+    if (!animeContent || !prefersDub || readPlaybackRouteParams(searchParams).dub !== undefined)
+      return;
 
     const params = new URLSearchParams(searchParams);
-    params.set("dub", "true");
+    setAnimeDubSearchParam(params, true, prefersDub);
     setSearchParams(params, { replace: true });
   }, [animeContent, prefersDub, searchParams, setSearchParams]);
 
@@ -239,28 +251,32 @@ export function usePlaybackSession({
           season,
           episode
         });
-        const requestedServer = searchParams.get("server");
-        const requestedFallback = initialSource
-          ? fallback.find(
-              (source) =>
-                source.name.toLowerCase() === initialSource.toLowerCase() &&
-                (!requestedServer || source.server.id === requestedServer)
-            )
-          : undefined;
+        const requestedServer = getPlaybackServer(searchParams);
+        const providerPreference = getPlaybackProvider(searchParams);
+        const requestedFallback =
+          providerPreference && providerPreference !== "auto"
+            ? fallback.find(
+                (source) =>
+                  source.key === providerPreference &&
+                  (!requestedServer || source.server.id === requestedServer)
+              )
+            : undefined;
         const rememberedFallback = fallback.find(
           (source) =>
             source.key === selectedSourceKeyRef.current &&
             source.server.id === selectedServerIdRef.current
         );
         const hasUnresolvedRequestedSource =
-          !!initialSource && !requestedFallback && !rememberedFallback;
+          !!providerPreference &&
+          providerPreference !== "auto" &&
+          !requestedFallback &&
+          !rememberedFallback;
         const fallbackSelection = hasUnresolvedRequestedSource
           ? undefined
           : (requestedFallback ??
             rememberedFallback ??
             providerSourceResolver.pickSource(fallback, {
-              initialSource,
-              defaultProvider: settings.defaultProvider
+              defaultProvider: providerPreference ?? settings.defaultProvider
             }) ??
             fallback[0]);
         fallbackSourcesSeededRef.current = true;
@@ -305,7 +321,9 @@ export function usePlaybackSession({
                   providerSourceResolver.getSeasonYear(targetSeasonData?.airDate) ?? content.year,
                 season,
                 episode,
-                dub: animeContent ? isDub || (!searchParams.has("dub") && prefersDub) : undefined
+                dub: animeContent
+                  ? isDub || (readPlaybackRouteParams(searchParams).dub === undefined && prefersDub)
+                  : undefined
               })
             : await providerSourceResolver.buildMovieSources({
                 imdbId: content.imdbId ?? undefined,
@@ -328,19 +346,20 @@ export function usePlaybackSession({
           return;
         }
 
-        const requestedServer = searchParams.get("server");
-        const requested = initialSource
-          ? fetched.find(
-              (source) =>
-                source.name.toLowerCase() === initialSource.toLowerCase() &&
-                (!requestedServer || source.server.id === requestedServer)
-            )
-          : undefined;
+        const requestedServer = getPlaybackServer(searchParams);
+        const providerPreference = getPlaybackProvider(searchParams);
+        const requested =
+          providerPreference && providerPreference !== "auto"
+            ? fetched.find(
+                (source) =>
+                  source.key === providerPreference &&
+                  (!requestedServer || source.server.id === requestedServer)
+              )
+            : undefined;
         const selected =
           requested ??
           providerSourceResolver.pickSource(fetched, {
-            initialSource,
-            defaultProvider: settings.defaultProvider
+            defaultProvider: providerPreference ?? settings.defaultProvider
           }) ??
           fetched[0];
 
@@ -403,7 +422,6 @@ export function usePlaybackSession({
       currentSeasonData?.anilistId,
       currentSeasonData?.name,
       currentSeasonData?.seasonNumber,
-      initialSource,
       isDub,
       lastSyncedPositionRef,
       prefersDub,
@@ -514,10 +532,13 @@ export function usePlaybackSession({
       const nextSearchParams = params
         ? new URLSearchParams(params)
         : new URLSearchParams(searchParams);
-      nextSearchParams.set("type", content.type);
-      nextSearchParams.set("source", nextSource.name);
-      if (nextSource.server.id === "default") nextSearchParams.delete("server");
-      else nextSearchParams.set("server", nextSource.server.id);
+      setPlaybackContentParams(nextSearchParams, { type: content.type });
+      const isAuto = isPlaybackAuto(nextSearchParams, settings.defaultProvider);
+      setPlaybackProviderParams(nextSearchParams, {
+        provider: isAuto ? "auto" : nextSource.key,
+        server: nextSource.server.id,
+        player: getPlaybackPlayer(nextSearchParams)
+      });
       navigate({ search: nextSearchParams.toString() }, { replace: true });
       setResumePositionSeconds(
         pickResumePositionSeconds(
@@ -533,13 +554,22 @@ export function usePlaybackSession({
       selectedSourceUrlRef.current = nextUrl;
       selectedSourceKeyRef.current = nextSource.key;
       selectedServerIdRef.current = nextSource.server.id;
+      failedSourceUrlsRef.current.clear();
       logProviderInfo({
         contentType: content.type,
         source: nextSource,
         message: "source selected"
       });
     },
-    [content, lastSyncedPositionRef, navigate, searchParams, sources, watchState]
+    [
+      content,
+      lastSyncedPositionRef,
+      navigate,
+      searchParams,
+      settings.defaultProvider,
+      sources,
+      watchState
+    ]
   );
 
   const setDub = useCallback(
@@ -581,10 +611,12 @@ export function usePlaybackSession({
       setCurrentProgress(0);
       lastStoredProgressSampleRef.current = undefined;
       const params = new URLSearchParams(searchParams);
-      params.set("type", content.type);
-      params.set("season", String(next.season));
-      params.set("episode", String(next.episode));
-      if (isDub) params.set("dub", "true");
+      setPlaybackContentParams(params, {
+        type: content.type,
+        season: next.season,
+        episode: next.episode,
+        dub: isDub ? true : undefined
+      });
       navigate({ search: params.toString() }, { replace: true });
       sourceRequestIdRef.current += 1;
       setSources([]);
@@ -609,22 +641,35 @@ export function usePlaybackSession({
 
   const tryNextSource = useCallback(
     (reason = "manual fallback") => {
-      if (!selectedSource) return;
-      const next = sources.find((source) => source.url !== selectedSource.url);
-      if (next) {
-        setSelectedSourceUrl(next.url);
-        selectedSourceUrlRef.current = next.url;
-        selectedSourceKeyRef.current = next.key;
-        selectedServerIdRef.current = next.server.id;
-        logProviderWarning({
-          contentType: content.type,
-          source: selectedSource,
-          fallbackAttempt: 1,
-          message: reason
-        });
-      }
+      if (!selectedSource) return false;
+      failedSourceUrlsRef.current.add(selectedSource.url);
+      const next = sources.find(
+        (source) =>
+          source.url !== selectedSource.url && !failedSourceUrlsRef.current.has(source.url)
+      );
+      if (!next) return false;
+
+      const params = new URLSearchParams(searchParams);
+      const isAuto = isPlaybackAuto(params, settings.defaultProvider);
+      setPlaybackProviderParams(params, {
+        provider: isAuto ? "auto" : next.key,
+        server: next.server.id,
+        player: getPlaybackPlayer(params)
+      });
+      setSearchParams(params, { replace: true });
+      setSelectedSourceUrl(next.url);
+      selectedSourceUrlRef.current = next.url;
+      selectedSourceKeyRef.current = next.key;
+      selectedServerIdRef.current = next.server.id;
+      logProviderWarning({
+        contentType: content.type,
+        source: selectedSource,
+        fallbackAttempt: failedSourceUrlsRef.current.size,
+        message: reason
+      });
+      return true;
     },
-    [content.type, selectedSource, sources]
+    [content.type, searchParams, selectedSource, setSearchParams, settings.defaultProvider, sources]
   );
 
   const canTryNextSource = sources.some((source) => source.url !== selectedSourceUrl);

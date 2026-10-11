@@ -210,7 +210,7 @@ export function SearchCard({
             tmdbId: string,
             season?: number,
             episode?: number,
-            source?: string,
+            provider?: string,
             dub?: boolean,
             type?: any
           ) =>
@@ -220,7 +220,7 @@ export function SearchCard({
                 type: type ?? item.type,
                 season,
                 episode,
-                source,
+                provider,
                 dub
               })
             )

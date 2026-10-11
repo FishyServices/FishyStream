@@ -38,17 +38,3 @@ export function clampProgress(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
 }
 
-export function getEffectiveAnimeDub(searchParams: URLSearchParams, prefersDub: boolean): boolean {
-  if (searchParams.get("dub") === "true") return true;
-  if (searchParams.get("dub") === "false") return false;
-  return prefersDub;
-}
-
-export function setAnimeDubSearchParam(
-  params: URLSearchParams,
-  enabled: boolean,
-  prefersDub: boolean
-): void {
-  if (enabled || prefersDub) params.set("dub", String(enabled));
-  else params.delete("dub");
-}

@@ -41,6 +41,9 @@ import {
 
 interface CustomVideoPlayerProps {
   embedUrl: string;
+  autoProviderEnabled: boolean;
+  autoSourceUrls: string[];
+  onAutoSourceResolved: (url: string) => void;
   resumePositionSeconds?: number;
   content: ContentPlayback;
   tvTarget: { season: number; episode: number };
@@ -58,6 +61,7 @@ interface CustomVideoPlayerProps {
     mode: ProviderUiMode,
     providerParams?: Record<string, boolean | string | number>
   ) => void;
+  onAutoSelectProvider: () => void;
   providerIdType: ProviderIdType;
   onProviderIdTypeChange: (idType: ProviderIdType) => void;
   groupedSources: ProviderGroupedSources[];
@@ -196,6 +200,9 @@ function fillNativeFullscreen(art: Artplayer) {
 
 export function CustomVideoPlayer({
   embedUrl,
+  autoProviderEnabled,
+  autoSourceUrls,
+  onAutoSourceResolved,
   resumePositionSeconds,
   content,
   tvTarget,
@@ -209,6 +216,7 @@ export function CustomVideoPlayer({
   handleDubToggle,
   selectedSource,
   onSelectProvider,
+  onAutoSelectProvider,
   providerIdType,
   onProviderIdTypeChange,
   groupedSources,
@@ -217,6 +225,11 @@ export function CustomVideoPlayer({
   isNextEpisodeCooldown,
   onNextEpisode
 }: CustomVideoPlayerProps) {
+  const selectedProviderName =
+    groupedSources
+      .flatMap((group) => group.providers)
+      .find(({ sources }) => sources.some((source) => source.url === selectedSource))?.provider.name ??
+    "Provider";
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Artplayer | null>(null);
@@ -249,6 +262,9 @@ export function CustomVideoPlayer({
     response: ScrapeResult;
   } | null>(null);
   const sourceRequestControllerRef = useRef<AbortController | null>(null);
+  const autoAttemptKeyRef = useRef("");
+  const autoAttemptedUrlsRef = useRef(new Set<string>());
+  const autoAdvanceInFlightRef = useRef(false);
   const {
     downloadUrl,
     downloadState,
@@ -362,16 +378,33 @@ export function CustomVideoPlayer({
         let url: string;
         let mediaType: "hls" | "file";
         let tracks: ScraperTrack[] = [];
+        let scrapeTarget = embedUrl;
+        const scrapeCacheKey = autoProviderEnabled
+          ? `auto:${autoSourceUrls.join("|")}`
+          : embedUrl;
+        if (autoAttemptKeyRef.current !== scrapeCacheKey) {
+          autoAttemptKeyRef.current = scrapeCacheKey;
+          autoAttemptedUrlsRef.current.clear();
+          autoAdvanceInFlightRef.current = false;
+        }
         let scrapeResponse =
-          sourcePageCacheRef.current?.embedUrl === embedUrl
+          sourcePageCacheRef.current?.embedUrl === scrapeCacheKey
             ? sourcePageCacheRef.current.response
             : undefined;
         if (!scrapeResponse) {
-          scrapeResponse = await scraper.scrape(embedUrl, controller.signal);
-          sourcePageCacheRef.current = { embedUrl, response: scrapeResponse };
+          const urlsToTry = autoProviderEnabled
+            ? autoSourceUrls.filter((candidate) => !autoAttemptedUrlsRef.current.has(candidate))
+            : [];
+          scrapeResponse = autoProviderEnabled
+            ? await scraper.scrapeFirstWorking(urlsToTry, controller.signal)
+            : await scraper.scrape(embedUrl, controller.signal);
+          scrapeTarget = scrapeResponse.resolvedUrl ?? embedUrl;
+          sourcePageCacheRef.current = { embedUrl: scrapeCacheKey, response: scrapeResponse };
         }
+        scrapeTarget = scrapeResponse.resolvedUrl ?? embedUrl;
+        if (autoProviderEnabled) autoAttemptedUrlsRef.current.add(scrapeTarget);
         const selectedScrapeSource =
-          scrapeSelection?.embedUrl === embedUrl ? scrapeSelection.source : undefined;
+          scrapeSelection?.embedUrl === scrapeTarget ? scrapeSelection.source : undefined;
         const initialScrapeSource = selectedScrapeSource ?? scrapeResponse.source;
         if (!initialScrapeSource) throw new Error("No playable stream was found.");
         url = initialScrapeSource.streamUrl;
@@ -507,12 +540,12 @@ export function CustomVideoPlayer({
           setPendingSourceName(sourceOption.name);
           try {
             const next = await scraper.resolveSource(
-              embedUrl,
+              scrapeTarget,
               sourceOption.key,
               sourceController.signal
             );
             if (!next) throw new Error("This source returned no playable stream.");
-            setScrapeSelection({ embedUrl, source: next, resumePosition });
+            setScrapeSelection({ embedUrl: scrapeTarget, source: next, resumePosition });
           } catch (error) {
             if (error instanceof DOMException && error.name === "AbortError") return;
             setPendingSourceName(null);
@@ -710,7 +743,47 @@ export function CustomVideoPlayer({
         });
         player.on("error", (error) => {
           setPendingSourceName(null);
-          setMediaError(error.message || "Unable to play this video.");
+          if (autoProviderEnabled) {
+            if (autoAdvanceInFlightRef.current) return;
+            const nextUrls = autoSourceUrls.filter(
+              (candidate) => !autoAttemptedUrlsRef.current.has(candidate)
+            );
+            if (nextUrls.length > 0) {
+              autoAdvanceInFlightRef.current = true;
+              setPendingSourceName(`${selectedProviderName} failed · trying next provider`);
+              void scraper
+                .scrapeFirstWorking(nextUrls, controller.signal)
+                .then((result) => {
+                  if (!result.source || !result.resolvedUrl)
+                    throw new Error("No next source worked.");
+                  autoAttemptedUrlsRef.current.add(result.resolvedUrl);
+                  sourcePageCacheRef.current = {
+                    embedUrl: `auto:${autoSourceUrls.join("|")}`,
+                    response: result
+                  };
+                  setScrapeSelection({
+                    embedUrl: result.resolvedUrl,
+                    source: result.source,
+                    resumePosition: player.currentTime
+                  });
+                  onAutoSourceResolved(result.resolvedUrl);
+                })
+                .catch((nextError: unknown) => {
+                  if (nextError instanceof DOMException && nextError.name === "AbortError") return;
+                  setPendingSourceName(null);
+                  setMediaError(
+                    `${selectedProviderName} failed. No working providers remain. ${
+                      nextError instanceof Error ? nextError.message : "No next source worked."
+                    }`
+                  );
+                })
+                .finally(() => {
+                  autoAdvanceInFlightRef.current = false;
+                });
+              return;
+            }
+          }
+          setMediaError(`${selectedProviderName} did not work. ${error.message || "Unable to play this video."}`);
         });
         if (content.tmdbId) {
           player.on("ready", () => {
@@ -764,6 +837,8 @@ export function CustomVideoPlayer({
     content.tmdbId,
     content.type,
     embedUrl,
+    autoProviderEnabled,
+    autoSourceUrls,
     scrapeSelection,
     resumePositionSeconds,
     tvTarget.episode,
@@ -905,8 +980,13 @@ export function CustomVideoPlayer({
                     groupedSources={groupedSources}
                     selectedSource={selectedSource}
                     useCustomPlayer
+                    autoSelected={autoProviderEnabled}
                     onSelect={(url, mode, providerParams) => {
                       onSelectProvider(url, mode, providerParams);
+                      setShowSettings(false);
+                    }}
+                    onAutoSelect={() => {
+                      onAutoSelectProvider();
                       setShowSettings(false);
                     }}
                     providerIdType={providerIdType}

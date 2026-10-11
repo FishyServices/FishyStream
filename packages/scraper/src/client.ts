@@ -21,10 +21,15 @@ export type ScrapedStream = {
 };
 
 export type ScraperSourceOption = { key: string; name: string };
-export type ScrapeResult = { source: ScrapedStream | null; sourceOptions: ScraperSourceOption[] };
+export type ScrapeResult = {
+  source: ScrapedStream | null;
+  sourceOptions: ScraperSourceOption[];
+  resolvedUrl?: string;
+};
 
 export type ScraperClient = {
   scrape(url: string, signal?: AbortSignal): Promise<ScrapeResult>;
+  scrapeFirstWorking(urls: string[], signal?: AbortSignal): Promise<ScrapeResult>;
   resolveSource(url: string, source: string, signal?: AbortSignal): Promise<ScrapedStream | null>;
 };
 
@@ -103,6 +108,22 @@ export function createScraperClient(options: {
       const value = await request("/api/scrape", { url }, signal);
       if (!isRecord(value)) return { source: null, sourceOptions: [] };
       return { source: parseStream(value), sourceOptions: parseSourceOptions(value.sourceOptions) };
+    },
+    async scrapeFirstWorking(urls, signal) {
+      const response = await fetcher(`${baseUrl}/api/scrape/auto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls }),
+        signal
+      });
+      if (!response.ok) throw new Error(`Scraper request failed (${response.status}).`);
+      const value: unknown = await response.json();
+      if (!isRecord(value)) return { source: null, sourceOptions: [] };
+      return {
+        source: parseStream(value),
+        sourceOptions: parseSourceOptions(value.sourceOptions),
+        ...(typeof value.resolvedUrl === "string" ? { resolvedUrl: value.resolvedUrl } : {})
+      };
     },
     async resolveSource(url, source, signal) {
       return parseStream(await request("/api/scrape/source", { url, source }, signal));

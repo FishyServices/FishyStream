@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import { safeSourceUrl } from "./model/providerDiagnostics";
 import {
   clampProgress,
-  getEffectiveAnimeDub,
   isMatchingEpisodeProgress,
-  pickResumePositionSeconds,
-  setAnimeDubSearchParam
+  pickResumePositionSeconds
 } from "./model/playbackState";
+import { getEffectiveAnimeDub, setAnimeDubSearchParam } from "./model/playbackUrl";
 import type { ContentPlayback } from "@content/contentMetadata";
 import type { ProgressState } from "@/features/library/useWatchProgress";
 

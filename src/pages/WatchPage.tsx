@@ -3,19 +3,17 @@ import { Loader2 } from "lucide-react";
 import { VideoPlayer } from "@/ui/components/VideoPlayer";
 import { useContentPlaybackByTmdbId } from "@/features/catalog/queries/useContent";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
+import { readPlaybackRouteParams } from "@/features/playback/model/playbackUrl";
 
 export function WatchPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const typeParam = searchParams.get("type");
-  const typeHint = typeParam === "movie" || typeParam === "tv" ? typeParam : undefined;
+  const routeParams = readPlaybackRouteParams(searchParams);
+  const typeHint = routeParams.type;
   const content = useContentPlaybackByTmdbId(id, typeHint);
 
-  const initialSeason = searchParams.get("season");
-  const initialEpisode = searchParams.get("episode");
-  const initialSource = searchParams.get("source");
-  const seasonOverride = initialSeason ? Number(initialSeason) : undefined;
-  const episodeOverride = initialEpisode ? Number(initialEpisode) : undefined;
+  const seasonOverride = routeParams.season;
+  const episodeOverride = routeParams.episode;
 
   const contentTitle = content && content !== null ? (content.title ?? "Watch") : "Watch";
   const contentOverview =
@@ -54,7 +52,6 @@ export function WatchPage() {
       content={content}
       initialSeason={seasonOverride}
       initialEpisode={episodeOverride}
-      initialSource={initialSource || undefined}
     />
   );
 }

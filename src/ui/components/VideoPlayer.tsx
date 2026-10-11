@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CustomVideoPlayer } from "./CustomVideoPlayer";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -33,6 +33,14 @@ import {
   shouldWaitForAnimeSeasonMetadata
 } from "@fishy/providers/playback";
 import { buildWatchPath } from "@/shared/navigation/watchNavigation";
+import {
+  getPlaybackPlayer,
+  getPlaybackProvider,
+  isPlaybackAuto,
+  normalizePlaybackUrlParams,
+  setPlaybackContentParams,
+  setPlaybackProviderParams
+} from "@/features/playback/model/playbackUrl";
 import type { ContentPlayback } from "@content/contentMetadata";
 import { getSessionStorageItem, setSessionStorageItem } from "@/shared/storage/browserStorage";
 import {
@@ -44,7 +52,6 @@ interface VideoPlayerProps {
   content: ContentPlayback;
   initialSeason?: number;
   initialEpisode?: number;
-  initialSource?: string;
 }
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
@@ -96,15 +103,11 @@ function isMatchingEpisodeProgress(
   );
 }
 
-export function VideoPlayer({
-  content,
-  initialSeason,
-  initialEpisode,
-  initialSource
-}: VideoPlayerProps) {
+export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPlayerProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframePlaybackStartedRef = useRef(false);
   const { settings } = useAppSettings();
 
   const syncAnimeSeasonPlaybackMeta = useAction(
@@ -120,6 +123,7 @@ export function VideoPlayer({
   const nextEpisodeClickLockedRef = useRef(false);
   const nextEpisodeCooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isNextEpisodeCooldown, setIsNextEpisodeCooldown] = useState(false);
+  const [autoProviderStatus, setAutoProviderStatus] = useState<string | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [episodeDownloadPickerOpen, setEpisodeDownloadPickerOpen] = useState(false);
   const [downloadRequest, setDownloadRequest] = useState<{
@@ -225,7 +229,6 @@ export function VideoPlayer({
     content,
     initialSeason,
     initialEpisode,
-    initialSource,
     settings,
     watchState,
     currentSeasonData,
@@ -390,10 +393,17 @@ export function VideoPlayer({
     }
   }, [content, tvTarget.episode, tvTarget.season, watchState]);
 
-  const useCustomPlayer = searchParams.get("ui") === "custom";
+  const useCustomPlayer = getPlaybackPlayer(searchParams) === "custom";
+  const autoProviderEnabled = isPlaybackAuto(searchParams, settings.defaultProvider);
 
   useEffect(() => {
-    if (!embedUrl || !supportsProgressEvents || useCustomPlayer) return;
+    const params = new URLSearchParams(searchParams);
+    normalizePlaybackUrlParams(params, settings.defaultProvider, selectedSourceConfig?.server.id);
+    if (params.toString() !== searchParams.toString()) setSearchParams(params, { replace: true });
+  }, [searchParams, selectedSourceConfig?.server.id, setSearchParams, settings.defaultProvider]);
+
+  useEffect(() => {
+    if (!embedUrl || useCustomPlayer || (!supportsProgressEvents && !autoProviderEnabled)) return;
 
     let expectedOrigin: string;
     try {
@@ -420,6 +430,10 @@ export function VideoPlayer({
       if (!parsed) return;
 
       const { event: ev, currentTime, duration, progress } = parsed.data;
+      if (ev === "play" || ev === "timeupdate") {
+        iframePlaybackStartedRef.current = true;
+        setAutoProviderStatus(null);
+      }
       reportPlaybackEvent({
         event: ev,
         currentTime,
@@ -438,9 +452,36 @@ export function VideoPlayer({
     selectedSourceConfig,
     supportsProgressEvents,
     animeContent,
+    autoProviderEnabled,
     isDub,
     useCustomPlayer,
     reportPlaybackEvent
+  ]);
+
+  useEffect(() => {
+    if (!autoProviderEnabled || useCustomPlayer || !embedUrl) return;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    iframePlaybackStartedRef.current = false;
+    const timeout = window.setTimeout(() => {
+      if (iframePlaybackStartedRef.current) return;
+      const failedName = selectedProvider?.name ?? "Provider";
+      const advanced = session.tryNextSource(`${failedName} did not start`);
+      setAutoProviderStatus(
+        advanced
+          ? `${failedName} did not start. Trying the next provider…`
+          : `${failedName} did not start. No working providers remain.`
+      );
+    }, 15_000);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    autoProviderEnabled,
+    embedUrl,
+    selectedProvider?.name,
+    session.tryNextSource,
+    useCustomPlayer
   ]);
 
   useEffect(() => {
@@ -497,14 +538,54 @@ export function VideoPlayer({
     if (!nextUrl) return;
 
     const nextParams = new URLSearchParams(searchParams);
-    if (mode === "custom") {
-      nextParams.set("ui", "custom");
-    } else {
-      nextParams.delete("ui");
-    }
+    const nextSource = sources.find((source) => source.url === nextUrl);
+    if (!nextSource) return;
+    setPlaybackProviderParams(nextParams, {
+      provider: nextSource.key,
+      server: nextSource.server.id,
+      player: mode
+    });
 
     setSearchParams(nextParams, { replace: true });
     await session.setSourceByUrl(nextUrl, nextParams, providerParams);
+  };
+
+  const autoProviderSources = useMemo(
+    () =>
+      groupedSources
+        .flatMap((group) => group.providers)
+        .filter(({ provider }) => provider.canBeScraped)
+        .flatMap(({ sources: providerSources }) => providerSources),
+    [groupedSources]
+  );
+  const autoSourceUrls = useMemo(
+    () => autoProviderSources.map(({ url }) => url),
+    [autoProviderSources]
+  );
+
+  const handleAutoProviderSelect = () => {
+    const firstSource = autoProviderSources[0];
+    if (!firstSource) return;
+    const params = new URLSearchParams(searchParams);
+    setPlaybackProviderParams(params, {
+      provider: "auto",
+      server: firstSource.server.id,
+      player: "custom"
+    });
+    void session.setSourceByUrl(firstSource.url, params);
+  };
+
+  const handleAutoSourceResolved = (url: string) => {
+    const source = autoProviderSources.find((candidate) => candidate.url === url);
+    if (!source) return;
+    const params = new URLSearchParams(searchParams);
+    setPlaybackContentParams(params, { type: content.type });
+    setPlaybackProviderParams(params, {
+      provider: "auto",
+      server: source.server.id,
+      player: getPlaybackPlayer(params)
+    });
+    void session.setSourceByUrl(source.url, params);
   };
 
   const handleDubToggle = (newIsDub: boolean) => {
@@ -654,7 +735,7 @@ export function VideoPlayer({
                 content.title
               )}&season_episode=${encodeURIComponent(
                 content.type === "tv" ? `S${tvTarget.season}E${tvTarget.episode}` : "N/A"
-              )}&provider=${encodeURIComponent(selectedSource || "auto")}&title=${encodeURIComponent(
+              )}&provider=${encodeURIComponent(autoProviderEnabled ? "auto" : (selectedProvider?.key ?? "auto"))}&title=${encodeURIComponent(
                 `[BUG]: Playback issue on ${content.title}${content.type === "tv" ? ` S${tvTarget.season}E${tvTarget.episode}` : ""}`
               )}`}
               target="_blank"
@@ -735,7 +816,9 @@ export function VideoPlayer({
                 groupedSources={groupedSources}
                 selectedSource={selectedSource}
                 useCustomPlayer={useCustomPlayer}
+                autoSelected={autoProviderEnabled}
                 onSelect={handleProviderSelect}
+                onAutoSelect={autoProviderSources.length ? handleAutoProviderSelect : undefined}
                 providerIdType={providerIdType}
                 onProviderIdTypeChange={setProviderIdType}
                 variant="header"
@@ -757,6 +840,15 @@ export function VideoPlayer({
       )}
 
       <div className="group/player relative flex flex-1 items-center justify-center overflow-hidden bg-black">
+        {autoProviderStatus ? (
+          <div
+            className="absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-lg border border-border/70 bg-card/95 px-4 py-2 text-sm text-foreground shadow-lg"
+            role="status"
+            aria-live="polite"
+          >
+            {autoProviderStatus}
+          </div>
+        ) : null}
         {loading && !selectedSourceConfig ? (
           <div
             className="media-surface rounded-xl p-8 text-center"
@@ -769,6 +861,9 @@ export function VideoPlayer({
         ) : useCustomPlayer ? (
           <CustomVideoPlayer
             embedUrl={embedUrl}
+            autoProviderEnabled={autoProviderEnabled}
+            autoSourceUrls={autoSourceUrls}
+            onAutoSourceResolved={handleAutoSourceResolved}
             resumePositionSeconds={resumePositionSeconds}
             content={content}
             tvTarget={tvTarget}
@@ -785,6 +880,7 @@ export function VideoPlayer({
             handleDubToggle={handleDubToggle}
             selectedSource={selectedSource}
             onSelectProvider={handleProviderSelect}
+            onAutoSelectProvider={handleAutoProviderSelect}
             providerIdType={providerIdType}
             onProviderIdTypeChange={setProviderIdType}
             groupedSources={groupedSources}
@@ -849,13 +945,13 @@ export function VideoPlayer({
           type?: any
         ) => {
           setShowInfoModal(false);
-          const nextSource = source ?? searchParams.get("source");
+          const nextProvider = source ?? getPlaybackProvider(searchParams);
           const path = buildWatchPath({
             tmdbId: content.tmdbId ?? _tmdbId,
             type: type ?? content.type,
             season,
             episode,
-            source: nextSource ?? undefined,
+            provider: nextProvider ?? undefined,
             dub: dub ?? isDub
           });
           navigate({ search: path.split("?")[1] ?? "" }, { replace: true });

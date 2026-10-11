@@ -1,11 +1,12 @@
 import type { NavigateFunction } from "react-router-dom";
 import type { ContentType } from "@content/contentMetadata";
+import { buildPlaybackSearchParams } from "@/features/playback/model/playbackUrl";
 
 export type PlayHandler = (
   tmdbId: string,
   season?: number,
   episode?: number,
-  source?: string,
+  provider?: string,
   dub?: boolean,
   type?: ContentType
 ) => void;
@@ -15,18 +16,12 @@ export interface WatchPathOptions {
   type?: ContentType;
   season?: number;
   episode?: number;
-  source?: string;
+  provider?: string;
   dub?: boolean;
 }
 
-export function buildWatchPath({ tmdbId, type, season, episode, source, dub }: WatchPathOptions) {
-  const params = new URLSearchParams();
-
-  if (type) params.set("type", type);
-  if (season !== undefined) params.set("season", String(season));
-  if (episode !== undefined) params.set("episode", String(episode));
-  if (source) params.set("source", source);
-  if (dub) params.set("dub", "true");
+export function buildWatchPath({ tmdbId, type, season, episode, provider, dub }: WatchPathOptions) {
+  const params = buildPlaybackSearchParams({ type, season, episode, provider, dub });
 
   const query = params.toString();
   return `/watch/${tmdbId}${query ? `?${query}` : ""}`;
@@ -36,14 +31,14 @@ export function createPlayHandler(
   navigate: NavigateFunction,
   defaultType?: ContentType
 ): PlayHandler {
-  return (tmdbId, season, episode, source, dub, type) => {
+  return (tmdbId, season, episode, provider, dub, type) => {
     navigate(
       buildWatchPath({
         tmdbId,
         type: type ?? defaultType,
         season,
         episode,
-        source,
+        provider,
         dub
       })
     );

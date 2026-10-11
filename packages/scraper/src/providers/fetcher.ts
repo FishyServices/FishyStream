@@ -79,3 +79,31 @@ export async function resolveProvider(url: string): Promise<Stream | null> {
   }
   return findMediaInText(text, response.url || url);
 }
+
+export async function isPlayableStream(stream: Stream): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+  const headers = requestHeaders(stream.headers, stream.url);
+  if (stream.mediaType === "file") headers.set("Range", "bytes=0-1023");
+
+  try {
+    const response = await fetch(stream.url, {
+      headers,
+      redirect: "follow",
+      signal: controller.signal,
+      ...INSECURE_TLS
+    });
+    if (!response.ok && response.status !== 206) return false;
+    if (stream.mediaType === "hls") {
+      return (await response.text()).replace(/^\uFEFF/, "").trimStart().startsWith("#EXTM3U");
+    }
+
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    await response.body?.cancel().catch(() => undefined);
+    return !/text\/|html|json|xml/.test(contentType);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}

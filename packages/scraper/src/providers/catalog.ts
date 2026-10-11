@@ -1,4 +1,4 @@
-import { resolveProvider } from "./fetcher";
+import { isPlayableStream, resolveProvider } from "./fetcher";
 import { resolve111Movies } from "./catalog/111Movies";
 import { resolveMegaPlay } from "./catalog/megaPlay";
 import { resolvePeachify } from "./catalog/broken/peachify";
@@ -161,8 +161,12 @@ async function runProviders(target: string): Promise<Stream | null> {
   const url = new URL(target);
   for (const provider of providers) {
     if (!provider.matches(url)) continue;
-    const stream = await provider.resolve(target);
-    if (stream) return stream;
+    try {
+      const stream = await provider.resolve(target);
+      if (stream) return stream;
+    } catch {
+      // Keep trying matching resolvers; a single unavailable source should not stop auto selection.
+    }
   }
   return null;
 }
@@ -179,6 +183,26 @@ export async function resolveWithProviders(target: string): Promise<Stream | nul
     () => recent.delete(target)
   );
   return promise;
+}
+
+export async function resolveFirstWorkingWithProviders(
+  targets: string[]
+): Promise<{ target: string; stream: Stream; sourceOptions: StreamSourceOption[] } | null> {
+  for (const target of targets) {
+    let url: URL;
+    try {
+      url = new URL(target);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") continue;
+
+    const stream = await resolveWithProviders(target).catch(() => null);
+    if (!stream || !(await isPlayableStream(stream))) continue;
+    const sourceOptions = await getSourceOptionsWithProviders(target).catch(() => []);
+    return { target, stream, sourceOptions };
+  }
+  return null;
 }
 
 export async function getSourceOptionsWithProviders(target: string): Promise<StreamSourceOption[]> {

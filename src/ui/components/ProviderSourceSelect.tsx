@@ -21,11 +21,13 @@ export interface ProviderSourceSelectProps {
   groupedSources: ProviderGroupedSources[];
   selectedSource: string;
   useCustomPlayer: boolean;
+  autoSelected?: boolean;
   onSelect: (
     url: string,
     mode: ProviderUiMode,
     providerParams?: Record<string, boolean | string | number>
   ) => void;
+  onAutoSelect?: () => void;
   triggerLabel?: string;
   variant?: "header" | "panel";
   className?: string;
@@ -46,7 +48,9 @@ export function ProviderSourceSelect({
   groupedSources,
   selectedSource,
   useCustomPlayer,
+  autoSelected = false,
   onSelect,
+  onAutoSelect,
   triggerLabel,
   variant = "header",
   className,
@@ -114,7 +118,7 @@ export function ProviderSourceSelect({
       >
         <MonitorPlay className={isHeader ? "w-4 h-4 shrink-0" : "w-3.5 h-3.5 shrink-0"} />
         <span className="flex-1 truncate text-left">
-          {selectedSourceName ?? triggerLabel ?? "Source"}
+          {autoSelected ? "Auto" : selectedSourceName ?? triggerLabel ?? "Source"}
         </span>
         {useCustomPlayer && hasCustomOption ? (
           <Sparkles
@@ -178,6 +182,23 @@ export function ProviderSourceSelect({
           </div>
 
           <div className="max-h-72 overflow-y-auto overscroll-contain py-1">
+            {activeTab === "custom" && onAutoSelect ? (
+              <Button
+                type="button"
+                variant="ghost"
+                aria-selected={autoSelected}
+                className={`h-auto w-full justify-between rounded-none px-3 py-2 text-sm font-medium ${
+                  autoSelected ? "text-primary" : "text-popover-foreground"
+                }`}
+                onClick={() => {
+                  onAutoSelect();
+                  setOpen(false);
+                }}
+              >
+                Auto
+                {autoSelected ? <Check className="h-3.5 w-3.5" /> : null}
+              </Button>
+            ) : null}
             {activeGroups.length === 0 ? (
               <p
                 className={
@@ -215,6 +236,7 @@ export function ProviderSourceSelect({
                     );
                     const displayedSource = selectedProviderSource ?? sources[0];
                     const isSelected =
+                      !autoSelected &&
                       selectedProviderSource !== undefined &&
                       activeTab === (useCustomPlayer ? "custom" : "embedded");
 
