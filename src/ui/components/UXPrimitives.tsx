@@ -64,10 +64,12 @@ function SkeletonGrid({
 
 export function GridSkeleton({
   count = 12,
-  variant = "grid"
+  variant = "grid",
+  className = gridSkeletonClassName
 }: {
   count?: number;
   variant?: GridSkeletonVariant;
+  className?: string;
 }) {
   if (variant === "picks") {
     return (
@@ -119,7 +121,7 @@ export function GridSkeleton({
 
   return (
     <div className={gridSkeletonSurfaceClassName} aria-hidden="true">
-      <SkeletonGrid count={count} />
+      <SkeletonGrid count={count} className={className} />
     </div>
   );
 }

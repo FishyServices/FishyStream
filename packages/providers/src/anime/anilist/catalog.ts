@@ -1,4 +1,4 @@
-import { buildUrl, requestJson, type Fetcher } from "../../shared/http.js";
+import { buildUrl, HttpError, requestJson, type Fetcher } from "../../shared/http.js";
 import type { MediaType } from "../../shared/media.js";
 import { TMDB_BASE_URL } from "../../metadata/tmdb/request.js";
 import { queryAniList } from "./request.js";
@@ -54,7 +54,10 @@ interface TmdbMatch {
   type: MediaType;
 }
 
-const MAX_PAGE = 500;
+const MAX_PAGE = 50;
+const CATALOG_PAGE_SIZE = 22;
+const TMDB_MATCH_CONCURRENCY = 4;
+const ANILIST_SOURCE_PAGES_PER_CATALOG_PAGE = 2;
 const CATALOG_FORMATS: ReadonlySet<string> = new Set(["MOVIE", "TV", "ONA", "TV_SHORT"]);
 const POSTER_BASE_URL = "https://image.tmdb.org/t/p/w500";
 
@@ -63,10 +66,13 @@ const ANIME_FILTERS: Readonly<Record<string, AnimeFilter>> = {
   adventure: { genre: "Adventure" },
   comedy: { genre: "Comedy" },
   drama: { genre: "Drama" },
+  ecchi: { genre: "Ecchi" },
   fantasy: { genre: "Fantasy" },
+  hentai: { genre: "Hentai" },
   historical: { tag: "Historical" },
   horror: { genre: "Horror" },
   isekai: { tag: "Isekai" },
+  "mahou-shoujo": { genre: "Mahou Shoujo" },
   mecha: { genre: "Mecha" },
   music: { genre: "Music" },
   mystery: { genre: "Mystery" },
@@ -87,7 +93,7 @@ const SORT_KEYS: Readonly<Record<AnimeSort, string>> = {
   "top-rated": "SCORE_DESC"
 };
 
-const CATALOG_QUERY = `query ($page: Int!, $genre: String, $tag: String, $format: MediaFormat, $sort: [MediaSort!]!) { Page(page: $page, perPage: 50) { pageInfo { lastPage total } media(type: ANIME, genre: $genre, tag: $tag, format: $format, sort: $sort, isAdult: false) { id format title { english romaji native } startDate { year month day } averageScore popularity genres } } }`;
+const CATALOG_QUERY = `query ($page: Int!, $genre: String, $tag: String, $format: MediaFormat, $sort: [MediaSort!]!, $isAdult: Boolean!) { Page(page: $page, perPage: 50) { pageInfo { lastPage total } media(type: ANIME, genre: $genre, tag: $tag, format: $format, sort: $sort, isAdult: $isAdult) { id format title { english romaji native } startDate { year month day } averageScore popularity genres } } }`;
 
 function parseMedia(value: string | null): AnimeMediaFilter {
   return value === "movie" || value === "tv" ? value : "all";
@@ -132,16 +138,30 @@ async function findTmdbMatch(
   if (!title) return null;
   const type = mediaTypeOf(media);
   const year = media.startDate?.year;
-  const url = buildUrl(TMDB_BASE_URL, `/search/${type}`, {
-    api_key: apiKey,
-    language: "en-US",
-    query: title,
-    page: 1,
-    include_adult: false,
-    ...(year ? { [type === "movie" ? "year" : "first_air_date_year"]: year } : {})
-  });
-  const response = (await requestJson("TMDB", url, { fetcher })) as TmdbSearchResponse;
-  const match = response.results?.find((item) => item.id && item.poster_path);
+  const search = async (includeYear: boolean) => {
+    const url = buildUrl(TMDB_BASE_URL, `/search/${type}`, {
+      api_key: apiKey,
+      language: "en-US",
+      query: title,
+      page: 1,
+      include_adult: false,
+      ...(includeYear && year ? { [type === "movie" ? "year" : "first_air_date_year"]: year } : {})
+    });
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return (await requestJson("TMDB", url, { fetcher })) as TmdbSearchResponse;
+      } catch (error) {
+        if (!(error instanceof HttpError) || error.status !== 429 || attempt >= 2) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    }
+  };
+  let response = await search(true);
+  let match = response.results?.find((item) => item.id && item.poster_path);
+  if (!match && year) {
+    response = await search(false);
+    match = response.results?.find((item) => item.id && item.poster_path);
+  }
   if (!match?.id || !match.poster_path) return null;
   return { tmdbId: String(match.id), posterUrl: `${POSTER_BASE_URL}${match.poster_path}`, type };
 }
@@ -155,43 +175,63 @@ export async function fetchAnimeCatalog(
   const media = parseMedia(params.get("media"));
   const sort = parseSort(params.get("sort"));
   const page = parsePage(params.get("page"));
+  const isAdult = params.get("adult") === "1";
 
-  const data = await queryAniList<CatalogPage>(
-    CATALOG_QUERY,
-    {
-      page,
-      ...parseFilter(params.get("genre")),
-      format: media === "movie" ? "MOVIE" : undefined,
-      sort: [SORT_KEYS[sort]]
-    },
-    fetcher
-  );
-  const sourcePage = data.Page;
+  const sourcePageNumbers = [
+    (page - 1) * ANILIST_SOURCE_PAGES_PER_CATALOG_PAGE + 1,
+    (page - 1) * ANILIST_SOURCE_PAGES_PER_CATALOG_PAGE + 2
+  ];
+  const sourcePages: NonNullable<CatalogPage["Page"]>[] = [];
+  for (const sourcePageNumber of sourcePageNumbers) {
+    const data = await queryAniList<CatalogPage>(
+      CATALOG_QUERY,
+      {
+        page: sourcePageNumber,
+        ...parseFilter(params.get("genre")),
+        format: media === "movie" ? "MOVIE" : undefined,
+        isAdult,
+        sort: [SORT_KEYS[sort]]
+      },
+      fetcher
+    );
+    if (!data.Page) throw new Error("AniList returned no Anime page");
+    sourcePages.push(data.Page);
+    if (sourcePageNumber >= (data.Page.pageInfo?.lastPage ?? sourcePageNumber)) break;
+  }
+  const sourcePage = sourcePages[0];
   if (!sourcePage) throw new Error("AniList returned no Anime page");
 
-  const sources = (sourcePage.media ?? []).filter(
-    (item) =>
-      CATALOG_FORMATS.has(item.format ?? "") && (media !== "tv" || mediaTypeOf(item) === "tv")
-  );
-  const matched = await Promise.all(
-    sources.map(async (source): Promise<AnimeCatalogItem | null> => {
-      const title = titleOf(source);
-      if (!title) return null;
-      const match = await findTmdbMatch(source, tmdbApiKey, fetcher);
-      if (!match) return null;
-      return {
-        tmdbId: match.tmdbId,
-        title,
-        type: match.type,
-        year: source.startDate?.year ?? 0,
-        releaseDate: releaseDateOf(source),
-        posterUrl: match.posterUrl,
-        voteAverage: source.averageScore == null ? undefined : source.averageScore / 10,
-        popularity: source.popularity ?? undefined,
-        genre: source.genres ?? []
-      };
-    })
-  );
+  const sources = sourcePages
+    .flatMap((result) => result.media ?? [])
+    .filter(
+      (item) =>
+        CATALOG_FORMATS.has(item.format ?? "") && (media !== "tv" || mediaTypeOf(item) === "tv")
+    );
+  const matched: Array<AnimeCatalogItem | null> = [];
+  for (let index = 0; index < sources.length; index += TMDB_MATCH_CONCURRENCY) {
+    const batch = sources.slice(index, index + TMDB_MATCH_CONCURRENCY);
+    matched.push(
+      ...(await Promise.all(
+        batch.map(async (source): Promise<AnimeCatalogItem | null> => {
+          const title = titleOf(source);
+          if (!title) return null;
+          const match = await findTmdbMatch(source, tmdbApiKey, fetcher).catch(() => null);
+          if (!match) return null;
+          return {
+            tmdbId: match.tmdbId,
+            title,
+            type: match.type,
+            year: source.startDate?.year ?? 0,
+            releaseDate: releaseDateOf(source),
+            posterUrl: match.posterUrl,
+            voteAverage: source.averageScore == null ? undefined : source.averageScore / 10,
+            popularity: source.popularity ?? undefined,
+            genre: source.genres ?? []
+          };
+        })
+      ))
+    );
+  }
 
   const seen = new Set<string>();
   const items = matched.filter((item): item is AnimeCatalogItem => {
@@ -203,9 +243,14 @@ export async function fetchAnimeCatalog(
   });
 
   return {
-    items,
+    items: items.slice(0, CATALOG_PAGE_SIZE),
     page,
-    totalPages: sourcePage.pageInfo?.lastPage ?? 1,
+    totalPages: Math.ceil(
+      Math.min(
+        sourcePage.pageInfo?.lastPage ?? 1,
+        MAX_PAGE * ANILIST_SOURCE_PAGES_PER_CATALOG_PAGE
+      ) / ANILIST_SOURCE_PAGES_PER_CATALOG_PAGE
+    ),
     totalResults: sourcePage.pageInfo?.total ?? items.length
   };
 }

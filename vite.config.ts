@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { readFileSync, existsSync } from "fs";
 import { fetchAnimeCatalog } from "./packages/providers/src/anime/anilist/index.ts";
+import { fetchJikanAnimeCatalog } from "./packages/providers/src/anime/jikan/index.ts";
 import { handleOpenSubtitlesRequest } from "./packages/providers/src/subtitles/index.ts";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
@@ -44,10 +45,10 @@ function fishyAnimeApiPlugin(apiKey: string | undefined): Plugin {
         }
 
         try {
-          const result = await fetchAnimeCatalog(
-            `http://${request.headers.host ?? "localhost"}${request.url ?? "/api/anime"}`,
-            apiKey
-          );
+          const requestUrl = `http://${request.headers.host ?? "localhost"}${request.url ?? "/api/anime"}`;
+          const result = new URL(requestUrl).searchParams.get("backend") === "jikan"
+            ? await fetchJikanAnimeCatalog(requestUrl, apiKey)
+            : await fetchAnimeCatalog(requestUrl, apiKey);
           response.statusCode = 200;
           response.setHeader("Content-Type", "application/json");
           response.setHeader("Cache-Control", "no-store");

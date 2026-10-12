@@ -11,7 +11,12 @@ import {
   type AnimeSort,
   type ContentSort
 } from "@/features/catalog/queries/useContent";
-import { ANIME_GENRES, MOVIE_GENRES, TV_GENRES } from "@/shared/config/mediaGenres";
+import {
+  ANIME_GENRES,
+  JIKAN_ANIME_GENRES,
+  MOVIE_GENRES,
+  TV_GENRES
+} from "@/shared/config/mediaGenres";
 import {
   parsePageParam,
   parseSortParam,
@@ -22,6 +27,11 @@ import { MOVIE_SORT_OPTIONS, TV_SORT_OPTIONS } from "@/shared/config/appSettings
 import { Button, Select, SelectContent, SelectItem, SelectTrigger } from "@fishy/ui";
 
 export type MediaMode = "movie" | "tv" | "anime";
+
+const MEDIA_BROWSE_GRID_CLASS =
+  "grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8";
+const MEDIA_BROWSE_PAGE_SIZE = 22;
+const ANILIST_MAX_BROWSE_PAGE = 50;
 
 const ANIME_MEDIA_OPTIONS: Array<{ value: AnimeMediaFilter; label: string }> = [
   { value: "all", label: "All" },
@@ -59,7 +69,9 @@ function firstGenre(options: readonly GenreOption[]) {
 
 function selectedMediaGenre(options: readonly GenreOption[], value: string | null) {
   return (
-    options.find((genre) => genre.label === value || genre.query === value) ?? firstGenre(options)
+    options.find(
+      (genre) => genre.slug === value || genre.label === value || genre.query === value
+    ) ?? firstGenre(options)
   );
 }
 
@@ -81,7 +93,14 @@ function StandardMediaBrowsePage({ mode }: { mode: Exclude<MediaMode, "anime"> }
   const sort = parseSortParam(searchParams.get("sort"), validSorts, defaultSort);
   const sortLabel = sortOptions.find((option) => option.value === sort)?.label ?? "Sort";
   const contentType = mode === "movie" ? "movie" : "tv";
-  const paginated = usePaginatedContent(contentType, selectedGenre.query, sort, 24, page, "tmdb");
+  const paginated = usePaginatedContent(
+    contentType,
+    selectedGenre.query,
+    sort,
+    MEDIA_BROWSE_PAGE_SIZE,
+    page,
+    "tmdb"
+  );
   const handlePlay = createPlayHandler(navigate, contentType);
   const title = mediaTitle(mode, selectedGenre);
 
@@ -145,14 +164,13 @@ function StandardMediaBrowsePage({ mode }: { mode: Exclude<MediaMode, "anime"> }
         </FilterBar>
 
         {paginated.isLoading ? (
-          <GridSkeleton />
+          <GridSkeleton className={MEDIA_BROWSE_GRID_CLASS} />
         ) : paginated.items.length === 0 ? (
           <EmptyState title={`No ${title.toLowerCase()} found`} />
         ) : (
           <>
             <div className="media-surface rounded-xl border-border/55 bg-card/38 p-3 sm:p-5">
-              <div className="mb-5 flex items-center gap-2"></div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              <div className={MEDIA_BROWSE_GRID_CLASS}>
                 {paginated.items.map((item) => (
                   <MovieCard
                     key={item._id}
@@ -206,6 +224,10 @@ function parseAnimeSort(value: string | null): AnimeSort {
   return value === "newest" || value === "oldest" || value === "top-rated" ? value : "popular";
 }
 
+function parseAnimeBackend(value: string | null): "anilist" | "jikan" {
+  return value === "jikan" ? "jikan" : "anilist";
+}
+
 function isAnimeSort(value: string | null | undefined): value is AnimeSort {
   return value === "popular" || value === "newest" || value === "oldest" || value === "top-rated";
 }
@@ -213,18 +235,25 @@ function isAnimeSort(value: string | null | undefined): value is AnimeSort {
 function AnimeMediaBrowsePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedGenre = selectedMediaGenre(ANIME_GENRES, searchParams.get("genre"));
+  const backend = parseAnimeBackend(searchParams.get("backend"));
+  const genreOptions = backend === "jikan" ? JIKAN_ANIME_GENRES : ANIME_GENRES;
+  const selectedGenre = selectedMediaGenre(genreOptions, searchParams.get("genre"));
   const media = parseAnimeMedia(searchParams.get("media"));
+  const adult = searchParams.get("adult") === "1";
   const sort = parseAnimeSort(searchParams.get("sort"));
-  const page = parsePageParam(searchParams.get("page"));
+  const requestedPage = parsePageParam(searchParams.get("page"));
+  const page =
+    backend === "anilist" ? Math.min(requestedPage, ANILIST_MAX_BROWSE_PAGE) : requestedPage;
   const paginated = usePaginatedContent(
     "tv",
     selectedGenre.slug === "all" ? undefined : selectedGenre.slug,
     sort,
-    32,
+    MEDIA_BROWSE_PAGE_SIZE,
     page,
     "anime",
-    media
+    media,
+    backend,
+    adult
   );
   const handlePlay = createPlayHandler(navigate);
 
@@ -234,10 +263,27 @@ function AnimeMediaBrowsePage() {
     path: "/anime"
   });
 
-  const updateFilters = (next: Partial<{ media: AnimeMediaFilter; sort: AnimeSort }>) => {
+  const updateFilters = (
+    next: Partial<{
+      media: AnimeMediaFilter;
+      sort: AnimeSort;
+      backend: "anilist" | "jikan";
+      adult: boolean;
+      genre: string | null;
+    }>
+  ) => {
     const params = new URLSearchParams(searchParams);
     if (next.media) params.set("media", next.media);
     if (next.sort) params.set("sort", next.sort);
+    if (next.backend) params.set("backend", next.backend);
+    if (next.adult !== undefined) {
+      if (next.adult) params.set("adult", "1");
+      else params.delete("adult");
+    }
+    if (next.genre !== undefined) {
+      if (next.genre) params.set("genre", next.genre);
+      else params.delete("genre");
+    }
     setSearchParams(params, { replace: true });
   };
 
@@ -247,25 +293,48 @@ function AnimeMediaBrowsePage() {
       <main className="page-shell-wide page-stack">
         <PageHeader
           title="Anime"
-          count={paginated.totalCount}
           actions={
-            <Select
-              value={sort}
-              onValueChange={(value) => {
-                if (isAnimeSort(value)) updateFilters({ sort: value });
-              }}
-            >
-              <SelectTrigger className="rounded-xl border-border/70 bg-card/70 text-sm text-foreground">
-                {ANIME_SORT_OPTIONS.find((option) => option.value === sort)?.label}
-              </SelectTrigger>
-              <SelectContent>
-                {ANIME_SORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select
+                value={sort}
+                onValueChange={(value) => {
+                  if (isAnimeSort(value)) updateFilters({ sort: value });
+                }}
+              >
+                <SelectTrigger className="rounded-xl border-border/70 bg-card/70 text-sm text-foreground">
+                  {ANIME_SORT_OPTIONS.find((option) => option.value === sort)?.label}
+                </SelectTrigger>
+                <SelectContent>
+                  {ANIME_SORT_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={backend}
+                onValueChange={(value) => {
+                  if (value === "anilist" || value === "jikan") {
+                    const nextGenres = value === "jikan" ? JIKAN_ANIME_GENRES : ANIME_GENRES;
+                    updateFilters({
+                      backend: value,
+                      ...(nextGenres.some((genre) => genre.slug === selectedGenre.slug)
+                        ? {}
+                        : { genre: null })
+                    });
+                  }
+                }}
+              >
+                <SelectTrigger className="rounded-xl border-border/70 bg-card/70 text-sm text-foreground">
+                  {backend === "anilist" ? "AniList" : "Jikan"}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="anilist">AniList</SelectItem>
+                  <SelectItem value="jikan">Jikan</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           }
         />
 
@@ -283,14 +352,33 @@ function AnimeMediaBrowsePage() {
           ))}
         </div>
 
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant={adult ? "outline" : "default"}
+            className="rounded-full"
+            onClick={() => updateFilters({ adult: false })}
+          >
+            General
+          </Button>
+          <Button
+            size="sm"
+            variant={adult ? "destructive" : "outline"}
+            className="rounded-full"
+            onClick={() => updateFilters({ adult: true })}
+          >
+            18+ NSFW
+          </Button>
+        </div>
+
         <div className="media-surface -mx-1 flex gap-2 overflow-x-auto rounded-lg border-border/60 bg-card/48 p-2 scrollbar-hide">
-          {ANIME_GENRES.map((genre) => (
+          {genreOptions.map((genre) => (
             <Button
               key={genre.slug}
               size="sm"
               variant={genre.slug === selectedGenre.slug ? "default" : "outline"}
               className="shrink-0 rounded-full"
-              onClick={() => navigate(genre.href)}
+              onClick={() => updateFilters({ genre: genre.slug === "all" ? null : genre.slug })}
             >
               {genre.label.replace("All Anime", "All")}
             </Button>
@@ -298,20 +386,20 @@ function AnimeMediaBrowsePage() {
         </div>
 
         {paginated.isLoading ? (
-          <GridSkeleton />
+          <GridSkeleton className={MEDIA_BROWSE_GRID_CLASS} />
         ) : paginated.items.length === 0 ? (
           <EmptyState title="No anime found" />
         ) : (
           <>
             <div className="media-surface rounded-xl border-border/55 bg-card/38 p-3 sm:p-5">
-              <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+              <div className={MEDIA_BROWSE_GRID_CLASS}>
                 {paginated.items.map((item) => (
                   <MovieCard
                     key={item._id}
                     content={item}
                     onPlay={handlePlay}
                     layout="grid"
-                    showBookmarkAction={false}
+                    showBookmarkAction
                   />
                 ))}
               </div>

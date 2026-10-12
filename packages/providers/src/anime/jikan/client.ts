@@ -81,7 +81,7 @@ export function createJikanClient(request: JikanRequest = createJikanRequest()):
       animePage(
         "/anime",
         {
-          q: query,
+          q: query || undefined,
           page: options.page,
           limit: options.limit,
           sfw: options.sfw,

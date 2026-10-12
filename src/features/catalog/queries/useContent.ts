@@ -598,7 +598,9 @@ export function usePaginatedContent(
   limit = 24,
   page = 1,
   source: "tmdb" | "imdb" | "anime" = "tmdb",
-  animeMedia: AnimeMediaFilter = "all"
+  animeMedia: AnimeMediaFilter = "all",
+  animeBackend: "anilist" | "jikan" = "anilist",
+  animeAdult = false
 ): BrowsePageResult {
   const [result, setResult] = useState<BrowsePageResult>({
     items: [],
@@ -619,7 +621,7 @@ export function usePaginatedContent(
       });
       return () => controller.abort();
     }
-    setResult((old) => ({ ...old, currentPage: page, isLoading: true }));
+    setResult((old) => ({ ...old, items: [], currentPage: page, isLoading: true }));
     const load = async () => {
       if (source === "anime") {
         const data = await fetchAnimeCatalogPage({
@@ -627,6 +629,8 @@ export function usePaginatedContent(
           media: animeMedia,
           page,
           sort: sortBy as AnimeSort,
+          backend: animeBackend,
+          adult: animeAdult,
           signal: controller.signal
         });
         return { items: data.items, totalPages: data.totalPages, totalResults: data.totalResults };
@@ -701,10 +705,18 @@ export function usePaginatedContent(
           });
       })
       .catch(() => {
-        if (!controller.signal.aborted) setResult((old) => ({ ...old, isLoading: false }));
+        if (!controller.signal.aborted)
+          setResult((old) => ({
+            ...old,
+            items: [],
+            totalCount: 0,
+            totalPages: 0,
+            hasNextPage: false,
+            isLoading: false
+          }));
       });
     return () => controller.abort();
-  }, [animeMedia, genre, limit, page, sortBy, source, type]);
+  }, [animeAdult, animeBackend, animeMedia, genre, limit, page, sortBy, source, type]);
   return result;
 }
 
@@ -756,6 +768,8 @@ async function fetchAnimeCatalogPage(args: {
   media: AnimeMediaFilter;
   page: number;
   sort: AnimeSort;
+  backend?: "anilist" | "jikan";
+  adult?: boolean;
   signal: AbortSignal;
 }): Promise<AnimeCatalogApiResponse> {
   const params = new URLSearchParams({
@@ -763,6 +777,8 @@ async function fetchAnimeCatalogPage(args: {
     page: String(args.page),
     sort: args.sort
   });
+  if (args.backend === "jikan") params.set("backend", "jikan");
+  if (args.adult) params.set("adult", "1");
   if (args.genre) params.set("genre", args.genre);
   const response = await fetch(`/api/anime?${params}`, { signal: args.signal });
   if (!response.ok) throw new Error(`Anime catalog failed (${response.status})`);
