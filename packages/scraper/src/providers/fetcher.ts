@@ -93,15 +93,38 @@ export async function isPlayableStream(stream: Stream): Promise<boolean> {
       signal: controller.signal,
       ...INSECURE_TLS
     });
-    if (!response.ok && response.status !== 206) return false;
+    if (!response.ok && response.status !== 206) {
+      console.warn(
+        `[scraper] media probe got HTTP ${response.status} from ${new URL(stream.url).hostname}`
+      );
+      return false;
+    }
     if (stream.mediaType === "hls") {
-      return (await response.text()).replace(/^\uFEFF/, "").trimStart().startsWith("#EXTM3U");
+      const body = (await response.text()).replace(/^\uFEFF/, "").trimStart();
+      if (!body.startsWith("#EXTM3U")) {
+        console.warn(
+          `[scraper] HLS probe from ${new URL(stream.url).hostname} did not return an m3u8 playlist:`,
+          body.slice(0, 160)
+        );
+        return false;
+      }
+      return true;
     }
 
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
     await response.body?.cancel().catch(() => undefined);
-    return !/text\/|html|json|xml/.test(contentType);
-  } catch {
+    if (/text\/|html|json|xml/.test(contentType)) {
+      console.warn(
+        `[scraper] file probe from ${new URL(stream.url).hostname} returned ${contentType || "unknown content type"}`
+      );
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.warn(
+      `[scraper] media probe failed for ${new URL(stream.url).hostname}:`,
+      error instanceof Error ? error.message : error
+    );
     return false;
   } finally {
     clearTimeout(timeout);

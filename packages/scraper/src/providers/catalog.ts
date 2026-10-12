@@ -4,9 +4,9 @@ import { resolveMegaPlay } from "./catalog/megaPlay";
 import { resolvePeachify } from "./catalog/broken/peachify";
 import { resolveVaplayer } from "./catalog/broken/vaplayer";
 import { resolveVideasy } from "./catalog/broken/videasy";
-import { resolveVidLove } from "./catalog/vidLove";
+import { getVidLoveSourceOptions, resolveVidLove, resolveVidLoveSource } from "./catalog/vidLove";
 import { resolveVidNest } from "./catalog/vidNest";
-import { resolveVidRock } from "./catalog/broken/vidRock";
+import { resolveVidRock } from "./catalog/vidRock";
 import { resolveVixSrc } from "./catalog/broken/vixSrc";
 import { resolveVidZee } from "./catalog/broken/vidZee";
 import { resolveVidZen } from "./catalog/vidZen";
@@ -14,6 +14,7 @@ import { getVidBoltSourceOptions, resolveVidBolt, resolveVidBoltSource } from ".
 import { getVidySourceOptions, resolveVidy, resolveVidySource } from "./catalog/vidy";
 import { resolveVidFast } from "./catalog/broken/vidFast";
 import { resolveAniEmbed } from "./catalog/aniEmbed";
+import { resolveCinezo } from "./catalog/cinezo";
 import type { Stream, StreamSourceOption } from "../types";
 
 export type Provider = {
@@ -51,7 +52,9 @@ const vidRockProvider: Provider = {
 const vidLoveProvider: Provider = {
   id: "vidlove",
   matches: (url) => url.hostname === "player.vidlove.cc",
-  resolve: resolveVidLove
+  resolve: resolveVidLove,
+  sourceOptions: getVidLoveSourceOptions,
+  resolveSource: resolveVidLoveSource
 };
 
 const peachifyProvider: Provider = {
@@ -129,6 +132,12 @@ const aniEmbedProvider: Provider = {
   resolve: resolveAniEmbed
 };
 
+const cinezoProvider: Provider = {
+  id: "cinezo",
+  matches: (url) => url.hostname === "player.cinezo.live",
+  resolve: resolveCinezo
+};
+
 const genericProvider: Provider = {
   id: "direct-fetch",
   matches: () => true,
@@ -151,6 +160,7 @@ export const providers: readonly Provider[] = [
   vixSrcProvider,
   vidFastProvider,
   aniEmbedProvider,
+  cinezoProvider,
   genericProvider
 ];
 
@@ -164,10 +174,15 @@ async function runProviders(target: string): Promise<Stream | null> {
     try {
       const stream = await provider.resolve(target);
       if (stream) return stream;
-    } catch {
-      // Keep trying matching resolvers; a single unavailable source should not stop auto selection.
+      console.warn(`[scraper] ${provider.id} returned no stream for ${url.origin}${url.pathname}`);
+    } catch (error) {
+      console.error(
+        `[scraper] ${provider.id} failed for ${url.origin}${url.pathname}:`,
+        error instanceof Error ? error.message : error
+      );
     }
   }
+  console.warn(`[scraper] no provider resolved ${url.origin}${url.pathname}`);
   return null;
 }
 
@@ -197,8 +212,20 @@ export async function resolveFirstWorkingWithProviders(
     }
     if (url.protocol !== "http:" && url.protocol !== "https:") continue;
 
-    const stream = await resolveWithProviders(target).catch(() => null);
-    if (!stream || !(await isPlayableStream(stream))) continue;
+    const stream = await resolveWithProviders(target).catch((error) => {
+      console.error(
+        `[scraper] candidate resolution failed for ${url.origin}${url.pathname}:`,
+        error
+      );
+      return null;
+    });
+    if (!stream) continue;
+    if (!(await isPlayableStream(stream))) {
+      console.warn(
+        `[scraper] candidate stream failed playback probe: ${url.origin}${url.pathname}`
+      );
+      continue;
+    }
     const sourceOptions = await getSourceOptionsWithProviders(target).catch(() => []);
     return { target, stream, sourceOptions };
   }

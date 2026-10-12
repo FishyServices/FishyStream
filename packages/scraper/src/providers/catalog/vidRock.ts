@@ -1,14 +1,10 @@
-// WORKS ON LOCALHOST BUT NOT CLOUDFLARE PAGES??????????
-import { INSECURE_TLS } from "../../fetcher";
-import { resolveMedia } from "../../media";
-import type { Stream, StreamHeaders } from "../../../types";
+import { fetchProvider, INSECURE_TLS, isPlayableStream } from "../fetcher";
+import { resolveMedia } from "../media";
+import type { Stream, StreamHeaders } from "../../types";
 
-const API_ORIGIN = "https://vidrock.net";
-const API = `${API_ORIGIN}/api`;
 const HOSTS = new Set(["vidrock.ru", "vidrock.to", "vidrock.net"]);
 const TMDB_API = "https://api.themoviedb.org/3";
 const TMDB_API_KEY = "84259f99204eeb7d45c7e3d8e36c6123";
-const KEY_HEX = "7f3e9c2a8b5d1f4e6a9c3b7d2e5f8a1c4b6d9e2f5a8c1b4d7e9f2a5c8b1d4e7f";
 const TIMEOUT_MS = 10_000;
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -93,7 +89,7 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> {
   }
 }
 
-async function decryptSource(value: string): Promise<string | null> {
+async function decryptSource(value: string, keyHex: string): Promise<string | null> {
   const encrypted = decodeBase64Url(value);
   if (encrypted.length < 28) {
     log("  encrypted value too short / not base64url:", { characters: value.length });
@@ -102,7 +98,7 @@ async function decryptSource(value: string): Promise<string | null> {
   try {
     const key = await crypto.subtle.importKey(
       "raw",
-      decodeHex(KEY_HEX),
+      decodeHex(keyHex),
       { name: "AES-GCM" },
       false,
       ["decrypt"]
@@ -115,6 +111,38 @@ async function decryptSource(value: string): Promise<string | null> {
     return new TextDecoder().decode(plaintext);
   } catch (error) {
     log("  AES-GCM decrypt failed (key may have changed):", error);
+    return null;
+  }
+}
+
+async function readPlayerKey(url: URL): Promise<string | null> {
+  try {
+    const page = await fetchProvider(url.href);
+    if (!page.ok) {
+      log(`player HTML returned HTTP ${page.status}`);
+      return null;
+    }
+    const html = await page.text();
+    const scriptPath = html.match(
+      /<script\b[^>]*type=["']module["'][^>]*src=["']([^"']+)["']/i
+    )?.[1];
+    if (!scriptPath) {
+      log("player HTML did not contain its module bundle");
+      return null;
+    }
+    const scriptUrl = new URL(scriptPath, url).href;
+    const response = await fetchProvider(scriptUrl, { Referer: `${url.origin}/` });
+    if (!response.ok) {
+      log(`player JavaScript returned HTTP ${response.status}`);
+      return null;
+    }
+    const source = await response.text();
+    const key = source.match(/(?:TQ|KEY_HEX)=["']([a-f\d]{64})["']/i)?.[1];
+    if (key) log(`read AES-GCM key from ${new URL(scriptUrl).pathname}`);
+    else log("player JavaScript did not contain a recognized AES-GCM key");
+    return key ?? null;
+  } catch (error) {
+    log("could not read player HTML/JavaScript:", error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -137,6 +165,9 @@ export async function resolveVidRock(target: string): Promise<Stream | null> {
     return null;
   }
 
+  const keyHex = await readPlayerKey(url);
+  if (!keyHex) return null;
+
   const tmdbId = await resolveTmdbId(id, type);
   if (!tmdbId) {
     log("could not resolve TMDB id for", id);
@@ -144,8 +175,8 @@ export async function resolveVidRock(target: string): Promise<Stream | null> {
   }
   const apiUrl =
     type === "movie"
-      ? `${API}/movie/${encodeURIComponent(tmdbId)}`
-      : `${API}/tv/${encodeURIComponent(tmdbId)}/${encodeURIComponent(season ?? "")}/${encodeURIComponent(episode ?? "")}`;
+      ? `${url.origin}/api/movie/${encodeURIComponent(tmdbId)}`
+      : `${url.origin}/api/tv/${encodeURIComponent(tmdbId)}/${encodeURIComponent(season ?? "")}/${encodeURIComponent(episode ?? "")}`;
   const origin = url.origin;
 
   const payload = await fetchJson(
@@ -153,8 +184,8 @@ export async function resolveVidRock(target: string): Promise<Stream | null> {
     {
       "User-Agent": USER_AGENT,
       Accept: "application/json, text/plain, */*",
-      Origin: API_ORIGIN,
-      Referer: `${API_ORIGIN}/`
+      Origin: url.origin,
+      Referer: `${url.origin}/`
     },
     "sources"
   );
@@ -166,27 +197,32 @@ export async function resolveVidRock(target: string): Promise<Stream | null> {
 
   const headers: StreamHeaders = {
     "User-Agent": USER_AGENT,
-    Origin: API_ORIGIN,
-    Referer: `${API_ORIGIN}/`
+    Origin: url.origin,
+    Referer: `${url.origin}/`
   };
   const seenUrls = new Set<string>();
   for (const [name, source] of Object.entries(payload)) {
     if (!isRecord(source) || typeof source.url !== "string") continue;
-    let stream = resolveMedia(source.url, origin, source.type);
-    if (!stream) {
-      const decrypted = await decryptSource(source.url);
-      if (!decrypted) continue;
-      stream = resolveMedia(decrypted, origin, source.type);
-    }
+    const decrypted = await decryptSource(source.url, keyHex);
+    const stream = resolveMedia(decrypted, origin, source.type);
     if (!stream || seenUrls.has(stream.url)) continue;
     seenUrls.add(stream.url);
     if (/\/(?:demo-video|sample-video)\.mp4(?:[?#]|$)/i.test(stream.url)) continue;
     if (stream.mediaType === "hls") {
-      const seconds = await playlistDuration(stream.url, headers, name);
-      if (seconds !== null && seconds < MIN_DURATION_SECONDS) {
-        log(`  ${name}: only ${Math.round(seconds)}s long, looks like a placeholder, skipping`);
+      const playlist = await playlistDuration(stream.url, headers, name);
+      if (!playlist.valid) {
+        log(`  ${name}: playlist request did not return valid HLS`);
         continue;
       }
+      if (playlist.duration !== null && playlist.duration < MIN_DURATION_SECONDS) {
+        log(
+          `  ${name}: only ${Math.round(playlist.duration)}s long, looks like a placeholder, skipping`
+        );
+        continue;
+      }
+    } else if (!(await isPlayableStream(stream))) {
+      log(`  ${name}: decrypted candidate failed playback probe`);
+      continue;
     }
     log(`FOUND ${stream.mediaType} stream via "${name}" on ${new URL(stream.url).hostname}`);
     return { ...stream, headers };
@@ -202,7 +238,7 @@ async function playlistDuration(
   headers: StreamHeaders,
   name: string,
   depth = 0
-): Promise<number | null> {
+): Promise<{ valid: boolean; duration: number | null }> {
   try {
     const response = await fetch(url, { headers, ...INSECURE_TLS });
     const text = await response.text();
@@ -210,21 +246,21 @@ async function playlistDuration(
       `  ${name} playlist ${response.status} ${response.headers.get("content-type") ?? ""}:`,
       preview(text)
     );
-    if (!response.ok || !text.includes("#EXTM3U")) return null;
+    if (!response.ok || !text.includes("#EXTM3U")) return { valid: false, duration: null };
     if (text.includes("#EXT-X-STREAM-INF") && depth < 1) {
       const variant = text.split(/\r?\n/).find((line) => line && !line.startsWith("#"));
       return variant
         ? playlistDuration(new URL(variant, url).href, headers, name, depth + 1)
-        : null;
+        : { valid: false, duration: null };
     }
     const total = [...text.matchAll(/#EXTINF:([\d.]+)/g)].reduce(
       (sum, match) => sum + Number(match[1]),
       0
     );
     log(`  ${name} total duration: ${Math.round(total)}s`);
-    return total > 0 ? total : null;
+    return { valid: true, duration: total > 0 ? total : null };
   } catch (error) {
     log(`  ${name} playlist check threw:`, error);
-    return null;
+    return { valid: false, duration: null };
   }
 }

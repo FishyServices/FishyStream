@@ -94,6 +94,7 @@ export const STREAM_PROVIDERS: readonly ProviderCatalogEntry[] = [
     website: "https://player.cinezo.live",
     animeIdType: "anilist",
     dubSupport: true,
+    canBeScraped: true,
     progress: { resumeParam: "startAt" },
     params: {
       primarycolor: { type: "hex" },

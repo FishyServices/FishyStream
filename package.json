@@ -14,6 +14,7 @@
     "build:providers": "bun run --cwd packages/providers build",
     "build:scraper": "bun run --cwd packages/scraper build",
     "build": "bun run build:providers && bun run build:scraper && tsc -b && vite build",
+    "deploy:dev": "bun run build && bunx wrangler pages deploy dist --project-name fishystream --branch dev",
     "build:android": "bun run build && bunx cap sync android",
     "cap:sync": "bunx cap sync",
     "cap:android": "bunx cap open android",

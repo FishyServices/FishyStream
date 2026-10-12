@@ -11,6 +11,7 @@ const TIMEOUT_MS = 10_000;
 const MAX_PLAYER_SCRIPTS = 40;
 const GOLDEN_RATIO = 2_654_435_769;
 const playerCitiesCache = new Map<string, { cities: string[]; expiresAt: number }>();
+const log = (...args: unknown[]) => console.log("[vidy]", ...args);
 
 type Request = {
   kind: "movie" | "tv" | "anime";
@@ -159,8 +160,13 @@ async function discoverSourceCities(pageUrl: string): Promise<string[]> {
 
 export async function getVidySourceOptions(target: string): Promise<StreamSourceOption[]> {
   const request = parseRequest(target);
-  if (!request) return [];
-  return (await discoverSourceCities(request.pageUrl)).map((city) => ({
+  if (!request) {
+    log("could not parse player URL for source options:", target);
+    return [];
+  }
+  const cities = await discoverSourceCities(request.pageUrl);
+  log("available source cities:", cities);
+  return cities.map((city) => ({
     key: city,
     name: city[0]!.toUpperCase() + city.slice(1)
   }));
@@ -388,9 +394,15 @@ async function probe(stream: Stream): Promise<boolean> {
       headers: { "User-Agent": USER_AGENT, ...headers },
       signal: controller.signal
     });
+    if (!response.ok && response.status !== 206) {
+      log(`source probe returned HTTP ${response.status} from ${new URL(stream.url).hostname}`);
+      return false;
+    }
     if (stream.mediaType === "hls") {
       const body = (await response.text()).replace(/^\uFEFF/, "").trimStart();
-      return response.ok && body.startsWith("#EXTM3U");
+      const valid = body.startsWith("#EXTM3U");
+      if (!valid) log(`source probe from ${new URL(stream.url).hostname} was not an HLS playlist`);
+      return valid;
     }
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
     await response.body?.cancel().catch(() => undefined);
@@ -410,35 +422,67 @@ async function resolveVidySourceInternal(
   selectedSourceKey?: string
 ): Promise<Stream | null> {
   const parsed = parseRequest(target);
-  if (!parsed) return null;
+  if (!parsed) {
+    log("could not parse player URL:", target);
+    return null;
+  }
+  log("resolving", {
+    kind: parsed.kind,
+    id: parsed.id,
+    season: parsed.season,
+    episode: parsed.episode
+  });
   const request = await mapAnimeRequest(parsed);
-  if (!request) return null;
+  if (!request) {
+    log("could not map anime request to a catalog title");
+    return null;
+  }
   const details = await getTitleDetails(request);
-  if (!details) return null;
+  if (!details) {
+    log("TMDB did not return title, year, and IMDb metadata");
+    return null;
+  }
 
   const seedUrl = new URL("/seed", API_ORIGIN);
   seedUrl.searchParams.set("mediaId", request.id);
   const seedPayload = await fetchJson(seedUrl.href, request.pageUrl);
-  if (!isRecord(seedPayload) || typeof seedPayload.seed !== "string" || !seedPayload.seed)
+  if (!isRecord(seedPayload) || typeof seedPayload.seed !== "string" || !seedPayload.seed) {
+    log("seed API returned no seed");
     return null;
+  }
   const seed = seedPayload.seed;
 
   const headers: StreamHeaders = { Origin: PLAYER_ORIGIN, Referer: `${PLAYER_ORIGIN}/` };
   const seen = new Set<string>();
   const cities = await discoverSourceCities(request.pageUrl);
-  if (selectedSourceKey && !cities.includes(selectedSourceKey)) return null;
+  log("trying source cities:", selectedSourceKey ? [selectedSourceKey] : cities);
+  if (selectedSourceKey && !cities.includes(selectedSourceKey)) {
+    log(`selected city ${selectedSourceKey} was not found in the player scripts`);
+    return null;
+  }
   for (const city of selectedSourceKey ? [selectedSourceKey] : cities) {
     try {
       const sourceResult = await fetchText(
         sourceUrl(request, details, seed, city),
         request.pageUrl
       );
-      if (!sourceResult?.response.ok) continue;
+      if (!sourceResult?.response.ok) {
+        log(
+          `${city} sources request failed${sourceResult ? ` with HTTP ${sourceResult.response.status}` : " before a response"}`
+        );
+        continue;
+      }
       const decoded = decodeSources(sourceResult.text.trim(), seed, Number(request.id));
-      if (!decoded) continue;
+      if (!decoded) {
+        log(`${city} source payload could not be decrypted`);
+        continue;
+      }
 
       const payload: unknown = JSON.parse(decoded);
-      if (!isRecord(payload)) continue;
+      if (!isRecord(payload)) {
+        log(`${city} decrypted payload was not an object`);
+        continue;
+      }
       const tracks = readTracks(payload.subtitles);
       const candidates: unknown[] = [];
       if (typeof payload.playlist === "string")
@@ -462,12 +506,18 @@ async function resolveVidySourceInternal(
           headers,
           ...(tracks ? { tracks } : {})
         };
-        if (seen.has(stream.url) || !(await probe(stream))) continue;
+        if (seen.has(stream.url)) continue;
+        if (!(await probe(stream))) continue;
         seen.add(stream.url);
+        log(`FOUND ${stream.mediaType} stream via ${city} (${new URL(stream.url).hostname})`);
         return stream;
       }
-    } catch {}
+      log(`${city} decrypted payload had no playable stream candidates`);
+    } catch (error) {
+      log(`${city} source resolution failed:`, error instanceof Error ? error.message : error);
+    }
   }
+  log("all source cities exhausted without a playable stream");
   return null;
 }
 
