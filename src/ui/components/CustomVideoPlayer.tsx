@@ -437,32 +437,47 @@ export function CustomVideoPlayer({
           controller.signal
         );
         const subtitleSources = [...providerSubtitleSources, ...openSubtitleSources];
-        const switchSubtitle = (source: SubtitleSource) => {
+        const switchSubtitle = (
+          source: SubtitleSource,
+          startIndex = subtitleSources.indexOf(source)
+        ) => {
           const player = playerRef.current;
           if (!player) return;
           void (async () => {
-            let sourceUrl = source.url;
-            if (source.openSubtitles) {
-              const bytes = await downloadOpenSubtitle(source.url, controller.signal);
-              if (!active) return;
-              sourceUrl = URL.createObjectURL(new Blob([bytes], { type: "text/plain" }));
-            }
-            try {
-              await player.subtitle.switch(sourceUrl, { name: source.name, type: source.type });
-              if (source.openSubtitles) {
-                if (subtitleObjectUrlRef.current) URL.revokeObjectURL(subtitleObjectUrlRef.current);
-                subtitleObjectUrlRef.current = sourceUrl;
-              } else if (subtitleObjectUrlRef.current) {
-                URL.revokeObjectURL(subtitleObjectUrlRef.current);
-                subtitleObjectUrlRef.current = null;
+            let lastError: unknown;
+            const sourcesToTry = startIndex >= 0 ? subtitleSources.slice(startIndex) : [source];
+            for (const candidate of sourcesToTry) {
+              let objectUrl: string | undefined;
+              try {
+                let sourceUrl = candidate.url;
+                if (candidate.openSubtitles) {
+                  const bytes = await downloadOpenSubtitle(candidate.url, controller.signal);
+                  if (!active) return;
+                  objectUrl = URL.createObjectURL(new Blob([bytes], { type: "text/plain" }));
+                  sourceUrl = objectUrl;
+                }
+                await player.subtitle.switch(sourceUrl, {
+                  name: candidate.name,
+                  type: candidate.type
+                });
+                if (candidate.openSubtitles) {
+                  if (subtitleObjectUrlRef.current)
+                    URL.revokeObjectURL(subtitleObjectUrlRef.current);
+                  subtitleObjectUrlRef.current = sourceUrl;
+                } else if (subtitleObjectUrlRef.current) {
+                  URL.revokeObjectURL(subtitleObjectUrlRef.current);
+                  subtitleObjectUrlRef.current = null;
+                }
+                player.subtitle.update({});
+                window.setTimeout(() => player.subtitle.update({}), 0);
+                return;
+              } catch (error: unknown) {
+                if (objectUrl) URL.revokeObjectURL(objectUrl);
+                lastError = error;
               }
-              player.subtitle.update({});
-              window.setTimeout(() => player.subtitle.update({}), 0);
-            } catch (error: unknown) {
-              if (source.openSubtitles) URL.revokeObjectURL(sourceUrl);
-              player.notice.show =
-                error instanceof Error ? error.message : "Unable to load subtitles.";
             }
+            player.notice.show =
+              lastError instanceof Error ? lastError.message : "Unable to load subtitles.";
           })().catch((error: unknown) => {
             player.notice.show =
               error instanceof Error ? error.message : "Unable to load subtitles.";
@@ -483,7 +498,10 @@ export function CustomVideoPlayer({
             const selectedSource = subtitleSources.find(
               (_, index) => `subtitle-${index}` === item.name
             );
-            if (selectedSource) switchSubtitle(selectedSource);
+            if (selectedSource) {
+              const selectedIndex = subtitleSources.indexOf(selectedSource);
+              switchSubtitle(selectedSource, selectedIndex);
+            }
             return selectedSource?.name ?? "Subtitles";
           },
           selector: [

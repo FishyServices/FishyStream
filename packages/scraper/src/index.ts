@@ -13,6 +13,37 @@ const app = new Hono<{ Bindings: ScrapeBindings }>();
 
 app.use("/*", cors());
 
+function proxiedTracks(tracks: unknown, base: string): unknown {
+  if (!Array.isArray(tracks)) return tracks ?? null;
+  return tracks.map((track) => {
+    if (typeof track !== "object" || track === null || !("file" in track)) return track;
+    const file = track.file;
+    if (typeof file !== "string") return track;
+    try {
+      const url = new URL(file);
+      const allowedHost =
+        url.hostname === "broforgotsave.online" || url.hostname.endsWith(".broforgotsave.online");
+      if (
+        url.protocol !== "https:" ||
+        url.port ||
+        url.username ||
+        url.password ||
+        !allowedHost ||
+        !url.pathname.includes("/subtitles/") ||
+        !url.pathname.endsWith(".vtt")
+      ) {
+        return track;
+      }
+      const proxyUrl = new URL(`${base}/api/subtitle-proxy`);
+      proxyUrl.searchParams.set("provider", "megaplay");
+      proxyUrl.searchParams.set("url", url.href);
+      return { ...track, file: proxyUrl.href };
+    } catch {
+      return track;
+    }
+  });
+}
+
 function proxiedStream(
   stream: Awaited<ReturnType<typeof resolveWithProviders>>,
   host: string | undefined
@@ -25,7 +56,7 @@ function proxiedStream(
     sourceKey: stream.sourceKey,
     streamUrl: `${base}${endpoint}?url=${encodeURIComponent(stream.url)}&headers=${encodeURIComponent(JSON.stringify(stream.headers))}`,
     mediaType: stream.mediaType,
-    tracks: stream.tracks ?? null,
+    tracks: proxiedTracks(stream.tracks, base),
     intro: stream.intro ?? null,
     outro: stream.outro ?? null
   };

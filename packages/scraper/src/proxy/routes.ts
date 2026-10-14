@@ -144,7 +144,31 @@ export function registerProxyRoutes(app: Hono<{ Bindings: ScrapeBindings }>): vo
   app.get("/api/subtitle-proxy", async (c) => {
     const value = target(c);
     if (value instanceof Response) return value;
-    const parsed = headers(c.req.query("headers"));
+    let parsed: StreamHeaders | Response;
+    if (c.req.query("provider") === "megaplay") {
+      let url: URL;
+      try {
+        url = new URL(value);
+      } catch {
+        return c.text("Invalid MegaPlay subtitle URL", 400);
+      }
+      const allowedHost =
+        url.hostname === "broforgotsave.online" || url.hostname.endsWith(".broforgotsave.online");
+      if (
+        url.protocol !== "https:" ||
+        !allowedHost ||
+        url.port ||
+        url.username ||
+        url.password ||
+        !url.pathname.includes("/subtitles/") ||
+        !url.pathname.endsWith(".vtt")
+      ) {
+        return c.text("Invalid MegaPlay subtitle URL", 400);
+      }
+      parsed = { Origin: "https://megaplay.buzz", Referer: "https://megaplay.buzz/" };
+    } else {
+      parsed = headers(c.req.query("headers"));
+    }
     if (parsed instanceof Response) return parsed;
     const response = await fetchWithRetry(value, parsed);
     if (!response.ok) return c.text(`Upstream returned ${response.status}`, 502);
