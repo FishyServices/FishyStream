@@ -7,6 +7,7 @@ import { fetchAnimeCatalog } from "./packages/providers/src/anime/anilist/index.
 import { fetchJikanAnimeCatalog } from "./packages/providers/src/anime/jikan/index.ts";
 import { fetchKitsuAnimeCatalog } from "./packages/providers/src/anime/kitsu/index.ts";
 import { handleOpenSubtitlesRequest } from "./packages/providers/src/subtitles/index.ts";
+import { handleReleaseScheduleRequest } from "./functions/api/releaseSchedule.ts";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
 const devDeps = Object.keys(pkg.devDependencies ?? {});
@@ -93,6 +94,50 @@ function fishySubtitlesApiPlugin(): Plugin {
   };
 }
 
+function fishyReleaseScheduleApiPlugin(
+  animeScheduleToken: string | undefined,
+  aniDubApiKey: string | undefined
+): Plugin {
+  return {
+    name: "fishy-release-schedule-api",
+    configureServer(server) {
+      server.middlewares.use("/api/anime-release-schedule", (request, response) => {
+        const chunks: Buffer[] = [];
+        request.on("data", (chunk: Buffer) => chunks.push(chunk));
+        request.on("end", async () => {
+          try {
+            const method = request.method ?? "GET";
+            const body = Buffer.concat(chunks).toString("utf8");
+            const headers = new Headers();
+            for (const [key, value] of Object.entries(request.headers)) {
+              if (typeof value === "string") headers.set(key, value);
+            }
+            const apiRequest = new Request(
+              new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`),
+              { method, headers, body: method === "GET" || method === "HEAD" ? undefined : body }
+            );
+            const result = await handleReleaseScheduleRequest(apiRequest, {
+              ANIMESCHEDULE_API_TOKEN: animeScheduleToken,
+              ANIDUB_API_KEY: aniDubApiKey
+            });
+            response.statusCode = result.status;
+            result.headers.forEach((value, key) => response.setHeader(key, value));
+            response.end(Buffer.from(await result.arrayBuffer()));
+          } catch (error) {
+            response.statusCode = 500;
+            response.setHeader("Content-Type", "application/json");
+            response.end(
+              JSON.stringify({
+                message: error instanceof Error ? error.message : "Release schedule failed"
+              })
+            );
+          }
+        });
+      });
+    }
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const convexSiteUrl = env.VITE_CONVEX_SITE_URL;
@@ -100,6 +145,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       fishyProvidersPlugin(),
       fishyAnimeApiPlugin(env.TMDB_API_KEY),
+      fishyReleaseScheduleApiPlugin(env.ANIMESCHEDULE_API_TOKEN, env.ANIDUB_API_KEY),
       fishySubtitlesApiPlugin(),
       tailwindcss(),
       react()

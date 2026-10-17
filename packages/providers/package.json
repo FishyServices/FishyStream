@@ -30,6 +30,14 @@
       "types": "./dist/anime/anilist/index.d.ts",
       "import": "./dist/anime/anilist/index.js"
     },
+    "./anime/anidub": {
+      "types": "./dist/anime/anidub/index.d.ts",
+      "import": "./dist/anime/anidub/index.js"
+    },
+    "./anime/animeschedule": {
+      "types": "./dist/anime/animeschedule/index.d.ts",
+      "import": "./dist/anime/animeschedule/index.js"
+    },
     "./anime/jikan": {
       "types": "./dist/anime/jikan/index.d.ts",
       "import": "./dist/anime/jikan/index.js"

@@ -12,6 +12,7 @@ import { WatchPage } from "../pages/WatchPage";
 import { MediaBrowsePage } from "../pages/MediaBrowsePage";
 import { OwnersPicksPage } from "../pages/OwnersPicksPage";
 import { BookmarkPage } from "../pages/BookmarkPage";
+import { ReleaseCalendarPage } from "../pages/ReleaseCalendarPage";
 import { WatchHistoryPage } from "../pages/WatchHistoryPage";
 import { SearchPage } from "../pages/SearchPage";
 import { SettingsPage } from "../pages/SettingsPage";
@@ -129,6 +130,7 @@ function AppShell() {
                 <Route path="/anime" element={<MediaBrowsePage mode="anime" />} />
                 <Route path="/best" element={<OwnersPicksPage />} />
                 <Route path="/bookmark" element={<BookmarkPage />} />
+                <Route path="/releases" element={<ReleaseCalendarPage />} />
                 <Route path="/history" element={<WatchHistoryPage />} />
                 <Route path="/recommendations" element={<RecommendationsPage />} />
                 <Route path="/search" element={<SearchPage />} />

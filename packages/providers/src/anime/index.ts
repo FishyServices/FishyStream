@@ -1,4 +1,8 @@
 export * as anilist from "./anilist/index.js";
+export * as anidub from "./anidub/index.js";
+export * as animeschedule from "./animeschedule/index.js";
+export { getUpcomingAnimeReleaseSchedule } from "./releaseSchedule.js";
+export type { AnimeReleaseScheduleEntry, SelectedAnimeTitle } from "./releaseSchedule.js";
 export * as episodes from "./episodes/index.js";
 export * as jikan from "./jikan/index.js";
 export * as kitsu from "./kitsu/index.js";

@@ -3,6 +3,7 @@ import { useClerk, useUser } from "@clerk/react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BookMarked,
+  CalendarDays,
   Compass,
   Film,
   History,
@@ -47,6 +48,7 @@ const primaryNav: NavItem[] = [
 
 const libraryNav: NavItem[] = [
   { label: "Bookmarks", href: "/bookmark", icon: BookMarked },
+  { label: "Releases", href: "/releases", icon: CalendarDays },
   { label: "History", href: "/history", icon: History }
 ];
 

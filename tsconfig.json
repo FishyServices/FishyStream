@@ -27,6 +27,10 @@
       "@fishy/providers/anime": ["./packages/providers/src/anime/index.ts"],
       "@fishy/providers/anime/episodes": ["./packages/providers/src/anime/episodes/index.ts"],
       "@fishy/providers/anime/anilist": ["./packages/providers/src/anime/anilist/index.ts"],
+      "@fishy/providers/anime/anidub": ["./packages/providers/src/anime/anidub/index.ts"],
+      "@fishy/providers/anime/animeschedule": [
+        "./packages/providers/src/anime/animeschedule/index.ts"
+      ],
       "@fishy/providers/playback": ["./packages/providers/src/playback/index.ts"],
       "@fishy/providers/streaming": ["./packages/providers/src/streaming/index.ts"],
       "@fishy/providers/*": ["./packages/providers/src/*/index.ts"],

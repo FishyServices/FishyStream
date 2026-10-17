@@ -32,6 +32,12 @@ export interface TMDBTitleResponse extends TMDBListItem {
   number_of_seasons?: number;
   number_of_episodes?: number;
   seasons?: Array<{ season_number: number }>;
+  next_episode_to_air?: {
+    name?: string;
+    air_date?: string;
+    season_number?: number;
+    episode_number?: number;
+  } | null;
   imdb_id?: string | null;
   external_ids?: { imdb_id?: string | null };
   tagline?: string;

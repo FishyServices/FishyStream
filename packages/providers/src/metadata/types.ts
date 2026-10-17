@@ -101,6 +101,7 @@ export interface FullDetailBase extends TitleDetails {
   totalEpisodes?: number;
   genre: string[];
   status?: string;
+  nextEpisode?: { name: string; airDate: string; seasonNumber: number; episodeNumber: number };
   trending: boolean;
   isNew: boolean;
 }

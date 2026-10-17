@@ -83,17 +83,17 @@ export function createKitsuClient(request: KitsuRequest = createKitsuRequest()):
         "anime list"
       ),
     getAnime: async (id, signal) =>
-      parseResource<KitsuAnime>(
-        await request(`/anime/${idPath(id)}`, {}, signal),
-        "anime"
-      ),
+      parseResource<KitsuAnime>(await request(`/anime/${idPath(id)}`, {}, signal), "anime"),
     getAnimeEpisodes: async (id, options = {}) =>
       parseResourcePage<KitsuEpisode>(
         await request(`/anime/${idPath(id)}/episodes`, pageParams(options), options.signal),
         "episode list"
       ),
     getGenres: async (options = {}) =>
-      parseResourcePage<KitsuResource>(await request("/genres", pageParams(options), options.signal), "genre list"),
+      parseResourcePage<KitsuResource>(
+        await request("/genres", pageParams(options), options.signal),
+        "genre list"
+      ),
     getCategories: async (options = {}) =>
       parseResourcePage<KitsuResource>(
         await request("/categories", pageParams(options), options.signal),

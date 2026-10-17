@@ -259,6 +259,14 @@ export function createTMDBClient(request: TMDBRequest = createTMDBRequest()): TM
       originalLanguage: value.original_language,
       tagline: value.tagline || undefined,
       status: value.status || undefined,
+      nextEpisode: value.next_episode_to_air?.air_date
+        ? {
+            name: value.next_episode_to_air.name ?? "Upcoming episode",
+            airDate: value.next_episode_to_air.air_date,
+            seasonNumber: value.next_episode_to_air.season_number ?? 1,
+            episodeNumber: value.next_episode_to_air.episode_number ?? 1
+          }
+        : undefined,
       trending: false,
       isNew: false
     };

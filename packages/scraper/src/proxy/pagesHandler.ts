@@ -6,6 +6,8 @@ export interface PagesFunctionContext {
     VITE_CONVEX_SITE_URL?: string;
     CONVEX_SITE_URL?: string;
     TMDB_API_KEY?: string;
+    ANIMESCHEDULE_API_TOKEN?: string;
+    ANIDUB_API_KEY?: string;
   };
   params: Record<string, RouteParam>;
 }

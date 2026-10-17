@@ -35,6 +35,8 @@ Where to get values
 
 - Convex: open your Convex project dashboard then go to settings and it will be under "Cloud URL" and "HTTP Actions URL"
 - Clerk: in the Clerk dashboard, copy the **Publishable key** from your application, and use your Clerk issuer domain (shown in the dashboard).
+- Anime release dates: create an application in your AnimeSchedule account, then configure `ANIMESCHEDULE_API_TOKEN`
+- AniDub's anonymous API quota is 100 lookups per day per server IP. Configure the optional `ANIDUB_API_KEY` as a Cloudflare Pages secret to raise the quota.
 
 Add Clerk JWT template for Convex
 

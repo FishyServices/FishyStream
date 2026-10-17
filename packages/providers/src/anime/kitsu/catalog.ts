@@ -71,7 +71,7 @@ async function findTmdbMatch(
       });
       if (match) return match;
     }
-  };
+  }
   return undefined;
 }
 
@@ -172,7 +172,10 @@ export async function fetchKitsuAnimeCatalog(
   return {
     items,
     page: filters.page,
-    totalPages: Math.max(1, Math.ceil(Math.max(0, totalResults - KITSU_SOURCE_PAGE_SIZE) / CATALOG_PAGE_SIZE)),
+    totalPages: Math.max(
+      1,
+      Math.ceil(Math.max(0, totalResults - KITSU_SOURCE_PAGE_SIZE) / CATALOG_PAGE_SIZE)
+    ),
     totalResults
   };
 }
