@@ -1,13 +1,14 @@
 import { isRecord } from "../shared/guards.js";
 import type { MediaType } from "../shared/media.js";
 
-const INTRO_DB_MEDIA_URL = "https://api.theintrodb.org/v3/media";
+const INTRO_DB_MEDIA_URL = "https://api.theintrodb.org/v4/media";
 const SEGMENT_KINDS = ["intro", "recap", "credits", "preview"] as const;
 
 export type SkipSegmentKind = (typeof SEGMENT_KINDS)[number];
 
 export interface IntroDbPlaybackLookup {
   tmdbId?: string;
+  tvdbId?: string;
   imdbId?: string;
   type: MediaType;
   season?: number;
@@ -27,7 +28,7 @@ interface RawTimestamp {
   end_ms: number | null;
 }
 
-function parseTmdbId(value: string | undefined): number | undefined {
+function parseNumericId(value: string | undefined): number | undefined {
   if (!value || !/^\d+$/.test(value)) return undefined;
   const id = Number(value);
   return Number.isSafeInteger(id) && id > 0 ? id : undefined;
@@ -47,15 +48,16 @@ function readTimestamps(value: unknown): RawTimestamp[] {
 }
 
 function buildMediaUrl(lookup: IntroDbPlaybackLookup): URL | undefined {
-  const { tmdbId, imdbId, type, season, episode, durationSeconds } = lookup;
+  const { tvdbId, tmdbId, imdbId, type, season, episode, durationSeconds } = lookup;
   const url = new URL(INTRO_DB_MEDIA_URL);
-  const numericTmdbId = parseTmdbId(tmdbId);
+  const numericTvdbId = parseNumericId(tvdbId);
+  const numericTmdbId = parseNumericId(tmdbId);
 
-  if (numericTmdbId) url.searchParams.set("tmdb_id", String(numericTmdbId));
+  if (numericTvdbId) url.searchParams.set("tvdb_id", String(numericTvdbId));
+  else if (numericTmdbId) url.searchParams.set("tmdb_id", String(numericTmdbId));
   else if (imdbId) url.searchParams.set("imdb_id", imdbId);
   else return undefined;
 
-  url.searchParams.set("type", type);
   if (type === "tv") {
     if (season === undefined || episode === undefined) return undefined;
     url.searchParams.set("season", String(season));
