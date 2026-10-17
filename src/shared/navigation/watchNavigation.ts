@@ -1,6 +1,7 @@
 import type { NavigateFunction } from "react-router-dom";
 import type { ContentType } from "@content/contentMetadata";
 import { buildPlaybackSearchParams } from "@/features/playback/model/playbackUrl";
+import { trackPlaybackRequested } from "@/shared/analytics";
 
 export type PlayHandler = (
   tmdbId: string,
@@ -32,6 +33,7 @@ export function createPlayHandler(
   defaultType?: ContentType
 ): PlayHandler {
   return (tmdbId, season, episode, provider, dub, type) => {
+    trackPlaybackRequested(type);
     navigate(
       buildWatchPath({
         tmdbId,

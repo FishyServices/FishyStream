@@ -4,7 +4,7 @@ import { isNativePlatform } from "@fishy/mobile";
 import { ClerkProvider, useAuth } from "@clerk/react";
 import { applyFishyTheme } from "@fishy/ui";
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { App } from "./App";
 import { SignInPage } from "../pages/SignInPage";
 import { SignUpPage } from "../pages/SignUpPage";
@@ -20,6 +20,7 @@ import { DmcaPage } from "../pages/DmcaPage";
 import { GlobalBookmarkProvider } from "../features/library/useBookmark";
 import { WatchProgressProvider } from "../features/library/useWatchProgress";
 import { AppSettingsProvider } from "../features/settings/useAppSettings";
+import { trackPageView } from "../shared/analytics";
 import "../index.css";
 
 const isNativeShell = isNativePlatform();
@@ -82,6 +83,16 @@ function useStableConvexClerkAuth() {
   );
 }
 
+function AnalyticsRouteTracker() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    trackPageView(pathname);
+  }, [pathname]);
+
+  return null;
+}
+
 function AppShell() {
   const auth = useAuth();
 
@@ -106,6 +117,7 @@ function AppShell() {
     <ConvexProviderWithAuth client={convex} useAuth={useStableConvexClerkAuth}>
       <AppSettingsProvider>
         <BrowserRouter>
+          <AnalyticsRouteTracker />
           <GlobalBookmarkProvider>
             <WatchProgressProvider>
               <Routes>
