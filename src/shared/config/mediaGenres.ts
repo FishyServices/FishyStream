@@ -109,6 +109,54 @@ export const ANIME_GENRES = [
   { slug: "thriller", label: "Thriller", query: "thriller", href: "/anime?genre=thriller" }
 ] as const;
 
+export const KITSU_ANIME_GENRES = [
+  { slug: "all", label: "All Anime", query: undefined, href: "/anime" },
+  { slug: "action", label: "Action", query: "action", href: "/anime?genre=action" },
+  { slug: "adventure", label: "Adventure", query: "adventure", href: "/anime?genre=adventure" },
+  { slug: "comedy", label: "Comedy", query: "comedy", href: "/anime?genre=comedy" },
+  { slug: "drama", label: "Drama", query: "drama", href: "/anime?genre=drama" },
+  { slug: "ecchi", label: "Ecchi", query: "ecchi", href: "/anime?genre=ecchi" },
+  { slug: "fantasy", label: "Fantasy", query: "fantasy", href: "/anime?genre=fantasy" },
+  { slug: "horror", label: "Horror", query: "horror", href: "/anime?genre=horror" },
+  {
+    slug: "magical-girl",
+    label: "Magical Girl",
+    query: "magical-girl",
+    href: "/anime?genre=magical-girl"
+  },
+  { slug: "mecha", label: "Mecha", query: "mecha", href: "/anime?genre=mecha" },
+  { slug: "music", label: "Music", query: "music", href: "/anime?genre=music" },
+  { slug: "mystery", label: "Mystery", query: "mystery", href: "/anime?genre=mystery" },
+  {
+    slug: "psychological",
+    label: "Psychological",
+    query: "psychological",
+    href: "/anime?genre=psychological"
+  },
+  { slug: "romance", label: "Romance", query: "romance", href: "/anime?genre=romance" },
+  {
+    slug: "science-fiction",
+    label: "Science Fiction",
+    query: "science-fiction",
+    href: "/anime?genre=science-fiction"
+  },
+  {
+    slug: "slice-of-life",
+    label: "Slice of Life",
+    query: "slice-of-life",
+    href: "/anime?genre=slice-of-life"
+  },
+  { slug: "sports", label: "Sports", query: "sports", href: "/anime?genre=sports" },
+  {
+    slug: "supernatural",
+    label: "Supernatural",
+    query: "supernatural",
+    href: "/anime?genre=supernatural"
+  },
+  { slug: "thriller", label: "Thriller", query: "thriller", href: "/anime?genre=thriller" },
+  { slug: "isekai", label: "Isekai", query: "isekai", href: "/anime?genre=isekai" }
+] as const;
+
 export const JIKAN_ANIME_GENRES = [
   { slug: "all", label: "All Anime", query: undefined, href: "/anime" },
   { slug: "action", label: "Action", query: "action", href: "/anime?genre=action" },

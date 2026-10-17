@@ -173,20 +173,28 @@ export async function fetchJikanAnimeCatalog(
                 .map((part) => String(part).padStart(2, "0"))
                 .join("-")
             : source.releaseDate;
-          const response = (await requestJson(
-            "TMDB",
-            buildUrl(TMDB_BASE_URL, `/search/${source.type}`, {
-              api_key: tmdbApiKey,
-              language: "en-US",
-              query: title,
-              page: 1,
-              include_adult: filters.adult,
-              ...(year ? { [source.type === "movie" ? "year" : "first_air_date_year"]: year } : {})
-            }),
-            { fetcher }
-          ).catch(() => null)) as TmdbSearchResponse | null;
+          const search = async (includeYear: boolean) =>
+            (await requestJson(
+              "TMDB",
+              buildUrl(TMDB_BASE_URL, `/search/${source.type}`, {
+                api_key: tmdbApiKey,
+                language: "en-US",
+                query: title,
+                page: 1,
+                include_adult: filters.adult,
+                ...(includeYear && year
+                  ? { [source.type === "movie" ? "year" : "first_air_date_year"]: year }
+                  : {})
+              }),
+              { fetcher }
+            ).catch(() => null)) as TmdbSearchResponse | null;
+          let response = await search(true);
+          let match = response?.results?.find((result) => result.id && result.poster_path);
+          if (!match && year) {
+            response = await search(false);
+            match = response?.results?.find((result) => result.id && result.poster_path);
+          }
           if (!response) return null;
-          const match = response.results?.find((result) => result.id && result.poster_path);
           if (!match?.id || !match.poster_path) return null;
           return {
             tmdbId: String(match.id),

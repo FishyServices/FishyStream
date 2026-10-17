@@ -14,6 +14,7 @@ import { MovieCard } from "@/ui/components/MovieCard";
 import {
   ANIME_GENRES,
   JIKAN_ANIME_GENRES,
+  KITSU_ANIME_GENRES,
   MOVIE_GENRES,
   TV_GENRES
 } from "@/shared/config/mediaGenres";
@@ -303,8 +304,8 @@ function parseAnimeSort(value: string | null): AnimeSort {
   return value === "newest" || value === "oldest" || value === "top-rated" ? value : "popular";
 }
 
-function parseAnimeBackend(value: string | null): "anilist" | "jikan" {
-  return value === "jikan" ? "jikan" : "anilist";
+function parseAnimeBackend(value: string | null): "anilist" | "jikan" | "kitsu" {
+  return value === "anilist" || value === "jikan" ? value : "kitsu";
 }
 
 function isAnimeSort(value: string | null | undefined): value is AnimeSort {
@@ -315,7 +316,12 @@ function AnimeMediaBrowsePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const backend = parseAnimeBackend(searchParams.get("backend"));
-  const genres = backend === "jikan" ? JIKAN_ANIME_GENRES : ANIME_GENRES;
+  const genres =
+    backend === "jikan"
+      ? JIKAN_ANIME_GENRES
+      : backend === "kitsu"
+        ? KITSU_ANIME_GENRES
+        : ANIME_GENRES;
   const selectedGenre = selectedMediaGenre(genres, searchParams.get("genre"));
   const media = parseAnimeMedia(searchParams.get("media"));
   const adult = searchParams.get("adult") === "1";
@@ -323,11 +329,12 @@ function AnimeMediaBrowsePage() {
   const requestedPage = parsePageParam(searchParams.get("page"));
   const page =
     backend === "anilist" ? Math.min(requestedPage, ANILIST_MAX_BROWSE_PAGE) : requestedPage;
+  const pageSize = backend === "kitsu" ? 40 : backend === "jikan" ? 25 : PAGE_SIZE;
   const paginated = usePaginatedContent(
     "tv",
     selectedGenre.slug === "all" ? undefined : selectedGenre.slug,
     sort,
-    PAGE_SIZE,
+    pageSize,
     page,
     "anime",
     media,
@@ -346,7 +353,7 @@ function AnimeMediaBrowsePage() {
     updates: Partial<{
       media: AnimeMediaFilter;
       sort: AnimeSort;
-      backend: "anilist" | "jikan";
+      backend: "anilist" | "jikan" | "kitsu";
       adult: boolean;
       genre: string | null;
       page: number;
@@ -442,6 +449,7 @@ function AnimeMediaBrowsePage() {
             <div className="flex gap-2" role="group" aria-label="Anime catalog source">
               {(
                 [
+                  ["kitsu", "Kitsu"],
                   ["anilist", "AniList"],
                   ["jikan", "Jikan"]
                 ] as const
@@ -452,7 +460,12 @@ function AnimeMediaBrowsePage() {
                   aria-pressed={backend === value}
                   className="min-h-9 rounded-lg px-3"
                   onClick={() => {
-                    const nextGenres = value === "jikan" ? JIKAN_ANIME_GENRES : ANIME_GENRES;
+                    const nextGenres =
+                      value === "jikan"
+                        ? JIKAN_ANIME_GENRES
+                        : value === "kitsu"
+                          ? KITSU_ANIME_GENRES
+                          : ANIME_GENRES;
                     updateFilters({
                       backend: value,
                       page: 1,
@@ -498,7 +511,7 @@ function AnimeMediaBrowsePage() {
           </h2>
           <p className="text-sm text-muted-foreground">
             {ANIME_SORT_OPTIONS.find((option) => option.value === sort)?.label} ·{" "}
-            {backend === "anilist" ? "AniList" : "Jikan"}
+            {backend === "anilist" ? "AniList" : backend === "jikan" ? "Jikan" : "Kitsu"}
             {adult ? " · 18+" : ""}
           </p>
         </div>

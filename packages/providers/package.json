@@ -34,6 +34,10 @@
       "types": "./dist/anime/jikan/index.d.ts",
       "import": "./dist/anime/jikan/index.js"
     },
+    "./anime/kitsu": {
+      "types": "./dist/anime/kitsu/index.d.ts",
+      "import": "./dist/anime/kitsu/index.js"
+    },
     "./anime/tsuzuki": {
       "types": "./dist/anime/tsuzuki/index.d.ts",
       "import": "./dist/anime/tsuzuki/index.js"

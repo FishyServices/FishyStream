@@ -55,7 +55,7 @@ interface TmdbMatch {
 }
 
 const MAX_PAGE = 50;
-const CATALOG_PAGE_SIZE = 22;
+const CATALOG_PAGE_SIZE = 24;
 const TMDB_MATCH_CONCURRENCY = 4;
 const ANILIST_SOURCE_PAGES_PER_CATALOG_PAGE = 2;
 const CATALOG_FORMATS: ReadonlySet<string> = new Set(["MOVIE", "TV", "ONA", "TV_SHORT"]);

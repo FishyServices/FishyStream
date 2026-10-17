@@ -599,7 +599,7 @@ export function usePaginatedContent(
   page = 1,
   source: "tmdb" | "imdb" | "anime" = "tmdb",
   animeMedia: AnimeMediaFilter = "all",
-  animeBackend: "anilist" | "jikan" = "anilist",
+  animeBackend: "anilist" | "jikan" | "kitsu" = "kitsu",
   animeAdult = false
 ): BrowsePageResult {
   const [result, setResult] = useState<BrowsePageResult>({
@@ -768,7 +768,7 @@ async function fetchAnimeCatalogPage(args: {
   media: AnimeMediaFilter;
   page: number;
   sort: AnimeSort;
-  backend?: "anilist" | "jikan";
+  backend?: "anilist" | "jikan" | "kitsu";
   adult?: boolean;
   signal: AbortSignal;
 }): Promise<AnimeCatalogApiResponse> {
@@ -777,7 +777,7 @@ async function fetchAnimeCatalogPage(args: {
     page: String(args.page),
     sort: args.sort
   });
-  if (args.backend === "jikan") params.set("backend", "jikan");
+  if (args.backend && args.backend !== "kitsu") params.set("backend", args.backend);
   if (args.adult) params.set("adult", "1");
   if (args.genre) params.set("genre", args.genre);
   const response = await fetch(`/api/anime?${params}`, { signal: args.signal });
