@@ -99,7 +99,7 @@ export type RecommendationSeed = {
 };
 
 function apiKey(): string {
-  const configured = import.meta.env.VITE_TMDB_KEY;
+  const configured = import.meta.env.TMDB_API_KEY;
   return typeof configured === "string" && configured.trim() ? configured : DEFAULT_TMDB_API_KEY;
 }
 

@@ -35,7 +35,7 @@ export function SearchCard({
   const [isResolvingContent, setIsResolvingContent] = useState(false);
   const navigate = useNavigate();
 
-  const apiKey = (import.meta.env.VITE_TMDB_KEY as string | undefined) ?? DEFAULT_TMDB_API_KEY;
+  const apiKey = (import.meta.env.TMDB_API_KEY as string | undefined) ?? DEFAULT_TMDB_API_KEY;
 
   const ensureDetail = async () => {
     if (tmdbDetail) return tmdbDetail;
