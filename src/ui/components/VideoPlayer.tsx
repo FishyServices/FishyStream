@@ -711,7 +711,10 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       ? clamp(watchState?.progress ?? 0)
       : 0;
   const nextEpisodeProgress = Math.max(currentProgress, matchingEpisodeWatchProgress);
-  const showNextEpisodeFallback = content.type === "tv" && hasNextEpisode && !canRequestStatus;
+  const showNextEpisodeFallback =
+    content.type === "tv" &&
+    hasNextEpisode &&
+    (!canRequestStatus || selectedProvider?.key === "vidzen");
   const showNextEpisodeButton =
     content.type === "tv" &&
     hasNextEpisode &&

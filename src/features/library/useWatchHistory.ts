@@ -12,11 +12,13 @@ const WATCH_HISTORY_PAGE_SIZE = 20;
 export function useMyWatchHistoryPagination(search = "") {
   const { user } = useUser();
   const [debouncedSearch, setDebouncedSearch] = useState(search);
-  const [cachedHistory, setCachedHistory] = useState<WatchHistoryItemMeta[]>([]);
-  const cachedUserId = useRef<string | undefined>(undefined);
+  const settledHistory = useRef<{ userId?: string; items: WatchHistoryItemMeta[] }>({
+    userId: user?.id,
+    items: []
+  });
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search), 180);
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 300);
     return () => window.clearTimeout(timer);
   }, [search]);
 
@@ -34,38 +36,21 @@ export function useMyWatchHistoryPagination(search = "") {
     { initialNumItems: WATCH_HISTORY_PAGE_SIZE }
   );
 
+  if (settledHistory.current.userId !== user?.id) {
+    settledHistory.current = { userId: user?.id, items: [] };
+  }
+
+  const queryPending = search.trim() !== debouncedSearch.trim() || status === "LoadingFirstPage";
+  const displayedHistory = queryPending ? settledHistory.current.items : history;
+
   useEffect(() => {
-    if (!user) {
-      cachedUserId.current = undefined;
-      setCachedHistory((current) => (current.length ? [] : current));
-      return;
-    }
-
-    if (cachedUserId.current !== user.id) {
-      cachedUserId.current = user.id;
-      setCachedHistory(history);
-      return;
-    }
-
-    setCachedHistory((current) => {
-      const merged = new Map<string, WatchHistoryItemMeta>(
-        history.map((item): [string, WatchHistoryItemMeta] => [item._id, item])
-      );
-      for (const item of current) {
-        if (!merged.has(item._id)) merged.set(item._id, item);
-      }
-      const next = [...merged.values()];
-      return next.length === current.length && next.every((item, index) => item === current[index])
-        ? current
-        : next;
-    });
-  }, [history, user]);
+    if (!queryPending) settledHistory.current = { userId: user?.id, items: history };
+  }, [history, queryPending, user?.id]);
 
   return {
-    history: user
-      ? [...new Map([...history, ...cachedHistory].map((item) => [item._id, item])).values()]
-      : history,
+    history: displayedHistory,
     isLoading: status === "LoadingFirstPage",
+    isQueryPending: queryPending,
     isLoadingMore: status === "LoadingMore",
     canLoadMore: status === "CanLoadMore",
     loadMore: () => loadMore(WATCH_HISTORY_PAGE_SIZE)

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSeoMeta } from "@/shared/seo/useSeoMeta";
-import { ArrowDownUp, Search, Trash2, X } from "lucide-react";
+import { ArrowDownUp, LoaderCircle, Search, Trash2, X } from "lucide-react";
 import { Header } from "@/ui/components/Header";
 import { MovieCard } from "@/ui/components/MovieCard";
-import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
+import { GridSkeleton } from "@/ui/components/UXPrimitives";
 import {
   useMyWatchHistoryPagination,
   useRemoveFromHistory,
@@ -25,7 +25,6 @@ import {
   Input,
   toast
 } from "@fishy/ui";
-
 import { getLocalStorageItem, setLocalStorageItem } from "@/shared/storage/browserStorage";
 
 const HISTORY_SORT_OPTIONS = [
@@ -55,7 +54,6 @@ export function WatchHistoryPage() {
     noIndex: true
   });
 
-  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState(() =>
     typeof window === "undefined" ? "" : (getLocalStorageItem(HISTORY_SEARCH_KEY) ?? "")
   );
@@ -66,20 +64,19 @@ export function WatchHistoryPage() {
       HISTORY_SORT_OPTIONS.map((option) => option.id)
     )
   );
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [undoItemId, setUndoItemId] = useState<string | null>(null);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const pendingRemovals = useRef(new Map<string, { item: WatchHistoryItemMeta; timer: number }>());
-  const { history, isLoading, isLoadingMore, canLoadMore, loadMore } =
+  const { history, isLoading, isQueryPending, isLoadingMore, canLoadMore, loadMore } =
     useMyWatchHistoryPagination(searchQuery);
   const removeFromHistory = useRemoveFromHistory();
   const clearWatchHistory = useClearWatchHistory();
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setLocalStorageItem(HISTORY_SEARCH_KEY, searchQuery);
-      setLocalStorageItem(HISTORY_SORT_KEY, sortBy);
-    }
+    setLocalStorageItem(HISTORY_SEARCH_KEY, searchQuery);
+    setLocalStorageItem(HISTORY_SORT_KEY, sortBy);
   }, [searchQuery, sortBy]);
 
   useEffect(
@@ -89,28 +86,19 @@ export function WatchHistoryPage() {
     []
   );
 
-  const visibleHistory = history.filter((item) => !removedIds.has(item._id));
-  const normalizedQuery = searchQuery
-    .trim()
-    .toLocaleLowerCase()
-    .replace(/[^\p{L}\p{N}]/gu, "");
-  const filteredHistory = normalizedQuery
-    ? visibleHistory.filter((item) =>
-        item.title
-          .toLocaleLowerCase()
-          .replace(/[^\p{L}\p{N}]/gu, "")
-          .includes(normalizedQuery)
-      )
-    : visibleHistory;
+  const visibleHistory = useMemo(
+    () => history.filter((item) => !removedIds.has(item._id)),
+    [history, removedIds]
+  );
   const sortedHistory = useMemo(() => {
-    if (sortBy === "recently") return filteredHistory;
-    return [...filteredHistory].sort((a, b) => {
+    if (sortBy === "recently") return visibleHistory;
+    return [...visibleHistory].sort((a, b) => {
       if (sortBy === "progress") return b.progress - a.progress;
       return sortBy === "title-az"
         ? a.title.localeCompare(b.title)
         : b.title.localeCompare(a.title);
     });
-  }, [filteredHistory, sortBy]);
+  }, [sortBy, visibleHistory]);
 
   const handlePlay = createPlayHandler(navigate);
 
@@ -169,55 +157,26 @@ export function WatchHistoryPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="app-canvas min-h-screen">
-        <Header />
-        <div className="page-shell-wide page-stack">
-          <GridSkeleton />
-        </div>
-      </div>
-    );
-  }
+  const isSearching = searchQuery.trim().length > 0;
+  const isInitialLoad = isLoading && history.length === 0 && !isSearching;
 
   return (
     <div className="app-canvas min-h-screen">
       <Header />
 
-      <main className="page-shell-wide page-stack">
-        <PageHeader
-          title="History"
-          actions={
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-border/65 bg-card/60 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-                {visibleHistory.length} watched
-              </span>
-              {visibleHistory.length > 0 && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  className="rounded-xl"
-                  onClick={() => setIsClearDialogOpen(true)}
-                >
-                  Clear history
-                </Button>
-              )}
-            </div>
-          }
-        />
-
-        {visibleHistory.length > 0 && (
-          <div className="mb-6 flex max-w-2xl flex-col gap-2 sm:flex-row">
-            <div className="media-surface relative rounded-xl border-border/65 bg-card/72 p-1.5 shadow-sm">
+      <main className="page-shell-wide page-stack pb-16">
+        <section aria-label="Search and sort watch history" className="space-y-5">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="media-surface relative min-w-0 flex-1 rounded-xl border-border/65 bg-card/75 p-1.5 shadow-sm">
               <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
               <Input
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search your history"
-                aria-label="Search your history"
-                className="h-12 w-full rounded-xl border-0 bg-transparent py-3.5 pl-11 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
+                placeholder="Search watched titles"
+                aria-label="Search watched titles"
+                autoComplete="off"
+                className="h-12 w-full rounded-lg border-0 bg-transparent py-3.5 pl-11 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
               />
               {searchQuery && (
                 <Button
@@ -225,8 +184,8 @@ export function WatchHistoryPage() {
                   variant="ghost"
                   size="icon"
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
-                  aria-label="Clear history search"
+                  className="absolute right-2 top-1/2 h-9 w-9 -translate-y-1/2 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                  aria-label="Clear title search"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -238,20 +197,21 @@ export function WatchHistoryPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    size="icon"
-                    className="h-12 w-12 shrink-0 rounded-xl"
-                    aria-label="Sort history"
-                    title={HISTORY_SORT_OPTIONS.find((option) => option.id === sortBy)?.label}
+                    className="h-[3.375rem] justify-start gap-2 rounded-xl px-4 sm:min-w-52"
+                    aria-label="Sort watch history"
                   >
-                    <ArrowDownUp className="h-4 w-4" />
+                    <ArrowDownUp className="h-4 w-4 text-primary" />
+                    <span>
+                      {HISTORY_SORT_OPTIONS.find((option) => option.id === sortBy)?.label}
+                    </span>
                   </Button>
                 }
               />
-              <DropdownMenuContent className="w-48 rounded-xl border-border/70 bg-popover p-1">
+              <DropdownMenuContent className="w-52 rounded-xl border-border/70 bg-popover p-1">
                 {HISTORY_SORT_OPTIONS.map((option) => (
                   <DropdownMenuItem
                     key={option.id}
-                    className="rounded-md px-3 py-2 text-xs"
+                    className="rounded-md px-3 py-2 text-sm"
                     onClick={() => setSortBy(option.id)}
                   >
                     {option.label}
@@ -260,46 +220,98 @@ export function WatchHistoryPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        )}
 
-        {visibleHistory.length === 0 ? (
-          <EmptyState
-            title="Nothing watched yet"
-            action={
-              <Button className="rounded-xl" onClick={() => navigate("/movies")}>
-                Browse movies
-              </Button>
-            }
-          />
-        ) : filteredHistory.length === 0 ? (
-          <EmptyState
-            icon={<Search className="h-12 w-12" />}
-            title={`No history matches “${searchQuery.trim()}”`}
-            action={
-              <Button variant="secondary" className="rounded-xl" onClick={() => setSearchQuery("")}>
+          <div
+            className="flex min-h-6 items-center justify-between gap-3 text-sm text-muted-foreground"
+            aria-live="polite"
+          >
+            <p>
+              {isQueryPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <LoaderCircle className="h-4 w-4 animate-spin text-primary motion-reduce:animate-none" />
+                  Updating results
+                </span>
+              ) : isSearching ? (
+                `${visibleHistory.length} matching ${visibleHistory.length === 1 ? "title" : "titles"}`
+              ) : (
+                `${visibleHistory.length} ${visibleHistory.length === 1 ? "title" : "titles"} shown`
+              )}
+            </p>
+            {isSearching && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-lg px-2 text-muted-foreground"
+                onClick={() => setSearchQuery("")}
+              >
                 Clear search
               </Button>
-            }
-          />
+            )}
+          </div>
+        </section>
+
+        {isInitialLoad ? (
+          <div aria-label="Loading watch history">
+            <GridSkeleton count={12} />
+          </div>
+        ) : visibleHistory.length === 0 && !isSearching && !isQueryPending ? (
+          <section className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/25 px-6 py-12 text-center">
+            <div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
+              <span className="font-display text-2xl font-semibold">▶</span>
+            </div>
+            <h2 className="font-display text-xl font-semibold text-foreground">
+              Nothing watched yet
+            </h2>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+              The movies and series you watch will appear here, ready when you are.
+            </p>
+            <Button className="mt-5 rounded-xl" onClick={() => navigate("/movies")}>
+              Browse movies
+            </Button>
+          </section>
+        ) : visibleHistory.length === 0 && isSearching && !isQueryPending ? (
+          <section className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/25 px-6 py-12 text-center">
+            <div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
+              <Search className="h-6 w-6" />
+            </div>
+            <h2 className="font-display text-xl font-semibold text-foreground">No titles found</h2>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+              Try another title or clear your search to see your full history.
+            </p>
+            <Button
+              variant="secondary"
+              className="mt-5 rounded-xl"
+              onClick={() => setSearchQuery("")}
+            >
+              Clear search
+            </Button>
+          </section>
+        ) : visibleHistory.length === 0 && isQueryPending ? (
+          <div aria-hidden="true">
+            <GridSkeleton count={8} />
+          </div>
         ) : (
           <>
-            <div className="rounded-xl border border-border/55 bg-card/28 p-3 sm:p-5">
-              <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                {sortedHistory.map((item) => (
-                  <div key={item._id} className="group relative">
-                    <MovieCard content={item} onPlay={handlePlay} layout="grid" />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-2 top-2 z-20 h-8 w-8 rounded-xl border border-border/60 bg-background/85 text-muted-foreground opacity-100 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground md:opacity-0 md:group-hover:opacity-100"
-                      onClick={() => handleRemove(item)}
-                      aria-label={`Remove ${item.title} from history`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+            <div
+              className={`grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 ${isQueryPending ? "opacity-60" : ""}`}
+              aria-busy={isQueryPending}
+            >
+              {sortedHistory.map((item) => (
+                <div key={item._id} className="group relative min-w-0">
+                  <MovieCard content={item} onPlay={handlePlay} layout="grid" />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="touch-target absolute right-2 top-2 z-20 h-10 w-10 rounded-xl border border-border/60 bg-background/85 text-muted-foreground shadow-sm hover:bg-destructive hover:text-destructive-foreground md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                    onClick={() => handleRemove(item)}
+                    aria-label={`Remove ${item.title} from history`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
 
             {canLoadMore && (
@@ -307,11 +319,11 @@ export function WatchHistoryPage() {
                 <Button
                   type="button"
                   variant="secondary"
-                  className="rounded-xl"
+                  className="min-h-11 rounded-xl px-6"
                   onClick={loadMore}
-                  disabled={isLoadingMore}
+                  disabled={isLoadingMore || isQueryPending}
                 >
-                  {isLoadingMore ? "Loading…" : "Load more items"}
+                  {isLoadingMore ? "Loading titles…" : "Load more titles"}
                 </Button>
               </div>
             )}
@@ -319,7 +331,7 @@ export function WatchHistoryPage() {
         )}
 
         {undoItemId && pendingRemovals.current.get(undoItemId) && (
-          <div className="fixed inset-x-4 bottom-6 z-50 flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-md sm:left-auto sm:right-6 sm:w-80">
+          <div className="fixed inset-x-4 bottom-6 z-floating flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-md sm:left-auto sm:right-6 sm:w-80">
             <span>Removed from history</span>
             <Button type="button" variant="secondary" size="sm" onClick={handleUndo}>
               Undo
