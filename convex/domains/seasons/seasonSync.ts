@@ -111,3 +111,30 @@ export const syncAnimeSeasonPlaybackMeta = action({
     };
   }
 });
+
+export const clearAniListSeasonMappings = action({
+  args: { contentId: v.string() },
+  handler: async (ctx, args): Promise<number> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Sign in to clear AniList season mappings.");
+    await ctx.runMutation(internal.domains.seasons.seasons.claimAniListMappingClear, {
+      identity: identity.tokenIdentifier
+    });
+    let deleted = 0;
+    const stages = ["mappings", "metadata", "seasons"] as const;
+    for (const stage of stages) {
+      let cursor: string | null = null;
+      let done = false;
+      while (!done) {
+        const result: { count: number; cursor: string; done: boolean } = await ctx.runMutation(
+          internal.domains.seasons.seasons.clearAniListMappingsBatch,
+          { contentId: args.contentId, stage, cursor }
+        );
+        deleted += result.count;
+        cursor = result.cursor;
+        done = result.done;
+      }
+    }
+    return deleted;
+  }
+});

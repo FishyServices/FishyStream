@@ -84,5 +84,11 @@ export default defineSchema({
     updatedAt: v.number()
   })
     .index("by_content_season_episode", ["contentId", "seasonNumber", "episodeNumber"])
-    .index("by_content_season", ["contentId", "seasonNumber"])
+    .index("by_content_season", ["contentId", "seasonNumber"]),
+
+  maintenanceRateLimits: defineTable({
+    identity: v.string(),
+    action: v.string(),
+    lastUsedAt: v.number()
+  }).index("by_identity_action", ["identity", "action"])
 });

@@ -28,6 +28,7 @@ export interface AppSettings {
   autoAdvanceEpisodes: boolean;
   showEpisodeRatings: boolean;
   showFillerEpisodes: boolean;
+  devMode: boolean;
 }
 
 export const MOVIE_SORT_OPTIONS: SortOption[] = [
@@ -61,5 +62,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   defaultAnimeLanguage: "dub",
   autoAdvanceEpisodes: false,
   showEpisodeRatings: false,
-  showFillerEpisodes: true
+  showFillerEpisodes: true,
+  devMode: false
 };

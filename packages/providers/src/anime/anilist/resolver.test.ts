@@ -1,9 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveAniListId } from "./resolver.js";
+import { hasStrongTitleMatch } from "./matching.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
-function mockAniList(media: Array<{ id: number; title: { english?: string } }>) {
+function mockAniList(
+  media: Array<{
+    id: number;
+    format?: string;
+    startDate?: { year?: number };
+    title: { english?: string };
+  }>
+) {
   vi.stubGlobal(
     "fetch",
     vi.fn(
@@ -34,6 +42,36 @@ describe("AniList resolver", () => {
   it("matches a numeric sequel suffix to its season", async () => {
     mockAniList([{ id: 97765, title: { english: "Isekai Quartet 2" } }]);
     await expect(resolveAniListId({ title: "Isekai Quartet", season: 2 })).resolves.toBe("97765");
+  });
+
+  it("prefers Link Click over its similarly titled shorts", async () => {
+    mockAniList([
+      {
+        id: 140175,
+        format: "TV_SHORT",
+        startDate: { year: 2021 },
+        title: { english: "Shiguang Dailiren: Xiao Juchang" }
+      },
+      {
+        id: 126403,
+        format: "ONA",
+        startDate: { year: 2021 },
+        title: { english: "Shiguang Dailiren" }
+      }
+    ]);
+    await expect(
+      resolveAniListId({ title: "Shiguang Dailiren", season: 1, year: 2021 })
+    ).resolves.toBe("126403");
+  });
+
+  it("does not treat a subtitle suffix as an exact main-series match", () => {
+    expect(
+      hasStrongTitleMatch(
+        { id: 140175, title: { english: "Shiguang Dailiren: Xiao Juchang" } },
+        "Shiguang Dailiren",
+        1
+      )
+    ).toBe(false);
   });
 
   it("returns null without a title", async () => {

@@ -212,7 +212,7 @@ export function scoreMedia(
 
   for (const variant of variants) {
     const result = scoreVariant(variant, base, baseTokens, season);
-    score += result.score;
+    score = Math.max(score, result.score + formatScore(media.format));
     matchedBase ||= result.matchedBase;
     bestOverlap = Math.max(bestOverlap, result.overlap);
   }
@@ -225,8 +225,8 @@ export function scoreMedia(
 export function hasStrongTitleMatch(media: AniListMedia, title: string, season: number): boolean {
   const base = normalizeTitle(title);
   return mediaTitles(media).some((variant) => {
+    if (season <= 1) return variant === base;
     if (variant !== base && !variant.startsWith(`${base} `)) return false;
-    if (season <= 1) return true;
     return (
       readSeasonSignals(variant).explicit.has(season) ||
       readRomanSeason(variant, base) === season ||

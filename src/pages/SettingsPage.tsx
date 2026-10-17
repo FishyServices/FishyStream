@@ -434,6 +434,25 @@ export function SettingsPage() {
               />
             </SettingsSection>
 
+            <SettingsSection icon={<Bug className="h-4 w-4" />} title="Developer">
+              <SettingRow
+                label="Dev mode"
+                description="Show maintenance tools for cached anime metadata"
+                control={
+                  <ToggleSettingControl
+                    id="dev-mode"
+                    checked={settings.devMode}
+                    onCheckedChange={(checked) => updateSetting("devMode", checked)}
+                  />
+                }
+              />
+              {settings.devMode ? (
+                <p className="border-t border-border/60 pt-4 text-xs text-muted-foreground">
+                  Anime mapping tools appear in the video player while an anime series is playing.
+                </p>
+              ) : null}
+            </SettingsSection>
+
             <SettingsSection icon={<ShieldAlert className="h-4 w-4" />} title="Support & Legal">
               <SettingRow
                 label="Report a bug"

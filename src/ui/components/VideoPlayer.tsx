@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CustomVideoPlayer } from "./CustomVideoPlayer";
-import { useAction } from "convex/react";
+import { useAction, useConvexAuth } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import {
   ArrowLeft,
@@ -13,7 +13,14 @@ import {
   Mic2,
   Info
 } from "lucide-react";
-import { Button } from "@fishy/ui";
+import {
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverPortal,
+  PopoverPositioner,
+  PopoverTrigger
+} from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ContentModal } from "@/ui/components/ContentModal";
 import { useSeasonEpisodes } from "@/features/catalog/queries/useContent";
@@ -82,6 +89,15 @@ function rememberSessionAnimeSeasonSyncKey(key: string) {
   } catch {}
 }
 
+function forgetSessionAnimeSeasonSyncKey(key: string) {
+  try {
+    setSessionStorageItem(
+      ANIME_SEASON_SYNC_SESSION_KEY,
+      JSON.stringify(readSessionAnimeSeasonSyncKeys().filter((entry) => entry !== key))
+    );
+  } catch {}
+}
+
 function safeSeason(v: number | null | undefined) {
   return v != null && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 1;
 }
@@ -109,9 +125,13 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const iframePlaybackStartedRef = useRef(false);
   const { settings } = useAppSettings();
+  const { isAuthenticated } = useConvexAuth();
 
   const syncAnimeSeasonPlaybackMeta = useAction(
     api.domains.seasons.seasonSync.syncAnimeSeasonPlaybackMeta
+  );
+  const clearAniListSeasonMappings = useAction(
+    api.domains.seasons.seasonSync.clearAniListSeasonMappings
   );
   const updateProgress = useUpdateProgress();
   const watchState = useGetProgress(content._id);
@@ -124,6 +144,9 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const nextEpisodeCooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isNextEpisodeCooldown, setIsNextEpisodeCooldown] = useState(false);
   const [autoProviderStatus, setAutoProviderStatus] = useState<string | null>(null);
+  const [clearingAniListMappings, setClearingAniListMappings] = useState(false);
+  const [aniListMaintenanceMessage, setAniListMaintenanceMessage] = useState("");
+  const [showAniListMappingPanel, setShowAniListMappingPanel] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [episodeDownloadPickerOpen, setEpisodeDownloadPickerOpen] = useState(false);
   const [downloadRequest, setDownloadRequest] = useState<{
@@ -169,6 +192,32 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const animeSeasonKey =
     animeContent && content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
   const animeSeasonSyncAttemptKey = animeSeasonKey ? `${animeSeasonKey}:${tvTarget.episode}` : null;
+
+  const clearCurrentAnimeMappings = async () => {
+    if (!isAuthenticated || !animeContent || content.type !== "tv") return;
+    if (
+      !window.confirm(
+        `Clear cached AniList season mappings for ${content.title}? They will be resolved again when you continue playback.`
+      )
+    ) {
+      return;
+    }
+    setClearingAniListMappings(true);
+    setAniListMaintenanceMessage("");
+    try {
+      const deleted = await clearAniListSeasonMappings({ contentId: content._id });
+      if (animeSeasonSyncAttemptKey) forgetSessionAnimeSeasonSyncKey(animeSeasonSyncAttemptKey);
+      if (animeSeasonKey) animeSeasonFailedRef.current.delete(animeSeasonKey);
+      setAnimeSeasonReloadKey((value) => value + 1);
+      setAniListMaintenanceMessage(`Cleared ${deleted} episode mappings for ${content.title}.`);
+    } catch (error) {
+      setAniListMaintenanceMessage(
+        error instanceof Error ? error.message : "Could not clear this anime's mappings."
+      );
+    } finally {
+      setClearingAniListMappings(false);
+    }
+  };
   const animeSeasonData = useOneShotConvexQuery<PlaybackSeasonMeta | null>(
     !!animeSeasonKey && !hasPendingInitialTvTarget,
     (convex) =>
@@ -754,6 +803,59 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
   return (
     <div className="h-dvh w-screen bg-background flex flex-col overflow-hidden">
+      {settings.devMode && animeContent && content.type === "tv" ? (
+        <div className="absolute left-3 top-1/2 z-[60] -translate-y-1/2 sm:left-5">
+          <Popover open={showAniListMappingPanel} onOpenChange={setShowAniListMappingPanel}>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Open AniList mapping tools"
+                  title="AniList mapping tools"
+                  className="border-border/70 bg-background/90 shadow-lg"
+                >
+                  <Bug className="h-5 w-5" />
+                </Button>
+              }
+            />
+            <PopoverPortal>
+              <PopoverPositioner side="right" align="center" sideOffset={8}>
+                <PopoverContent className="w-72 rounded-xl border-border/70 bg-card/95 p-4 shadow-xl">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">AniList mappings</p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        Clear cached AniList IDs for {content.title}. This action is limited to once
+                        every 12 hours.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full rounded-lg"
+                      disabled={!isAuthenticated || clearingAniListMappings}
+                      onClick={clearCurrentAnimeMappings}
+                      title={isAuthenticated ? undefined : "Sign in to clear mappings"}
+                    >
+                      {clearingAniListMappings ? "Clearing…" : "Clear this anime's mappings"}
+                    </Button>
+                    {!isAuthenticated ? (
+                      <p className="text-xs text-muted-foreground">Sign in to use this tool.</p>
+                    ) : null}
+                    {aniListMaintenanceMessage ? (
+                      <p className="text-xs text-muted-foreground" role="status">
+                        {aniListMaintenanceMessage}
+                      </p>
+                    ) : null}
+                  </div>
+                </PopoverContent>
+              </PopoverPositioner>
+            </PopoverPortal>
+          </Popover>
+        </div>
+      ) : null}
       {!useCustomPlayer && (
         <div className="z-10 flex-none border-b border-border/65 bg-background/88 transition-all duration-300">
           <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">

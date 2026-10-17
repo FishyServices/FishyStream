@@ -77,7 +77,8 @@ function parseSettings(value: unknown): AppSettings {
     showFillerEpisodes: chooseBoolean(
       value.showFillerEpisodes,
       DEFAULT_APP_SETTINGS.showFillerEpisodes
-    )
+    ),
+    devMode: chooseBoolean(value.devMode, DEFAULT_APP_SETTINGS.devMode)
   };
 }
 

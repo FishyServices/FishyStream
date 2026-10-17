@@ -20,6 +20,77 @@ const episodeValidator = v.object({
   voteAverage: v.number()
 });
 
+export const claimAniListMappingClear = internalMutation({
+  args: { identity: v.string() },
+  handler: async (ctx, { identity }) => {
+    const now = Date.now();
+    const rateLimit = await ctx.db
+      .query("maintenanceRateLimits")
+      .withIndex("by_identity_action", (q) =>
+        q.eq("identity", identity).eq("action", "clear-anilist-mappings")
+      )
+      .first();
+    if (rateLimit && now - rateLimit.lastUsedAt < 12 * 60 * 60 * 1000) {
+      throw new Error("Please wait 12 hours before clearing AniList mappings again.");
+    }
+    if (rateLimit) await ctx.db.patch(rateLimit._id, { lastUsedAt: now });
+    else {
+      await ctx.db.insert("maintenanceRateLimits", {
+        identity,
+        action: "clear-anilist-mappings",
+        lastUsedAt: now
+      });
+    }
+
+    return null;
+  }
+});
+
+export const clearAniListMappingsBatch = internalMutation({
+  args: {
+    contentId: v.string(),
+    stage: v.union(v.literal("mappings"), v.literal("metadata"), v.literal("seasons")),
+    cursor: v.union(v.string(), v.null())
+  },
+  handler: async (ctx, args) => {
+    if (args.stage === "mappings") {
+      const page = await ctx.db
+        .query("seasonEpisodeMappings")
+        .withIndex("by_content_season", (q) => q.eq("contentId", args.contentId))
+        .order("asc")
+        .paginate({ cursor: args.cursor, numItems: 100 });
+      for (const row of page.page) await ctx.db.delete(row._id);
+      return { count: page.page.length, cursor: page.continueCursor, done: page.isDone };
+    }
+
+    if (args.stage === "metadata") {
+      const page = await ctx.db
+        .query("seasonPlaybackMeta")
+        .withIndex("by_content_season", (q) => q.eq("contentId", args.contentId))
+        .order("asc")
+        .paginate({ cursor: args.cursor, numItems: 100 });
+      for (const row of page.page) {
+        await ctx.db.patch(row._id, {
+          anilistId: undefined,
+          anilistEpisodeMappingCount: 0,
+          mappingVersion: 0
+        });
+      }
+      return { count: 0, cursor: page.continueCursor, done: page.isDone };
+    }
+
+    const page = await ctx.db
+      .query("seasonEpisodes")
+      .withIndex("by_content_season", (q) => q.eq("contentId", args.contentId))
+      .order("asc")
+      .paginate({ cursor: args.cursor, numItems: 100 });
+    for (const row of page.page) {
+      await ctx.db.patch(row._id, { anilistId: undefined, anilistEpisodeMappingCount: 0 });
+    }
+    return { count: 0, cursor: page.continueCursor, done: page.isDone };
+  }
+});
+
 function hashString(value: string) {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i += 1) {
