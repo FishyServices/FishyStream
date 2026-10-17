@@ -2,8 +2,8 @@ import { fetchAnimeCatalog } from "@fishy/providers/anime/anilist";
 import { fetchJikanAnimeCatalog } from "@fishy/providers/anime/jikan";
 import { fetchKitsuAnimeCatalog } from "@fishy/providers/anime/kitsu";
 import { handleOpenSubtitlesRequest } from "@fishy/providers/subtitles";
+import { handleReleaseScheduleRequest } from "@fishy/providers/api";
 import { handleApiRequest, type PagesFunctionContext } from "@fishy/scraper/pages-handler";
-import { handleReleaseScheduleRequest } from "./releaseSchedule";
 
 export function onRequest(context: PagesFunctionContext) {
   const path = Array.isArray(context.params.path)

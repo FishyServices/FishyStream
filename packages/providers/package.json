@@ -66,6 +66,10 @@
       "types": "./dist/playback/index.d.ts",
       "import": "./dist/playback/index.js"
     },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "import": "./dist/api/index.js"
+    },
     "./subtitles": {
       "types": "./dist/subtitles/index.d.ts",
       "import": "./dist/subtitles/index.js"

@@ -35,6 +35,9 @@ jobs:
           VITE_CONVEX_SITE_URL: ${{ secrets.VITE_CONVEX_SITE_URL }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           VITE_UMAMI_WEBSITE_ID: ${{ secrets.VITE_UMAMI_WEBSITE_ID }}
+          VITE_UMAMI_SCRIPT_URL: ${{ secrets.VITE_UMAMI_SCRIPT_URL }}
+          ANIMESCHEDULE_API_TOKEN: ${{ secrets.ANIMESCHEDULE_API_TOKEN }}
+          ANIDUB_API_KEY: ${{ secrets.ANIDUB_API_KEY }}
         run: bunx tsc -b && bunx vite build
 
       - name: Set Cloudflare Pages production branch

@@ -7,7 +7,7 @@ import { fetchAnimeCatalog } from "./packages/providers/src/anime/anilist/index.
 import { fetchJikanAnimeCatalog } from "./packages/providers/src/anime/jikan/index.ts";
 import { fetchKitsuAnimeCatalog } from "./packages/providers/src/anime/kitsu/index.ts";
 import { handleOpenSubtitlesRequest } from "./packages/providers/src/subtitles/index.ts";
-import { handleReleaseScheduleRequest } from "./functions/api/releaseSchedule.ts";
+import { handleReleaseScheduleRequest } from "./packages/providers/src/api/index.ts";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
 const devDeps = Object.keys(pkg.devDependencies ?? {});
@@ -197,6 +197,11 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
+        "/api/introdb": {
+          target: "https://api.theintrodb.org",
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/introdb/, "/v4/media")
+        },
         "/api/imdb": {
           target: "https://api.graphql.imdb.com",
           changeOrigin: true,

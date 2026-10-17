@@ -1,7 +1,7 @@
 import {
   getUpcomingAnimeReleaseSchedule,
   type SelectedAnimeTitle
-} from "../../packages/providers/src/anime/releaseSchedule.ts";
+} from "../anime/releaseSchedule.js";
 
 interface ReleaseScheduleBindings {
   ANIMESCHEDULE_API_TOKEN?: string;
