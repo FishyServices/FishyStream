@@ -649,11 +649,12 @@ export function ContentModal({
     >
       <DialogContent
         data-content-modal="true"
-        className="z-modal flex max-h-[min(96dvh,70rem)] w-[calc(100%-1rem)] max-w-4xl flex-col overflow-hidden rounded-xl border border-border/70 bg-card/95 p-0 text-card-foreground shadow-md [&>button]:right-4 [&>button]:top-4 [&>button]:z-20 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button:hover]:bg-accent"
+        data-fishy-detail="content"
+        className="z-modal flex h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom))] max-h-none w-full max-w-4xl flex-col overflow-hidden rounded-none border-0 bg-card p-0 text-card-foreground shadow-md sm:h-auto sm:max-h-[min(96dvh,70rem)] sm:w-[calc(100%-1rem)] sm:rounded-xl sm:border sm:bg-card/95 [&>button]:right-4 [&>button]:top-[max(1rem,env(safe-area-inset-top))] [&>button]:z-20 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button:hover]:bg-accent"
       >
         {" "}
         <DialogTitle className="sr-only">{contentData.title}</DialogTitle>
-        <div className="relative h-72 shrink-0 overflow-hidden sm:h-96">
+        <div className="relative h-[31dvh] min-h-56 max-h-72 shrink-0 overflow-hidden sm:h-96">
           {isHydratingContent && !heroImageUrl ? (
             <div className="flex h-full w-full items-center justify-center bg-muted/60">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -913,7 +914,7 @@ export function ContentModal({
                     setEpisodeLoadError(null);
                   }}
                 >
-                  <SelectTrigger className="w-40 rounded-xl border-border/80 bg-background text-foreground">
+                  <SelectTrigger className="w-36 rounded-lg border-border/80 bg-background text-foreground">
                     <SelectValue placeholder="Season">
                       {selectedSeason === 0 ? "Specials" : `Season ${selectedSeason}`}
                     </SelectValue>
@@ -970,7 +971,7 @@ export function ContentModal({
                       />
                     ))}
                     {episodeSelectionMode && (
-                      <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-3">
+                      <div className="flex flex-col items-stretch gap-3 border-t border-border/70 pt-3 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-xs text-muted-foreground">
                           {selectedDownloadEpisodes.length} episode
                           {selectedDownloadEpisodes.length === 1 ? "" : "s"} selected
@@ -978,6 +979,7 @@ export function ContentModal({
                         <Button
                           type="button"
                           size="sm"
+                          className="w-full sm:w-auto"
                           disabled={selectedDownloadEpisodes.length === 0}
                           onClick={() => {
                             onDownloadEpisodes?.(selectedSeason, selectedDownloadEpisodes);

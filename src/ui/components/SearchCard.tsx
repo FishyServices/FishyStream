@@ -81,13 +81,17 @@ export function SearchCard({
   return (
     <>
       <div
+        data-fishy-content-card
         className={`group/card relative ${layout === "rail" ? "snap-start shrink-0" : ""} ${widthClass} cursor-pointer select-none`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={handleCardClick}
         tabIndex={0}
         role="button"
+        aria-haspopup="dialog"
+        aria-keyshortcuts="Enter Space"
         onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             handleCardClick();

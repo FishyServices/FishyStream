@@ -9,7 +9,7 @@ export function SignInPage() {
   const isNativeApp = isNativePlatform();
 
   return (
-    <div className="auth-canvas flex items-center justify-center">
+    <div data-fishy-page="auth" className="auth-canvas flex items-center justify-center">
       <ClerkLoading>
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </ClerkLoading>
@@ -35,7 +35,7 @@ export function SignInPage() {
                 colorPrimary: "oklch(0.65 0.15 180)",
                 colorBackground: "rgba(18, 24, 32, 0.96)",
                 borderRadius: "0.875rem",
-                fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
+                fontFamily: "system-ui, Segoe UI, sans-serif"
               }
             }}
           />

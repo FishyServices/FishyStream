@@ -42,26 +42,26 @@
 }
 
 @theme {
-  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", "Instrument Sans", ui-sans-serif, sans-serif;
+  --font-sans: system-ui, "Segoe UI", sans-serif;
+  --font-display: system-ui, "Segoe UI", sans-serif;
 
-  --color-background: oklch(0.145 0.012 250);
-  --color-foreground: oklch(0.94 0.008 250);
-  --color-card: oklch(0.19 0.014 250);
-  --color-card-foreground: oklch(0.94 0.008 250);
-  --color-popover: oklch(0.22 0.016 250);
-  --color-popover-foreground: oklch(0.94 0.008 250);
-  --color-primary: oklch(0.74 0.135 195);
-  --color-primary-foreground: oklch(0.15 0.012 250);
-  --color-secondary: oklch(0.235 0.014 250);
-  --color-secondary-foreground: oklch(0.94 0.008 250);
-  --color-muted: oklch(0.235 0.014 250);
-  --color-muted-foreground: oklch(0.68 0.012 250);
-  --color-accent: oklch(0.275 0.018 250);
-  --color-accent-foreground: oklch(0.95 0.008 250);
-  --color-border: oklch(0.31 0.016 250);
-  --color-input: oklch(0.27 0.016 250);
-  --color-ring: oklch(0.74 0.135 195);
+  --color-background: oklch(0.16 0.018 205);
+  --color-foreground: oklch(0.96 0.012 165);
+  --color-card: oklch(0.205 0.024 205);
+  --color-card-foreground: oklch(0.96 0.012 165);
+  --color-popover: oklch(0.235 0.025 205);
+  --color-popover-foreground: oklch(0.96 0.012 165);
+  --color-primary: oklch(0.8 0.12 175);
+  --color-primary-foreground: oklch(0.18 0.025 205);
+  --color-secondary: oklch(0.255 0.025 205);
+  --color-secondary-foreground: oklch(0.96 0.012 165);
+  --color-muted: oklch(0.255 0.02 205);
+  --color-muted-foreground: oklch(0.75 0.025 180);
+  --color-accent: oklch(0.31 0.045 190);
+  --color-accent-foreground: oklch(0.97 0.01 165);
+  --color-border: oklch(0.37 0.026 200);
+  --color-input: oklch(0.3 0.024 205);
+  --color-ring: oklch(0.8 0.12 175);
   --color-warning: oklch(0.78 0.12 85);
   --color-warning-foreground: oklch(0.2 0.04 85);
   --color-success: oklch(0.68 0.15 150);
@@ -94,13 +94,13 @@
     --radius-md-dynamic: 0.5rem;
     --radius-sm-dynamic: 0.25rem;
 
-    --surface-1: oklch(0.16 0.01 250);
-    --surface-2: oklch(0.2 0.012 250);
-    --surface-3: oklch(0.25 0.014 250);
+    --surface-1: oklch(0.16 0.018 205);
+    --surface-2: oklch(0.205 0.024 205);
+    --surface-3: oklch(0.255 0.028 205);
     --surface-selected: var(--color-primary);
-    --subtle-line: oklch(1 0 0 / 8%);
-    --stream-shadow: 0 18px 48px oklch(0.04 0.012 250 / 32%);
-    --stream-panel-shadow: 0 8px 24px oklch(0.04 0.012 250 / 18%);
+    --subtle-line: oklch(0.86 0.025 185 / 11%);
+    --stream-shadow: 0 18px 48px oklch(0.08 0.025 205 / 35%);
+    --stream-panel-shadow: 0 8px 24px oklch(0.08 0.025 205 / 18%);
     --stream-focus-width: 2px;
   }
 
@@ -224,30 +224,30 @@
     min-height: 100dvh;
     background:
       radial-gradient(
-        circle at 50% -12%,
-        color-mix(in oklab, var(--color-primary) 6%, transparent),
-        transparent 34rem
+        ellipse at 78% -16%,
+        color-mix(in oklab, var(--color-primary) 8%, transparent),
+        transparent 42rem
       ),
       var(--color-background);
   }
 
   .app-rail {
     @apply fixed inset-y-0 left-0 z-header hidden border-r bg-background/92 md:flex md:w-20 xl:w-64;
-    border-color: color-mix(in oklab, var(--color-border) 72%, transparent);
-    backdrop-filter: blur(22px) saturate(1.15);
+    border-color: color-mix(in oklab, var(--color-border) 58%, transparent);
+    backdrop-filter: blur(18px) saturate(1.15);
   }
 
   .app-topbar {
     @apply sticky top-0 z-header flex min-h-16 items-center justify-between border-b bg-background px-4 md:hidden;
-    border-color: color-mix(in oklab, var(--color-border) 68%, transparent);
+    border-color: color-mix(in oklab, var(--color-border) 58%, transparent);
     padding-top: max(0.75rem, env(safe-area-inset-top));
   }
 
   .app-bottom-nav {
     @apply fixed inset-x-0 bottom-0 z-header border-t bg-background px-2 pt-2 md:hidden;
-    border-color: color-mix(in oklab, var(--color-border) 76%, transparent);
+    border-color: color-mix(in oklab, var(--color-border) 62%, transparent);
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
-    box-shadow: 0 -10px 28px oklch(0.04 0.012 250 / 18%);
+    box-shadow: 0 -8px 22px oklch(0.08 0.025 205 / 20%);
   }
 
   .app-main,
@@ -258,17 +258,17 @@
   .media-surface,
   .surface,
   .home-panel {
-    border: 1px solid color-mix(in oklab, var(--color-border) 72%, transparent);
+    border: 1px solid color-mix(in oklab, var(--color-border) 58%, transparent);
     color: var(--color-card-foreground);
   }
 
   .media-surface {
     @apply bg-card/80 shadow-sm;
-    box-shadow: var(--stream-shadow);
+    box-shadow: none;
   }
 
   .page-intro {
-    @apply mb-8 flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-end sm:justify-between;
+    @apply mb-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between;
     border-color: color-mix(in oklab, var(--color-border) 62%, transparent);
   }
 
@@ -492,6 +492,13 @@
   .page-stack {
     padding-top: clamp(5.5rem, 8vw, 6.75rem);
     padding-bottom: clamp(3rem, 8vw, 5rem);
+  }
+
+  @media (max-width: 767px) {
+    .page-stack {
+      padding-top: 1.5rem;
+      padding-bottom: max(6rem, calc(4rem + env(safe-area-inset-bottom)));
+    }
   }
 
   .text-metadata {

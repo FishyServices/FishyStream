@@ -7,6 +7,7 @@ const GITHUB_BUG_REPORT_URL = `${GITHUB_URL}/issues/new?template=bug_report.yml`
 export function ProjectCard() {
   return (
     <section
+      data-fishy-project
       className="page-shell-wide border-t border-border/55 pb-10 pt-5 sm:pb-14 sm:pt-6"
       aria-labelledby="project-card-title"
     >

@@ -46,9 +46,10 @@ function fishyAnimeApiPlugin(apiKey: string | undefined): Plugin {
 
         try {
           const requestUrl = `http://${request.headers.host ?? "localhost"}${request.url ?? "/api/anime"}`;
-          const result = new URL(requestUrl).searchParams.get("backend") === "jikan"
-            ? await fetchJikanAnimeCatalog(requestUrl, apiKey)
-            : await fetchAnimeCatalog(requestUrl, apiKey);
+          const result =
+            new URL(requestUrl).searchParams.get("backend") === "jikan"
+              ? await fetchJikanAnimeCatalog(requestUrl, apiKey)
+              : await fetchAnimeCatalog(requestUrl, apiKey);
           response.statusCode = 200;
           response.setHeader("Content-Type", "application/json");
           response.setHeader("Cache-Control", "no-store");

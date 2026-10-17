@@ -136,7 +136,10 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="empty-state flex min-h-64 items-center justify-center rounded-xl border border-dashed border-border/70 bg-card/28 px-6 py-14 text-center">
+    <div
+      data-fishy-empty-state
+      className="empty-state flex min-h-64 items-center justify-center rounded-xl border border-dashed border-border/70 bg-card/28 px-6 py-14 text-center"
+    >
       <div className="max-w-sm space-y-3">
         {icon ? (
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl border border-primary/20 bg-primary/8 text-primary/70">
@@ -160,7 +163,7 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="page-intro">
+    <div data-fishy-page-header className="page-intro">
       <div className="min-w-0 flex items-baseline gap-2">
         <div>
           <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
@@ -177,7 +180,11 @@ export function PageHeader({
 }
 
 export function FilterBar({ children }: { children: ReactNode }) {
-  return <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">{children}</div>;
+  return (
+    <div data-fishy-filter-bar className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+      {children}
+    </div>
+  );
 }
 
 export function IconTooltipButton({

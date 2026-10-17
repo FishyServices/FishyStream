@@ -65,7 +65,7 @@ function SettingRow({
           <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
         ) : null}
       </div>
-      <div className="sm:min-w-48 sm:max-w-[16rem]">{control}</div>
+      <div className="sm:min-w-40 sm:max-w-[14rem]">{control}</div>
     </div>
   );
 }
@@ -129,7 +129,7 @@ function ProviderPicker({
           <Button
             type="button"
             variant="outline"
-            className="w-full justify-between rounded-xl border-border/70 bg-background/70 text-foreground hover:bg-accent"
+            className="w-full justify-between rounded-lg border-border/70 bg-background/70 text-foreground hover:bg-accent"
             aria-expanded={open}
           >
             <span className="flex min-w-0 flex-col items-start text-left">
@@ -204,7 +204,7 @@ export function SettingsPage() {
   const { settings, updateSetting, resetSettings } = useAppSettings();
 
   return (
-    <div className="app-canvas min-h-screen text-foreground">
+    <div data-fishy-page="settings" className="app-canvas min-h-screen text-foreground">
       <Header />
 
       <main className="page-shell page-stack">
@@ -248,12 +248,12 @@ export function SettingsPage() {
                   value={settings.accent}
                   onValueChange={(value) => updateSetting("accent", value as any)}
                 >
-                  <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/70 text-foreground">
+                  <SelectTrigger className="w-full rounded-lg border-border/70 bg-background/70 text-foreground">
                     <SelectValue placeholder="Accent" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="indigo">Indigo</SelectItem>
-                    <SelectItem value="cyan">Cyan</SelectItem>
+                    <SelectItem value="indigo">Tidal blue</SelectItem>
+                    <SelectItem value="cyan">Sea glass</SelectItem>
                     <SelectItem value="rose">Rose</SelectItem>
                     <SelectItem value="emerald">Emerald</SelectItem>
                   </SelectContent>
@@ -268,7 +268,7 @@ export function SettingsPage() {
                   value={settings.radius}
                   onValueChange={(value) => updateSetting("radius", value as any)}
                 >
-                  <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/70 text-foreground">
+                  <SelectTrigger className="w-full rounded-lg border-border/70 bg-background/70 text-foreground">
                     <SelectValue placeholder="Radius" />
                   </SelectTrigger>
                   <SelectContent>
@@ -328,7 +328,7 @@ export function SettingsPage() {
                       updateSetting("defaultMovieSort", value as typeof settings.defaultMovieSort)
                     }
                   >
-                    <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/70 text-foreground">
+                    <SelectTrigger className="w-full rounded-lg border-border/70 bg-background/70 text-foreground">
                       <SelectValue placeholder="Sort" />
                     </SelectTrigger>
                     <SelectContent>
@@ -351,7 +351,7 @@ export function SettingsPage() {
                       updateSetting("defaultTVSort", value as typeof settings.defaultTVSort)
                     }
                   >
-                    <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/70 text-foreground">
+                    <SelectTrigger className="w-full rounded-lg border-border/70 bg-background/70 text-foreground">
                       <SelectValue placeholder="Sort" />
                     </SelectTrigger>
                     <SelectContent>
@@ -410,7 +410,7 @@ export function SettingsPage() {
                       updateSetting("defaultAnimeLanguage", value as AnimeLanguagePreference)
                     }
                   >
-                    <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/70 text-foreground">
+                    <SelectTrigger className="w-full rounded-lg border-border/70 bg-background/70 text-foreground">
                       <SelectValue placeholder="Audio" />
                     </SelectTrigger>
                     <SelectContent>

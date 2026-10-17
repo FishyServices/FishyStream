@@ -156,7 +156,10 @@ export function Hero({
   };
 
   return (
-    <section className="group/hero relative h-[58svh] min-h-120 w-full max-h-190 overflow-hidden border-b border-border/45 sm:h-[68vh] sm:min-h-135">
+    <section
+      data-fishy-scene="feature"
+      className="group/hero relative h-[58svh] min-h-120 w-full max-h-190 overflow-hidden border-b border-border/45 sm:h-[68vh] sm:min-h-135"
+    >
       <div className="absolute inset-0 bg-neutral-950">
         <div
           className={`absolute inset-0 transition-all duration-1000 ease-out ${loaded ? "opacity-100" : "opacity-0"}`}
@@ -191,7 +194,7 @@ export function Hero({
           loaded ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
         }`}
       >
-        <div className="max-w-xl space-y-3 sm:max-w-2xl">
+        <div className="feature-copy max-w-xl space-y-3 sm:max-w-2xl">
           {activeContent.logoUrl ? (
             <img
               src={activeContent.logoUrl}

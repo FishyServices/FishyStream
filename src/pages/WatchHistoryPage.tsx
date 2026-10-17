@@ -161,7 +161,7 @@ export function WatchHistoryPage() {
   const isInitialLoad = isLoading && history.length === 0 && !isSearching;
 
   return (
-    <div className="app-canvas min-h-screen">
+    <div data-fishy-page="history" className="app-canvas min-h-screen">
       <Header />
 
       <main className="page-shell-wide page-stack pb-16">
@@ -207,7 +207,7 @@ export function WatchHistoryPage() {
                   </Button>
                 }
               />
-              <DropdownMenuContent className="w-52 rounded-xl border-border/70 bg-popover p-1">
+              <DropdownMenuContent className="w-48 rounded-lg border-border/70 bg-popover p-1">
                 {HISTORY_SORT_OPTIONS.map((option) => (
                   <DropdownMenuItem
                     key={option.id}

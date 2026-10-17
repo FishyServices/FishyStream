@@ -37,4 +37,3 @@ export function pickResumePositionSeconds(
 export function clampProgress(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
 }
-

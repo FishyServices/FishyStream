@@ -12,7 +12,7 @@ export function RecommendationsPage() {
   });
 
   return (
-    <div className="app-canvas min-h-screen">
+    <div data-fishy-page="recommendations" className="app-canvas min-h-screen">
       <Header />
       <main className="page-shell-wide page-stack">
         <RecommendationsSection />

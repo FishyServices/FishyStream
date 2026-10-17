@@ -229,7 +229,7 @@ function ItemActionsMenu({
   return (
     <DropdownMenu open={isOpen} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger render={trigger} />
-      <DropdownMenuContent className="w-56 rounded-lg border-border bg-popover p-1 shadow-md">
+      <DropdownMenuContent className="w-48 rounded-lg border-border bg-popover p-1 shadow-md">
         <FolderPickerItems folderOptions={folderOptions} onSelect={onAssignFolder} />
         <div className="my-1 h-px bg-border" />
         <DropdownMenuItem
@@ -1009,7 +1009,7 @@ export function BookmarkPage() {
 
   if (bookmark === undefined) {
     return (
-      <div className="app-canvas min-h-screen">
+      <div data-fishy-page="bookmarks" className="app-canvas min-h-screen">
         <Header />
         <div className="page-shell-wide page-stack">
           <GridSkeleton variant="library" />
@@ -1034,7 +1034,7 @@ export function BookmarkPage() {
     listTypeFilter === "all";
 
   return (
-    <div className="app-canvas library-page min-h-screen">
+    <div data-fishy-page="bookmarks" className="app-canvas library-page min-h-screen">
       <Header />
 
       <main className="page-shell-wide page-stack pb-28">
@@ -1250,7 +1250,7 @@ export function BookmarkPage() {
                       </Button>
                     }
                   />
-                  <DropdownMenuContent className="mt-2 w-48 rounded-xl border-border/70 bg-popover p-1 shadow-sm">
+                  <DropdownMenuContent className="mt-2 w-44 rounded-lg border-border/70 bg-popover p-1 shadow-sm">
                     {SORT_OPTIONS.map((option) => (
                       <DropdownMenuItem
                         key={option.id}
@@ -1424,7 +1424,7 @@ export function BookmarkPage() {
                     </Button>
                   }
                 />
-                <DropdownMenuContent className="mb-2 w-56 rounded-lg border-border bg-popover p-1 shadow-md">
+                <DropdownMenuContent className="mb-2 w-48 rounded-lg border-border bg-popover p-1 shadow-md">
                   <FolderPickerItems folderOptions={folderOptions} onSelect={handleBulkMove} />
                 </DropdownMenuContent>
               </DropdownMenu>

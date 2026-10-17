@@ -50,7 +50,7 @@ export const TV_SORT_OPTIONS: SortOption[] = [
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   theme: "dark",
   radius: "rounded",
-  accent: "indigo",
+  accent: "cyan",
   defaultMovieSort: "popular",
   defaultTVSort: "popular",
   bookmarkSort: "recently",

@@ -113,7 +113,7 @@ function HomepageContent({
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div data-fishy-page="home" className="app-canvas min-h-screen text-foreground">
       <Toaster position="top-right" richColors />
       <Header />
 

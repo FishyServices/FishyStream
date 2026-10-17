@@ -16,24 +16,24 @@ colors:
   warning: "oklch(0.78 0.12 85)"
 typography:
   display:
-    fontFamily: "Space Grotesk, Instrument Sans, ui-sans-serif, sans-serif"
+    fontFamily: "system-ui, Segoe UI, sans-serif"
     fontSize: "clamp(2rem, 5vw, 3.5rem)"
     fontWeight: 600
     lineHeight: "0.95"
     letterSpacing: "-0.02em"
   headline:
-    fontFamily: "Space Grotesk, Instrument Sans, ui-sans-serif, sans-serif"
+    fontFamily: "system-ui, Segoe UI, sans-serif"
     fontSize: "clamp(1.5rem, 3vw, 2.25rem)"
     fontWeight: 600
     lineHeight: "1.2"
     letterSpacing: "-0.015em"
   title:
-    fontFamily: "Space Grotesk, Instrument Sans, ui-sans-serif, sans-serif"
+    fontFamily: "system-ui, Segoe UI, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 600
     lineHeight: "1.3"
   body:
-    fontFamily: "Instrument Sans, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "system-ui, Segoe UI, sans-serif"
     fontSize: "0.9375rem"
     fontWeight: 400
     lineHeight: "1.5"
@@ -81,7 +81,7 @@ components:
 
 **Creative North Star: "The Abyssal Cinema"**
 
-FishyStream's design system establishes a high-contrast, immersive dark environment built for zero-friction media discovery and video playback. Derived directly from `src/index.css` and `@fishy/ui` component implementations, the visual identity pairs deep ocean dark backgrounds (`oklch(0.15 0.01 240)`) with indigo/cyan highlights (`oklch(0.62 0.1 182)`), clean display typography (`Space Grotesk`), and tactile glassmorphic containers (`.media-surface`, `.fishy-glass`).
+FishyStream's design system establishes a high-contrast, immersive dark environment built for zero-friction media discovery and video playback. Derived directly from `src/index.css` and `@fishy/ui` component implementations, the visual identity pairs deep ocean dark backgrounds (`oklch(0.15 0.01 240)`) with indigo/cyan highlights (`oklch(0.62 0.1 182)`), readable system typography, and restrained surface treatments (`.media-surface`, `.fishy-glass`).
 
 The app shell seamlessly scales across touch screens and desktop monitors:
 
@@ -128,8 +128,7 @@ The color palette is anchored in OKLCH dark mode tokens defined in `node_modules
 
 ## Typography
 
-**Display Font:** Space Grotesk (with Instrument Sans, ui-sans-serif fallback)  
-**Body Font:** Instrument Sans (with ui-sans-serif, system-ui fallback)  
+**Display and Body Fonts:** system UI font stack (`system-ui`, Segoe UI fallback)  
 **Monospace / Eyebrow Font:** IBM Plex Mono
 
 ### Hierarchy
@@ -207,7 +206,7 @@ Responsive Layout Rules:
 - **Do** place persistent AI context files in `docs/` and point to them from `AGENTS.md`.
 - **Do** honor touch target sizes (minimum 44x44px `.touch-target`) on mobile viewports.
 - **Do** use `env(safe-area-inset-bottom)` on fixed mobile navigation bars to support native Android / iOS bottom gesture bars.
-- **Do** apply `Space Grotesk` font family for section titles and hero headlines.
+- **Do** use the system UI font stack for readable headings and body text.
 
 ### Don't:
 

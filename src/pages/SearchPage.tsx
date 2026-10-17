@@ -113,7 +113,7 @@ export function SearchPage() {
   };
 
   return (
-    <div className="app-canvas min-h-screen">
+    <div data-fishy-page="search" className="app-canvas min-h-screen">
       <Header />
 
       <main className="page-shell-wide page-stack">
@@ -180,7 +180,7 @@ export function SearchPage() {
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/65 text-sm text-foreground sm:w-36">
+                  <SelectTrigger className="w-full rounded-lg border-border/70 bg-background/65 text-sm text-foreground sm:w-32">
                     <Film className="h-3.5 w-3.5 shrink-0" />
                     <span>{typeLabel}</span>
                   </SelectTrigger>
@@ -201,7 +201,7 @@ export function SearchPage() {
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full rounded-xl border-border/70 bg-background/65 text-sm text-foreground sm:w-40">
+                  <SelectTrigger className="w-full rounded-lg border-border/70 bg-background/65 text-sm text-foreground sm:w-36">
                     <Filter className="h-3.5 w-3.5 shrink-0" />
                     <span>{sortLabel}</span>
                   </SelectTrigger>

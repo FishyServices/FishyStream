@@ -46,7 +46,10 @@ export function ContentRow({
   if (content.length === 0) return null;
 
   return (
-    <section className="group relative isolate overflow-hidden py-4 pb-8 sm:py-6 sm:pb-10">
+    <section
+      data-fishy-content-row
+      className="group relative isolate overflow-hidden py-4 pb-8 sm:py-6 sm:pb-10"
+    >
       <div className="page-shell-wide relative z-40 mb-4 flex items-center justify-between gap-3 sm:mb-5">
         <div>
           <h2

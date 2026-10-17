@@ -156,7 +156,7 @@ createRoot(document.getElementById("root")!).render(
       variables: {
         colorPrimary: "oklch(0.62 0.1 182)",
         borderRadius: "0.75rem",
-        fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif"
+        fontFamily: "system-ui, Segoe UI, sans-serif"
       }
     }}
   >

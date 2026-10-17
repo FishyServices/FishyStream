@@ -127,6 +127,7 @@ export function MovieCard({
   return (
     <>
       <div
+        data-fishy-content-card
         className={`group/card isolate relative ${layout === "rail" ? "snap-start shrink-0" : ""} ${widthClass} cursor-pointer select-none`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -137,7 +138,10 @@ export function MovieCard({
         }}
         tabIndex={0}
         role="button"
+        aria-haspopup="dialog"
+        aria-keyshortcuts="Enter Space"
         onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             handleModalChange(true);

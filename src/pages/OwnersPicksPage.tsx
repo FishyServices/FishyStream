@@ -22,7 +22,7 @@ export function OwnersPicksPage() {
 
   if (isLoading) {
     return (
-      <div className="app-canvas min-h-screen">
+      <div data-fishy-page="picks" className="app-canvas min-h-screen">
         <Header />
         <div className="page-shell-wide page-stack">
           <GridSkeleton variant="picks" />
@@ -38,7 +38,7 @@ export function OwnersPicksPage() {
   ];
 
   return (
-    <div className="app-canvas min-h-screen pb-20 text-foreground">
+    <div data-fishy-page="picks" className="app-canvas min-h-screen pb-20 text-foreground">
       <Header />
 
       <main className="page-shell-wide page-stack">

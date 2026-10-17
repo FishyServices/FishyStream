@@ -71,10 +71,12 @@ function Brand({ compact = false }: { compact?: boolean }) {
 function NavLink({
   item,
   collapsed,
+  mobile = false,
   onNavigate
 }: {
   item: NavItem;
   collapsed?: boolean;
+  mobile?: boolean;
   onNavigate?: () => void;
 }) {
   const location = useLocation();
@@ -86,14 +88,19 @@ function NavLink({
       to={item.href}
       onClick={onNavigate}
       title={collapsed ? item.label : undefined}
+      aria-current={active ? "page" : undefined}
       className={`group relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-[background-color,color,transform] hover:translate-x-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         active
           ? "bg-primary/10 text-primary ring-1 ring-primary/20 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-      } ${collapsed ? "justify-center px-0 xl:justify-start xl:px-3" : ""}`}
+      } ${collapsed ? "justify-center px-0 xl:justify-start xl:px-3" : ""} ${mobile ? "min-w-0 flex-1 flex-col justify-center gap-1 rounded-xl px-1 py-1 text-[10px] leading-none hover:translate-x-0 before:hidden" : ""}`}
     >
-      <Icon className="h-4.5 w-4.5 shrink-0" />
-      <span className={collapsed ? "hidden xl:block" : "block"}>{item.label}</span>
+      <Icon className={mobile ? "h-5 w-5 shrink-0" : "h-4.5 w-4.5 shrink-0"} />
+      <span
+        className={mobile ? "block max-w-full truncate" : collapsed ? "hidden xl:block" : "block"}
+      >
+        {item.label}
+      </span>
     </Link>
   );
 }
@@ -198,7 +205,10 @@ export function Header() {
 
   return (
     <>
-      <aside className="app-rail flex-col bg-linear-to-b from-card/72 via-background/96 to-background px-3 py-5 shadow-[12px_0_30px_color-mix(in_oklab,var(--color-background)_35%,transparent)]">
+      <aside
+        data-fishy-navigation="desktop"
+        className="app-rail flex-col bg-linear-to-b from-card/72 via-background/96 to-background px-3 py-5 shadow-[12px_0_30px_color-mix(in_oklab,var(--color-background)_35%,transparent)]"
+      >
         <div className="mb-9 px-2 xl:px-1">
           <span className="xl:hidden">
             <Brand compact />
@@ -272,6 +282,7 @@ export function Header() {
           <Button
             variant="ghost"
             size="icon"
+            className="min-h-11 min-w-11"
             onClick={() => setSearchOpen(true)}
             aria-label="Search"
           >
@@ -280,6 +291,7 @@ export function Header() {
           <Button
             variant="ghost"
             size="icon"
+            className="min-h-11 min-w-11"
             onClick={() => setMenuOpen(true)}
             aria-label="Open menu"
           >
@@ -287,28 +299,29 @@ export function Header() {
           </Button>
         </div>
       </header>
-      <nav className="app-bottom-nav" aria-label="Mobile navigation">
-        <div className="mx-auto flex max-w-md items-center justify-between">
+      <nav data-fishy-navigation="mobile" className="app-bottom-nav" aria-label="Mobile navigation">
+        <div className="mx-auto flex max-w-md items-stretch justify-between gap-1">
           {primaryNav.slice(0, 2).map((item) => (
-            <NavLink key={item.href} item={item} collapsed />
+            <NavLink key={item.href} item={item} collapsed mobile />
           ))}
           <Button
-            size="icon"
-            className="h-11 w-11 rounded-full shadow-sm "
+            variant="ghost"
+            className="min-h-11 min-w-0 flex-1 flex-col gap-1 rounded-xl px-1 py-1 text-[10px] leading-none"
             onClick={() => setSearchOpen(true)}
             aria-label="Search"
           >
-            <Search className="h-5 w-5" />
+            <Search className="h-5 w-5 shrink-0" />
+            <span>Search</span>
           </Button>
-          <NavLink item={libraryNav[0]!} collapsed />
+          <NavLink item={libraryNav[0]!} collapsed mobile />
           <Button
             variant="ghost"
-            size="icon"
-            className="h-11 w-11"
+            className="min-h-11 min-w-0 flex-1 flex-col gap-1 rounded-xl px-1 py-1 text-[10px] leading-none"
             onClick={() => setMenuOpen(true)}
             aria-label="Open menu"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-5 w-5 shrink-0" />
+            <span>More</span>
           </Button>
         </div>
       </nav>

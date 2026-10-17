@@ -17,7 +17,7 @@ export function DmcaPage() {
   });
 
   return (
-    <div className="app-canvas min-h-screen text-foreground">
+    <div data-fishy-page="legal" className="app-canvas min-h-screen text-foreground">
       <Header />
 
       <main className="page-shell-wide page-stack pb-20">

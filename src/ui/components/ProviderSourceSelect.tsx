@@ -103,7 +103,7 @@ export function ProviderSourceSelect({
     : undefined;
 
   return (
-    <div ref={containerRef} className={`relative ${className ?? ""}`}>
+    <div ref={containerRef} data-fishy-provider-select className={`relative ${className ?? ""}`}>
       <Button
         type="button"
         variant="ghost"
@@ -118,7 +118,7 @@ export function ProviderSourceSelect({
       >
         <MonitorPlay className={isHeader ? "w-4 h-4 shrink-0" : "w-3.5 h-3.5 shrink-0"} />
         <span className="flex-1 truncate text-left">
-          {autoSelected ? "Auto" : selectedSourceName ?? triggerLabel ?? "Source"}
+          {autoSelected ? "Auto" : (selectedSourceName ?? triggerLabel ?? "Source")}
         </span>
         {useCustomPlayer && hasCustomOption ? (
           <Sparkles
@@ -139,7 +139,7 @@ export function ProviderSourceSelect({
           role="listbox"
           className={
             isHeader
-              ? "absolute left-0 right-auto z-50 mt-2 w-[min(18rem,calc(100vw-1rem))] overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-sm sm:left-auto sm:right-0 sm:w-72"
+              ? "absolute left-0 right-auto z-50 mt-2 w-[min(18rem,calc(100vw-1rem))] overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-sm sm:left-auto sm:right-0 sm:w-64"
               : "mt-2 w-full overflow-hidden rounded-xl border border-border/70 bg-popover/98 text-popover-foreground shadow-lg"
           }
         >
