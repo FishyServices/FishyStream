@@ -914,12 +914,12 @@ export function ContentModal({
                     setEpisodeLoadError(null);
                   }}
                 >
-                  <SelectTrigger className="w-36 rounded-lg border-border/80 bg-background text-foreground">
+                  <SelectTrigger className="w-48 rounded-xl border-border/80 bg-background text-foreground">
                     <SelectValue placeholder="Season">
                       {selectedSeason === 0 ? "Specials" : `Season ${selectedSeason}`}
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent className="border-border/80 bg-popover text-popover-foreground">
+                  <SelectContent className="max-h-64 w-48 min-w-48 border-border/80 bg-popover text-popover-foreground">
                     {[
                       ...(hasSpecials ? [0] : []),
                       ...Array.from({ length: totalSeasons }, (_, i) => i + 1)

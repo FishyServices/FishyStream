@@ -139,7 +139,7 @@ export function ProviderSourceSelect({
           role="listbox"
           className={
             isHeader
-              ? "absolute left-0 right-auto z-50 mt-2 w-[min(18rem,calc(100vw-1rem))] overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-sm sm:left-auto sm:right-0 sm:w-64"
+              ? "absolute left-0 right-auto z-50 mt-2 w-[min(18rem,calc(100vw-1rem))] overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-sm sm:left-auto sm:right-0 sm:w-72"
               : "mt-2 w-full overflow-hidden rounded-xl border border-border/70 bg-popover/98 text-popover-foreground shadow-lg"
           }
         >
@@ -187,7 +187,7 @@ export function ProviderSourceSelect({
                 type="button"
                 variant="ghost"
                 aria-selected={autoSelected}
-                className={`h-auto w-full justify-between rounded-none px-3 py-2 text-sm font-medium ${
+                className={`h-10 min-h-10 w-full shrink-0 justify-between rounded-none px-3 text-sm font-medium ${
                   autoSelected ? "text-primary" : "text-popover-foreground"
                 }`}
                 onClick={() => {
@@ -258,10 +258,10 @@ export function ProviderSourceSelect({
                         }}
                         className={
                           isHeader
-                            ? `flex w-full items-center justify-between gap-2 rounded-none px-3 py-1.5 h-auto text-left text-sm font-normal hover:bg-accent hover:text-accent-foreground ${
+                            ? `flex h-10 min-h-10 w-full shrink-0 items-center justify-between gap-2 rounded-none px-3 text-left text-sm font-normal hover:bg-accent hover:text-accent-foreground ${
                                 isSelected ? "text-primary" : "text-popover-foreground"
                               }`
-                            : `flex w-full items-center justify-between gap-2 rounded-none px-3 py-1.5 h-auto text-left text-xs font-normal hover:bg-accent ${
+                            : `flex h-10 min-h-10 w-full shrink-0 items-center justify-between gap-2 rounded-none px-3 text-left text-xs font-normal hover:bg-accent ${
                                 isSelected ? "text-primary" : "text-popover-foreground"
                               }`
                         }
