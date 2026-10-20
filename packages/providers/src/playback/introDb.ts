@@ -1,7 +1,7 @@
 import { isRecord } from "../shared/guards.js";
 import type { MediaType } from "../shared/media.js";
 
-const INTRO_DB_MEDIA_URL = "/api/introdb";
+const INTRO_DB_MEDIA_URL = "https://api.theintrodb.org/v4/media";
 const SEGMENT_KINDS = ["intro", "recap", "credits", "preview"] as const;
 
 export type SkipSegmentKind = (typeof SEGMENT_KINDS)[number];
@@ -49,7 +49,7 @@ function readTimestamps(value: unknown): RawTimestamp[] {
 
 function buildMediaUrl(lookup: IntroDbPlaybackLookup): URL | undefined {
   const { tvdbId, tmdbId, imdbId, type, season, episode, durationSeconds } = lookup;
-  const url = new URL(INTRO_DB_MEDIA_URL, window.location.origin);
+  const url = new URL(INTRO_DB_MEDIA_URL);
   const numericTvdbId = parseNumericId(tvdbId);
   const numericTmdbId = parseNumericId(tmdbId);
 

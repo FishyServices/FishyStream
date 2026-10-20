@@ -197,11 +197,6 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
-        "/api/introdb": {
-          target: "https://api.theintrodb.org",
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/introdb/, "/v4/media")
-        },
         "/api/imdb": {
           target: "https://api.graphql.imdb.com",
           changeOrigin: true,
