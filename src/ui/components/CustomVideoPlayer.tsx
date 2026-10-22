@@ -54,6 +54,7 @@ interface CustomVideoPlayerProps {
   onDownloadRequestConsumed?: () => void;
   isDub: boolean;
   onPlaybackEvent: (event: PlaybackEvent) => void;
+  onIntroDbEndTime: (endTime: number | null) => void;
   showDubToggle: boolean;
   handleDubToggle: (isDub: boolean) => void;
   selectedSource: string;
@@ -215,6 +216,7 @@ export function CustomVideoPlayer({
   onDownloadRequestConsumed,
   isDub,
   onPlaybackEvent,
+  onIntroDbEndTime,
   showDubToggle,
   handleDubToggle,
   selectedSource,
@@ -245,6 +247,7 @@ export function CustomVideoPlayer({
   const anime4kPluginRef = useRef<Anime4kPlugin | null>(null);
   const volumeBoostRef = useRef(readPlayerVolumeBoost());
   const onPlaybackEventRef = useRef(onPlaybackEvent);
+  const onIntroDbEndTimeRef = useRef(onIntroDbEndTime);
   const onNextEpisodeRef = useRef(onNextEpisode);
   const showNextEpisodeButtonRef = useRef(showNextEpisodeButton);
   const isNextEpisodeCooldownRef = useRef(isNextEpisodeCooldown);
@@ -300,6 +303,7 @@ export function CustomVideoPlayer({
 
   useEffect(() => {
     onPlaybackEventRef.current = onPlaybackEvent;
+    onIntroDbEndTimeRef.current = onIntroDbEndTime;
   }, [onPlaybackEvent]);
 
   useEffect(() => {
@@ -848,6 +852,7 @@ export function CustomVideoPlayer({
                 const outro = segments.find(
                   (segment) => segment.kind === "credits" || segment.kind === "preview"
                 );
+                onIntroDbEndTimeRef.current(outro?.start ?? null);
                 setSkipTimes({
                   intro: intro ? { start: intro.start, end: intro.end } : undefined,
                   outro: outro ? { start: outro.start, end: outro.end } : undefined

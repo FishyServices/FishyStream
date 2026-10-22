@@ -420,18 +420,6 @@ export function SettingsPage() {
                   </Select>
                 }
               />
-
-              <SettingRow
-                label="Auto advance episodes"
-                description="Skip to next at 98%"
-                control={
-                  <ToggleSettingControl
-                    id="auto-advance"
-                    checked={settings.autoAdvanceEpisodes}
-                    onCheckedChange={(checked) => updateSetting("autoAdvanceEpisodes", checked)}
-                  />
-                }
-              />
             </SettingsSection>
 
             <SettingsSection icon={<Bug className="h-4 w-4" />} title="Developer">

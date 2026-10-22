@@ -143,6 +143,8 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const nextEpisodeClickLockedRef = useRef(false);
   const nextEpisodeCooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isNextEpisodeCooldown, setIsNextEpisodeCooldown] = useState(false);
+  const [playbackPositionSeconds, setPlaybackPositionSeconds] = useState(0);
+  const [introDbEndTimeSeconds, setIntroDbEndTimeSeconds] = useState<number | null>(null);
   const [autoProviderStatus, setAutoProviderStatus] = useState<string | null>(null);
   const [clearingAniListMappings, setClearingAniListMappings] = useState(false);
   const [aniListMaintenanceMessage, setAniListMaintenanceMessage] = useState("");
@@ -679,6 +681,8 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
     tvTargetRef.current = next;
     setTvTarget(next);
+    setPlaybackPositionSeconds(0);
+    setIntroDbEndTimeSeconds(null);
     lastSyncedProgressRef.current = 0;
     lastSyncedPositionRef.current = 0;
 
@@ -711,6 +715,13 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       ? clamp(watchState?.progress ?? 0)
       : 0;
   const nextEpisodeProgress = Math.max(currentProgress, matchingEpisodeWatchProgress);
+  const introDbProgress =
+    introDbEndTimeSeconds !== null && introDbEndTimeSeconds > 0
+      ? clamp((playbackPositionSeconds / introDbEndTimeSeconds) * 100)
+      : 0;
+  const episodeProgressForNavigation = Math.max(nextEpisodeProgress, introDbProgress);
+  const reachedIntroDbEnd =
+    introDbEndTimeSeconds !== null && playbackPositionSeconds >= introDbEndTimeSeconds;
   const showNextEpisodeFallback =
     content.type === "tv" &&
     hasNextEpisode &&
@@ -718,33 +729,12 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const showNextEpisodeButton =
     content.type === "tv" &&
     hasNextEpisode &&
-    (nextEpisodeProgress >= 85 || showNextEpisodeFallback);
-  const autoAdvancedRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (content.type !== "tv") return;
-    if (!settings.autoAdvanceEpisodes) return;
-    if (!showNextEpisodeButton) return;
-    if (nextEpisodeProgress < 98) return;
-
-    const key = `${content._id}:${tvTarget.season}:${tvTarget.episode}`;
-    if (autoAdvancedRef.current === key) return;
-    autoAdvancedRef.current = key;
-    handleNextEpisode();
-  }, [
-    content._id,
-    content.type,
-    nextEpisodeProgress,
-    settings.autoAdvanceEpisodes,
-    showNextEpisodeButton,
-    tvTarget.episode,
-    tvTarget.season
-  ]);
-
-  useEffect(() => {
-    autoAdvancedRef.current = null;
-  }, [content._id, tvTarget.season, tvTarget.episode]);
-
+    (reachedIntroDbEnd || episodeProgressForNavigation >= 85 || showNextEpisodeFallback);
+  const handlePlaybackEvent = (event: Parameters<typeof reportPlaybackEvent>[0]) => {
+    if (typeof event.currentTime === "number" && Number.isFinite(event.currentTime))
+      setPlaybackPositionSeconds(event.currentTime);
+    reportPlaybackEvent(event);
+  };
   useEffect(() => {
     return () => {
       if (nextEpisodeCooldownTimeoutRef.current) {
@@ -980,7 +970,8 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
             }}
             downloadRequest={downloadRequest}
             isDub={isDub}
-            onPlaybackEvent={reportPlaybackEvent}
+            onPlaybackEvent={handlePlaybackEvent}
+            onIntroDbEndTime={setIntroDbEndTimeSeconds}
             showDubToggle={showDubToggle}
             handleDubToggle={handleDubToggle}
             selectedSource={selectedSource}

@@ -66,10 +66,6 @@ function parseSettings(value: unknown): AppSettings {
       ANIME_LANGUAGES,
       DEFAULT_APP_SETTINGS.defaultAnimeLanguage
     ),
-    autoAdvanceEpisodes: chooseBoolean(
-      value.autoAdvanceEpisodes,
-      DEFAULT_APP_SETTINGS.autoAdvanceEpisodes
-    ),
     showEpisodeRatings: chooseBoolean(
       value.showEpisodeRatings,
       DEFAULT_APP_SETTINGS.showEpisodeRatings
