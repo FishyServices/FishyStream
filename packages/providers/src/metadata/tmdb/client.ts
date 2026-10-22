@@ -49,10 +49,7 @@ export interface TMDBClient extends MetadataClient {
   popular(type: MediaType, signal?: AbortSignal): Promise<TMDBListResponse>;
   nowPlaying(signal?: AbortSignal): Promise<TMDBListResponse>;
   search(query: string, type: MediaType, options?: TMDBSearchOptions): Promise<TMDBSearchResult>;
-  searchAll(
-    query: string,
-    options?: TMDBSearchOptions
-  ): Promise<{ movies: TMDBSearchResult; shows: TMDBSearchResult }>;
+  searchAll(query: string, options?: TMDBSearchOptions): Promise<TMDBSearchResult>;
   discover(type: MediaType, options?: TMDBDiscoverOptions): Promise<TMDBDiscoverResult>;
   findByImdbId(imdbId: string, type: MediaType, signal?: AbortSignal): Promise<string | null>;
   fullDetail(id: TMDBId, type: MediaType, signal?: AbortSignal): Promise<TMDBFullDetail | null>;
@@ -186,12 +183,19 @@ export function createTMDBClient(request: TMDBRequest = createTMDBRequest()): TM
     };
   }
 
-  async function searchAll(query: string, options: TMDBSearchOptions = {}) {
-    const [movies, shows] = await Promise.all([
-      search(query, "movie", options),
-      search(query, "tv", options)
-    ]);
-    return { movies, shows };
+  async function searchAll(
+    query: string,
+    options: TMDBSearchOptions = {}
+  ): Promise<TMDBSearchResult> {
+    const response = await list(
+      "/search/multi",
+      { query, page: options.page ?? 1 },
+      options.signal
+    );
+    const items = (response.results ?? [])
+      .filter((item) => item.media_type === "movie" || item.media_type === "tv")
+      .map((item) => toItem(item, item.media_type as MediaType));
+    return { items, totalPages: response.total_pages ?? 1 };
   }
 
   async function discover(

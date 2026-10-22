@@ -168,9 +168,10 @@ export default defineConfig(({ mode }) => {
     build: {
       target: "esnext",
       modulePreload: { polyfill: false },
+      cssCodeSplit: true,
       chunkSizeWarningLimit: 1000,
-      minify: "esbuild",
-      cssMinify: true,
+      minify: "oxc",
+      cssMinify: "lightningcss",
       reportCompressedSize: false,
       rolldownOptions: {
         external: devDeps,
@@ -182,14 +183,14 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (id.includes("node_modules")) {
               if (id.includes("@clerk")) return "vendor-clerk";
-              if (id.includes("lucide-react")) return "vendor-icons";
-              if (id.includes("react") || id.includes("react-dom")) return "vendor-react";
               if (id.includes("@radix-ui")) return "vendor-ui";
               if (id.includes("hls.js")) return "vendor-hls";
+              if (id.includes("artplayer-plugin-anime4k")) return "vendor-anime4k";
+              if (id.includes("artplayer")) return "vendor-artplayer";
               if (id.includes("convex")) return "vendor-convex";
               if (id.includes("react-router")) return "vendor-router";
+              if (id.includes("react") || id.includes("react-dom")) return "vendor-react";
               if (id.includes("@capacitor")) return "vendor-capacitor";
-              return "vendor";
             }
           }
         }

@@ -1,14 +1,9 @@
 import { useState } from "react";
 import { Play, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { TMDBItem, TMDBFullDetail } from "@/features/catalog/queries/useContent";
+import type { TMDBItem } from "@/features/catalog/queries/useContent";
 import { ContentModal } from "./ContentModal";
 import { Button } from "@fishy/ui";
-import {
-  DEFAULT_TMDB_API_KEY,
-  createTMDBClient,
-  createTMDBRequest
-} from "@fishy/providers/metadata/tmdb";
 import { buildWatchPath } from "@/shared/navigation/watchNavigation";
 import { isBlockedContent } from "@/features/catalog/model/contentPolicy";
 
@@ -31,30 +26,7 @@ export function SearchCard({
   const [hovered, setHovered] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const [tmdbDetail, setTmdbDetail] = useState<TMDBFullDetail | null | undefined>(undefined);
-  const [isResolvingContent, setIsResolvingContent] = useState(false);
   const navigate = useNavigate();
-
-  const apiKey = (import.meta.env.TMDB_API_KEY as string | undefined) ?? DEFAULT_TMDB_API_KEY;
-
-  const ensureDetail = async () => {
-    if (tmdbDetail) return tmdbDetail;
-    if (isResolvingContent) return null;
-    setIsResolvingContent(true);
-    try {
-      const result =
-        item.type === "tv"
-          ? await createTMDBClient(createTMDBRequest(apiKey)).fullDetail(String(item.tmdbId), "tv")
-          : await createTMDBClient(createTMDBRequest(apiKey)).fullDetail(
-              String(item.tmdbId),
-              "movie"
-            );
-      setTmdbDetail(result);
-      return result;
-    } finally {
-      setIsResolvingContent(false);
-    }
-  };
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -62,10 +34,7 @@ export function SearchCard({
     navigate(buildWatchPath({ tmdbId: String(item.tmdbId), type: item.type }));
   };
 
-  const handleCardClick = async () => {
-    await ensureDetail();
-    setShowModal(true);
-  };
+  const handleCardClick = () => setShowModal(true);
 
   const widthClass =
     layout === "grid"
@@ -181,32 +150,16 @@ export function SearchCard({
         </div>
       </div>
 
-      {showModal && tmdbDetail && (
+      {showModal && (
         <ContentModal
           content={{
-            _id: `tmdb:${tmdbDetail.type}:${tmdbDetail.tmdbId}` as import("@content/contentMetadata").ContentId,
-            title: tmdbDetail.title,
-            type: tmdbDetail.type,
-            year: tmdbDetail.year,
-            posterUrl: tmdbDetail.posterUrl,
-            backdropUrl: tmdbDetail.backdropUrl,
-            description: tmdbDetail.description,
-            rating: tmdbDetail.rating,
-            voteAverage: tmdbDetail.voteAverage,
-            genre: tmdbDetail.genre,
-            tmdbId: tmdbDetail.tmdbId,
-            logoUrl: tmdbDetail.logoUrl,
-            trailerKey: tmdbDetail.trailerKey,
-            duration: tmdbDetail.duration,
-            seasons: tmdbDetail.seasons,
-            hasSpecials: tmdbDetail.hasSpecials,
-            tagline: tmdbDetail.tagline,
-            originalLanguage: tmdbDetail.originalLanguage,
-            imdbId: tmdbDetail.imdbId,
-            totalEpisodes: tmdbDetail.totalEpisodes,
-            status: tmdbDetail.status,
-            trending: tmdbDetail.trending,
-            new: tmdbDetail.isNew
+            _id: `tmdb:${item.type}:${item.tmdbId}` as import("@content/contentMetadata").ContentId,
+            title: item.title,
+            type: item.type,
+            year: item.year,
+            posterUrl: item.posterUrl,
+            tmdbId: String(item.tmdbId),
+            voteAverage: item.voteAverage
           }}
           isOpen={showModal}
           onClose={() => setShowModal(false)}

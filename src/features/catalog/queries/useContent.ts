@@ -523,19 +523,17 @@ export function useSearchAll(query: string) {
     setError(null);
     const timer = window.setTimeout(
       () =>
-        void Promise.all([
-          tmdbMovies.search(normalized, apiKey(), controller.signal, 1),
-          tmdbTvShows.search(normalized, apiKey(), controller.signal, 1)
-        ])
-          .then(([movies, shows]) => {
+        void createTMDBClient(createTMDBRequest(apiKey()))
+          .searchAll(normalized, { page: 1, signal: controller.signal })
+          .then((search) => {
             if (current !== generation.current) return;
             setResults(
-              [...movies.items, ...shows.items].filter(
+              search.items.filter(
                 (item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type })
               )
             );
             setPage(1);
-            setTotalPages(Math.max(movies.totalPages, shows.totalPages));
+            setTotalPages(search.totalPages);
           })
           .catch((reason: unknown) => {
             if (!controller.signal.aborted && current === generation.current)
@@ -560,19 +558,19 @@ export function useSearchAll(query: string) {
     setLoadingMore(true);
     setError(null);
     try {
-      const [movies, shows] = await Promise.all([
-        tmdbMovies.search(normalized, apiKey(), controller.signal, page + 1),
-        tmdbTvShows.search(normalized, apiKey(), controller.signal, page + 1)
-      ]);
+      const search = await createTMDBClient(createTMDBRequest(apiKey())).searchAll(normalized, {
+        page: page + 1,
+        signal: controller.signal
+      });
       if (current === generation.current) {
         setResults((old) => [
           ...old,
-          ...[...movies.items, ...shows.items].filter(
+          ...search.items.filter(
             (item) => !isBlockedContent({ tmdbId: item.tmdbId, type: item.type })
           )
         ]);
         setPage((old) => old + 1);
-        setTotalPages(Math.max(movies.totalPages, shows.totalPages));
+        setTotalPages(search.totalPages);
       }
     } catch (reason: unknown) {
       if (!controller.signal.aborted && current === generation.current)
@@ -813,7 +811,7 @@ export function useAnimeBrowseContent(
 ): AnimeBrowseResult {
   const [allItems, setAllItems] = useState<ContentCard[]>([]);
   const [visibleCount, setVisibleCount] = useState(32);
-  const [loadedPage, setLoadedPage] = useState(2);
+  const [loadedPage, setLoadedPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -826,30 +824,22 @@ export function useAnimeBrowseContent(
     const controller = new AbortController();
     setAllItems([]);
     setVisibleCount(32);
-    setLoadedPage(2);
+    setLoadedPage(1);
     setTotalPages(1);
     setIsLoading(true);
     setError(null);
 
-    void Promise.all(
-      [1, 2].map((page) =>
-        fetchAnimeCatalogPage({
-          page,
-          media,
-          sort: sortBy,
-          genre,
-          signal: controller.signal
-        })
-      )
-    )
-      .then((responses) => {
+    void fetchAnimeCatalogPage({
+      page: 1,
+      media,
+      sort: sortBy,
+      genre,
+      signal: controller.signal
+    })
+      .then((response) => {
         if (controller.signal.aborted || currentGeneration !== generation.current) return;
-        const items = responses.reduce(
-          (merged, response) => mergeAnimeItems(merged, response.items),
-          [] as ContentCard[]
-        );
-        setAllItems(items);
-        setTotalPages(Math.max(...responses.map((response) => response.totalPages)));
+        setAllItems(response.items);
+        setTotalPages(response.totalPages);
       })
       .catch((reason: unknown) => {
         if (!controller.signal.aborted && currentGeneration === generation.current)
@@ -885,7 +875,7 @@ export function useAnimeBrowseContent(
       .then((response) => {
         if (currentGeneration !== generation.current) return;
         setAllItems((current) => mergeAnimeItems(current, response.items));
-        setLoadedPage((current) => current + 1);
+        setLoadedPage(loadedPage + 1);
         setTotalPages((current) => Math.max(current, response.totalPages));
         setVisibleCount((current) => current + 32);
       })
@@ -1105,24 +1095,32 @@ export function useRecommendations(
       if (cached && Date.now() - cached.timestamp < 6 * 60 * 60 * 1000) {
         return cached.cards.filter((card) => !excludedIds.has(cardKey(card)));
       }
-      const responses = await Promise.all([
-        fetchTmdbListOrEmpty(
-          `/${seedItem.type}/${seedItem.tmdbId}/recommendations`,
-          apiKey(),
-          controller.signal
-        ),
-        fetchTmdbListOrEmpty(
+      const recommendations = await fetchTmdbListOrEmpty(
+        `/${seedItem.type}/${seedItem.tmdbId}/recommendations`,
+        apiKey(),
+        controller.signal
+      );
+      const cards = collectContentCards([{ data: recommendations, type: seedItem.type }], {
+        typeFilter,
+        excludedIds
+      })
+        .map(cardFromTmdb)
+        .filter((card): card is ContentCard => card !== null);
+      if (cards.length < limit) {
+        const similar = await fetchTmdbListOrEmpty(
           `/${seedItem.type}/${seedItem.tmdbId}/similar`,
           apiKey(),
           controller.signal
-        )
-      ]);
-      const cards = collectContentCards(
-        responses.map((data) => ({ data, type: seedItem.type })),
-        { typeFilter, excludedIds }
-      )
-        .map(cardFromTmdb)
-        .filter((card): card is ContentCard => card !== null);
+        );
+        const fallbackCards = collectContentCards([{ data: similar, type: seedItem.type }], {
+          typeFilter,
+          excludedIds
+        })
+          .map(cardFromTmdb)
+          .filter((card): card is ContentCard => card !== null);
+        const existingIds = new Set(cards.map(cardKey));
+        cards.push(...fallbackCards.filter((card) => !existingIds.has(cardKey(card))));
+      }
       cache[key] = { timestamp: Date.now(), cards };
       return cards;
     };

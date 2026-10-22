@@ -1,6 +1,6 @@
-import { buildUrl, requestJson, type Fetcher } from "../../shared/http.js";
+import { type Fetcher } from "../../shared/http.js";
 import type { MediaType } from "../../shared/media.js";
-import { TMDB_BASE_URL } from "../../metadata/tmdb/request.js";
+import { searchTmdbTitle } from "../tmdbTitleSearch.js";
 import type { AnimeCatalogItem, AnimeCatalogResult } from "../anilist/catalog.js";
 import { createKitsuClient, createKitsuRequest } from "./client.js";
 
@@ -8,17 +8,6 @@ const POSTER_BASE_URL = "https://image.tmdb.org/t/p/w500";
 const MATCH_CONCURRENCY = 4;
 const KITSU_SOURCE_PAGE_SIZE = 20;
 const CATALOG_PAGE_SIZE = 40;
-
-interface TmdbSearchResponse {
-  results?: Array<{
-    id?: number;
-    poster_path?: string | null;
-    title?: string;
-    original_title?: string;
-    name?: string;
-    original_name?: string;
-  }>;
-}
 
 function parseFilters(requestUrl: string) {
   const params = new URL(requestUrl).searchParams;
@@ -49,20 +38,14 @@ async function findTmdbMatch(
   const normalizedTitles = new Set(titles.map(normalizeTitle).filter(Boolean));
   for (const title of titles) {
     for (const includeYear of year ? [true, false] : [false]) {
-      const response = (await requestJson(
-        "TMDB",
-        buildUrl(TMDB_BASE_URL, `/search/${type}`, {
-          api_key: apiKey,
-          language: "en-US",
-          query: title,
-          page: 1,
-          include_adult: includeAdult,
-          ...(includeYear && year
-            ? { [type === "movie" ? "year" : "first_air_date_year"]: year }
-            : {})
-        }),
-        { fetcher }
-      ).catch(() => null)) as TmdbSearchResponse | null;
+      const response = await searchTmdbTitle(
+        type,
+        title,
+        includeYear ? year : 0,
+        includeAdult,
+        apiKey,
+        fetcher
+      ).catch(() => null);
       const match = response?.results?.find((result) => {
         if (!result.id) return false;
         return [result.title, result.original_title, result.name, result.original_name]

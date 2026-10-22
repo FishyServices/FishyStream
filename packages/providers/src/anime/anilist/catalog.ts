@@ -1,6 +1,6 @@
-import { buildUrl, HttpError, requestJson, type Fetcher } from "../../shared/http.js";
+import { HttpError, type Fetcher } from "../../shared/http.js";
 import type { MediaType } from "../../shared/media.js";
-import { TMDB_BASE_URL } from "../../metadata/tmdb/request.js";
+import { searchTmdbTitle } from "../tmdbTitleSearch.js";
 import { queryAniList } from "./request.js";
 import type { AniListMedia } from "./types.js";
 
@@ -42,10 +42,6 @@ interface CatalogPage {
     pageInfo?: { lastPage?: number | null; total?: number | null } | null;
     media?: CatalogMedia[] | null;
   } | null;
-}
-
-interface TmdbSearchResponse {
-  results?: Array<{ id?: number; poster_path?: string | null }>;
 }
 
 interface TmdbMatch {
@@ -139,17 +135,16 @@ async function findTmdbMatch(
   const type = mediaTypeOf(media);
   const year = media.startDate?.year;
   const search = async (includeYear: boolean) => {
-    const url = buildUrl(TMDB_BASE_URL, `/search/${type}`, {
-      api_key: apiKey,
-      language: "en-US",
-      query: title,
-      page: 1,
-      include_adult: false,
-      ...(includeYear && year ? { [type === "movie" ? "year" : "first_air_date_year"]: year } : {})
-    });
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return (await requestJson("TMDB", url, { fetcher })) as TmdbSearchResponse;
+        return await searchTmdbTitle(
+          type,
+          title,
+          includeYear ? (year ?? 0) : 0,
+          false,
+          apiKey,
+          fetcher
+        );
       } catch (error) {
         if (!(error instanceof HttpError) || error.status !== 429 || attempt >= 2) throw error;
         await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
