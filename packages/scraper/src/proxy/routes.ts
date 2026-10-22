@@ -33,9 +33,29 @@ function target(c: { req: { query: (name: string) => string | undefined } }): st
   return url;
 }
 
-async function upstreamError(label: string, url: string, response: Response): Promise<string> {
+function upstreamLabel(url: string, requestHeaders?: StreamHeaders): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== "tryembed.us.cc" || !parsed.pathname.startsWith("/s/"))
+      return url.slice(0, 120);
+    const cookieNames = (requestHeaders?.Cookie ?? "")
+      .split(";")
+      .map((cookie) => cookie.split("=", 1)[0]?.trim())
+      .filter((name): name is string => Boolean(name?.startsWith("tryembed_")));
+    return `TryEmbed /s/<redacted> (session cookies: ${cookieNames.join(", ") || "none"}; Origin: ${Boolean(requestHeaders?.Origin)}; Referer: ${Boolean(requestHeaders?.Referer)})`;
+  } catch {
+    return url.slice(0, 120);
+  }
+}
+
+async function upstreamError(
+  label: string,
+  url: string,
+  response: Response,
+  requestHeaders?: StreamHeaders
+): Promise<string> {
   const body = await response.text().catch(() => "");
-  console.log(`[proxy] ${label} upstream ${response.status} for ${url.slice(0, 120)}`);
+  console.log(`[proxy] ${label} upstream ${response.status} for ${upstreamLabel(url, requestHeaders)}`);
   console.log(`[proxy]   body: ${body.slice(0, 200)}`);
   return `Upstream returned ${response.status}`;
 }
@@ -68,7 +88,8 @@ async function limitedPlaylistFetch(
 ): Promise<PlaylistResult> {
   return withPlaylistSlot(async () => {
     const response = await fetchWithRetry(url, requestHeaders);
-    if (!response.ok) return { ok: false, error: await upstreamError("m3u8", url, response) };
+    if (!response.ok)
+      return { ok: false, error: await upstreamError("m3u8", url, response, requestHeaders) };
     const content = await response.text();
     return { ok: true, body: rewritePlaylist(content, response.url || url, base, requestHeaders) };
   });

@@ -15,6 +15,7 @@ import { getVidySourceOptions, resolveVidy, resolveVidySource } from "./catalog/
 import { resolveVidFast } from "./catalog/broken/vidFast";
 import { resolveAniEmbed } from "./catalog/aniEmbed";
 import { resolveCinezo } from "./catalog/cinezo";
+import { resolveTryEmbed } from "./catalog/broken/tryEmbed";
 import type { Stream, StreamSourceOption } from "../types";
 
 export type Provider = {
@@ -138,6 +139,12 @@ const cinezoProvider: Provider = {
   resolve: resolveCinezo
 };
 
+const tryEmbedProvider: Provider = {
+  id: "tryembed",
+  matches: (url) => url.hostname === "tryembed.us.cc",
+  resolve: resolveTryEmbed
+};
+
 const genericProvider: Provider = {
   id: "direct-fetch",
   matches: () => true,
@@ -161,6 +168,7 @@ export const providers: readonly Provider[] = [
   vidFastProvider,
   aniEmbedProvider,
   cinezoProvider,
+  tryEmbedProvider,
   genericProvider
 ];
 

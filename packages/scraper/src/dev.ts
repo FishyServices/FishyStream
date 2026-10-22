@@ -7,4 +7,4 @@ const server = Bun.serve({
   }
 });
 
-console.log(`FishyStream scraper listening on http://localhost:${server.port}`);
+console.log(`scraper listening on http://localhost:${server.port}`);
