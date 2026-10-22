@@ -14,6 +14,26 @@ describe("player messages", () => {
     expect(payload?.data.currentTime).toBe(50);
   });
 
+  it("rejects unknown events and drops invalid progress fields", () => {
+    expect(
+      parsePlayerMessage({ type: "PLAYER_EVENT", data: { event: "ad-click", mediaType: "movie" } })
+    ).toBeNull();
+
+    const payload = parsePlayerMessage({
+      type: "PLAYER_EVENT",
+      data: {
+        event: "timeupdate",
+        currentTime: "not-a-time",
+        duration: 100,
+        progress: Number.POSITIVE_INFINITY,
+        mediaType: "movie"
+      }
+    });
+    expect(payload?.data.currentTime).toBeUndefined();
+    expect(payload?.data.duration).toBe(100);
+    expect(payload?.data.progress).toBeUndefined();
+  });
+
   it("normalizes JSON and legacy media progress payloads", () => {
     const payload = parsePlayerMessage(
       JSON.stringify({
@@ -28,6 +48,45 @@ describe("player messages", () => {
       id: "42",
       mediaType: "movie"
     });
+  });
+
+  it("normalizes Videasy documented progress events", () => {
+    const payload = parsePlayerMessage({
+      type: "PLAYER_EVENT",
+      data: {
+        player_info: { tmdb: 123, mediaType: "tv", season: 2, episode: 4 },
+        player_status: "playing",
+        player_progress: 90,
+        player_duration: 180
+      }
+    });
+    expect(payload?.data).toMatchObject({
+      event: "timeupdate",
+      id: "123",
+      mediaType: "tv",
+      season: 2,
+      episode: 4,
+      currentTime: 90,
+      duration: 180,
+      progress: 50
+    });
+  });
+
+  it("normalizes VidZen documented timeupdate and event payloads", () => {
+    const payload = parsePlayerMessage({
+      type: "timeupdate",
+      data: { currentTime: 142.5, duration: 7200, percent: 0.02, mediaId: "42", mediaType: "movie" }
+    });
+    expect(payload?.data).toMatchObject({
+      event: "timeupdate",
+      currentTime: 142.5,
+      duration: 7200,
+      progress: 2,
+      id: "42",
+      mediaType: "movie"
+    });
+    expect(parsePlayerMessage({ type: "ended", data: { currentTime: 100, duration: 100 } })?.data.event)
+      .toBe("ended");
   });
 
   it("normalizes raw progress and MegaPlay completion messages", () => {

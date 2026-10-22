@@ -304,7 +304,7 @@ export function CustomVideoPlayer({
   useEffect(() => {
     onPlaybackEventRef.current = onPlaybackEvent;
     onIntroDbEndTimeRef.current = onIntroDbEndTime;
-  }, [onPlaybackEvent]);
+  }, [onIntroDbEndTime, onPlaybackEvent]);
 
   useEffect(() => {
     onNextEpisodeRef.current = onNextEpisode;

@@ -30,8 +30,7 @@ import { useAppSettings } from "@/features/settings/useAppSettings";
 import { useOneShotConvexQuery } from "@/shared/useOneShotConvexQuery";
 import {
   parsePlayerMessage,
-  isTrustedPlayerMessageOrigin,
-  postMessageToPlayer
+  isTrustedPlayerMessageOrigin
 } from "@fishy/providers/playback";
 import {
   getNextEpisodeAddress,
@@ -311,8 +310,6 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     reportPlaybackEvent
   } = session;
   const selectedSource = selectedSourceConfig?.url ?? "";
-  const supportsProgressEvents = !!selectedProvider?.progress;
-  const canRequestStatus = !!selectedProvider?.progress?.controlApi;
   const iframeReferrerPolicy = selectedProvider?.referrerPolicy ?? "no-referrer-when-downgrade";
 
   useEffect(() => {
@@ -454,7 +451,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   }, [searchParams, selectedSourceConfig?.server.id, setSearchParams, settings.defaultProvider]);
 
   useEffect(() => {
-    if (!embedUrl || useCustomPlayer || (!supportsProgressEvents && !autoProviderEnabled)) return;
+    if (!embedUrl || useCustomPlayer) return;
 
     let expectedOrigin: string;
     try {
@@ -465,9 +462,20 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
     const handleMsg = (event: MessageEvent) => {
       const originMatchesProvider = isTrustedPlayerMessageOrigin(event.origin, expectedOrigin);
+      const sourceMatchesIframe =
+        !iframeRef.current?.contentWindow || event.source === iframeRef.current.contentWindow;
+      if (import.meta.env.DEV) {
+        console.debug("[FishyStream player message]", {
+          provider: selectedProvider?.key,
+          origin: event.origin,
+          expectedOrigin,
+          originMatchesProvider,
+          sourceMatchesIframe,
+          data: event.data
+        });
+      }
       if (!originMatchesProvider && event.origin !== expectedOrigin) return;
-      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow)
-        return;
+      if (!sourceMatchesIframe) return;
 
       if (
         content.type === "tv" &&
@@ -494,16 +502,26 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     };
 
     window.addEventListener("message", handleMsg);
-    return () => window.removeEventListener("message", handleMsg);
+    const statusPollIntervalMs = selectedProvider?.progress?.statusPollIntervalMs;
+    const requestStatus = () =>
+      iframeRef.current?.contentWindow?.postMessage({ command: "getStatus" }, expectedOrigin);
+    const statusPollId = statusPollIntervalMs
+      ? window.setInterval(requestStatus, statusPollIntervalMs)
+      : undefined;
+    if (statusPollIntervalMs) requestStatus();
+
+    return () => {
+      window.removeEventListener("message", handleMsg);
+      if (statusPollId !== undefined) window.clearInterval(statusPollId);
+    };
   }, [
     content._id,
     content.tmdbId,
     content.type,
     embedUrl,
     selectedSourceConfig,
-    supportsProgressEvents,
+    selectedProvider?.progress?.statusPollIntervalMs,
     animeContent,
-    autoProviderEnabled,
     isDub,
     useCustomPlayer,
     reportPlaybackEvent
@@ -536,50 +554,25 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   ]);
 
   useEffect(() => {
-    if (
-      useCustomPlayer ||
-      (selectedProvider?.key !== "vidcore" &&
-        selectedProvider?.key !== "vidzen" &&
-        selectedProvider?.key !== "vidfast" &&
-        selectedProvider?.key !== "vidlove" &&
-        selectedProvider?.key !== "cinesrc") ||
-      resumePositionSeconds <= 0
-    ) {
-      return;
-    }
+    const resumeMessage = selectedProvider?.progress?.resumeMessage ??
+      (selectedProvider?.progress?.controlApi ? { command: "seek", timeField: "time" } : undefined);
+    if (useCustomPlayer || !resumeMessage || resumePositionSeconds <= 0) return;
 
     const iframe = iframeRef.current;
     if (!iframe) return;
 
     const seekToSavedPosition = () => {
-      if (selectedProvider?.key === "vidlove") {
-        iframe.contentWindow?.postMessage(
-          { type: "SET_TIME", time: resumePositionSeconds },
-          new URL(embedUrl).origin
-        );
-        return;
-      }
-      if (selectedProvider?.key === "cinesrc") {
-        iframe.contentWindow?.postMessage(
-          {
-            type: "cinesrc:command",
-            command: "seek",
-            args: [resumePositionSeconds]
-          },
-          new URL(embedUrl).origin
-        );
-        return;
-      }
-      postMessageToPlayer(
-        iframe,
-        "seek",
-        { time: resumePositionSeconds },
-        { serialize: selectedProvider?.key === "vidzen" }
-      );
+      const payload: Record<string, unknown> = {};
+      if (resumeMessage.type) payload.type = resumeMessage.type;
+      if (resumeMessage.command) payload.command = resumeMessage.command;
+      if (resumeMessage.args) payload.args = [resumePositionSeconds];
+      else payload[resumeMessage.timeField ?? "time"] = resumePositionSeconds;
+      const message = resumeMessage.serialize ? JSON.stringify(payload) : payload;
+      iframe.contentWindow?.postMessage(message, new URL(embedUrl).origin);
     };
     iframe.addEventListener("load", seekToSavedPosition);
     return () => iframe.removeEventListener("load", seekToSavedPosition);
-  }, [embedUrl, resumePositionSeconds, selectedProvider?.key, useCustomPlayer]);
+  }, [embedUrl, resumePositionSeconds, selectedProvider?.progress, useCustomPlayer]);
 
   const handleProviderSelect = async (
     nextUrl: string,
@@ -715,21 +708,12 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       ? clamp(watchState?.progress ?? 0)
       : 0;
   const nextEpisodeProgress = Math.max(currentProgress, matchingEpisodeWatchProgress);
-  const introDbProgress =
-    introDbEndTimeSeconds !== null && introDbEndTimeSeconds > 0
-      ? clamp((playbackPositionSeconds / introDbEndTimeSeconds) * 100)
-      : 0;
-  const episodeProgressForNavigation = Math.max(nextEpisodeProgress, introDbProgress);
   const reachedIntroDbEnd =
     introDbEndTimeSeconds !== null && playbackPositionSeconds >= introDbEndTimeSeconds;
-  const showNextEpisodeFallback =
-    content.type === "tv" &&
-    hasNextEpisode &&
-    (!canRequestStatus || selectedProvider?.key === "vidzen");
   const showNextEpisodeButton =
     content.type === "tv" &&
     hasNextEpisode &&
-    (reachedIntroDbEnd || episodeProgressForNavigation >= 85 || showNextEpisodeFallback);
+    (reachedIntroDbEnd || nextEpisodeProgress >= 85 || !selectedProvider?.progress?.controlApi);
   const handlePlaybackEvent = (event: Parameters<typeof reportPlaybackEvent>[0]) => {
     if (typeof event.currentTime === "number" && Number.isFinite(event.currentTime))
       setPlaybackPositionSeconds(event.currentTime);

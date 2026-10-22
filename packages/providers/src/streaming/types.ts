@@ -49,6 +49,14 @@ export type ProviderReferrerPolicy =
 export interface ProviderProgressConfig {
   resumeParam?: "progress" | "startAt" | "time";
   controlApi?: boolean;
+  statusPollIntervalMs?: number;
+  resumeMessage?: {
+    type?: string;
+    command?: string;
+    timeField?: string;
+    args?: boolean;
+    serialize?: boolean;
+  };
   forceStartPosition?: boolean;
   resumeContentTypes?: readonly MediaType[];
 }

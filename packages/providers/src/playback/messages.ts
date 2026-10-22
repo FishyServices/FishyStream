@@ -25,186 +25,19 @@ export interface PlayerEventPayload {
   data: PlayerEventData;
 }
 
-type RawMediaKind = "movie" | "tv" | "anime";
-type PayloadParser = (payload: unknown) => PlayerEventPayload | null;
-
-const CINESRC_PREFIX = "cinesrc:";
-const CINESRC_EVENTS: Readonly<Record<string, PlayerEventName>> = {
-  play: "play",
-  pause: "pause",
-  timeupdate: "timeupdate",
-  seeking: "seeked",
-  seeked: "seeked",
-  ended: "ended"
-};
+const PLAYER_EVENTS = new Set<PlayerEventName>([
+  "timeupdate",
+  "play",
+  "pause",
+  "ended",
+  "seeked",
+  "playerstatus"
+]);
 
 export function calculateProgress(currentTime: number, duration: number): number {
   if (!duration || duration <= 0) return 0;
   return clamp((currentTime / duration) * 100, 0, 100);
 }
-
-function parseMaybeJson(raw: unknown): unknown {
-  if (typeof raw !== "string") return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return raw;
-  }
-}
-
-function isMediaKind(value: unknown): value is RawMediaKind {
-  return value === "movie" || value === "tv" || value === "anime";
-}
-
-function toMediaType(value: unknown): MediaType {
-  return value === "movie" ? "movie" : "tv";
-}
-
-function timeupdate(data: Omit<PlayerEventData, "event" | "timestamp">): PlayerEventPayload {
-  return { type: "PLAYER_EVENT", data: { event: "timeupdate", ...data, timestamp: Date.now() } };
-}
-
-const parsePlayerEvent: PayloadParser = (payload) => {
-  if (!isRecord(payload) || payload.type !== "PLAYER_EVENT" || !isRecord(payload.data)) return null;
-  if (typeof payload.data.event !== "string") return null;
-  const data = payload.data as unknown as PlayerEventData;
-  return {
-    type: "PLAYER_EVENT",
-    data: {
-      ...data,
-      mediaType: toMediaType(data.mediaType),
-      season: toFiniteNumber(data.season),
-      episode: toFiniteNumber(data.episode)
-    }
-  };
-};
-
-function unwrapMediaRecord(value: unknown): Record<string, unknown> | null {
-  const isMediaRecord = (candidate: unknown): candidate is Record<string, unknown> =>
-    isRecord(candidate) &&
-    isRecord(candidate.progress) &&
-    candidate.id !== undefined &&
-    isMediaKind(candidate.type) &&
-    toFiniteNumber(candidate.progress.watched) !== undefined &&
-    toFiniteNumber(candidate.progress.duration) !== undefined;
-
-  if (isMediaRecord(value)) return value;
-  if (!isRecord(value)) return null;
-  const first = Object.values(value)[0];
-  return isMediaRecord(first) ? first : null;
-}
-
-function mediaRecordToEvent(record: Record<string, unknown>): PlayerEventPayload {
-  const progress = record.progress as Record<string, unknown>;
-  const watched = toFiniteNumber(progress.watched) ?? 0;
-  const duration = toFiniteNumber(progress.duration) ?? 0;
-  return timeupdate({
-    currentTime: watched,
-    duration,
-    progress: toFiniteNumber(progress.percentage) ?? calculateProgress(watched, duration),
-    id: String(record.id),
-    mediaType: toMediaType(record.mediaType ?? record.type)
-  });
-}
-
-const parseMediaData: PayloadParser = (payload) => {
-  const source =
-    isRecord(payload) && payload.type === "MEDIA_DATA" ? parseMaybeJson(payload.data) : payload;
-  const record = unwrapMediaRecord(source);
-  return record ? mediaRecordToEvent(record) : null;
-};
-
-const parseRawProgress: PayloadParser = (payload) => {
-  if (!isRecord(payload) || payload.id === undefined || !isMediaKind(payload.type)) return null;
-  const progress = toFiniteNumber(payload.progress);
-  const currentTime = toFiniteNumber(payload.timestamp);
-  const duration = toFiniteNumber(payload.duration);
-  if (progress === undefined || currentTime === undefined || duration === undefined) return null;
-  return timeupdate({
-    currentTime,
-    duration,
-    progress,
-    id: String(payload.id),
-    mediaType: toMediaType(payload.type),
-    season: toFiniteNumber(payload.season),
-    episode: toFiniteNumber(payload.episode)
-  });
-};
-
-const parseMegaPlayTime: PayloadParser = (payload) => {
-  if (!isRecord(payload)) return null;
-  const { event } = payload;
-  if (event !== "time" && event !== "complete" && event !== "error") return null;
-  const time = toFiniteNumber(payload.time);
-  const duration = toFiniteNumber(payload.duration);
-  const percent = toFiniteNumber(payload.percent);
-  if (time === undefined && duration === undefined && percent === undefined) return null;
-
-  const currentTime = Math.max(0, time ?? 0);
-  const total = Math.max(0, duration ?? 0);
-  return {
-    type: "PLAYER_EVENT",
-    data: {
-      event: event === "complete" ? "ended" : "timeupdate",
-      currentTime,
-      duration: total,
-      progress: percent ?? calculateProgress(currentTime, total),
-      mediaType: "tv",
-      timestamp: Date.now()
-    }
-  };
-};
-
-const parseMegaPlayWatchingLog: PayloadParser = (payload) => {
-  if (!isRecord(payload) || payload.type !== "watching-log") return null;
-  const time = toFiniteNumber(payload.currentTime);
-  const duration = toFiniteNumber(payload.duration);
-  if (time === undefined && duration === undefined) return null;
-
-  const currentTime = Math.max(0, time ?? 0);
-  const total = Math.max(0, duration ?? 0);
-  return timeupdate({
-    currentTime,
-    duration: total,
-    progress: calculateProgress(currentTime, total),
-    mediaType: "tv"
-  });
-};
-
-const parseCineSrc: PayloadParser = (payload) => {
-  if (!isRecord(payload) || typeof payload.type !== "string") return null;
-  if (!payload.type.startsWith(CINESRC_PREFIX)) return null;
-  const event = CINESRC_EVENTS[payload.type.slice(CINESRC_PREFIX.length)];
-  if (!event) return null;
-
-  const rawTime = toFiniteNumber(payload.currentTime);
-  const rawDuration = toFiniteNumber(payload.duration);
-  return {
-    type: "PLAYER_EVENT",
-    data: {
-      event,
-      currentTime: rawTime === undefined ? undefined : Math.max(0, rawTime),
-      duration: rawDuration === undefined ? undefined : Math.max(0, rawDuration),
-      progress:
-        rawTime === undefined || rawDuration === undefined
-          ? undefined
-          : calculateProgress(rawTime, rawDuration),
-      mediaType: "tv",
-      volume: toFiniteNumber(payload.volume),
-      muted: typeof payload.muted === "boolean" ? payload.muted : undefined,
-      timestamp: Date.now()
-    }
-  };
-};
-
-const PARSERS: readonly PayloadParser[] = [
-  parsePlayerEvent,
-  parseMediaData,
-  parseRawProgress,
-  parseMegaPlayTime,
-  parseMegaPlayWatchingLog,
-  parseCineSrc
-];
 
 export function isKnownPlayerOrigin(origin: string): boolean {
   return getProviderByOrigin(origin) !== undefined;
@@ -221,12 +54,139 @@ export function parsePlayerMessage(
 ): PlayerEventPayload | null {
   if (origin && !isTrustedPlayerMessageOrigin(origin, expectedOrigin)) return null;
 
-  const payload = parseMaybeJson(raw);
-  if (typeof raw === "string" && payload === raw) return null;
+  const parseJson = (value: unknown): unknown => {
+    if (typeof value !== "string") return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return undefined;
+    }
+  };
+  let message = parseJson(raw);
+  if (!isRecord(message)) return null;
 
-  for (const parse of PARSERS) {
-    const event = parse(payload);
-    if (event) return event;
+  let body: unknown = message.data ?? message;
+  if (isRecord(body) && typeof body.encoding === "string" && typeof body.data === "string") {
+    if (body.encoding.toLowerCase() === "hex") {
+      if (!/^(?:[\da-f]{2})+$/i.test(body.data)) return null;
+      try {
+        const bytes = Uint8Array.from(body.data.match(/.{2}/g) ?? [], (byte) =>
+          Number.parseInt(byte, 16)
+        );
+        body = new TextDecoder().decode(bytes);
+      } catch {
+        return null;
+      }
+    } else {
+      body = body.data;
+    }
   }
-  return null;
+  body = parseJson(body);
+  if (!isRecord(body)) return null;
+
+  const findProgressRecord = (value: unknown, depth = 0): Record<string, unknown> | undefined => {
+    if (!isRecord(value) || depth > 3) return undefined;
+    if (
+      isRecord(value.progress) &&
+      value.id !== undefined &&
+      toFiniteNumber(value.progress.watched) !== undefined &&
+      toFiniteNumber(value.progress.duration) !== undefined
+    )
+      return value;
+    for (const child of Object.values(value)) {
+      const nested = findProgressRecord(child, depth + 1);
+      if (nested) return nested;
+    }
+    return undefined;
+  };
+  const mediaRecord = findProgressRecord(body);
+  const mediaProgress =
+    mediaRecord && isRecord(mediaRecord.progress) ? mediaRecord.progress : undefined;
+
+  const nestedData = isRecord(body.data) ? body.data : undefined;
+  const details = mediaProgress ?? nestedData ?? body;
+  const playerInfo = isRecord(details.player_info) ? details.player_info : undefined;
+  const rawType =
+    typeof body.type === "string"
+      ? body.type
+      : typeof message.type === "string"
+        ? message.type
+        : "";
+  const eventCandidate =
+    details.event ??
+    body.event ??
+    (rawType.includes(":") ? rawType.slice(rawType.lastIndexOf(":") + 1) : rawType);
+  const eventAliases: Readonly<Record<string, PlayerEventName>> = {
+    time: "timeupdate",
+    complete: "ended",
+    seeking: "seeked",
+    playing: "timeupdate",
+    paused: "pause",
+    completed: "ended",
+    seeked: "seeked"
+  };
+  let event = PLAYER_EVENTS.has(eventCandidate as PlayerEventName)
+    ? (eventCandidate as PlayerEventName)
+    : typeof eventCandidate === "string"
+      ? eventAliases[eventCandidate]
+      : undefined;
+  if (!event && mediaRecord) event = "timeupdate";
+
+  const status = typeof details.player_status === "string" ? details.player_status : undefined;
+  if (!event && status) event = eventAliases[status];
+  const isMediaType = (value: unknown): value is "movie" | "tv" | "anime" =>
+    value === "movie" || value === "tv" || value === "anime";
+  const hasPlaybackPosition =
+    toFiniteNumber(details.currentTime ?? details.time ?? details.player_progress) !== undefined ||
+    toFiniteNumber(mediaProgress?.watched) !== undefined ||
+    (isMediaType(body.type) && toFiniteNumber(body.timestamp) !== undefined);
+  if (!event && hasPlaybackPosition) event = "timeupdate";
+  if (!event) return null;
+
+  const currentTimeValue =
+    mediaProgress?.watched ??
+    details.currentTime ??
+    details.time ??
+    details.player_progress ??
+    (isMediaType(body.type) ? body.timestamp : undefined);
+  const durationValue =
+    mediaProgress?.duration ?? details.duration ?? details.player_duration ?? body.duration;
+  const percentValue = mediaProgress?.percentage ?? details.percent ?? details.progress;
+  const currentTime = toFiniteNumber(currentTimeValue);
+  const duration = toFiniteNumber(durationValue);
+  const percent = toFiniteNumber(percentValue);
+  const progress =
+    percent !== undefined
+      ? clamp(details.percent === percentValue && percent <= 1 ? percent * 100 : percent, 0, 100)
+      : currentTime !== undefined && duration !== undefined
+        ? calculateProgress(currentTime, duration)
+        : undefined;
+
+  return {
+    type: "PLAYER_EVENT",
+    data: {
+      event,
+      currentTime: currentTime === undefined ? undefined : Math.max(0, currentTime),
+      duration: duration === undefined ? undefined : Math.max(0, duration),
+      progress,
+      id:
+        mediaRecord?.id === undefined && details.mediaId === undefined && details.id === undefined
+          ? playerInfo?.tmdb === undefined && playerInfo?.imdb === undefined
+            ? undefined
+            : String(playerInfo.tmdb ?? playerInfo.imdb)
+          : String(mediaRecord?.id ?? details.mediaId ?? details.id),
+      tmdbId: toFiniteNumber(details.tmdbId),
+      mediaType:
+        (mediaRecord?.mediaType ?? mediaRecord?.type ?? details.mediaType ?? details.type) ===
+        "movie"
+          ? "movie"
+          : "tv",
+      season: toFiniteNumber(mediaRecord?.season ?? details.season ?? playerInfo?.season),
+      episode: toFiniteNumber(mediaRecord?.episode ?? details.episode ?? playerInfo?.episode),
+      timestamp: toFiniteNumber(details.timestamp) ?? Date.now(),
+      playing: typeof details.playing === "boolean" ? details.playing : status === "playing",
+      muted: typeof details.muted === "boolean" ? details.muted : undefined,
+      volume: toFiniteNumber(details.volume)
+    }
+  };
 }

@@ -40,7 +40,8 @@ export const STREAM_PROVIDERS: readonly ProviderCatalogEntry[] = [
     animeIdType: "anilist",
     dubSupport: true,
     referrerPolicy: "no-referrer",
-    ...embedPaths,
+    moviePath: (id) => `/embed/${id}`,
+    tvPath: (id, season, episode) => `/embedtv/${id}&s=${season}&e=${episode}`,
     animePath: dubQueryPath("/embed/anime")
   }),
   defineProvider({
@@ -66,7 +67,11 @@ export const STREAM_PROVIDERS: readonly ProviderCatalogEntry[] = [
     category: "other",
     idType: "tmdb",
     website: "https://cinesrc.st",
-    progress: { resumeParam: "time", controlApi: true },
+    progress: {
+      resumeParam: "time",
+      controlApi: true,
+      resumeMessage: { type: "cinesrc:command", command: "seek", args: true }
+    },
     params: {
       seek: { type: "number" },
       autoplay: { type: "boolean", default: true },
@@ -141,6 +146,7 @@ export const STREAM_PROVIDERS: readonly ProviderCatalogEntry[] = [
     animeOnly: true,
     animeIdType: "anilist",
     dubSupport: true,
+    progress: {},
     params: {
       color: { type: "hex" },
       autoplay: { type: "boolean" }
@@ -158,7 +164,7 @@ export const STREAM_PROVIDERS: readonly ProviderCatalogEntry[] = [
     animeOnly: true,
     animeIdType: "anilist",
     dubSupport: true,
-    progress: { resumeParam: "startAt" },
+    progress: {},
     canBeScraped: true,
     serverParam: "s",
     servers: [
@@ -327,7 +333,12 @@ export const STREAM_PROVIDERS: readonly ProviderCatalogEntry[] = [
       "https://vidfast.bz",
       "https://vidfast.xyz"
     ],
-    progress: { resumeParam: "startAt", controlApi: true, forceStartPosition: true },
+    progress: {
+      resumeParam: "startAt",
+      controlApi: true,
+      forceStartPosition: true,
+      resumeMessage: { command: "seek", timeField: "time" }
+    },
     referrerPolicy: "no-referrer",
     params: STANDARD_EMBED_PLAYER_PARAMS,
     ...plainPaths
@@ -364,7 +375,7 @@ export const STREAM_PROVIDERS: readonly ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://player.vidlove.cc",
     canBeScraped: true,
-    progress: { controlApi: true },
+    progress: { controlApi: true, resumeMessage: { type: "SET_TIME", timeField: "time" } },
     referrerPolicy: "no-referrer",
     params: {
       primarycolor: { type: "hex" },
@@ -423,7 +434,7 @@ export const STREAM_PROVIDERS: readonly ProviderCatalogEntry[] = [
     canBeScraped: true,
     animeIdType: "anilist",
     dubSupport: true,
-    progress: { resumeParam: "progress", resumeContentTypes: ["movie"] },
+    progress: { resumeParam: "progress" },
     referrerPolicy: "no-referrer",
     params: {
       startAt: { type: "time" },
@@ -516,7 +527,12 @@ export const STREAM_PROVIDERS: readonly ProviderCatalogEntry[] = [
     idType: "tmdb",
     website: "https://vidzen.fun",
     canBeScraped: true,
-    progress: { controlApi: true },
+    progress: {
+      resumeParam: "startAt",
+      controlApi: true,
+      statusPollIntervalMs: 30_000,
+      resumeMessage: { command: "seek", timeField: "time", serialize: true }
+    },
     referrerPolicy: "no-referrer",
     ...plainPaths
   }),
@@ -524,7 +540,7 @@ export const STREAM_PROVIDERS: readonly ProviderCatalogEntry[] = [
     key: "vixsrc",
     name: "VixSrc",
     category: "other",
-    idType: "tmdb",
+    idType: "both",
     website: "https://vixsrc.to",
     progress: { resumeParam: "startAt" },
     referrerPolicy: "no-referrer",

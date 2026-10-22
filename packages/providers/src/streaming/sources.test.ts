@@ -19,6 +19,23 @@ describe("provider registry", () => {
     expect(provider?.getMovieUrl("550")).toBe("https://player.vidzee.wtf/embed/movie/550");
     expect(provider?.getTVUrl("1399", 1, 1)).toBe("https://player.vidzee.wtf/embed/tv/1399/1/1");
   });
+
+  it("uses 2Embed's movie and episode URL formats", () => {
+    const provider = getProviderByKey("2embed");
+    expect(provider?.getMovieUrl("tt0133093")).toBe("https://www.2embed.cc/embed/tt0133093");
+    expect(provider?.getTVUrl("tt0903747", 1, 2)).toBe(
+      "https://www.2embed.cc/embedtv/tt0903747&s=1&e=2"
+    );
+  });
+
+  it("enables documented progress events for the anime embeds", () => {
+    expect(getProviderByKey("megavid")?.progress).toEqual({});
+    expect(getProviderByKey("megaplay")?.progress).toEqual({});
+  });
+
+  it("accepts both documented VixSrc identifier types", () => {
+    expect(getProviderByKey("vixsrc")?.idType).toBe("both");
+  });
 });
 
 describe("source building", () => {

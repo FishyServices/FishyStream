@@ -13,14 +13,14 @@ describe("provider embed urls", () => {
     expect(new URL(url).searchParams.get("startAt")).toBe("42");
   });
 
-  it("skips resume for tv on providers that only support movies", () => {
+  it("applies VidNest resume to TV episodes", () => {
     const url = createProviderEmbedUrl({
       sourceUrl: "https://vidnest.fun/tv/1/1/1",
       provider: getProviderByKey("vidnest"),
       contentType: "tv",
       resumePositionSeconds: 42
     });
-    expect(new URL(url).searchParams.has("progress")).toBe(false);
+    expect(new URL(url).searchParams.get("progress")).toBe("42");
   });
 
   it("forces the start position for providers that require it", () => {
@@ -32,6 +32,16 @@ describe("provider embed urls", () => {
       watchCompleted: true
     });
     expect(new URL(url).searchParams.get("startAt")).toBe("0");
+  });
+
+  it("passes saved progress to VidZen using its documented startAt parameter", () => {
+    const url = createProviderEmbedUrl({
+      sourceUrl: "https://vidzen.fun/movie/1",
+      provider: getProviderByKey("vidzen"),
+      contentType: "movie",
+      resumePositionSeconds: 90
+    });
+    expect(new URL(url).searchParams.get("startAt")).toBe("90");
   });
 
   it("hides episode navigation on tv embeds that support it", () => {
