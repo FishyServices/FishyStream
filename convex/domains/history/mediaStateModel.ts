@@ -4,6 +4,7 @@ import {
   makeContentId,
   parseContentId,
   type WatchHistoryItemMeta,
+  type WatchHistoryPageItem,
   type WatchProgressEntryMeta
 } from "@content/contentMetadata";
 
@@ -41,6 +42,22 @@ export function toHistoryItem(row: Doc<"mediaState">): WatchHistoryItemMeta | nu
     episodeNumber: row.episodeNumber,
     source: row.source,
     dub: row.dub
+  };
+}
+
+export function toHistoryPageItem(row: Doc<"mediaState">): WatchHistoryPageItem | null {
+  const item = toHistoryItem(row);
+  if (!item) return null;
+  return {
+    _id: item._id,
+    title: item.title,
+    type: item.type,
+    posterUrl: item.posterUrl,
+    progress: item.progress,
+    seasonNumber: item.seasonNumber,
+    episodeNumber: item.episodeNumber,
+    source: item.source,
+    dub: item.dub
   };
 }
 

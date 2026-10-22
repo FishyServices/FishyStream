@@ -9,12 +9,11 @@ import {
   normalizeLimit,
   normalizeSearch,
   progressPercent,
+  toHistoryPageItem,
   toHistoryItem,
   toProgressEntry
 } from "./mediaStateModel";
 import type { WatchHistoryItemMeta, WatchProgressEntryMeta } from "@content/contentMetadata";
-
-const MAX_SEARCH_ROWS = 300;
 
 function historyQuery(ctx: QueryCtx, viewerId: string) {
   return ctx.db
@@ -63,22 +62,18 @@ export const listWatchHistoryPage = viewerQuery({
   handler: async (ctx, { paginationOpts, search }) => {
     const normalizedSearch = normalizeSearch(search);
     if (normalizedSearch) {
-      const matches = await historyStream(ctx, ctx.viewerId)
-        .filterWith(async (row) => normalizeSearch(row.title).includes(normalizedSearch))
-        .take(MAX_SEARCH_ROWS);
-      const start = paginationOpts.cursor === null ? 0 : Number(paginationOpts.cursor);
-      const safeStart = Number.isFinite(start) && start >= 0 ? start : 0;
-      const end = safeStart + paginationOpts.numItems;
+      const result = await ctx.db
+        .query("mediaState")
+        .withSearchIndex("search_title", (q) =>
+          q.search("title", normalizedSearch).eq("clerkUserId", ctx.viewerId)
+        )
+        .paginate(paginationOpts);
 
-      return {
-        page: compact(matches.slice(safeStart, end).map(toHistoryItem)),
-        isDone: end >= matches.length,
-        continueCursor: String(end)
-      };
+      return { ...result, page: compact(result.page.map(toHistoryPageItem)) };
     }
 
     const result = await historyQuery(ctx, ctx.viewerId).paginate(paginationOpts);
-    return { ...result, page: compact(result.page.map(toHistoryItem)) };
+    return { ...result, page: compact(result.page.map(toHistoryPageItem)) };
   }
 });
 

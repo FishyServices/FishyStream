@@ -3,7 +3,12 @@ import { useUser } from "@clerk/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { useWatchProgressContext } from "./useWatchProgress";
-import { type ContentId, type WatchHistoryItemMeta } from "@content/contentMetadata";
+import {
+  fromImageWire,
+  type ContentId,
+  type WatchHistoryItemMeta,
+  type WatchHistoryPageItem
+} from "@content/contentMetadata";
 import { useOneShotConvexQuery } from "@/shared/useOneShotConvexQuery";
 import { removeWatchProgressEntry } from "@/shared/storage/viewerStateStorage";
 
@@ -12,7 +17,7 @@ const WATCH_HISTORY_PAGE_SIZE = 20;
 export function useMyWatchHistoryPagination(search = "") {
   const { user } = useUser();
   const [debouncedSearch, setDebouncedSearch] = useState(search);
-  const settledHistory = useRef<{ userId?: string; items: WatchHistoryItemMeta[] }>({
+  const settledHistory = useRef<{ userId?: string; items: WatchHistoryPageItem[] }>({
     userId: user?.id,
     items: []
   });
@@ -23,7 +28,7 @@ export function useMyWatchHistoryPagination(search = "") {
   }, [search]);
 
   const {
-    results: history,
+    results: paginatedHistory,
     status,
     loadMore
   } = usePaginatedQuery(
@@ -34,6 +39,15 @@ export function useMyWatchHistoryPagination(search = "") {
         }
       : "skip",
     { initialNumItems: WATCH_HISTORY_PAGE_SIZE }
+  );
+  const history = useMemo(
+    () =>
+      paginatedHistory.map((item) => ({
+        ...item,
+        posterUrl: fromImageWire(item.posterUrl),
+        tmdbId: item._id.slice(item._id.lastIndexOf(":") + 1)
+      })),
+    [paginatedHistory]
   );
 
   if (settledHistory.current.userId !== user?.id) {

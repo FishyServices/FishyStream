@@ -16,7 +16,11 @@ export default defineSchema({
     watchedAt: v.optional(v.number())
   })
     .index("by_clerk_content", ["clerkUserId", "contentId"])
-    .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"]),
+    .index("by_clerk_watched_at", ["clerkUserId", "watchedAt"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["clerkUserId"]
+    }),
 
   bookmark: defineTable({
     clerkUserId: v.string(),

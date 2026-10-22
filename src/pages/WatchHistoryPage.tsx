@@ -11,7 +11,7 @@ import {
   useClearWatchHistory
 } from "@/features/library/useWatchHistory";
 import { createPlayHandler } from "@/shared/navigation/watchNavigation";
-import type { WatchHistoryItemMeta } from "@content/contentMetadata";
+import type { WatchHistoryPageItem } from "@content/contentMetadata";
 import {
   Button,
   Dialog,
@@ -68,7 +68,7 @@ export function WatchHistoryPage() {
   const [undoItemId, setUndoItemId] = useState<string | null>(null);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const pendingRemovals = useRef(new Map<string, { item: WatchHistoryItemMeta; timer: number }>());
+  const pendingRemovals = useRef(new Map<string, { item: WatchHistoryPageItem; timer: number }>());
   const { history, isLoading, isQueryPending, isLoadingMore, canLoadMore, loadMore } =
     useMyWatchHistoryPagination(searchQuery);
   const removeFromHistory = useRemoveFromHistory();
@@ -102,7 +102,7 @@ export function WatchHistoryPage() {
 
   const handlePlay = createPlayHandler(navigate);
 
-  const handleRemove = (item: WatchHistoryItemMeta) => {
+  const handleRemove = (item: WatchHistoryPageItem) => {
     const existing = pendingRemovals.current.get(item._id);
     if (existing) window.clearTimeout(existing.timer);
     setRemovedIds((current) => new Set(current).add(item._id));

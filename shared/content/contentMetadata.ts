@@ -76,6 +76,19 @@ export interface WatchHistoryItemMeta extends ContentCard {
   dub?: boolean;
 }
 
+export type WatchHistoryPageItem = Pick<
+  WatchHistoryItemMeta,
+  | "_id"
+  | "title"
+  | "type"
+  | "posterUrl"
+  | "progress"
+  | "seasonNumber"
+  | "episodeNumber"
+  | "source"
+  | "dub"
+>;
+
 export interface WatchProgressEntryMeta {
   contentId: ContentId;
   progress: number;
