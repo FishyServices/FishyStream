@@ -20,8 +20,14 @@ type SeasonPlaybackMetaResult = {
   }>;
 };
 
+type SeasonPlaybackMetaSyncResult =
+  SeasonPlaybackMetaResult | { status: "anilist-unavailable" } | null;
+
 function isAniListError(error: unknown): error is Error {
-  return error instanceof Error && error.message.startsWith("AniList API");
+  return (
+    error instanceof Error &&
+    (error.message.startsWith("AniList API") || ("service" in error && error.service === "AniList"))
+  );
 }
 
 export const syncAnimeSeasonPlaybackMeta = action({
@@ -32,7 +38,7 @@ export const syncAnimeSeasonPlaybackMeta = action({
     seasonNumber: v.number(),
     episodeNumber: v.optional(v.number())
   },
-  handler: async (ctx, args): Promise<SeasonPlaybackMetaResult | null> => {
+  handler: async (ctx, args): Promise<SeasonPlaybackMetaSyncResult> => {
     const cached: SeasonPlaybackMetaResult | null = await ctx.runQuery(
       internal.domains.seasons.seasons.getSeasonPlaybackMetaInternal,
       {
@@ -82,7 +88,9 @@ export const syncAnimeSeasonPlaybackMeta = action({
         episodes
       });
     } catch (error) {
-      if (isAniListError(error)) return null;
+      if (isAniListError(error)) {
+        return { status: "anilist-unavailable" };
+      }
       throw error;
     }
 

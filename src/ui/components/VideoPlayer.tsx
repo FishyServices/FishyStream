@@ -19,7 +19,13 @@ import {
   PopoverContent,
   PopoverPortal,
   PopoverPositioner,
-  PopoverTrigger
+  PopoverTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
 } from "@fishy/ui";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ContentModal } from "@/ui/components/ContentModal";
@@ -28,10 +34,7 @@ import { ProviderSourceSelect, type ProviderUiMode } from "@/ui/components/Provi
 import { useGetProgress, useUpdateProgress } from "@/features/library/useWatchProgress";
 import { useAppSettings } from "@/features/settings/useAppSettings";
 import { useOneShotConvexQuery } from "@/shared/useOneShotConvexQuery";
-import {
-  parsePlayerMessage,
-  isTrustedPlayerMessageOrigin
-} from "@fishy/providers/playback";
+import { parsePlayerMessage, isTrustedPlayerMessageOrigin } from "@fishy/providers/playback";
 import {
   getNextEpisodeAddress,
   hasNextEpisode as hasProviderNextEpisode,
@@ -155,6 +158,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     episodes: number[];
   } | null>(null);
   const [animeSeasonReloadKey, setAnimeSeasonReloadKey] = useState(0);
+  const [aniListUnavailableMessage, setAniListUnavailableMessage] = useState<string | null>(null);
   const animeSeasonSyncingRef = useRef<Set<string>>(new Set());
   const animeSeasonFailedRef = useRef<Set<string>>(new Set());
 
@@ -222,11 +226,13 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const animeSeasonData = useOneShotConvexQuery<PlaybackSeasonMeta | null>(
     !!animeSeasonKey && !hasPendingInitialTvTarget,
     (convex) =>
-      convex.query(api.domains.seasons.seasons.getSeasonPlaybackMeta, {
-        contentId: content._id,
-        seasonNumber: tvTarget.season,
-        episodeNumber: tvTarget.episode
-      }),
+      convex
+        .query(api.domains.seasons.seasons.getSeasonPlaybackMeta, {
+          contentId: content._id,
+          seasonNumber: tvTarget.season,
+          episodeNumber: tvTarget.episode
+        })
+        .catch(() => null),
     [content._id, tvTarget.season, tvTarget.episode, animeSeasonReloadKey],
     animeSeasonKey ? [animeSeasonKey, tvTarget.episode] : undefined,
     animeSeasonKey
@@ -335,6 +341,14 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       episodeNumber: tvTarget.episode
     })
       .then((result) => {
+        if (result && "status" in result && result.status === "anilist-unavailable") {
+          animeSeasonFailedRef.current.add(animeSeasonKey);
+          setAniListUnavailableMessage(
+            "AniList is temporarily unavailable, so anime episode matching may be limited. Please wait until AniList is back online, then try again."
+          );
+          setAnimeSeasonReloadKey((value) => value + 1);
+          return;
+        }
         if (animeSeasonSyncAttemptKey) {
           rememberSessionAnimeSeasonSyncKey(animeSeasonSyncAttemptKey);
         }
@@ -345,9 +359,6 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       })
       .catch(() => {
         animeSeasonFailedRef.current.add(animeSeasonKey);
-        if (animeSeasonSyncAttemptKey) {
-          rememberSessionAnimeSeasonSyncKey(animeSeasonSyncAttemptKey);
-        }
         setAnimeSeasonReloadKey((value) => value + 1);
       })
       .finally(() => {
@@ -554,7 +565,8 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   ]);
 
   useEffect(() => {
-    const resumeMessage = selectedProvider?.progress?.resumeMessage ??
+    const resumeMessage =
+      selectedProvider?.progress?.resumeMessage ??
       (selectedProvider?.progress?.controlApi ? { command: "seek", timeField: "time" } : undefined);
     if (useCustomPlayer || !resumeMessage || resumePositionSeconds <= 0) return;
 
@@ -719,6 +731,29 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       setPlaybackPositionSeconds(event.currentTime);
     reportPlaybackEvent(event);
   };
+  const aniListUnavailableDialog = (
+    <Dialog
+      open={aniListUnavailableMessage !== null}
+      onOpenChange={(open) => {
+        if (!open) setAniListUnavailableMessage(null);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>AniList is temporarily unavailable</DialogTitle>
+          <DialogDescription>
+            {aniListUnavailableMessage ??
+              "Anime episode matching may be limited until AniList is back online. Please wait until AniList is back online, then try again."}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" onClick={() => setAniListUnavailableMessage(null)}>
+            OK
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
   useEffect(() => {
     return () => {
       if (nextEpisodeCooldownTimeoutRef.current) {
@@ -729,57 +764,61 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
   if (!loading && (error || !sources.length || !selectedSourceConfig)) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="media-surface max-w-md rounded-xl p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-destructive/15">
-            <AlertCircle className="w-8 h-8 text-destructive" />
-          </div>
-          <h2 className="mb-2 font-display text-2xl font-semibold text-foreground">
-            No source available
-          </h2>
-          {error ? <p className="mb-6 text-sm text-muted-foreground">{error}</p> : null}
-          <div className="flex flex-wrap gap-3 justify-center">
-            <Button onClick={() => navigate(-1)} variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-            <Button onClick={() => session.retry()} variant="secondary">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Retry
-            </Button>
-            {canTryNextSource && (
-              <Button
-                onClick={() => session.tryNextSource("no sources screen")}
-                variant="secondary"
+      <>
+        {aniListUnavailableDialog}
+        <div className="min-h-screen bg-background flex items-center justify-center px-4">
+          <div className="media-surface max-w-md rounded-xl p-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-destructive/15">
+              <AlertCircle className="w-8 h-8 text-destructive" />
+            </div>
+            <h2 className="mb-2 font-display text-2xl font-semibold text-foreground">
+              No source available
+            </h2>
+            {error ? <p className="mb-6 text-sm text-muted-foreground">{error}</p> : null}
+            <div className="flex flex-wrap gap-3 justify-center">
+              <Button onClick={() => navigate(-1)} variant="outline">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <Button onClick={() => session.retry()} variant="secondary">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+              {canTryNextSource && (
+                <Button
+                  onClick={() => session.tryNextSource("no sources screen")}
+                  variant="secondary"
+                >
+                  <MonitorPlay className="w-4 h-4 mr-2" />
+                  Next source
+                </Button>
+              )}
+              <a
+                href={`https://github.com/FishyServices/FishyStream/issues/new?template=bug_report.yml&title_name=${encodeURIComponent(
+                  content.title
+                )}&season_episode=${encodeURIComponent(
+                  content.type === "tv" ? `S${tvTarget.season}E${tvTarget.episode}` : "N/A"
+                )}&provider=${encodeURIComponent(autoProviderEnabled ? "auto" : (selectedProvider?.key ?? "auto"))}&title=${encodeURIComponent(
+                  `[BUG]: Playback issue on ${content.title}${content.type === "tv" ? ` S${tvTarget.season}E${tvTarget.episode}` : ""}`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
               >
-                <MonitorPlay className="w-4 h-4 mr-2" />
-                Next source
-              </Button>
-            )}
-            <a
-              href={`https://github.com/FishyServices/FishyStream/issues/new?template=bug_report.yml&title_name=${encodeURIComponent(
-                content.title
-              )}&season_episode=${encodeURIComponent(
-                content.type === "tv" ? `S${tvTarget.season}E${tvTarget.episode}` : "N/A"
-              )}&provider=${encodeURIComponent(autoProviderEnabled ? "auto" : (selectedProvider?.key ?? "auto"))}&title=${encodeURIComponent(
-                `[BUG]: Playback issue on ${content.title}${content.type === "tv" ? ` S${tvTarget.season}E${tvTarget.episode}` : ""}`
-              )}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
-                <Bug className="w-4 h-4 mr-2" />
-                Report issue
-              </Button>
-            </a>
+                <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
+                  <Bug className="w-4 h-4 mr-2" />
+                  Report issue
+                </Button>
+              </a>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
     <div className="h-dvh w-screen bg-background flex flex-col overflow-hidden">
+      {aniListUnavailableDialog}
       {settings.devMode && animeContent && content.type === "tv" ? (
         <div className="absolute left-3 top-1/2 z-[60] -translate-y-1/2 sm:left-5">
           <Popover open={showAniListMappingPanel} onOpenChange={setShowAniListMappingPanel}>
