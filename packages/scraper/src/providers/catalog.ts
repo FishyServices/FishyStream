@@ -1,5 +1,9 @@
 import { isPlayableStream, resolveProvider } from "./fetcher";
-import { resolve111Movies } from "./catalog/111Movies";
+import {
+  get111MoviesSourceOptions,
+  resolve111Movies,
+  resolve111MoviesSource
+} from "./catalog/111Movies";
 import { resolveMegaPlay } from "./catalog/megaPlay";
 import { resolvePeachify } from "./catalog/broken/peachify";
 import { resolveVaplayer } from "./catalog/broken/vaplayer";
@@ -35,7 +39,9 @@ const vidNestProvider: Provider = {
 const oneOneOneMoviesProvider: Provider = {
   id: "111movies",
   matches: (url) => url.hostname === "111movies.net",
-  resolve: resolve111Movies
+  resolve: resolve111Movies,
+  sourceOptions: get111MoviesSourceOptions,
+  resolveSource: resolve111MoviesSource
 };
 
 const megaPlayProvider: Provider = {
