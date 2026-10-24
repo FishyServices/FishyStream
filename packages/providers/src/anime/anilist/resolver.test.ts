@@ -39,6 +39,20 @@ describe("AniList resolver", () => {
     ).resolves.toBe("999999");
   });
 
+  it("matches an ONA title with its format suffix", async () => {
+    mockAniList([
+      {
+        id: 109616,
+        format: "ONA",
+        startDate: { year: 2019 },
+        title: { english: "Blade of the Immortal ONA" }
+      }
+    ]);
+    await expect(
+      resolveAniListId({ title: "Blade of the Immortal", season: 1, year: 2019 })
+    ).resolves.toBe("109616");
+  });
+
   it("matches a numeric sequel suffix to its season", async () => {
     mockAniList([{ id: 97765, title: { english: "Isekai Quartet 2" } }]);
     await expect(resolveAniListId({ title: "Isekai Quartet", season: 2 })).resolves.toBe("97765");

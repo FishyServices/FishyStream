@@ -225,7 +225,7 @@ export function scoreMedia(
 export function hasStrongTitleMatch(media: AniListMedia, title: string, season: number): boolean {
   const base = normalizeTitle(title);
   return mediaTitles(media).some((variant) => {
-    if (season <= 1) return variant === base;
+    if (season <= 1) return variant === base || variant === `${base} ona`;
     if (variant !== base && !variant.startsWith(`${base} `)) return false;
     return (
       readSeasonSignals(variant).explicit.has(season) ||
