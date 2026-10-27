@@ -40,10 +40,6 @@ type CalendarEvent = {
 };
 type ReleaseFilter = "all" | "sub" | "dub";
 
-function searchableTitle(value: string) {
-  return value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
-}
-
 function dubProgress(anime: AnimeTitleSchedule) {
   const total = anime.totalEpisodes;
   const count = anime.dubbedEpisodes;
@@ -231,10 +227,13 @@ function UpcomingShowRelease({ item }: { item: BookmarkGridItem }) {
 
 export function ReleaseCalendarPage() {
   const navigate = useNavigate();
-  const { items, canLoadMore, isLoadingMore, loadMore } = useBookmarkPagination();
+  const [searchQuery, setSearchQuery] = useState("");
+  const { items, canLoadMore, isLoadingMore, loadMore } = useBookmarkPagination(
+    undefined,
+    searchQuery
+  );
   const shows = useMemo(() => (items ?? []).filter((item) => item.type === "tv"), [items]);
   const [selectedIds, setSelectedIds] = useState<Set<ContentId>>(() => new Set());
-  const [searchQuery, setSearchQuery] = useState("");
   const [releaseFilter, setReleaseFilter] = useState<ReleaseFilter>("all");
   const [animeSchedules, setAnimeSchedules] = useState<AnimeTitleSchedule[]>([]);
   const [isLoadingAnime, setIsLoadingAnime] = useState(false);
@@ -255,10 +254,7 @@ export function ReleaseCalendarPage() {
     [selectedIds, shows]
   );
   const selectedSignature = selectedShows.map((item) => item._id).join(",");
-  const filteredShows = useMemo(() => {
-    const query = searchableTitle(searchQuery.trim());
-    return shows.filter((item) => !query || searchableTitle(item.title).includes(query));
-  }, [searchQuery, shows]);
+  const filteredShows = shows;
 
   useEffect(() => {
     if (!selectedShows.length) {
@@ -362,7 +358,7 @@ export function ReleaseCalendarPage() {
           <div className="flex items-center gap-3 rounded-xl border border-border/65 bg-card/55 p-6 text-muted-foreground">
             <LoaderCircle className="h-5 w-5 animate-spin" /> Loading your bookmarks…
           </div>
-        ) : shows.length === 0 ? (
+        ) : shows.length === 0 && !searchQuery.trim() ? (
           <EmptyState
             title="No bookmarked shows yet"
             action={<Button onClick={() => navigate("/bookmark")}>Browse bookmarks</Button>}

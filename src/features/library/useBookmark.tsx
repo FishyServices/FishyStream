@@ -251,13 +251,27 @@ export function useBookmarkPagination(folder?: string | null, search = "") {
   const { isLoaded, isSignedIn, user } = useUser();
   const { state } = useBookmarkApi();
   const signedIn = isLoaded && isSignedIn && user !== null;
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const settledItems = useRef<{ userId?: string; items: BookmarkGridItem[] }>({
+    userId: user?.id,
+    items: []
+  });
+
+  if (settledItems.current.userId !== user?.id) {
+    settledItems.current = { userId: user?.id, items: [] };
+  }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
   const { results, status, loadMore } = usePaginatedQuery(
     api.domains.bookmark.bookmark.listBookmark,
     signedIn
       ? {
           ...(folder !== undefined ? { folder } : {}),
-          ...(search.trim() ? { search: search.trim() } : {})
+          ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {})
         }
       : "skip",
     { initialNumItems: PAGE_SIZE }
@@ -265,11 +279,19 @@ export function useBookmarkPagination(folder?: string | null, search = "") {
 
   const localList = useMemo(() => (signedIn ? [] : listGuestBookmark()), [signedIn, state.ids]);
 
+  useEffect(() => {
+    if (signedIn && status !== "LoadingFirstPage") {
+      settledItems.current = { userId: user?.id, items: results as BookmarkGridItem[] };
+    }
+  }, [results, signedIn, status, user?.id]);
+
   const items = !isLoaded
     ? undefined
     : signedIn
       ? status === "LoadingFirstPage"
-        ? undefined
+        ? settledItems.current.items.length > 0
+          ? settledItems.current.items
+          : undefined
         : (results as BookmarkGridItem[])
       : localList;
 
