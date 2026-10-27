@@ -45,6 +45,7 @@ alternate source resolution, and media proxy routes.
 ### Movies & TV
 
 - [111movies](https://111movies.net)
+- [FilmU](https://embed.filmu.in)
 - [vidZen](https://vidzen.fun)
 - [vidLove](https://vidlove.cc)
 

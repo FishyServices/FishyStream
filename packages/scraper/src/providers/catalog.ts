@@ -20,6 +20,7 @@ import { resolveVidFast } from "./catalog/broken/vidFast";
 import { resolveAniEmbed } from "./catalog/aniEmbed";
 import { resolveCinezo } from "./catalog/cinezo";
 import { resolveTryEmbed } from "./catalog/broken/tryEmbed";
+import { resolveFilmu } from "./catalog/filmu";
 import type { Stream, StreamSourceOption } from "../types";
 
 export type Provider = {
@@ -151,6 +152,12 @@ const tryEmbedProvider: Provider = {
   resolve: resolveTryEmbed
 };
 
+const filmuProvider: Provider = {
+  id: "filmu",
+  matches: (url) => url.hostname === "embed.filmu.in",
+  resolve: resolveFilmu
+};
+
 const genericProvider: Provider = {
   id: "direct-fetch",
   matches: () => true,
@@ -175,6 +182,7 @@ export const providers: readonly Provider[] = [
   aniEmbedProvider,
   cinezoProvider,
   tryEmbedProvider,
+  filmuProvider,
   genericProvider
 ];
 
