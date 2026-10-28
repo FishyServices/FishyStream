@@ -985,6 +985,9 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
             resumePositionSeconds={resumePositionSeconds}
             content={content}
             tvTarget={tvTarget}
+            episodeName={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.name}
+            episodeOverview={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.overview}
+            episodeStillUrl={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.stillUrl}
             getEpisodeEmbedUrl={getEpisodeEmbedUrl}
             onDownloadRequestConsumed={() => setDownloadRequest(null)}
             onOpenEpisodePicker={() => {

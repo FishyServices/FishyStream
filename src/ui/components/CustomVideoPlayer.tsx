@@ -48,6 +48,9 @@ interface CustomVideoPlayerProps {
   resumePositionSeconds?: number;
   content: ContentPlayback;
   tvTarget: { season: number; episode: number };
+  episodeName?: string;
+  episodeOverview?: string;
+  episodeStillUrl?: string;
   getEpisodeEmbedUrl?: (target: { season: number; episode: number }) => Promise<string | null>;
   onOpenEpisodePicker?: () => void;
   downloadRequest?: { season: number; episodes: number[] } | null;
@@ -158,12 +161,24 @@ function getSubtitleFormat(url: string): SubtitleFormat {
   return extension === "srt" || extension === "ass" ? extension : "vtt";
 }
 
+function escapeHtml(value: string | undefined) {
+  const entities: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  };
+  return (value ?? "").replace(/[&<>"']/g, (character) => entities[character] ?? character);
+}
+
 type AudioContextWindow = Window &
   typeof globalThis & {
     webkitAudioContext?: typeof AudioContext;
   };
 
 const PLAYBACK_ACTIONS_LAYER_NAME = "playback-actions";
+const END_SCREEN_LAYER_NAME = "playback-end-screen";
 const PLAYBACK_ACTIONS_LAYER_HTML = `
   <div style="display:flex;align-items:stretch;overflow:hidden;border:1px solid color-mix(in oklab, var(--color-border) 80%, transparent);border-radius:9999px;background:color-mix(in oklab, var(--color-card) 92%, transparent);box-shadow:0 8px 24px color-mix(in oklab, var(--color-background) 60%, transparent);backdrop-filter:blur(12px);">
     <span data-action="skip" role="button" tabindex="0" style="display:flex;flex:1 1 0%;align-items:center;justify-content:center;gap:0.35rem;min-height:2.25rem;padding:0.45rem 0.75rem;color:var(--color-foreground);font-size:0.75rem;white-space:nowrap;cursor:pointer;">
@@ -210,6 +225,9 @@ export function CustomVideoPlayer({
   resumePositionSeconds,
   content,
   tvTarget,
+  episodeName,
+  episodeOverview,
+  episodeStillUrl,
   getEpisodeEmbedUrl,
   onOpenEpisodePicker,
   downloadRequest,
@@ -616,6 +634,75 @@ export function CustomVideoPlayer({
                 }))
               }
             : undefined;
+        const episodeLabel =
+          content.type === "tv"
+            ? `Season ${tvTarget.season} · Episode ${tvTarget.episode}${episodeName ? ` · ${episodeName}` : ""}`
+            : "";
+        const endScreenHtml = `
+          <div style="position:absolute;inset:0;color:var(--color-foreground);pointer-events:none;">
+            <div data-pause-panel style="position:absolute;top:8%;left:6%;box-sizing:border-box;width:min(42%,32rem);min-width:min(18rem,88%);max-height:84%;overflow:auto;padding:clamp(1rem,2vw,1.75rem);pointer-events:none;user-select:none;-webkit-user-select:none;">
+              <h2 style="margin:0;font-size:clamp(1.75rem,3.5vw,2.75rem);line-height:1.05;font-weight:700;letter-spacing:-.025em;text-shadow:0 2px 14px color-mix(in oklab,var(--color-background) 85%,transparent);pointer-events:auto;user-select:text;-webkit-user-select:text;">${escapeHtml(content.title)}</h2>
+              ${episodeLabel ? `<p style="margin:.55rem 0 0;color:color-mix(in oklab,var(--color-foreground) 82%,transparent);font-size:.85rem;text-shadow:0 1px 8px color-mix(in oklab,var(--color-background) 90%,transparent);">${escapeHtml(episodeLabel)}</p>` : ""}
+              ${episodeOverview ? `<p style="margin:.75rem 0 0;color:color-mix(in oklab,var(--color-foreground) 76%,transparent);font-size:.8rem;line-height:1.5;text-shadow:0 1px 8px color-mix(in oklab,var(--color-background) 90%,transparent);">${escapeHtml(episodeOverview)}</p>` : ""}
+            </div>
+          </div>`;
+        const playerLayers: NonNullable<Option["layers"]> = [
+          {
+            name: END_SCREEN_LAYER_NAME,
+            html: endScreenHtml,
+            style: {
+              position: "absolute",
+              inset: "0",
+              zIndex: "100",
+              display: "none",
+              width: "100%",
+              height: "100%",
+              pointerEvents: "none"
+            },
+            mounted(element) {
+              element.setAttribute("aria-label", "Paused video details");
+              element.style.display = "none";
+            }
+          }
+        ];
+        if (content.type === "tv") {
+          playerLayers.push({
+            name: PLAYBACK_ACTIONS_LAYER_NAME,
+            html: PLAYBACK_ACTIONS_LAYER_HTML,
+            style: {
+              position: "absolute",
+              right: "1rem",
+              bottom: "clamp(4.5rem, 11vh, 6rem)",
+              zIndex: "30",
+              padding: "0",
+              cursor: "pointer"
+            },
+            mounted(element) {
+              element.setAttribute("aria-label", "Playback actions");
+              const layers = element.parentElement;
+              if (layers) {
+                layers.style.display = "flex";
+                layers.style.pointerEvents = "none";
+              }
+            },
+            click(this: Artplayer, _component, event) {
+              if (!(event.target instanceof Element)) return;
+              const action = event.target.closest("[data-action]")?.getAttribute("data-action");
+              if (action === "skip") {
+                const segment = skipSegmentRef.current;
+                if (segment) this.seek = segment.end;
+                return;
+              }
+              if (
+                action === "next" &&
+                showNextEpisodeButtonRef.current &&
+                !isNextEpisodeCooldownRef.current
+              ) {
+                onNextEpisodeRef.current();
+              }
+            }
+          });
+        }
         const option: Option = {
           container: containerRef.current,
           url,
@@ -636,48 +723,7 @@ export function CustomVideoPlayer({
             //anime4kCompareSetting,
             ...(streamSetting ? [streamSetting] : [])
           ],
-          layers:
-            content.type === "tv"
-              ? [
-                  {
-                    name: PLAYBACK_ACTIONS_LAYER_NAME,
-                    html: PLAYBACK_ACTIONS_LAYER_HTML,
-                    style: {
-                      position: "absolute",
-                      right: "1rem",
-                      bottom: "clamp(4.5rem, 11vh, 6rem)",
-                      zIndex: "30",
-                      padding: "0",
-                      cursor: "pointer"
-                    },
-                    mounted(element: HTMLElement) {
-                      element.setAttribute("aria-label", "Playback actions");
-                      const layers = element.parentElement;
-                      if (layers) {
-                        layers.style.display = "flex";
-                        layers.style.pointerEvents = "none";
-                      }
-                    },
-                    click(this: Artplayer, _component, event) {
-                      if (!(event.target instanceof Element)) return;
-                      const action =
-                        event.target.closest<HTMLElement>("[data-action]")?.dataset.action;
-                      if (action === "skip") {
-                        const segment = skipSegmentRef.current;
-                        if (segment) this.seek = segment.end;
-                        return;
-                      }
-                      if (
-                        action === "next" &&
-                        showNextEpisodeButtonRef.current &&
-                        !isNextEpisodeCooldownRef.current
-                      ) {
-                        onNextEpisodeRef.current();
-                      }
-                    }
-                  }
-                ]
-              : [],
+          layers: playerLayers,
           screenshot: false,
           fullscreen: true,
           hotkey: true,
@@ -767,16 +813,32 @@ export function CustomVideoPlayer({
           void player.play().catch(() => {});
         });
         player.on("play", () => {
+          const endScreen = player.layers[END_SCREEN_LAYER_NAME];
+          if (endScreen) endScreen.style.display = "none";
           initAudioBoost();
           if (audioContextRef.current?.state === "suspended") void audioContextRef.current.resume();
           setIsPlaying(true);
           report("play");
         });
         player.on("pause", () => {
+          const pauseScreen = player.layers[END_SCREEN_LAYER_NAME];
+          if (pauseScreen) {
+            pauseScreen.style.display = "block";
+            const panel = pauseScreen.querySelector<HTMLElement>("[data-pause-panel]");
+            panel?.animate(
+              [
+                { opacity: 0, transform: "translateY(-0.5rem) scale(0.98)" },
+                { opacity: 1, transform: "translateY(0) scale(1)" }
+              ],
+              { duration: 240, easing: "ease-out" }
+            );
+          }
           setIsPlaying(false);
           report("pause");
         });
-        player.on("video:ended", () => report("ended"));
+        player.on("video:ended", () => {
+          report("ended");
+        });
         player.on("video:seeked", () => report("seeked"));
         player.on("video:durationchange", () => setDuration(player.duration));
         player.on("video:timeupdate", () => {
