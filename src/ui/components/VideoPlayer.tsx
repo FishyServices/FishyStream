@@ -178,11 +178,21 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const hasPendingInitialTvTarget =
     content.type === "tv" && !!watchState && !historyInitRef.current;
 
-  const { season: playbackSeason } = useSeasonEpisodes(
+  const { season: playbackSeason, loadFillerAround } = useSeasonEpisodes(
     content.type === "tv" && !hasPendingInitialTvTarget ? content.tmdbId : undefined,
     tvTarget.season,
-    content.type === "tv" && !hasPendingInitialTvTarget
+    content.type === "tv" && !hasPendingInitialTvTarget,
+    content.imdbId,
+    content.title,
+    content.year,
+    animeContent,
+    false
   );
+  useEffect(() => {
+    if (animeContent && settings.showFillerEpisodes && content.type === "tv") {
+      loadFillerAround(tvTarget.episode);
+    }
+  }, [animeContent, content.type, loadFillerAround, settings.showFillerEpisodes, tvTarget.episode]);
   const clientSeasonData: PlaybackSeasonMeta | null =
     content.type === "tv" && playbackSeason
       ? ({
@@ -988,6 +998,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
             episodeName={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.name}
             episodeOverview={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.overview}
             episodeStillUrl={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.stillUrl}
+            isFillerEpisode={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.fillerStatus === "filler"}
             getEpisodeEmbedUrl={getEpisodeEmbedUrl}
             onDownloadRequestConsumed={() => setDownloadRequest(null)}
             onOpenEpisodePicker={() => {

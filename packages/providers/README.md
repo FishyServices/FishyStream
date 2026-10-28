@@ -1,13 +1,13 @@
 # Providers
 
-Provider package for https://github.com/FishyServices/FishyStream. Covers TMDB, IMDb, AniList, Jikan, Tsuzuki, OpenSubtitles, TheIntroDB, and the embed stream providers.
+Provider package for https://github.com/FishyServices/FishyStream. Covers TMDB, IMDb, AniList, Jikan, Tenrai, Tsuzuki, OpenSubtitles, TheIntroDB, and the embed stream providers.
 
 ## Layout
 
 | Path                             | Contents                                                                      |
 | -------------------------------- | ----------------------------------------------------------------------------- |
 | `metadata/tmdb`, `metadata/imdb` | Metadata clients sharing the `MetadataClient` interface                       |
-| `anime`                          | AniList resolver and catalog, Jikan, Tsuzuki, episode mappings, filler lookup |
+| `anime`                          | AniList resolver and catalog, Jikan and Tenrai clients, Tsuzuki, episode mappings, filler lookup |
 | `ordering`                       | Canonical season ordering overrides and direct video urls                     |
 | `streaming`                      | Provider registry, source building, embed urls, source selection              |
 | `playback`                       | Player messages, controls, progress and episode policies, TheIntroDB          |

@@ -51,6 +51,7 @@ interface CustomVideoPlayerProps {
   episodeName?: string;
   episodeOverview?: string;
   episodeStillUrl?: string;
+  isFillerEpisode?: boolean;
   getEpisodeEmbedUrl?: (target: { season: number; episode: number }) => Promise<string | null>;
   onOpenEpisodePicker?: () => void;
   downloadRequest?: { season: number; episodes: number[] } | null;
@@ -228,6 +229,7 @@ export function CustomVideoPlayer({
   episodeName,
   episodeOverview,
   episodeStillUrl,
+  isFillerEpisode = false,
   getEpisodeEmbedUrl,
   onOpenEpisodePicker,
   downloadRequest,
@@ -1018,19 +1020,36 @@ export function CustomVideoPlayer({
         ref={containerRef}
         className="artplayer-app absolute inset-0 [&_.art-video-player]:h-full [&_.art-video-player]:w-full [&_.art-video-player]:overflow-hidden [&_.art-video]:object-cover"
       />
-      {anime4kSupported === false ? (
-        <div className="pointer-events-none absolute left-3 top-3 z-[10001]">
-          <Badge variant="secondary" role="status">
-            Anime4K unavailable · WebGPU unsupported
-          </Badge>
+      {(isFillerEpisode || anime4kSupported === false || anime4kActiveMode !== "off") && (
+        <div className="pointer-events-none absolute left-3 top-3 z-[10002] flex flex-col items-start gap-2">
+          {isFillerEpisode && (
+            <Badge
+              variant="secondary"
+              className="h-7 rounded-md border border-warning/70 bg-background/95 px-3 text-xs font-bold text-warning shadow-md backdrop-blur-sm"
+              role="status"
+            >
+              Filler episode
+            </Badge>
+          )}
+          {anime4kSupported === false ? (
+            <Badge
+              variant="secondary"
+              className="h-7 rounded-md border border-warning/70 bg-background/95 px-3 text-xs font-bold text-warning shadow-md backdrop-blur-sm"
+              role="status"
+            >
+              Anime4K unavailable · WebGPU unsupported
+            </Badge>
+          ) : anime4kActiveMode !== "off" ? (
+            <Badge
+              variant="secondary"
+              className="h-7 rounded-md border border-warning/70 bg-background/95 px-3 text-xs font-bold text-warning shadow-md backdrop-blur-sm"
+              role="status"
+            >
+              Anime4K · {anime4kActiveMode}
+            </Badge>
+          ) : null}
         </div>
-      ) : anime4kActiveMode !== "off" ? (
-        <div className="pointer-events-none absolute left-3 top-3 z-[10001]">
-          <Badge variant="fishy" role="status">
-            Anime4K · {anime4kActiveMode}
-          </Badge>
-        </div>
-      ) : null}
+      )}
       {(isLoading || pendingSourceName) && (
         <div
           className="absolute inset-0 z-20 grid place-items-center bg-background/75 text-sm text-muted-foreground backdrop-blur-sm"

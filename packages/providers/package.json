@@ -42,6 +42,10 @@
       "types": "./dist/anime/jikan/index.d.ts",
       "import": "./dist/anime/jikan/index.js"
     },
+    "./anime/tenrai": {
+      "types": "./dist/anime/tenrai/index.d.ts",
+      "import": "./dist/anime/tenrai/index.js"
+    },
     "./anime/kitsu": {
       "types": "./dist/anime/kitsu/index.d.ts",
       "import": "./dist/anime/kitsu/index.js"

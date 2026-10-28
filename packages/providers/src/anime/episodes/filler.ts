@@ -1,6 +1,6 @@
 import { memoizeAsync } from "../../shared/async.js";
 import { resolveAniListEpisodeAddress } from "../anilist/resolver.js";
-import { createJikanClient } from "../jikan/client.js";
+import { createTenraiClient } from "../tenrai/client.js";
 
 const DEFAULT_WINDOW_SIZE = 20;
 const JIKAN_EPISODES_PER_PAGE = 100;
@@ -25,7 +25,7 @@ interface FillerWindow {
   page: number;
 }
 
-const jikan = createJikanClient();
+const tenrai = createTenraiClient();
 
 const loadFillerWindow = memoizeAsync(
   async (lookup: FillerLookup, window: FillerWindow): Promise<FillerEpisode[] | null> => {
@@ -37,7 +37,7 @@ const loadFillerWindow = memoizeAsync(
     });
     if (!address?.malId) return null;
 
-    const { data } = await jikan.getEpisodes(address.malId, {
+    const { data } = await tenrai.getEpisodes(address.malId, {
       page: window.page,
       signal: lookup.signal
     });
