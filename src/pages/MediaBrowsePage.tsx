@@ -9,7 +9,7 @@ import {
   type ContentSort
 } from "@/features/catalog/queries/useContent";
 import { Header } from "@/ui/components/Header";
-import { EmptyState, GridSkeleton } from "@/ui/components/UXPrimitives";
+import { EmptyState, GridSkeleton, PageHeader } from "@/ui/components/UXPrimitives";
 import { MovieCard } from "@/ui/components/MovieCard";
 import {
   ANIME_GENRES,
@@ -211,18 +211,8 @@ function StandardMediaBrowsePage({ mode }: { mode: Exclude<MediaMode, "anime"> }
   return (
     <div className="app-canvas min-h-screen text-foreground">
       <Header />
-      <main className="page-shell-wide page-stack">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-5">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{title}</h1>
-          {paginated.totalCount !== undefined ? (
-            <p className="text-sm text-muted-foreground">
-              <span className="font-semibold tabular-nums text-foreground">
-                {paginated.totalCount.toLocaleString()}
-              </span>{" "}
-              titles
-            </p>
-          ) : null}
-        </div>
+      <main id="main-content" className="page-shell-wide page-stack">
+        <PageHeader title={title} count={paginated.totalCount} />
 
         <div
           className="mb-7 grid max-w-lg grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4"
@@ -388,18 +378,8 @@ function AnimeMediaBrowsePage() {
   return (
     <div className="app-canvas min-h-screen text-foreground">
       <Header />
-      <main className="page-shell-wide page-stack">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-5">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Anime</h1>
-          {paginated.totalCount !== undefined ? (
-            <p className="text-sm text-muted-foreground">
-              <span className="font-semibold tabular-nums text-foreground">
-                {paginated.totalCount.toLocaleString()}
-              </span>{" "}
-              titles
-            </p>
-          ) : null}
-        </div>
+      <main id="main-content" className="page-shell-wide page-stack">
+        <PageHeader title="Anime" count={paginated.totalCount} />
 
         <div className="mb-6 flex flex-wrap items-end gap-x-6 gap-y-4" aria-label="Anime filters">
           <div className="grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">

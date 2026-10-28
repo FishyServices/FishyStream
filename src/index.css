@@ -161,13 +161,7 @@
     min-height: 100vh;
     margin: 0;
     overflow-x: hidden;
-    background:
-      radial-gradient(
-        circle at 30% -10%,
-        color-mix(in oklab, var(--color-primary) 7%, transparent),
-        transparent 34rem
-      ),
-      var(--color-background);
+    background: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-feature-settings:
@@ -191,6 +185,16 @@
   a {
     color: inherit;
     text-decoration: none;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 
   :where(button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])):focus-visible {
@@ -222,13 +226,11 @@
 @layer components {
   .app-canvas {
     min-height: 100dvh;
-    background:
-      radial-gradient(
-        ellipse at 78% -16%,
-        color-mix(in oklab, var(--color-primary) 8%, transparent),
-        transparent 42rem
-      ),
-      var(--color-background);
+    background: var(--color-background);
+  }
+
+  .skip-to-content {
+    @apply fixed left-4 top-4 z-toast -translate-y-24 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg transition-transform duration-300 focus:translate-y-0;
   }
 
   .app-rail {
@@ -303,8 +305,8 @@
     background: var(--color-primary);
     box-shadow: 0 0 0 0.2rem color-mix(in oklab, var(--color-primary) 18%, transparent);
     transition:
-      transform 150ms ease,
-      box-shadow 150ms ease;
+      transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .custom-player-seek::-moz-range-thumb {
@@ -323,13 +325,7 @@
 
   .auth-canvas {
     @apply relative min-h-dvh overflow-hidden bg-background px-4 py-8;
-    background:
-      radial-gradient(
-        circle at 50% 0%,
-        color-mix(in oklab, var(--color-primary) 10%, transparent),
-        transparent 30rem
-      ),
-      var(--color-background);
+    background: var(--color-background);
   }
 
   .surface {
@@ -396,9 +392,9 @@
 
   .interactive-scale {
     transition:
-      color 150ms ease,
-      background-color 150ms ease,
-      transform 150ms ease;
+      color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .interactive-scale:hover {

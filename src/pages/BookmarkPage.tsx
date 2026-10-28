@@ -305,15 +305,16 @@ function BookmarkCard({
       onDragEnd={onDragEnd}
     >
       {selectionMode && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
           aria-label={isSelected ? `Deselect ${item.title}` : `Select ${item.title}`}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             onToggleSelected();
           }}
-          className="absolute inset-0 z-30 rounded-lg"
+          className="absolute inset-0 z-30 h-auto w-auto rounded-lg p-0 opacity-0"
         />
       )}
 
@@ -479,23 +480,26 @@ function FolderSection({
       onDrop={onDropSection}
     >
       <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-lg py-1 pr-2 text-left transition-colors hover:bg-accent/60"
-          onClick={onToggleCollapsed}
-          aria-expanded={!isCollapsed}
-        >
-          {isCollapsed ? (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )}
-          <Folder className="h-4 w-4 text-primary" />
-          <h2 className="font-display text-xl font-bold text-foreground">{name}</h2>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            {items.length}
-          </span>
-        </button>
+        <h2>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-auto items-center gap-2 rounded-lg py-1 pr-2 text-left text-xl font-semibold"
+            onClick={onToggleCollapsed}
+            aria-expanded={!isCollapsed}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+            <Folder className="h-4 w-4 text-primary" />
+            {name}
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              {items.length}
+            </span>
+          </Button>
+        </h2>
         {name !== "Unsorted" && (
           <div className="flex items-center gap-2">
             <Button
@@ -1037,7 +1041,7 @@ export function BookmarkPage() {
     <div data-fishy-page="bookmarks" className="app-canvas library-page min-h-screen">
       <Header />
 
-      <main className="page-shell-wide page-stack pb-28">
+      <main id="main-content" className="page-shell-wide page-stack pb-28">
         <PageHeader
           title="Bookmarks"
           actions={

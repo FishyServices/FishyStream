@@ -78,7 +78,7 @@ function HomepageContent({
       <div className="min-h-screen bg-background text-foreground">
         <Toaster position="top-right" richColors />
         <Header />
-        <main>
+        <main id="main-content">
           <div className="h-[80svh] min-h-135 bg-muted/30" aria-hidden="true" />
           <div className="relative z-10 pb-10 pt-6">
             <RailSkeleton />
@@ -95,7 +95,7 @@ function HomepageContent({
       <div className="min-h-screen bg-background text-foreground">
         <Toaster position="top-right" richColors />
         <Header />
-        <main className="flex min-h-[calc(100vh-5rem)] items-center justify-center px-6 pt-24">
+        <main id="main-content" className="flex min-h-[calc(100vh-5rem)] items-center justify-center px-6 pt-24">
           <div className="max-w-md text-center space-y-4">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border border-border bg-card shadow-md">
               <Film className="h-6 w-6 text-muted-foreground" />
@@ -117,7 +117,7 @@ function HomepageContent({
       <Toaster position="top-right" richColors />
       <Header />
 
-      <main>
+      <main id="main-content">
         {featuredContent && featuredContent.length > 0 && (
           <Hero
             contents={featuredContent}

@@ -164,7 +164,7 @@ export function WatchHistoryPage() {
     <div data-fishy-page="history" className="app-canvas min-h-screen">
       <Header />
 
-      <main className="page-shell-wide page-stack pb-16">
+      <main id="main-content" className="page-shell-wide page-stack pb-16">
         <section aria-label="Search and sort watch history" className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="media-surface relative min-w-0 flex-1 rounded-xl border-border/65 bg-card/75 p-1.5 shadow-sm">

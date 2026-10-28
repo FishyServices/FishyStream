@@ -14,7 +14,7 @@ export function RecommendationsPage() {
   return (
     <div data-fishy-page="recommendations" className="app-canvas min-h-screen">
       <Header />
-      <main className="page-shell-wide page-stack">
+      <main id="main-content" className="page-shell-wide page-stack">
         <RecommendationsSection />
       </main>
     </div>

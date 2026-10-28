@@ -336,7 +336,7 @@ export function ReleaseCalendarPage() {
   return (
     <div data-fishy-page="release-calendar" className="app-canvas min-h-screen">
       <Header />
-      <main className="page-shell-wide page-stack pb-28">
+      <main id="main-content" className="page-shell-wide page-stack pb-28">
         <PageHeader
           title="Release Calendar"
           actions={

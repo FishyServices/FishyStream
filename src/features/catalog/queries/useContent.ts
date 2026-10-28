@@ -1,4 +1,5 @@
 import { getLocalStorageItem, setLocalStorageItem } from "@/shared/storage/browserStorage";
+import { readEpisodeRatings, writeEpisodeRatings } from "@/shared/storage/ratingsStorage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/react";
 import { useConvexAuth, useQuery } from "convex/react";
@@ -1257,6 +1258,14 @@ export function useSeasonEpisodes(
     setSeason(undefined);
     setIsLoading(true);
     ratings.current.clear();
+    if (imdbId && loadImdbRatings) {
+      const cachedRatings = readEpisodeRatings(imdbId, seasonNumber);
+      if (cachedRatings) {
+        ratings.current = new Map(
+          cachedRatings.map((episode) => [episode.episodeNumber, episode.voteAverage])
+        );
+      }
+    }
     void tmdbTvShows
       .seasonEpisodes(tmdbId, seasonNumber, apiKey(), controller.signal)
       .then(async (value) => {
@@ -1321,7 +1330,7 @@ export function useSeasonEpisodes(
         if (!controller.signal.aborted) setIsLoading(false);
       });
     return () => controller.abort();
-  }, [enabled, imdbId, seasonNumber, tmdbId]);
+  }, [enabled, imdbId, loadImdbRatings, seasonNumber, tmdbId]);
   useEffect(() => {
     fillerWindows.current.clear();
     fillerRequests.current.clear();
@@ -1381,12 +1390,38 @@ export function useSeasonEpisodes(
   );
   useEffect(() => {
     if (!enabled || !imdbId || !loadImdbRatings) return;
+    const cachedRatings = readEpisodeRatings(imdbId, seasonNumber);
+    if (cachedRatings) {
+      const next = new Map(
+        cachedRatings.map((episode) => [episode.episodeNumber, episode.voteAverage])
+      );
+      ratings.current = next;
+      setSeason((old) => {
+        if (!old) return old;
+        const nextSeason = {
+          ...old,
+          episodes: old.episodes.map((episode) => ({
+            ...episode,
+            voteAverage: next.get(episode.displayEpisodeNumber ?? episode.episodeNumber) ?? 0
+          }))
+        };
+        queryCache.set(`season:${tmdbId}:${seasonNumber}`, nextSeason);
+        return nextSeason;
+      });
+      return;
+    }
     const controller = new AbortController();
     void loadImdbSeasonEpisodes(imdbId, seasonNumber, controller.signal)
       .then((value) => {
         if (controller.signal.aborted) return;
+        const episodes = (value?.episodes ?? []).map(({ episodeNumber, name, voteAverage }) => ({
+          episodeNumber,
+          name,
+          voteAverage
+        }));
+        writeEpisodeRatings(imdbId, seasonNumber, episodes);
         const next = new Map(
-          (value?.episodes ?? []).map((episode) => [episode.episodeNumber, episode.voteAverage])
+          episodes.map((episode) => [episode.episodeNumber, episode.voteAverage])
         );
         ratings.current = next;
         setSeason((old) => {
@@ -1441,17 +1476,21 @@ export function useSeriesEpisodeRatings(
     }
     setIsLoading(true);
     void Promise.all(
-      Array.from({ length: seasonCount }, (_, index) => index + 1).map(async (seasonNumber) => ({
-        seasonNumber,
-        episodes:
+      Array.from({ length: seasonCount }, (_, index) => index + 1).map(async (seasonNumber) => {
+        const cachedEpisodes = readEpisodeRatings(imdbId, seasonNumber);
+        if (cachedEpisodes) return { seasonNumber, episodes: cachedEpisodes };
+
+        const episodes =
           (await loadImdbSeasonEpisodes(imdbId, seasonNumber, controller.signal))?.episodes.map(
             ({ episodeNumber, name, voteAverage }) => ({
               episodeNumber,
               name,
               voteAverage
             })
-          ) ?? []
-      }))
+          ) ?? [];
+        writeEpisodeRatings(imdbId, seasonNumber, episodes);
+        return { seasonNumber, episodes };
+      })
     )
       .then((value) => {
         if (!controller.signal.aborted) {

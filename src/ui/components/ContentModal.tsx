@@ -34,6 +34,7 @@ import {
   type BookmarkSnapshot
 } from "@/features/library/useBookmark";
 import { makeContentId } from "@content/contentMetadata";
+import { readTitleRating, writeTitleRating } from "@/shared/storage/ratingsStorage";
 import { toast } from "@fishy/ui";
 import {
   useContentCredits,
@@ -376,12 +377,21 @@ export function ContentModal({
             _id: fullContent._id,
             tmdbId: fullContent.tmdbId,
             rating: fullContent.rating,
-            voteAverage: fullContent.voteAverage,
+            voteAverage: fullContent.voteAverage ?? content?.voteAverage,
             imdbId: fullContent.imdbId ?? content?.imdbId
           }
         : content,
     [content, fullContent]
   );
+  const ratingContentId = resolvedContent?._id;
+  const fetchedVoteAverage = resolvedContent?.voteAverage;
+  useEffect(() => {
+    if (isOpen && ratingContentId && fetchedVoteAverage && fetchedVoteAverage > 0) {
+      writeTitleRating(ratingContentId, fetchedVoteAverage);
+    }
+  }, [fetchedVoteAverage, isOpen, ratingContentId]);
+  const cachedVoteAverage =
+    isOpen && ratingContentId ? readTitleRating(ratingContentId) : undefined;
 
   const detailContent = hasFullContent(resolvedContent) ? resolvedContent : null;
   const [selectedSeason, setSelectedSeason] = useState(1);
@@ -595,6 +605,7 @@ export function ContentModal({
   if (!resolvedContent) return null;
 
   const contentData = resolvedContent;
+  const voteAverage = contentData.voteAverage ?? cachedVoteAverage;
   const heroImageUrl = detailContent?.backdropUrl;
 
   const isTV = contentData.type === "tv";
@@ -616,7 +627,7 @@ export function ContentModal({
         tmdbId: bookmarkTmdbId,
         genre: contentData.genre,
         year: contentData.year,
-        voteAverage: contentData.voteAverage
+        voteAverage
       };
       await toggleBookmark(bookmarkContentId, snapshot);
       toast.success(isInBookmark ? "Removed from Bookmarks" : "Added to Bookmarks");
@@ -721,10 +732,10 @@ export function ContentModal({
               </div>
             )}
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              {contentData.voteAverage && contentData.voteAverage > 0 && (
+              {voteAverage !== undefined && voteAverage > 0 && (
                 <span className="flex items-center gap-1 font-semibold text-amber-300">
                   <Star className="h-4 w-4 fill-yellow-400" />
-                  {contentData.voteAverage.toFixed(1)}
+                  {voteAverage.toFixed(1)}
                 </span>
               )}
 

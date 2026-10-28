@@ -207,9 +207,12 @@ export function Header() {
 
   return (
     <>
+      <a className="skip-to-content" href="#main-content">
+        Skip to content
+      </a>
       <aside
         data-fishy-navigation="desktop"
-        className="app-rail flex-col bg-linear-to-b from-card/72 via-background/96 to-background px-3 py-5 shadow-[12px_0_30px_color-mix(in_oklab,var(--color-background)_35%,transparent)]"
+        className="app-rail flex-col px-3 py-5"
       >
         <div className="mb-9 px-2 xl:px-1">
           <span className="xl:hidden">
@@ -232,7 +235,7 @@ export function Header() {
             <NavLink key={item.href} item={item} collapsed />
           ))}
         </nav>
-        <div className="mt-auto space-y-1 rounded-xl border border-border/60 bg-card/55 p-2">
+        <div className="mt-auto space-y-1 border-t border-border/60 pt-3">
           <Button
             variant="secondary"
             onClick={() => setSearchOpen(true)}

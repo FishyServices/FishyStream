@@ -20,7 +20,7 @@ export function DmcaPage() {
     <div data-fishy-page="legal" className="app-canvas min-h-screen text-foreground">
       <Header />
 
-      <main className="page-shell-wide page-stack pb-20">
+      <main id="main-content" className="page-shell-wide page-stack pb-20">
         <PageHeader
           title="DMCA & Copyright"
           actions={

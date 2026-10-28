@@ -4,7 +4,7 @@ import { Button } from "@fishy/ui";
 export function PosterSkeleton({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`poster-skeleton block aspect-2/3 min-w-0 rounded-lg border border-border/55 bg-card/80 shadow-md ${className}`}
+      className={`poster-skeleton block aspect-2/3 min-w-0 rounded-lg bg-card/80 ${className}`}
       aria-hidden="true"
     />
   );
@@ -156,26 +156,37 @@ export function EmptyState({
 export function PageHeader({
   title,
   count,
+  description,
   actions
 }: {
   title: string;
   count?: number;
+  description?: string;
   actions?: ReactNode;
 }) {
   return (
-    <div data-fishy-page-header className="page-intro">
-      <div className="min-w-0 flex items-baseline gap-2">
+    <header data-fishy-page-header className="page-intro">
+      <div className="min-w-0">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h1 className="font-display text-4xl font-semibold leading-10 tracking-tight text-foreground sm:text-5xl sm:leading-none">
             {title}
           </h1>
         </div>
-        {count !== undefined ? (
-          <span className="text-sm text-muted-foreground">{count}</span>
+        {count !== undefined || description ? (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {count !== undefined ? (
+              <span className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
+                {count.toLocaleString()} titles
+              </span>
+            ) : null}
+            {description ? (
+              <p className="max-w-xl text-sm leading-6 text-muted-foreground">{description}</p>
+            ) : null}
+          </div>
         ) : null}
       </div>
-      {actions ? <div className="shrink-0 self-end sm:self-auto">{actions}</div> : null}
-    </div>
+      {actions ? <div className="shrink-0 sm:self-center">{actions}</div> : null}
+    </header>
   );
 }
 

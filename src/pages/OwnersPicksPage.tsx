@@ -41,7 +41,7 @@ export function OwnersPicksPage() {
     <div data-fishy-page="picks" className="app-canvas min-h-screen pb-20 text-foreground">
       <Header />
 
-      <main className="page-shell-wide page-stack">
+      <main id="main-content" className="page-shell-wide page-stack">
         <PageHeader title="Picks" />
 
         <div className="space-y-10 sm:space-y-12">

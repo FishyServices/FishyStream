@@ -175,7 +175,11 @@ export function RecommendationsSection({
         {recommendations.length > 0 ? (
           grid
         ) : (
-          <p className="text-sm text-muted-foreground">No recommendations yet</p>
+          <EmptyState
+            icon={<Sparkles className="h-8 w-8" />}
+            title="No recommendations yet"
+            action={<Button onClick={() => navigate("/movies")}>Browse movies</Button>}
+          />
         )}
       </section>
     );

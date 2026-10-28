@@ -395,7 +395,7 @@ export function DiscoverPage() {
   return (
     <div className="app-canvas min-h-screen text-foreground">
       <Header />
-      <main>
+      <main id="main-content">
         <FeaturedDiscoverCarousel items={featured} onPlay={handlePlay} onDetails={handleDetails} />
         <DiscoverContentMode onPlay={handlePlay} />
       </main>

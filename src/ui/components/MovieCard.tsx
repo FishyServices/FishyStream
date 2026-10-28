@@ -150,8 +150,8 @@ export function MovieCard({
         aria-label={content.year ? `${content.title} (${content.year})` : content.title}
       >
         <div
-          className={`relative aspect-2/3 overflow-hidden rounded-lg border border-border/55 bg-card shadow-sm transition-all duration-300 ${
-            hoverActive ? "md:z-20 md:shadow-md md:ring-1 md:ring-primary/50" : "shadow-md"
+          className={`relative aspect-2/3 overflow-hidden rounded-lg bg-card transition-[transform,box-shadow] duration-300 ${
+            hoverActive ? "md:z-20 md:scale-[1.025] md:shadow-xl md:shadow-background/70 md:ring-1 md:ring-primary/50" : ""
           }`}
         >
           {imgError ? (

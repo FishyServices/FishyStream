@@ -116,7 +116,7 @@ export function SearchPage() {
     <div data-fishy-page="search" className="app-canvas min-h-screen">
       <Header />
 
-      <main className="page-shell-wide page-stack">
+      <main id="main-content" className="page-shell-wide page-stack">
         <div className="mb-8 max-w-3xl">
           <PageHeader title="Search" />
           <div className="media-surface relative rounded-xl border-border/65 bg-card/72 p-1.5 shadow-sm">

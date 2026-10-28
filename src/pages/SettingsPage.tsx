@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Header } from "@/ui/components/Header";
+import { PageHeader } from "@/ui/components/UXPrimitives";
 import { useAppSettings } from "@/features/settings/useAppSettings";
 import {
   DEFAULT_APP_SETTINGS,
@@ -207,27 +208,22 @@ export function SettingsPage() {
     <div data-fishy-page="settings" className="app-canvas min-h-screen text-foreground">
       <Header />
 
-      <main className="page-shell page-stack">
-        <div className="page-intro">
-          <div>
-            <p className="mb-2 text-sm font-medium text-muted-foreground">Your FishyStream</p>
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Settings
-            </h1>
-            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              Fine-tune how FishyStream looks, browses, and plays on every device.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            className="shrink-0 rounded-xl"
-            onClick={() => resetSettings()}
-            disabled={JSON.stringify(settings) === JSON.stringify(DEFAULT_APP_SETTINGS)}
-            aria-label="Reset preferences to defaults"
-          >
-            <RotateCcw className="mr-2 h-4 w-4" /> Reset
-          </Button>
-        </div>
+      <main id="main-content" className="page-shell page-stack">
+        <PageHeader
+          title="Settings"
+          description="Choose how FishyStream looks, browses, and plays on this device."
+          actions={
+            <Button
+              variant="outline"
+              className="shrink-0 rounded-xl"
+              onClick={() => resetSettings()}
+              disabled={JSON.stringify(settings) === JSON.stringify(DEFAULT_APP_SETTINGS)}
+              aria-label="Reset preferences to defaults"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" /> Reset
+            </Button>
+          }
+        />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
           <SettingsSection icon={<Palette className="h-4 w-4" />} title="Appearance">
