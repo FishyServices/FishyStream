@@ -98,6 +98,21 @@ const scraper = createScraperClient({
   baseUrl: import.meta.env.DEV ? "http://localhost:4000" : window.location.origin
 });
 
+function getProviderSubtitleUrl(url: string): string {
+  try {
+    const source = new URL(url);
+    if (source.protocol !== "https:") return url;
+    const baseUrl = import.meta.env.DEV ? "http://localhost:4000" : window.location.origin;
+    const base = new URL(baseUrl);
+    if (source.origin === base.origin && source.pathname === "/api/subtitle-proxy") return url;
+    const proxy = new URL("/api/subtitle-proxy", base);
+    proxy.searchParams.set("url", source.href);
+    return proxy.href;
+  } catch {
+    return url;
+  }
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -451,7 +466,7 @@ export function CustomVideoPlayer({
         }
         if (!active || !containerRef.current) return;
         const providerSubtitleSources: SubtitleSource[] = tracks.map((track, index) => ({
-          url: track.file,
+          url: getProviderSubtitleUrl(track.file),
           name: track.label ?? `Subtitle ${index + 1}`,
           type: getSubtitleFormat(track.file)
         }));

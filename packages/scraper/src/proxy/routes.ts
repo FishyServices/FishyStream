@@ -55,7 +55,9 @@ async function upstreamError(
   requestHeaders?: StreamHeaders
 ): Promise<string> {
   const body = await response.text().catch(() => "");
-  console.log(`[proxy] ${label} upstream ${response.status} for ${upstreamLabel(url, requestHeaders)}`);
+  console.log(
+    `[proxy] ${label} upstream ${response.status} for ${upstreamLabel(url, requestHeaders)}`
+  );
   console.log(`[proxy]   body: ${body.slice(0, 200)}`);
   return `Upstream returned ${response.status}`;
 }
@@ -165,31 +167,17 @@ export function registerProxyRoutes(app: Hono<{ Bindings: ScrapeBindings }>): vo
   app.get("/api/subtitle-proxy", async (c) => {
     const value = target(c);
     if (value instanceof Response) return value;
-    let parsed: StreamHeaders | Response;
-    if (c.req.query("provider") === "megaplay") {
-      let url: URL;
-      try {
-        url = new URL(value);
-      } catch {
-        return c.text("Invalid MegaPlay subtitle URL", 400);
-      }
-      const allowedHost =
-        url.hostname === "broforgotsave.online" || url.hostname.endsWith(".broforgotsave.online");
-      if (
-        url.protocol !== "https:" ||
-        !allowedHost ||
-        url.port ||
-        url.username ||
-        url.password ||
-        !url.pathname.includes("/subtitles/") ||
-        !url.pathname.endsWith(".vtt")
-      ) {
-        return c.text("Invalid MegaPlay subtitle URL", 400);
-      }
-      parsed = { Origin: "https://megaplay.buzz", Referer: "https://megaplay.buzz/" };
-    } else {
-      parsed = headers(c.req.query("headers"));
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      return c.text("Invalid subtitle URL", 400);
     }
+    const isSubtitle = /\.(vtt|srt|ass|ssa)$/i.test(url.pathname);
+    if (url.protocol !== "https:" || url.port || url.username || url.password || !isSubtitle)
+      return c.text("Expected an HTTPS subtitle URL", 400);
+
+    const parsed = headers(c.req.query("headers"));
     if (parsed instanceof Response) return parsed;
     const response = await fetchWithRetry(value, parsed);
     if (!response.ok) return c.text(`Upstream returned ${response.status}`, 502);

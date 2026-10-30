@@ -21,21 +21,8 @@ function proxiedTracks(tracks: unknown, base: string): unknown {
     if (typeof file !== "string") return track;
     try {
       const url = new URL(file);
-      const allowedHost =
-        url.hostname === "broforgotsave.online" || url.hostname.endsWith(".broforgotsave.online");
-      if (
-        url.protocol !== "https:" ||
-        url.port ||
-        url.username ||
-        url.password ||
-        !allowedHost ||
-        !url.pathname.includes("/subtitles/") ||
-        !url.pathname.endsWith(".vtt")
-      ) {
-        return track;
-      }
+      if (url.protocol !== "https:" || url.port || url.username || url.password) return track;
       const proxyUrl = new URL(`${base}/api/subtitle-proxy`);
-      proxyUrl.searchParams.set("provider", "megaplay");
       proxyUrl.searchParams.set("url", url.href);
       return { ...track, file: proxyUrl.href };
     } catch {
