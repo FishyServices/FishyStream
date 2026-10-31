@@ -117,14 +117,6 @@ function getProviderSubtitleUrl(url: string): string {
   }
 }
 
-function isFilmuEmbed(url: string): boolean {
-  try {
-    return new URL(url).hostname === "embed.filmu.in";
-  } catch {
-    return false;
-  }
-}
-
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -303,7 +295,6 @@ export function CustomVideoPlayer({
   const introDbLookupKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [useFilmuPlayerFallback, setUseFilmuPlayerFallback] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -455,7 +446,6 @@ export function CustomVideoPlayer({
     const load = async () => {
       setIsLoading(true);
       setMediaError(null);
-      setUseFilmuPlayerFallback(false);
       setSkipTimes({});
       resetDownloadRef.current();
       destroy();
@@ -1109,10 +1099,8 @@ export function CustomVideoPlayer({
           });
         }
       } catch (error) {
-        if (active && !(error instanceof DOMException && error.name === "AbortError")) {
-          if (isFilmuEmbed(embedUrl)) setUseFilmuPlayerFallback(true);
-          else setMediaError(error instanceof Error ? error.message : "Unable to load this video.");
-        }
+        if (active && !(error instanceof DOMException && error.name === "AbortError"))
+          setMediaError(error instanceof Error ? error.message : "Unable to load this video.");
       } finally {
         if (active) setIsLoading(false);
       }
@@ -1201,21 +1189,10 @@ export function CustomVideoPlayer({
 
   return (
     <div className="relative h-[min(100dvh,56.25vw)] min-h-0 w-full max-w-full overflow-hidden rounded-2xl border border-border/60 bg-background shadow-2xl shadow-black/40 ring-1 ring-white/5">
-      {useFilmuPlayerFallback ? (
-        <iframe
-          src={embedUrl}
-          title={`${content.title} player`}
-          className="absolute inset-0 h-full w-full border-0"
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          allowFullScreen
-          referrerPolicy="origin"
-        />
-      ) : (
-        <div
-          ref={containerRef}
-          className="artplayer-app absolute inset-0 [&_.art-video-player]:h-full [&_.art-video-player]:w-full [&_.art-video-player]:overflow-hidden [&_.art-video]:object-cover"
-        />
-      )}
+      <div
+        ref={containerRef}
+        className="artplayer-app absolute inset-0 [&_.art-video-player]:h-full [&_.art-video-player]:w-full [&_.art-video-player]:overflow-hidden [&_.art-video]:object-cover"
+      />
       {(isFillerEpisode || anime4kSupported === false || anime4kActiveMode !== "off") && (
         <div className="pointer-events-none absolute left-3 top-3 z-[10002] flex flex-col items-start gap-2">
           {isFillerEpisode && (
