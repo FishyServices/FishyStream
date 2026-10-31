@@ -1,13 +1,17 @@
 import { fetchProvider, isPlayableStream } from "../fetcher";
-import { findMedia, findMediaInText, originHeaders, resolveMedia } from "../media";
+import { findMedia, findMediaInText, resolveMedia } from "../media";
 import type { Stream, StreamSourceOption } from "../../types";
 
 type FilmUServer = { id: string; label: string };
-type FilmUContext = { kind: string; params: URLSearchParams; token: string; origin: string };
+type FilmUContext = { params: URLSearchParams; origin: string; referer: string };
 type FilmUSources = { servers: FilmUServer[]; streams: unknown[] };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function playerHeaders(pageUrl: string): { Origin: string; Referer: string } {
+  return { Origin: new URL(pageUrl).origin, Referer: pageUrl };
 }
 
 function isFilmuPlayerUrl(target: string): boolean {
@@ -43,9 +47,9 @@ function readPreloadedMedia(html: string, base: string): Stream | null {
       const url = new URL(raw, base);
       if (url.protocol !== "https:") continue;
       if (url.pathname.endsWith("/proxy/m3u8") || url.pathname.startsWith("/p/"))
-        return { url: url.href, mediaType: "hls", headers: originHeaders(url.href) };
+        return { url: url.href, mediaType: "hls", headers: playerHeaders(base) };
       const direct = resolveMedia(url.href, base);
-      if (direct) return direct;
+      if (direct) return { ...direct, headers: { ...direct.headers, ...playerHeaders(base) } };
     } catch {
       continue;
     }
@@ -53,7 +57,7 @@ function readPreloadedMedia(html: string, base: string): Stream | null {
   return null;
 }
 
-function makeFilmUContext(target: string, html: string, origin: string): FilmUContext | null {
+function makeFilmUContext(target: string, html: string, pageUrl: string): FilmUContext | null {
   const match = html.match(/token\\":\\"([^\\"]+)/);
   if (!match?.[1]) return null;
   const url = new URL(target);
@@ -71,7 +75,7 @@ function makeFilmUContext(target: string, html: string, origin: string): FilmUCo
     params.set("anilist", id);
     if (episode) params.set("e", episode);
   } else return null;
-  return { kind, params, token: match[1], origin };
+  return { params, origin: new URL(pageUrl).origin, referer: pageUrl };
 }
 
 function decryptSources(value: string): unknown {
@@ -113,7 +117,8 @@ async function requestFilmUSources(
   params.set("provider", provider);
   const response = await fetchProvider(`${context.origin}/api/sources?${params}`, {
     Accept: "application/json, text/plain, */*",
-    Referer: `${context.origin}/`
+    Origin: context.origin,
+    Referer: context.referer
   });
   if (!response.ok) return null;
   const payload: unknown = decryptSources(await response.text());
@@ -128,10 +133,14 @@ async function requestFilmUSources(
   return { servers, streams: Array.isArray(payload.streams) ? payload.streams : [] };
 }
 
-function streamFromSources(payload: FilmUSources, provider: string): Stream | null {
+function streamFromSources(
+  payload: FilmUSources,
+  provider: string,
+  pageUrl: string
+): Stream | null {
   for (const item of payload.streams) {
     if (!isRecord(item) || typeof item.url !== "string") continue;
-    const stream = resolveMedia(item.url, "https://hikari.streamrip.fun/", item.type);
+    const stream = resolveMedia(item.url, pageUrl, item.type);
     if (!stream) continue;
     const tracks = Array.isArray(item.subtitles)
       ? item.subtitles.flatMap((track) =>
@@ -146,7 +155,13 @@ function streamFromSources(payload: FilmUSources, provider: string): Stream | nu
         )
       : [];
     const label = typeof item.label === "string" ? item.label : provider;
-    return { ...stream, name: label, sourceKey: provider, tracks };
+    return {
+      ...stream,
+      headers: { ...stream.headers, ...playerHeaders(pageUrl) },
+      name: label,
+      sourceKey: provider,
+      tracks
+    };
   }
   return null;
 }
@@ -165,7 +180,7 @@ export async function getFilmuSourceOptions(target: string): Promise<StreamSourc
   try {
     const page = await loadFilmUPage(target);
     if (!page) return [];
-    const context = makeFilmUContext(target, page.html, new URL(page.base).origin);
+    const context = makeFilmUContext(target, page.html, page.base);
     if (!context) return [];
     const available = await requestFilmUSources(context, "auto");
     if (!available) return [];
@@ -190,10 +205,10 @@ export async function resolveFilmuSource(
   try {
     const page = await loadFilmUPage(target);
     if (!page) return null;
-    const context = makeFilmUContext(target, page.html, new URL(page.base).origin);
+    const context = makeFilmUContext(target, page.html, page.base);
     if (!context) return null;
     const payload = await requestFilmUSources(context, sourceKey);
-    const stream = payload && streamFromSources(payload, sourceKey);
+    const stream = payload && streamFromSources(payload, sourceKey, page.base);
     return stream && (await isPlayableStream(stream)) ? stream : null;
   } catch {
     return null;
@@ -219,12 +234,12 @@ export async function resolveFilmu(target: string): Promise<Stream | null> {
   try {
     const page = await loadFilmUPage(target);
     if (!page) return null;
-    const context = makeFilmUContext(target, page.html, new URL(page.base).origin);
+    const context = makeFilmUContext(target, page.html, page.base);
     if (context) {
       const available = await requestFilmUSources(context, "auto");
       for (const server of available?.servers ?? []) {
         const payload = await requestFilmUSources(context, server.id).catch(() => null);
-        const stream = payload && streamFromSources(payload, server.id);
+        const stream = payload && streamFromSources(payload, server.id, page.base);
         if (stream && (await isPlayableStream(stream))) return stream;
       }
     }
