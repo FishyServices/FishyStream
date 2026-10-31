@@ -37,7 +37,10 @@ import type { PlaybackEvent } from "@/features/playback/usePlaybackSession";
 import { useVideoDownloads } from "@/ui/components/custom-video-player/downloads";
 import {
   readPlayerVolumeBoost,
-  savePlayerVolumeBoost
+  savePlayerVolumeBoost,
+  readSubtitlePreferences,
+  saveSubtitlePreferences,
+  type SubtitlePreferences
 } from "@/shared/storage/playerPreferencesStorage";
 
 interface CustomVideoPlayerProps {
@@ -281,6 +284,7 @@ export function CustomVideoPlayer({
   const gainNodeRef = useRef<GainNode | null>(null);
   const anime4kPluginRef = useRef<Anime4kPlugin | null>(null);
   const volumeBoostRef = useRef(readPlayerVolumeBoost());
+  const subtitlePreferencesRef = useRef(readSubtitlePreferences());
   const onPlaybackEventRef = useRef(onPlaybackEvent);
   const onIntroDbEndTimeRef = useRef(onIntroDbEndTime);
   const onNextEpisodeRef = useRef(onNextEpisode);
@@ -382,6 +386,30 @@ export function CustomVideoPlayer({
     savePlayerVolumeBoost(nextBoost);
     initAudioBoost();
     if (gainNodeRef.current) gainNodeRef.current.gain.value = nextBoost;
+  };
+
+  const updateSubtitlePreferences = (next: SubtitlePreferences) => {
+    subtitlePreferencesRef.current = next;
+    saveSubtitlePreferences(next);
+    const rgb = {
+      black: "0, 0, 0",
+      gray: "48, 48, 48",
+      cyan: "0, 105, 115",
+      white: "255, 255, 255"
+    }[next.backgroundColor];
+    const isBox = next.backgroundStyle === "box";
+    playerRef.current?.subtitle.style({
+      fontSize: `${next.fontSize}%`,
+      bottom: `${next.bottom}%`,
+      background: isBox ? `rgba(${rgb}, ${next.backgroundOpacity / 100})` : "transparent",
+      padding: isBox ? "0.12em 0.35em" : "0",
+      textShadow:
+        next.backgroundStyle === "shadow"
+          ? "0 1px 2px #000, 0 2px 8px #000, 0 0 1px #000"
+          : next.backgroundStyle === "box"
+            ? "0 1px 2px rgba(0, 0, 0, 0.75)"
+            : "none"
+    });
   };
 
   useEffect(() => {
@@ -556,6 +584,129 @@ export function CustomVideoPlayer({
             }))
           ]
         };
+        const subtitleSizeSetting: Setting = {
+          name: "subtitle-size",
+          html: "Subtitle size",
+          range: [subtitlePreferencesRef.current.fontSize, 50, 300, 5],
+          onChange(this: Artplayer, item: SettingOption) {
+            const fontSize = item.$range?.valueAsNumber ?? subtitlePreferencesRef.current.fontSize;
+            updateSubtitlePreferences({ ...subtitlePreferencesRef.current, fontSize });
+            return `${fontSize}%`;
+          }
+        };
+        const subtitlePositionSetting: Setting = {
+          name: "subtitle-position",
+          html: "Subtitle position",
+          range: [subtitlePreferencesRef.current.bottom, 2, 20, 1],
+          onChange(this: Artplayer, item: SettingOption) {
+            const bottom = item.$range?.valueAsNumber ?? subtitlePreferencesRef.current.bottom;
+            updateSubtitlePreferences({ ...subtitlePreferencesRef.current, bottom });
+            return `${bottom}%`;
+          }
+        };
+        const subtitleBackgroundSetting: Setting = {
+          name: "subtitle-background-style",
+          html: "Background style",
+          onSelect(this: Artplayer, item: SettingOption) {
+            const style = item.name.replace(
+              "subtitle-background-",
+              ""
+            ) as SubtitlePreferences["backgroundStyle"];
+            updateSubtitlePreferences({
+              ...subtitlePreferencesRef.current,
+              backgroundStyle: style
+            });
+            return item.html;
+          },
+          selector: [
+            {
+              name: "subtitle-background-shadow",
+              html: "Text shadow",
+              default: subtitlePreferencesRef.current.backgroundStyle === "shadow"
+            },
+            {
+              name: "subtitle-background-box",
+              html: "Color box",
+              default: subtitlePreferencesRef.current.backgroundStyle === "box"
+            },
+            {
+              name: "subtitle-background-none",
+              html: "None",
+              default: subtitlePreferencesRef.current.backgroundStyle === "none"
+            }
+          ]
+        };
+        const subtitleBackgroundColorSetting: Setting = {
+          name: "subtitle-background-color",
+          html: "Background color",
+          onSelect(this: Artplayer, item: SettingOption) {
+            const color = item.name.replace(
+              "subtitle-color-",
+              ""
+            ) as SubtitlePreferences["backgroundColor"];
+            updateSubtitlePreferences({
+              ...subtitlePreferencesRef.current,
+              backgroundColor: color
+            });
+            return item.html;
+          },
+          selector: [
+            {
+              name: "subtitle-color-black",
+              html: "Black",
+              default: subtitlePreferencesRef.current.backgroundColor === "black"
+            },
+            {
+              name: "subtitle-color-gray",
+              html: "Dark gray",
+              default: subtitlePreferencesRef.current.backgroundColor === "gray"
+            },
+            {
+              name: "subtitle-color-cyan",
+              html: "Deep cyan",
+              default: subtitlePreferencesRef.current.backgroundColor === "cyan"
+            },
+            {
+              name: "subtitle-color-white",
+              html: "White",
+              default: subtitlePreferencesRef.current.backgroundColor === "white"
+            }
+          ]
+        };
+        const subtitleBackgroundOpacitySetting: Setting = {
+          name: "subtitle-background-opacity",
+          html: "Box opacity",
+          range: [subtitlePreferencesRef.current.backgroundOpacity, 0, 100, 5],
+          onChange(this: Artplayer, item: SettingOption) {
+            const backgroundOpacity =
+              item.$range?.valueAsNumber ?? subtitlePreferencesRef.current.backgroundOpacity;
+            updateSubtitlePreferences({ ...subtitlePreferencesRef.current, backgroundOpacity });
+            return `${backgroundOpacity}%`;
+          }
+        };
+        const subtitleOffsetSetting: Setting = {
+          name: "subtitle-offset",
+          html: "Subtitle offset",
+          range: [0, -5, 5, 0.1],
+          onChange(this: Artplayer, item: SettingOption) {
+            const offset = item.$range?.valueAsNumber ?? this.subtitleOffset;
+            this.subtitleOffset = offset;
+            return `${offset.toFixed(1)}s`;
+          }
+        };
+        const subtitleSettingsMenu: Setting = {
+          name: "subtitle-settings",
+          html: "Subtitle settings",
+          selector: [
+            subtitleOffsetSetting,
+            subtitleSizeSetting,
+            subtitlePositionSetting,
+            subtitleBackgroundSetting,
+            subtitleBackgroundColorSetting,
+            subtitleBackgroundOpacitySetting
+          ]
+        };
+        subtitleSetting.selector = [subtitleSettingsMenu, ...(subtitleSetting.selector ?? [])];
         const volumeBoostSetting: Setting = {
           name: "volume-boost",
           html: "Volume boost",
@@ -748,7 +899,6 @@ export function CustomVideoPlayer({
           gesture: true,
           fastForward: true,
           miniProgressBar: false,
-          subtitleOffset: true,
           mutex: true,
           pip: true,
           plugins: [fillNativeFullscreen, anime4kPlugin],
@@ -786,6 +936,7 @@ export function CustomVideoPlayer({
         const initialSubtitle = subtitleSources[0];
         const player = new Artplayer(option);
         playerRef.current = player;
+        updateSubtitlePreferences(subtitlePreferencesRef.current);
         player.on("fullscreen", (isFullscreen) => {
           const layer = player.layers[PLAYBACK_ACTIONS_LAYER_NAME];
           if (layer) {

@@ -7,18 +7,18 @@ function isFilmuPlayerUrl(target: string): boolean {
     const url = new URL(target);
     if (url.protocol !== "https:" || url.hostname !== "embed.filmu.in" || url.port) return false;
     const parts = url.pathname.split("/").filter(Boolean);
-    if (parts[0] !== "embed") return false;
-    if (parts[1] === "movie") return parts.length === 3 && /^\d{1,10}$/.test(parts[2]!);
-    if (parts[1] === "tv")
+    if (parts[0] === "embed") parts.shift();
+    if (parts[0] === "movie") return parts.length === 2 && /^\d{1,10}$/.test(parts[1]!);
+    if (parts[0] === "tv")
       return (
-        parts.length === 5 &&
-        /^\d{1,10}$/.test(parts[2]!) &&
+        parts.length === 4 &&
+        /^\d{1,10}$/.test(parts[1]!) &&
+        /^\d{1,4}$/.test(parts[2]!) &&
         /^\d{1,4}$/.test(parts[3]!) &&
-        /^\d{1,4}$/.test(parts[4]!) &&
-        Number(parts[4]) > 0
+        Number(parts[3]) > 0
       );
-    if (parts[1] === "anime")
-      return parts.length === 4 && /^\d{1,12}$/.test(parts[2]!) && /^\d{1,4}$/.test(parts[3]!);
+    if (parts[0] === "anime")
+      return parts.length === 3 && /^\d{1,12}$/.test(parts[1]!) && /^\d{1,4}$/.test(parts[2]!);
     return false;
   } catch {
     return false;
@@ -34,7 +34,7 @@ function readPreloadedMedia(html: string, base: string): Stream | null {
     try {
       const url = new URL(raw, base);
       if (url.protocol !== "https:") continue;
-      if (url.pathname.endsWith("/proxy/m3u8"))
+      if (url.pathname.endsWith("/proxy/m3u8") || url.pathname.startsWith("/p/"))
         return { url: url.href, mediaType: "hls", headers: originHeaders(url.href) };
       const direct = resolveMedia(url.href, base);
       if (direct) return direct;
