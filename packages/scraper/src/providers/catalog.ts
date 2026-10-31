@@ -20,7 +20,7 @@ import { resolveVidFast } from "./catalog/broken/vidFast";
 import { resolveAniEmbed } from "./catalog/aniEmbed";
 import { resolveCinezo } from "./catalog/cinezo";
 import { resolveTryEmbed } from "./catalog/broken/tryEmbed";
-import { resolveFilmu } from "./catalog/filmu";
+import { getFilmuSourceOptions, resolveFilmu, resolveFilmuSource } from "./catalog/filmu";
 import type { Stream, StreamSourceOption } from "../types";
 
 export type Provider = {
@@ -155,7 +155,9 @@ const tryEmbedProvider: Provider = {
 const filmuProvider: Provider = {
   id: "filmu",
   matches: (url) => url.hostname === "embed.filmu.in",
-  resolve: resolveFilmu
+  resolve: resolveFilmu,
+  sourceOptions: getFilmuSourceOptions,
+  resolveSource: resolveFilmuSource
 };
 
 const genericProvider: Provider = {

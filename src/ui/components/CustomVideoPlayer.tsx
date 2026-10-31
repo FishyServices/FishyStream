@@ -100,6 +100,7 @@ interface ScrapeSelection {
 const scraper = createScraperClient({
   baseUrl: import.meta.env.DEV ? "http://localhost:4000" : window.location.origin
 });
+const SCRAPER_PAGE_CACHE_TTL_MS = 30_000;
 
 function getProviderSubtitleUrl(url: string): string {
   try {
@@ -306,6 +307,7 @@ export function CustomVideoPlayer({
   const sourcePageCacheRef = useRef<{
     embedUrl: string;
     response: ScrapeResult;
+    expiresAt: number;
   } | null>(null);
   const sourceRequestControllerRef = useRef<AbortController | null>(null);
   const autoAttemptKeyRef = useRef("");
@@ -459,7 +461,8 @@ export function CustomVideoPlayer({
           autoAdvanceInFlightRef.current = false;
         }
         let scrapeResponse =
-          sourcePageCacheRef.current?.embedUrl === scrapeCacheKey
+          sourcePageCacheRef.current?.embedUrl === scrapeCacheKey &&
+          sourcePageCacheRef.current.expiresAt > Date.now()
             ? sourcePageCacheRef.current.response
             : undefined;
         if (!scrapeResponse) {
@@ -470,7 +473,11 @@ export function CustomVideoPlayer({
             ? await scraper.scrapeFirstWorking(urlsToTry, controller.signal)
             : await scraper.scrape(embedUrl, controller.signal);
           scrapeTarget = scrapeResponse.resolvedUrl ?? embedUrl;
-          sourcePageCacheRef.current = { embedUrl: scrapeCacheKey, response: scrapeResponse };
+          sourcePageCacheRef.current = {
+            embedUrl: scrapeCacheKey,
+            response: scrapeResponse,
+            expiresAt: Date.now() + SCRAPER_PAGE_CACHE_TTL_MS
+          };
         }
         scrapeTarget = scrapeResponse.resolvedUrl ?? embedUrl;
         if (autoProviderEnabled) autoAttemptedUrlsRef.current.add(scrapeTarget);
@@ -888,7 +895,6 @@ export function CustomVideoPlayer({
           settings: [
             subtitleSetting,
             volumeBoostSetting,
-            //anime4kCompareSetting,
             ...(streamSetting ? [streamSetting] : [])
           ],
           layers: playerLayers,
@@ -1032,7 +1038,8 @@ export function CustomVideoPlayer({
                   autoAttemptedUrlsRef.current.add(result.resolvedUrl);
                   sourcePageCacheRef.current = {
                     embedUrl: `auto:${autoSourceUrls.join("|")}`,
-                    response: result
+                    response: result,
+                    expiresAt: Date.now() + SCRAPER_PAGE_CACHE_TTL_MS
                   };
                   setScrapeSelection({
                     embedUrl: result.resolvedUrl,
