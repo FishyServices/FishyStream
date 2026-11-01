@@ -18,6 +18,7 @@ type Request = {
 type Bootstrap = {
   id: string;
   providerIds: string[];
+  alternateProviderIds: string[];
 };
 
 type TextResponse = {
@@ -93,34 +94,42 @@ function parseBootstrap(html: string, request: Request): Bootstrap | null {
   const title = data.match(/\bid:"([^"\\]+)",anilistId:(\d+),/);
   const id = title?.[1];
   const episode = data.match(/\bepNum:(\d+)/)?.[1];
-  const language = data.match(/\blang:"(sub|dub)"/)?.[1];
+  const language = data.match(/\blang:(null|"sub"|"dub")/)?.[1];
   if (
     !id ||
     !/^[a-z0-9][a-z0-9-]*$/i.test(id) ||
     title[2] !== request.anilistId ||
     episode !== request.episode ||
-    language !== request.language
+    (language !== `"${request.language}"` && !(language === "null" && request.language === "sub"))
   ) {
     return null;
   }
 
-  const providers = data.match(new RegExp(`\\b${request.language}Providers:\\[([^\\]]*)\\]`))?.[1];
-  if (!providers) return null;
-  const providerIds = [...providers.matchAll(/\bid:"([a-z0-9_-]+)"/gi)].flatMap((match) =>
-    match[1] ? [match[1]] : []
-  );
-  const uniqueProviderIds = [...new Set(providerIds)];
-  if (uniqueProviderIds.length === 0) return null;
+  const readProviderIds = (language: Request["language"]): string[] | null => {
+    const providers = data.match(new RegExp(`\\b${language}Providers:\\[([^\\]]*)\\]`))?.[1];
+    if (providers === undefined) return null;
+    return [
+      ...new Set(
+        [...providers.matchAll(/\bid:"([a-z0-9_-]+)"/gi)].flatMap((match) =>
+          match[1] ? [match[1]] : []
+        )
+      )
+    ];
+  };
+  const providerIds = readProviderIds(request.language);
+  const alternateProviderIds = readProviderIds(request.language === "sub" ? "dub" : "sub");
+  if (!providerIds || !alternateProviderIds) return null;
 
   const selectedProvider =
     data.match(/\bproviderId:(null|"([a-z0-9_-]+)")/)?.[2] ?? request.url.searchParams.get("s");
-  if (selectedProvider && uniqueProviderIds.includes(selectedProvider)) {
+  if (selectedProvider && providerIds.includes(selectedProvider)) {
     return {
       id,
-      providerIds: [selectedProvider, ...uniqueProviderIds.filter((id) => id !== selectedProvider)]
+      providerIds: [selectedProvider, ...providerIds.filter((id) => id !== selectedProvider)],
+      alternateProviderIds
     };
   }
-  return { id, providerIds: uniqueProviderIds };
+  return { id, providerIds, alternateProviderIds };
 }
 
 function readHeaders(value: unknown): StreamHeaders {
@@ -223,15 +232,30 @@ async function resolveSource(
     Origin: ANIEMBED_ORIGIN,
     Referer: request.url.href
   });
-  if (!result?.response.ok) return null;
+  if (!result) {
+    console.warn(`[scraper] aniembed source request failed for provider ${providerId}`);
+    return null;
+  }
+  if (!result.response.ok) {
+    console.warn(
+      `[scraper] aniembed source API returned HTTP ${result.response.status} for provider ${providerId}`
+    );
+    return null;
+  }
 
   let payload: unknown;
   try {
     payload = JSON.parse(result.text);
   } catch {
+    console.warn(`[scraper] aniembed source API returned invalid JSON for provider ${providerId}`);
     return null;
   }
-  if (!isRecord(payload) || !Array.isArray(payload.sources)) return null;
+  if (!isRecord(payload) || !Array.isArray(payload.sources)) {
+    console.warn(
+      `[scraper] aniembed source API returned no sources list for provider ${providerId}`
+    );
+    return null;
+  }
 
   const sourceHeaders = readHeaders(payload.headers);
   const tracks = readTracks(payload.tracks);
@@ -247,7 +271,9 @@ async function resolveSource(
       ...(tracks ? { tracks } : {})
     };
     if (await probeMedia(stream)) return stream;
+    console.warn(`[scraper] aniembed media probe failed for provider ${providerId}`);
   }
+  console.warn(`[scraper] aniembed found no playable sources for provider ${providerId}`);
   return null;
 }
 
@@ -261,16 +287,50 @@ export async function resolveAniEmbed(target: string): Promise<Stream | null> {
       "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       { Referer: `${ANIEMBED_ORIGIN}/` }
     );
-    if (!page?.response.ok) return null;
+    if (!page) {
+      console.warn("[scraper] aniembed page request failed");
+      return null;
+    }
+    if (!page.response.ok) {
+      console.warn(`[scraper] aniembed page returned HTTP ${page.response.status}`);
+      return null;
+    }
     const bootstrap = parseBootstrap(page.text, request);
-    if (!bootstrap) return null;
+    if (!bootstrap) {
+      console.warn(
+        `[scraper] aniembed page bootstrap did not match AniList ${request.anilistId} episode ${request.episode} (${request.language})`
+      );
+      return null;
+    }
+    let sourceRequest = request;
+    let providerIds = bootstrap.providerIds;
+    if (providerIds.length === 0) {
+      const alternateLanguage = request.language === "sub" ? "dub" : "sub";
+      console.info(
+        `[scraper] aniembed has no ${request.language} providers for AniList ${request.anilistId} episode ${request.episode}; ${alternateLanguage} providers: ${bootstrap.alternateProviderIds.length ? bootstrap.alternateProviderIds.join(", ") : "none"}`
+      );
+      if (request.language !== "dub" || bootstrap.alternateProviderIds.length === 0) return null;
 
-    for (const providerId of bootstrap.providerIds) {
-      const stream = await resolveSource(request, bootstrap.id, providerId);
+      sourceRequest = { ...request, language: "sub" };
+      providerIds = bootstrap.alternateProviderIds;
+      console.info(
+        `[scraper] aniembed falling back to sub for AniList ${request.anilistId} episode ${request.episode}`
+      );
+    }
+    console.info(
+      `[scraper] aniembed resolving AniList ${request.anilistId} episode ${request.episode} as ${sourceRequest.language}; providers: ${providerIds.join(", ")}`
+    );
+
+    for (const providerId of providerIds) {
+      const stream = await resolveSource(sourceRequest, bootstrap.id, providerId);
       if (stream) return stream;
     }
+    console.warn(
+      `[scraper] aniembed exhausted ${providerIds.length} providers for AniList ${request.anilistId} episode ${request.episode} (${sourceRequest.language})`
+    );
     return null;
   } catch {
+    console.warn("[scraper] aniembed resolver failed unexpectedly");
     return null;
   }
 }
