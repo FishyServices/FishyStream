@@ -68,10 +68,12 @@ async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> 
   if (!title) return null;
   const scoring = { title, season, year };
 
-  const candidate = buildSearchCandidates(title, season, seasonTitle)[0];
-  const best = candidate ? pickBest(await searchMedia(candidate), scoring) : undefined;
-  if (best && (best.score >= MATCH_THRESHOLD || hasStrongTitleMatch(best.media, title, season))) {
-    return String(best.media.id);
+  let best: Scored | undefined;
+  for (const candidate of buildSearchCandidates(title, season, seasonTitle)) {
+    best = pickBest(await searchMedia(candidate), scoring, best);
+    if (best && (best.score >= MATCH_THRESHOLD || hasStrongTitleMatch(best.media, title, season))) {
+      return String(best.media.id);
+    }
   }
 
   return null;
