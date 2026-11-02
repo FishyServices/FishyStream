@@ -1,5 +1,10 @@
 import { parseContentId, type ContentId, type ContentType } from "@content/contentMetadata";
-import { getLocalStorageItem, setLocalStorageItem } from "./browserStorage";
+import type { AnimeReleaseScheduleEntry } from "@fishy/providers/anime";
+import {
+  getLocalStorageItem,
+  removeLocalStorageItemsByPrefix,
+  setLocalStorageItem
+} from "./browserStorage";
 
 export type LocalContentSnapshot = {
   title: string;
@@ -75,6 +80,170 @@ function writeJson(key: string, value: unknown): void {
 const GUEST_BOOKMARK_IDS_KEY = "fishystream:library:guest-bookmark-ids";
 const GUEST_BOOKMARK_SNAPSHOTS_KEY = "fishystream:library:guest-bookmark-snapshots";
 const BOOKMARK_CACHE_PREFIX = "fishystream:library:bookmark-cache:";
+const RELEASE_CACHE_KEY = "fishystream:library:release-cache";
+const OBSOLETE_RELEASE_CACHE_PREFIXES = [
+  "fishystream:library:anime-release-cache",
+  "fishystream:library:tv-release-cache:"
+];
+const ANIME_RELEASE_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+const TV_RELEASE_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+export type TvUpcomingEpisode = {
+  name: string;
+  airDate: string;
+  seasonNumber: number;
+  episodeNumber: number;
+};
+
+export type TvReleaseCacheEntry = { episode: TvUpcomingEpisode | null; available: boolean };
+
+type AnimeReleaseCacheEntry = {
+  cachedAt: number;
+  schedules: AnimeReleaseScheduleEntry[];
+};
+
+type TvReleaseCacheRecord = Record<string, { cachedAt: number; episode: TvUpcomingEpisode | null }>;
+
+function readReleaseCache(): Record<string, unknown> {
+  removeLocalStorageItemsByPrefix(OBSOLETE_RELEASE_CACHE_PREFIXES);
+  const value = readJson(RELEASE_CACHE_KEY);
+  return isRecord(value) ? value : {};
+}
+
+function isAnimeReleaseSchedule(value: unknown): value is AnimeReleaseScheduleEntry {
+  if (!isRecord(value)) return false;
+  const isRelease = (release: unknown) =>
+    isRecord(release) &&
+    typeof release.episode === "number" &&
+    typeof release.date === "string" &&
+    (release.platform === null || typeof release.platform === "string") &&
+    typeof release.estimated === "boolean";
+  return (
+    typeof value.contentId === "string" &&
+    typeof value.title === "string" &&
+    typeof value.matched === "boolean" &&
+    (value.status === null || typeof value.status === "string") &&
+    Array.isArray(value.sub) &&
+    value.sub.every(isRelease) &&
+    Array.isArray(value.dub) &&
+    value.dub.every(isRelease) &&
+    (value.dubProgress === null || typeof value.dubProgress === "string") &&
+    (value.dubbedEpisodes === null || typeof value.dubbedEpisodes === "number") &&
+    (value.totalEpisodes === null || typeof value.totalEpisodes === "number") &&
+    (value.dubConfidence === null || typeof value.dubConfidence === "number") &&
+    (value.dubReason === null || typeof value.dubReason === "string") &&
+    (value.dubVerifiedAt === null || typeof value.dubVerifiedAt === "string")
+  );
+}
+
+export function getCachedAnimeReleaseSchedules(
+  selectedIds: readonly string[],
+  now = Date.now()
+): AnimeReleaseScheduleEntry[] {
+  const entries = readReleaseCache().animeByContentId;
+  if (!isRecord(entries)) return [];
+  return selectedIds.flatMap((contentId) => {
+    const entry = entries[contentId];
+    return isAnimeReleaseCacheEntry(entry, contentId, now) ? entry.schedules : [];
+  });
+}
+
+export function getUncachedAnimeReleaseIds(
+  selectedIds: readonly string[],
+  now = Date.now()
+): string[] {
+  const entries = readReleaseCache().animeByContentId;
+  return selectedIds.filter((contentId) => {
+    if (!isRecord(entries)) return true;
+    return !isAnimeReleaseCacheEntry(entries[contentId], contentId, now);
+  });
+}
+
+function isAnimeReleaseCacheEntry(
+  value: unknown,
+  contentId: string,
+  now: number
+): value is AnimeReleaseCacheEntry {
+  return (
+    isRecord(value) &&
+    typeof value.cachedAt === "number" &&
+    now - value.cachedAt <= ANIME_RELEASE_CACHE_MAX_AGE_MS &&
+    Array.isArray(value.schedules) &&
+    value.schedules.every(
+      (schedule) => isAnimeReleaseSchedule(schedule) && schedule.contentId === contentId
+    )
+  );
+}
+
+export function setCachedAnimeReleaseSchedules(
+  selectedIds: readonly string[],
+  schedules: readonly AnimeReleaseScheduleEntry[],
+  cachedAt = Date.now()
+): void {
+  const root = readReleaseCache();
+  const previous = isRecord(root.animeByContentId) ? root.animeByContentId : {};
+  const cache: Record<string, AnimeReleaseCacheEntry> = Object.fromEntries(
+    Object.entries(previous).filter(([contentId, value]) =>
+      isAnimeReleaseCacheEntry(value, contentId, cachedAt)
+    )
+  ) as Record<string, AnimeReleaseCacheEntry>;
+  const schedulesByContentId = new Map<string, AnimeReleaseScheduleEntry[]>();
+  for (const schedule of schedules) {
+    const entries = schedulesByContentId.get(schedule.contentId) ?? [];
+    entries.push(schedule);
+    schedulesByContentId.set(schedule.contentId, entries);
+  }
+  for (const contentId of selectedIds) {
+    cache[contentId] = { cachedAt, schedules: schedulesByContentId.get(contentId) ?? [] };
+  }
+  const rest = { ...root };
+  delete rest.anime;
+  writeJson(RELEASE_CACHE_KEY, { ...rest, animeByContentId: cache });
+}
+
+export function getCachedTvRelease(tmdbId: string, now = Date.now()): TvReleaseCacheEntry | null {
+  const value = readReleaseCache().tv;
+  const entry = isRecord(value) ? value[tmdbId] : undefined;
+  if (
+    !isRecord(entry) ||
+    typeof entry.cachedAt !== "number" ||
+    now - entry.cachedAt > TV_RELEASE_CACHE_MAX_AGE_MS ||
+    typeof entry.available !== "boolean" ||
+    !(entry.episode === null || isTvUpcomingEpisode(entry.episode))
+  ) {
+    return null;
+  }
+  return { episode: entry.episode, available: entry.available };
+}
+
+function isTvUpcomingEpisode(value: unknown): value is TvUpcomingEpisode {
+  return (
+    isRecord(value) &&
+    typeof value.name === "string" &&
+    typeof value.airDate === "string" &&
+    typeof value.seasonNumber === "number" &&
+    typeof value.episodeNumber === "number"
+  );
+}
+
+export function setCachedTvRelease(
+  tmdbId: string,
+  release: TvReleaseCacheEntry,
+  cachedAt = Date.now()
+): void {
+  const cache = readReleaseCache();
+  const existing = isRecord(cache.tv) ? (cache.tv as TvReleaseCacheRecord) : {};
+  const tv = Object.fromEntries(
+    Object.entries(existing).filter(
+      ([, entry]) =>
+        isRecord(entry) &&
+        typeof entry.cachedAt === "number" &&
+        cachedAt - entry.cachedAt <= TV_RELEASE_CACHE_MAX_AGE_MS
+    )
+  );
+  tv[tmdbId] = { cachedAt, ...release };
+  writeJson(RELEASE_CACHE_KEY, { ...cache, tv });
+}
 
 export type BookmarkCache = {
   ids: ContentId[];

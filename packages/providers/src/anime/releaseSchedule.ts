@@ -14,6 +14,7 @@ export interface AnimeReleaseScheduleEntry {
   contentId: string;
   title: string;
   matched: boolean;
+  status: string | null;
   sub: Array<{ episode: number; date: string; platform: string | null; estimated: boolean }>;
   dub: Array<{ episode: number; date: string; platform: string | null; estimated: boolean }>;
   dubProgress: AniDubStatus | null;
@@ -51,6 +52,23 @@ function matchesTitle(candidateTitle: string, bookmarkTitle: string) {
   return /^(?:ii|iii|iv|v|\d+|season\d+|s\d+|part\d+)$/i.test(
     candidateTitle.slice(bookmarkTitle.length)
   );
+}
+
+function unmatchedSchedule({ contentId, title }: SelectedAnimeTitle): AnimeReleaseScheduleEntry {
+  return {
+    contentId,
+    title,
+    matched: false,
+    status: null,
+    sub: [],
+    dub: [],
+    dubProgress: null,
+    dubbedEpisodes: null,
+    totalEpisodes: null,
+    dubConfidence: null,
+    dubReason: null,
+    dubVerifiedAt: null
+  };
 }
 
 export async function getUpcomingAnimeReleaseSchedule(
@@ -101,6 +119,8 @@ export async function getUpcomingAnimeReleaseSchedule(
       )
     )
   ];
+  if (routes.size === 0) return selected.map(unmatchedSchedule);
+
   const start = new Date();
   const weeks = Array.from({ length: 5 }, (_, index) =>
     isoWeek(new Date(start.getTime() + index * 7 * 86_400_000))
@@ -129,22 +149,7 @@ export async function getUpcomingAnimeReleaseSchedule(
   const dubByAniListId = new Map(dubLookup.results.map((anime) => [anime.anilistId, anime]));
 
   return matched.flatMap(({ contentId, title, anime }): AnimeReleaseScheduleEntry[] => {
-    if (!anime.length)
-      return [
-        {
-          contentId,
-          title,
-          matched: false,
-          sub: [],
-          dub: [],
-          dubProgress: null,
-          dubbedEpisodes: null,
-          totalEpisodes: null,
-          dubConfidence: null,
-          dubReason: null,
-          dubVerifiedAt: null
-        }
-      ];
+    if (!anime.length) return [unmatchedSchedule({ contentId, title })];
     return anime.map((entry) => {
       const record = aniListId(entry) ? dubByAniListId.get(aniListId(entry)!) : undefined;
       const episodes = futureEpisodes.filter((episode) => episode.route === entry.route);
@@ -162,6 +167,7 @@ export async function getUpcomingAnimeReleaseSchedule(
         contentId,
         title: entry.title,
         matched: true,
+        status: entry.status ?? null,
         sub: upcoming("sub"),
         dub: upcoming("dub"),
         dubProgress: record?.dub?.status ?? null,

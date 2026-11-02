@@ -1210,7 +1210,7 @@ export function useContentDetail(
     undefined as TMDBFullDetail | null | undefined,
     tmdbId && type ? `detail:${type}:${tmdbId}:${includeImdb ? "imdb" : "tmdb"}` : undefined
   );
-  return { detail: result.value, isLoading: result.isLoading };
+  return { detail: result.value, isLoading: result.isLoading, error: result.error };
 }
 
 type Season = {

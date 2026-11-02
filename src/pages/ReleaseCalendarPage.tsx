@@ -6,8 +6,18 @@ import { Header } from "@/ui/components/Header";
 import { EmptyState, PageHeader } from "@/ui/components/UXPrimitives";
 import { useBookmarkPagination } from "@/features/library/useBookmark";
 import { useContentDetail } from "@/features/catalog/queries/useContent";
+import { BookmarkReleaseSection } from "@/features/library/BookmarkReleaseSection";
+import { createPlayHandler } from "@/shared/navigation/watchNavigation";
+import type { AnimeReleaseScheduleEntry } from "@fishy/providers/anime";
 import type { AniDubStatus } from "@fishy/providers/anime/anidub";
 import type { BookmarkGridItem, ContentId } from "@content/contentMetadata";
+import {
+  getCachedAnimeReleaseSchedules,
+  getCachedTvRelease,
+  getUncachedAnimeReleaseIds,
+  setCachedAnimeReleaseSchedules,
+  setCachedTvRelease
+} from "@/shared/storage/viewerStateStorage";
 
 type AnimeRelease = {
   episode: number;
@@ -26,10 +36,7 @@ type AnimeTitleSchedule = {
   totalEpisodes?: number | null;
   dubReason?: string | null;
 };
-type AnimeScheduleResponse = Omit<AnimeTitleSchedule, "item" | "animeTitle"> & {
-  contentId: string;
-  title: string;
-};
+type AnimeScheduleResponse = AnimeReleaseScheduleEntry;
 type CalendarEvent = {
   title: string;
   episode: number;
@@ -202,8 +209,22 @@ function AnimeReleaseCalendar({
 }
 
 function UpcomingShowRelease({ item }: { item: BookmarkGridItem }) {
-  const { detail, isLoading } = useContentDetail(item.tmdbId, "tv", true, false);
-  const episode = detail?.nextEpisode;
+  const [cachedRelease, setCachedRelease] = useState(() =>
+    item.tmdbId ? getCachedTvRelease(item.tmdbId) : null
+  );
+  const {
+    detail,
+    isLoading: isLoadingDetail,
+    error
+  } = useContentDetail(item.tmdbId, "tv", !cachedRelease, false);
+  useEffect(() => {
+    if (!item.tmdbId || isLoadingDetail || error || detail === undefined) return;
+    const next = { episode: detail?.nextEpisode ?? null, available: detail !== null };
+    setCachedTvRelease(item.tmdbId, next);
+    setCachedRelease(next);
+  }, [detail, error, isLoadingDetail, item.tmdbId]);
+  const episode = detail ? detail.nextEpisode : cachedRelease?.episode;
+  const isLoading = isLoadingDetail && cachedRelease === null;
   const isUpcoming = !!episode && new Date(`${episode.airDate}T23:59:59`) >= new Date();
   return (
     <article className="flex min-w-0 gap-3 rounded-xl border border-border/65 bg-card/55 p-3">
@@ -212,10 +233,23 @@ function UpcomingShowRelease({ item }: { item: BookmarkGridItem }) {
         <h3 className="truncate text-sm font-semibold">{item.title}</h3>
         {isLoading ? (
           <p className="mt-1 text-xs text-muted-foreground">Checking next episode…</p>
+        ) : error && !cachedRelease ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Could not check this show’s next episode.
+          </p>
         ) : isUpcoming && episode ? (
           <p className="mt-1 text-xs text-muted-foreground">
             S{episode.seasonNumber} E{episode.episodeNumber}: {episode.name}
             <span className="mt-0.5 block font-medium text-primary">{episode.airDate}</span>
+            {error && <span className="mt-0.5 block">Showing the saved date; refresh failed.</span>}
+          </p>
+        ) : error ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Could not refresh the saved TV release check.
+          </p>
+        ) : !item.tmdbId || detail === null || cachedRelease?.available === false ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            TV release details are unavailable for this show.
           </p>
         ) : (
           <p className="mt-1 text-xs text-muted-foreground">No upcoming date listed.</p>
@@ -227,12 +261,14 @@ function UpcomingShowRelease({ item }: { item: BookmarkGridItem }) {
 
 export function ReleaseCalendarPage() {
   const navigate = useNavigate();
+  const handlePlay = createPlayHandler(navigate, "tv");
   const [searchQuery, setSearchQuery] = useState("");
   const { items, canLoadMore, isLoadingMore, loadMore } = useBookmarkPagination(
     undefined,
     searchQuery
   );
   const shows = useMemo(() => (items ?? []).filter((item) => item.type === "tv"), [items]);
+  const [mode, setMode] = useState<"coming-up" | "calendar">("calendar");
   const [selectedIds, setSelectedIds] = useState<Set<ContentId>>(() => new Set());
   const [releaseFilter, setReleaseFilter] = useState<ReleaseFilter>("all");
   const [animeSchedules, setAnimeSchedules] = useState<AnimeTitleSchedule[]>([]);
@@ -253,12 +289,36 @@ export function ReleaseCalendarPage() {
     () => shows.filter((item) => selectedIds.has(item._id)),
     [selectedIds, shows]
   );
-  const selectedSignature = selectedShows.map((item) => item._id).join(",");
+  const selectedSignature = selectedShows.map((item) => `${item._id}:${item.title}`).join(",");
   const filteredShows = shows;
 
   useEffect(() => {
     if (!selectedShows.length) {
       setAnimeSchedules([]);
+      setIsLoadingAnime(false);
+      setAnimeError(null);
+      return;
+    }
+    const selectedIdsForCache = selectedShows.map((item) => item._id);
+    const cachedSchedules = getCachedAnimeReleaseSchedules(selectedIdsForCache);
+    const uncachedIds = getUncachedAnimeReleaseIds(selectedIdsForCache);
+    const bookmarkById = new Map(selectedShows.map((item) => [item._id, item]));
+    const attachBookmarks = (schedules: readonly AnimeScheduleResponse[]) =>
+      schedules
+        .map((entry) => ({
+          item: bookmarkById.get(entry.contentId as ContentId)!,
+          animeTitle: entry.title,
+          matched: entry.matched,
+          sub: entry.sub,
+          dub: entry.dub,
+          dubProgress: entry.dubProgress,
+          dubbedEpisodes: entry.dubbedEpisodes,
+          totalEpisodes: entry.totalEpisodes,
+          dubReason: entry.dubReason
+        }))
+        .filter((entry) => !!entry.item);
+    setAnimeSchedules(attachBookmarks(cachedSchedules));
+    if (uncachedIds.length === 0) {
       setIsLoadingAnime(false);
       setAnimeError(null);
       return;
@@ -272,7 +332,9 @@ export function ReleaseCalendarPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            selected: selectedShows.map((item) => ({ contentId: item._id, title: item.title }))
+            selected: selectedShows
+              .filter((item) => uncachedIds.includes(item._id))
+              .map((item) => ({ contentId: item._id, title: item.title }))
           })
         });
         const payload = (await response.json()) as AnimeTitleSchedule[] | { message?: string };
@@ -281,24 +343,11 @@ export function ReleaseCalendarPage() {
             "message" in payload ? payload.message : "Anime release data is unavailable."
           );
         if (cancelled) return;
-        const bookmarkById = new Map(selectedShows.map((item) => [item._id, item]));
-        setAnimeSchedules(
-          (payload as AnimeScheduleResponse[])
-            .map((entry) => ({
-              item: bookmarkById.get(entry.contentId as ContentId)!,
-              animeTitle: entry.title,
-              matched: entry.matched,
-              sub: entry.sub,
-              dub: entry.dub,
-              dubProgress: entry.dubProgress,
-              dubbedEpisodes: entry.dubbedEpisodes,
-              totalEpisodes: entry.totalEpisodes,
-              dubReason: entry.dubReason
-            }))
-            .filter((entry) => !!entry.item)
-        );
+        const schedules = payload as AnimeScheduleResponse[];
+        setCachedAnimeReleaseSchedules(uncachedIds, schedules);
+        setAnimeSchedules(attachBookmarks([...cachedSchedules, ...schedules]));
       } catch (error) {
-        if (!cancelled)
+        if (!cancelled && cachedSchedules.length === 0)
           setAnimeError(
             error instanceof Error ? error.message : "Anime release data is unavailable."
           );
@@ -338,7 +387,7 @@ export function ReleaseCalendarPage() {
       <Header />
       <main id="main-content" className="page-shell-wide page-stack pb-28">
         <PageHeader
-          title="Release Calendar"
+          title="Releases"
           actions={
             <Button
               variant="secondary"
@@ -350,11 +399,53 @@ export function ReleaseCalendarPage() {
           }
         />
         <p className="-mt-5 max-w-2xl text-sm text-muted-foreground">
-          See upcoming TV episodes and every scheduled anime SUB and DUB episode for the titles you
-          follow.
+          Follow upcoming anime episodes and TV premieres for your saved shows.
         </p>
 
-        {items === undefined ? (
+        <div
+          className="flex w-fit items-center gap-1 rounded-xl border border-border/65 bg-muted/45 p-1"
+          aria-label="Release view"
+        >
+          <Button
+            size="sm"
+            variant={mode === "calendar" ? "secondary" : "ghost"}
+            aria-pressed={mode === "calendar"}
+            className="rounded-lg"
+            onClick={() => setMode("calendar")}
+          >
+            Calendar
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "coming-up" ? "secondary" : "ghost"}
+            aria-pressed={mode === "coming-up"}
+            className="rounded-lg"
+            onClick={() => setMode("coming-up")}
+          >
+            Coming up
+          </Button>
+        </div>
+
+        {mode === "coming-up" ? (
+          items === undefined ? (
+            <p className="flex items-center gap-2 rounded-xl border border-border/65 bg-card/55 p-6 text-sm text-muted-foreground">
+              <LoaderCircle className="h-4 w-4 animate-spin" /> Loading your bookmarks…
+            </p>
+          ) : shows.length > 0 ? (
+            <BookmarkReleaseSection
+              items={shows}
+              onPlay={handlePlay}
+              canLoadMore={canLoadMore}
+              isLoadingMore={isLoadingMore}
+              onLoadMore={() => loadMore()}
+            />
+          ) : (
+            <EmptyState
+              title="No bookmarked shows yet"
+              action={<Button onClick={() => navigate("/bookmark")}>Browse bookmarks</Button>}
+            />
+          )
+        ) : items === undefined ? (
           <div className="flex items-center gap-3 rounded-xl border border-border/65 bg-card/55 p-6 text-muted-foreground">
             <LoaderCircle className="h-5 w-5 animate-spin" /> Loading your bookmarks…
           </div>

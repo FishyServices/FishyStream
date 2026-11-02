@@ -7,6 +7,7 @@ export interface AnimeScheduleTitle {
   names: { english?: string; romaji?: string; native?: string; synonyms?: string[] };
   format?: string;
   episodes?: number;
+  status?: string;
   websites?: { aniList?: string; mal?: string };
   mediaTypes?: Array<{ name?: string; route?: string }>;
 }

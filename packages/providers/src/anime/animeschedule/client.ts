@@ -58,6 +58,7 @@ function parseAnime(value: unknown): AnimeScheduleTitle | null {
     },
     format: typeof value.format === "string" ? value.format : undefined,
     episodes: typeof value.episodes === "number" ? value.episodes : undefined,
+    status: typeof value.status === "string" ? value.status : undefined,
     websites: {
       aniList: typeof websites.aniList === "string" ? websites.aniList : undefined,
       mal: typeof websites.mal === "string" ? websites.mal : undefined
@@ -101,7 +102,14 @@ function parseEpisode(
 export function createAnimeScheduleClient(request: AnimeScheduleRequest): AnimeScheduleClient {
   return {
     async searchAnime(query, signal) {
-      const payload = await request("/anime", { q: query, page: 1, st: "popularity" }, signal);
+      let payload: unknown;
+      try {
+        payload = await request("/anime", { q: query, page: 1, st: "popularity" }, signal);
+      } catch (error) {
+        if (error instanceof HttpError && error.service === "AnimeSchedule" && error.status === 404)
+          return [];
+        throw error;
+      }
       return arrayFromResponse(payload, ["anime", "results", "items", "data"])
         .map(parseAnime)
         .filter((anime): anime is AnimeScheduleTitle => anime !== null);

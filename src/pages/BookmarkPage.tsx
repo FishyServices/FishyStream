@@ -4,6 +4,7 @@ import { useSeoMeta } from "@/shared/seo/useSeoMeta";
 import {
   Film,
   BookMarked,
+  CalendarDays,
   FolderPlus,
   Folder,
   Trash2,
@@ -1045,9 +1046,22 @@ export function BookmarkPage() {
         <PageHeader
           title="Bookmarks"
           actions={
-            <Button variant="secondary" className="rounded-xl" onClick={() => navigate("/movies")}>
-              <Film className="mr-2 h-4 w-4" /> Browse
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                className="rounded-xl"
+                onClick={() => navigate("/releases")}
+              >
+                <CalendarDays className="mr-2 h-4 w-4" /> Releases
+              </Button>
+              <Button
+                variant="secondary"
+                className="rounded-xl"
+                onClick={() => navigate("/movies")}
+              >
+                <Film className="mr-2 h-4 w-4" /> Browse
+              </Button>
+            </div>
           }
         />
 
