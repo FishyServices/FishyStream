@@ -14,14 +14,10 @@ import type {
 } from "./types.js";
 
 const SERIES_FORMATS: ReadonlySet<string> = new Set(["TV", "TV_SHORT", "ONA"]);
-const YEAR_PAGES = [1, 2] as const;
-const YEAR_OFFSETS = [0, -1, 1] as const;
 
 const SEARCH_FIELDS = `id format startDate { year month day } title { romaji english native } synonyms`;
 
 const SEARCH_QUERY = `query ($search: String) { Page(page: 1, perPage: 5) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) { ${SEARCH_FIELDS} } } }`;
-
-const SEASON_YEAR_QUERY = `query ($seasonYear: Int, $page: Int, $perPage: Int) { Page(page: $page, perPage: $perPage) { media(type: ANIME, seasonYear: $seasonYear, sort: POPULARITY_DESC) { ${SEARCH_FIELDS} } } }`;
 
 const MEDIA_QUERY = `query ($id: Int) { Media(id: $id, type: ANIME) { ${SEARCH_FIELDS} idMal type episodes relations { edges { relationType node { ${SEARCH_FIELDS} type episodes } } } } }`;
 
@@ -37,15 +33,6 @@ interface Scored {
 async function searchMedia(search: string): Promise<AniListMedia[]> {
   if (!search) return [];
   const data = await queryAniList<PageResponse>(SEARCH_QUERY, { search });
-  return data.Page?.media ?? [];
-}
-
-async function listSeasonYearMedia(seasonYear: number, page: number): Promise<AniListMedia[]> {
-  const data = await queryAniList<PageResponse>(SEASON_YEAR_QUERY, {
-    seasonYear,
-    page,
-    perPage: 50
-  });
   return data.Page?.media ?? [];
 }
 
@@ -76,30 +63,31 @@ function pickBest(
   return best;
 }
 
-async function collectYearCandidates(year: number): Promise<AniListMedia[]> {
-  const requests = YEAR_OFFSETS.flatMap((offset) =>
-    YEAR_PAGES.map((page) => listSeasonYearMedia(year + offset, page))
-  );
-  const byId = new Map<number, AniListMedia>();
-  for (const media of (await Promise.all(requests)).flat()) byId.set(media.id, media);
-  return [...byId.values()];
-}
-
-export async function resolveAniListId(query: AniListSeasonQuery): Promise<string | null> {
+async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> {
   const { title, season, seasonTitle, year } = query;
   if (!title) return null;
   const scoring = { title, season, year };
 
-  const searched = await Promise.all(
-    buildSearchCandidates(title, season, seasonTitle).map(searchMedia)
-  );
-  let best = pickBest(searched.flat(), scoring);
+  const candidate = buildSearchCandidates(title, season, seasonTitle)[0];
+  const best = candidate ? pickBest(await searchMedia(candidate), scoring) : undefined;
   if (best && (best.score >= MATCH_THRESHOLD || hasStrongTitleMatch(best.media, title, season))) {
     return String(best.media.id);
   }
 
-  if (year) best = pickBest(await collectYearCandidates(year), scoring, best);
-  return best && best.score >= MATCH_THRESHOLD ? String(best.media.id) : null;
+  return null;
+}
+
+const resolveAniListIdCached = memoizeAsync(loadAniListId, ({ title, season, seasonTitle, year }) =>
+  JSON.stringify([
+    title?.trim().toLocaleLowerCase(),
+    season,
+    seasonTitle?.trim().toLocaleLowerCase(),
+    year
+  ])
+);
+
+export function resolveAniListId(query: AniListSeasonQuery): Promise<string | null> {
+  return resolveAniListIdCached(query);
 }
 
 function episodeCount(media: AniListMedia): number | undefined {
@@ -155,7 +143,7 @@ async function walkSequels(
   return toAddress(media, episode);
 }
 
-export async function resolveAniListEpisodeAddress(
+async function loadAniListEpisodeAddress(
   query: AniListEpisodeQuery
 ): Promise<AniListEpisodeAddress | null> {
   const episode = Math.max(1, Math.floor(query.episode));
@@ -164,4 +152,23 @@ export async function resolveAniListEpisodeAddress(
 
   const media = await fetchMediaById(anilistId);
   return media ? walkSequels(media, episode, new Set()) : { anilistId, episode };
+}
+
+const resolveAniListEpisodeAddressCached = memoizeAsync(
+  loadAniListEpisodeAddress,
+  ({ anilistId, title, season, seasonTitle, year, episode }) =>
+    JSON.stringify([
+      anilistId,
+      title?.trim().toLocaleLowerCase(),
+      season,
+      seasonTitle?.trim().toLocaleLowerCase(),
+      year,
+      episode
+    ])
+);
+
+export function resolveAniListEpisodeAddress(
+  query: AniListEpisodeQuery
+): Promise<AniListEpisodeAddress | null> {
+  return resolveAniListEpisodeAddressCached(query);
 }

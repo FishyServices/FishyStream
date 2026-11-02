@@ -136,6 +136,7 @@ export function usePlaybackSession({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const lastSourceLoadKeyRef = useRef<string | null>(null);
   const sourceRequestIdRef = useRef(0);
   const selectedSourceUrlRef = useRef("");
   const failedSourceUrlsRef = useRef(new Set<string>());
@@ -433,10 +434,37 @@ export function usePlaybackSession({
     ]
   );
 
+  const sourceLoadKey = JSON.stringify([
+    content._id,
+    content.tmdbId,
+    content.imdbId,
+    content.title,
+    content.year,
+    target.season,
+    target.episode,
+    currentSeasonData?.seasonNumber,
+    currentSeasonData?.anilistId,
+    currentSeasonData?.anilistEpisodeMappings?.find(
+      (mapping) => mapping.episodeNumber === target.episode
+    ),
+    providerIdType,
+    isDub,
+    searchParams.toString(),
+    reloadKey
+  ]);
+
   useEffect(() => {
-    if (error || (sources.length > 0 && !waitingForAnimeSeasonMetadata && !loading)) return;
+    if (
+      error ||
+      waitingForAnimeSeasonMetadata ||
+      (sources.length > 0 && !loading) ||
+      lastSourceLoadKeyRef.current === sourceLoadKey
+    ) {
+      return;
+    }
+    lastSourceLoadKeyRef.current = sourceLoadKey;
     void loadSources("load sources");
-  }, [error, loadSources, loading, reloadKey, sources.length, waitingForAnimeSeasonMetadata]);
+  }, [error, loadSources, loading, sourceLoadKey, sources.length, waitingForAnimeSeasonMetadata]);
 
   const selectedSource = sources.find((source) => source.url === selectedSourceUrl);
   const selectedProvider = selectedSource
