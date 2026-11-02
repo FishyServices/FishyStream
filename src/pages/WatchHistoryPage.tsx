@@ -167,29 +167,29 @@ export function WatchHistoryPage() {
       <main id="main-content" className="page-shell-wide page-stack pb-16">
         <section aria-label="Search and sort watch history" className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="media-surface relative min-w-0 flex-1 rounded-xl border-border/65 bg-card/75 p-1.5 shadow-sm">
-              <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
+            <div className="media-surface flex min-w-0 flex-1 items-center rounded-xl border-border/65 bg-card/75 p-1.5 shadow-sm">
+              <Search className="pointer-events-none ml-3.5 h-5 w-5 shrink-0 text-primary" />
               <Input
-                type="search"
+                type="text"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search watched titles"
                 aria-label="Search watched titles"
                 autoComplete="off"
-                className="h-12 w-full rounded-lg border-0 bg-transparent py-3.5 pl-11 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
+                className="h-12 min-w-0 flex-1 rounded-lg border-0 bg-transparent px-3 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
               />
-              {searchQuery && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 h-9 w-9 -translate-y-1/2 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
-                  aria-label="Clear title search"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setSearchQuery("")}
+                disabled={!searchQuery}
+                tabIndex={searchQuery ? 0 : -1}
+                className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-0"
+                aria-label="Clear title search"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger

@@ -119,28 +119,28 @@ export function SearchPage() {
       <main id="main-content" className="page-shell-wide page-stack">
         <div className="mb-8 max-w-3xl">
           <PageHeader title="Search" />
-          <div className="media-surface relative rounded-xl border-border/65 bg-card/72 p-1.5 shadow-sm">
-            <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
+          <div className="media-surface flex items-center rounded-xl border-border/65 bg-card/72 p-1.5 shadow-sm">
+            <Search className="pointer-events-none ml-3.5 h-5 w-5 shrink-0 text-primary" />
             <Input
               type="text"
               placeholder="Search titles"
               value={input}
               autoFocus
               onChange={(e) => handleInput(e.target.value)}
-              className="h-12 w-full rounded-xl border-0 bg-transparent py-3.5 pl-11 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
+              className="h-12 min-w-0 flex-1 rounded-xl border-0 bg-transparent px-3 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
             />
-            {input && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => handleInput("")}
-                className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => handleInput("")}
+              disabled={!input}
+              tabIndex={input ? 0 : -1}
+              className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-0"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
