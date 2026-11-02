@@ -39,7 +39,11 @@ import {
   readPlayerVolumeBoost,
   savePlayerVolumeBoost,
   readSubtitlePreferences,
+  readSubtitleOffset,
+  readSubtitleTrack,
   saveSubtitlePreferences,
+  saveSubtitleOffset,
+  saveSubtitleTrack,
   type SubtitlePreferences
 } from "@/shared/storage/playerPreferencesStorage";
 
@@ -179,6 +183,11 @@ async function getOpenSubtitleSources(
 function getSubtitleFormat(url: string): SubtitleFormat {
   const extension = url.split("?")[0]?.split(".").pop()?.toLowerCase();
   return extension === "srt" || extension === "ass" ? extension : "vtt";
+}
+
+function applySubtitleOffsetWhenAvailable(player: Artplayer, offset: number): void {
+  if (!player.subtitle.textTrack?.cues?.length) return;
+  player.subtitleOffset = offset;
 }
 
 function escapeHtml(value: string | undefined) {
@@ -355,7 +364,7 @@ export function CustomVideoPlayer({
 
   const initAudioBoost = () => {
     const video = playerRef.current?.video;
-    if (!video || volumeBoostRef.current <= 1) return;
+    if (!video || volumeBoostRef.current === 1) return;
     if (gainNodeRef.current) {
       gainNodeRef.current.gain.value = volumeBoostRef.current;
       if (audioContextRef.current?.state === "suspended") void audioContextRef.current.resume();
@@ -383,7 +392,7 @@ export function CustomVideoPlayer({
   };
 
   const handleVolumeBoostChange = (value: number) => {
-    const nextBoost = Math.min(3, Math.max(1, value));
+    const nextBoost = Math.min(3, Math.max(0, value));
     volumeBoostRef.current = nextBoost;
     savePlayerVolumeBoost(nextBoost);
     initAudioBoost();
@@ -444,6 +453,7 @@ export function CustomVideoPlayer({
       subtitleObjectUrlRef.current = null;
     };
     const load = async () => {
+      let setupStage = "reset player";
       setIsLoading(true);
       setMediaError(null);
       setSkipTimes({});
@@ -466,6 +476,7 @@ export function CustomVideoPlayer({
             ? sourcePageCacheRef.current.response
             : undefined;
         if (!scrapeResponse) {
+          setupStage = "load stream source";
           const urlsToTry = autoProviderEnabled
             ? autoSourceUrls.filter((candidate) => !autoAttemptedUrlsRef.current.has(candidate))
             : [];
@@ -500,6 +511,7 @@ export function CustomVideoPlayer({
           prepareDownloadRef.current({ url: download.href, mode: "file", persist: true });
         }
         if (!active || !containerRef.current) return;
+        setupStage = "load subtitle tracks";
         const providerSubtitleSources: SubtitleSource[] = tracks.map((track, index) => ({
           url: getProviderSubtitleUrl(track.file),
           name: track.label ?? `Subtitle ${index + 1}`,
@@ -562,6 +574,7 @@ export function CustomVideoPlayer({
           html: "Subtitles",
           onSelect(this: Artplayer, item: SettingOption) {
             if (item.name === "subtitle-off") {
+              saveSubtitleTrack("off");
               switchSubtitle({
                 url: "data:text/vtt,WEBVTT%0A%0A",
                 name: "Off",
@@ -574,6 +587,7 @@ export function CustomVideoPlayer({
             );
             if (selectedSource) {
               const selectedIndex = subtitleSources.indexOf(selectedSource);
+              saveSubtitleTrack(selectedSource.name);
               switchSubtitle(selectedSource, selectedIndex);
             }
             return selectedSource?.name ?? "Subtitles";
@@ -582,12 +596,13 @@ export function CustomVideoPlayer({
             {
               name: "subtitle-off",
               html: "Off",
-              default: subtitleSources.length === 0
+              default: readSubtitleTrack() === "off" || subtitleSources.length === 0
             },
             ...subtitleSources.map((source, index) => ({
               name: `subtitle-${index}`,
               html: source.name,
-              default: index === 0
+              default:
+                (readSubtitleTrack() === null && index === 0) || readSubtitleTrack() === source.name
             }))
           ]
         };
@@ -694,10 +709,11 @@ export function CustomVideoPlayer({
         const subtitleOffsetSetting: Setting = {
           name: "subtitle-offset",
           html: "Subtitle offset",
-          range: [0, -5, 5, 0.1],
+          range: [readSubtitleOffset(), -5, 5, 0.1],
           onChange(this: Artplayer, item: SettingOption) {
             const offset = item.$range?.valueAsNumber ?? this.subtitleOffset;
-            this.subtitleOffset = offset;
+            saveSubtitleOffset(offset);
+            applySubtitleOffsetWhenAvailable(this, offset);
             return `${offset.toFixed(1)}s`;
           }
         };
@@ -717,7 +733,7 @@ export function CustomVideoPlayer({
         const volumeBoostSetting: Setting = {
           name: "volume-boost",
           html: "Volume boost",
-          range: [volumeBoostRef.current, 1, 3, 0.05],
+          range: [volumeBoostRef.current, 0, 3, 0.05],
           onChange(this: Artplayer, item: SettingOption) {
             const value = item.$range?.valueAsNumber ?? volumeBoostRef.current;
             handleVolumeBoostChange(value);
@@ -939,9 +955,18 @@ export function CustomVideoPlayer({
           },
           moreVideoAttr: { playsInline: true, crossOrigin: "anonymous" }
         };
-        const initialSubtitle = subtitleSources[0];
+        const savedSubtitle = readSubtitleTrack();
+        const initialSubtitle =
+          savedSubtitle === "off"
+            ? undefined
+            : (subtitleSources.find((source) => source.name === savedSubtitle) ??
+              subtitleSources[0]);
+        setupStage = "initialize Artplayer";
         const player = new Artplayer(option);
         playerRef.current = player;
+        player.on("subtitleLoad", (cues) => {
+          if (cues.length > 0) applySubtitleOffsetWhenAvailable(player, readSubtitleOffset());
+        });
         updateSubtitlePreferences(subtitlePreferencesRef.current);
         player.on("fullscreen", (isFullscreen) => {
           const layer = player.layers[PLAYBACK_ACTIONS_LAYER_NAME];
@@ -1021,6 +1046,11 @@ export function CustomVideoPlayer({
           report("timeupdate");
         });
         player.on("error", (error) => {
+          console.error("[FishyStream player] Stream playback failed", {
+            stage: "Artplayer playback",
+            provider: selectedProviderName,
+            error
+          });
           setPendingSourceName(null);
           if (autoProviderEnabled) {
             if (autoAdvanceInFlightRef.current) return;
@@ -1099,8 +1129,17 @@ export function CustomVideoPlayer({
           });
         }
       } catch (error) {
-        if (active && !(error instanceof DOMException && error.name === "AbortError"))
-          setMediaError(error instanceof Error ? error.message : "Unable to load this video.");
+        if (active && !(error instanceof DOMException && error.name === "AbortError")) {
+          const message = error instanceof Error ? error.message : "Unable to load this video.";
+          console.error("[FishyStream player] Playback initialization failed", {
+            stage: setupStage,
+            provider: selectedProviderName,
+            message,
+            stack: error instanceof Error ? error.stack : undefined,
+            error
+          });
+          setMediaError(`${message} (during ${setupStage})`);
+        }
       } finally {
         if (active) setIsLoading(false);
       }
