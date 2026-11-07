@@ -415,6 +415,9 @@ export const toggleBookmarkEntry = viewerMutation({
     }
     if (alreadyIn) return;
 
+    await ensureIdsDoc(ctx, ctx.viewerId);
+    await ensureCountsDoc(ctx, ctx.viewerId);
+
     const wirePoster = toImageWire(args.posterUrl);
     const content = await locateContent(ctx, args.contentId);
     if (!content) {
