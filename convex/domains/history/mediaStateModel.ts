@@ -88,7 +88,7 @@ export function normalizeSearch(value: string | undefined) {
   return (
     value
       ?.trim()
-      .toLocaleLowerCase()
-      .replace(/[^\p{L}\p{N}]/gu, "") ?? ""
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .replace(/\s+/g, " ") ?? ""
   );
 }
