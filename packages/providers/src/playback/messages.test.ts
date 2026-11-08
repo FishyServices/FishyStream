@@ -85,8 +85,9 @@ describe("player messages", () => {
       id: "42",
       mediaType: "movie"
     });
-    expect(parsePlayerMessage({ type: "ended", data: { currentTime: 100, duration: 100 } })?.data.event)
-      .toBe("ended");
+    expect(
+      parsePlayerMessage({ type: "ended", data: { currentTime: 100, duration: 100 } })?.data.event
+    ).toBe("ended");
   });
 
   it("normalizes raw progress and MegaPlay completion messages", () => {

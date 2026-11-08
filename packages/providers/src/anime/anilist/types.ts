@@ -16,6 +16,7 @@ export interface AniListMedia {
   type?: string | null;
   format?: string | null;
   episodes?: number | null;
+  duration?: number | null;
   startDate?: AniListStartDate | null;
   title?: AniListTitle | null;
   synonyms?: string[] | null;
@@ -35,6 +36,7 @@ export interface AniListSeasonQuery {
   season: number;
   seasonTitle?: string;
   year?: number;
+  episodes?: ReadonlyArray<{ name: string; runtime?: number }>;
 }
 
 export interface AniListEpisodeQuery extends AniListSeasonQuery {

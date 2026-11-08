@@ -47,7 +47,16 @@ export const syncAnimeSeasonPlaybackMeta = action({
         episodeNumber: args.episodeNumber
       }
     );
-    if (cached) return cached;
+    if (cached) {
+      console.info("[Anime season sync] Cache hit", {
+        contentId: args.contentId,
+        seasonNumber: args.seasonNumber,
+        episodeNumber: args.episodeNumber,
+        anilistId: cached.anilistId,
+        mappings: cached.anilistEpisodeMappings
+      });
+      return cached;
+    }
 
     await ctx.runMutation(internal.domains.seasons.seasons.deleteAnimeSeasonMeta, {
       contentId: args.contentId,
@@ -56,6 +65,20 @@ export const syncAnimeSeasonPlaybackMeta = action({
 
     const payload = await createTMDBClient().canonicalSeason(args.tmdbId, args.seasonNumber);
     if (!payload) return null;
+
+    console.info("[Anime season sync] TMDB season", {
+      tmdbId: args.tmdbId,
+      title: args.title,
+      requestedSeason: args.seasonNumber,
+      canonicalSeason: payload.seasonNumber,
+      aniListEpisodeOffset: payload.episodeOffset,
+      seasonName: payload.name,
+      episodes: payload.episodes.map(({ episodeNumber, name, runtime }) => ({
+        episodeNumber,
+        name,
+        runtime
+      }))
+    });
 
     const episodes = payload.episodes.map((episode) => ({
       ...episode,
@@ -69,13 +92,21 @@ export const syncAnimeSeasonPlaybackMeta = action({
         title: args.title,
         season: payload.seasonNumber,
         seasonTitle: payload.name,
-        year: payload.year
+        year: payload.year,
+        episodes: episodes.map(({ name, runtime }) => ({ name, runtime }))
+      });
+      console.info("[Anime season sync] AniList season match", {
+        title: args.title,
+        season: payload.seasonNumber,
+        seasonTitle: payload.name,
+        anilistId
       });
       if (!anilistId && payload.seasonNumber > 1) {
         anilistId = await resolveSeasonAniListId({
           title: args.title,
           season: 1,
-          year: payload.year ? payload.year - 1 : undefined
+          year: payload.year ? payload.year - 1 : undefined,
+          episodes: episodes.map(({ name, runtime }) => ({ name, runtime }))
         });
       }
       mappings = await buildAniListEpisodeMappings({
@@ -85,7 +116,16 @@ export const syncAnimeSeasonPlaybackMeta = action({
         seasonTitle: payload.name,
         year: payload.year,
         episodeOffset: payload.episodeOffset,
-        episodes
+        episodes: episodes.map(({ episodeNumber, name, runtime }) => ({
+          episodeNumber,
+          name,
+          runtime
+        }))
+      });
+      console.info("[Anime season sync] AniList episode mappings", {
+        season: payload.seasonNumber,
+        anilistId,
+        mappings
       });
     } catch (error) {
       if (isAniListError(error)) {

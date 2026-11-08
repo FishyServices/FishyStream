@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "../../_generated/server";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 
-const CURRENT_ANIME_MAPPING_VERSION = 5;
+const CURRENT_ANIME_MAPPING_VERSION = 9;
 
 const mappingValidator = v.object({
   episodeNumber: v.number(),

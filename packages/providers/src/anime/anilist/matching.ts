@@ -14,7 +14,8 @@ const GENERIC_SEASON_TITLES = [
 const SEASON_NUMBER_PATTERNS = [/\bseason\s+(\d+)\b/g, /\b(\d+)(?:st|nd|rd|th)\s+season\b/g];
 const PART_PATTERNS = [/\bpart\s+(\d+)\b/g];
 const COUR_PATTERNS = [/\bcour\s+(\d+)\b/g];
-const NON_SERIES_PATTERN = /\b(?:specials?|ova|oad|movie)\b/;
+const NON_SPECIAL_NON_SERIES_PATTERN = /\b(?:ova|oad|movie)\b/;
+const SPECIALS_PATTERN = /\bspecials?\b/;
 const MIN_TOKEN_LENGTH = 3;
 const MIN_TOKEN_OVERLAP = 0.5;
 
@@ -190,7 +191,8 @@ function scoreVariant(
 
   const seasonWord = SEASON_WORDS[season - 1];
   if (seasonWord && variant.includes(`${seasonWord} season`)) score += 6;
-  if (NON_SERIES_PATTERN.test(variant)) score -= 20;
+  if (NON_SPECIAL_NON_SERIES_PATTERN.test(variant)) score -= 20;
+  if (SPECIALS_PATTERN.test(variant)) score += season === 0 ? 18 : -20;
 
   return { score, matchedBase, overlap };
 }
@@ -199,7 +201,8 @@ export function scoreMedia(
   media: AniListMedia,
   title: string,
   season: number,
-  year?: number
+  year?: number,
+  tmdbEpisodes?: ReadonlyArray<{ name: string; runtime?: number }>
 ): number {
   const variants = mediaTitles(media);
   if (variants.length === 0) return -1;
@@ -217,15 +220,55 @@ export function scoreMedia(
     bestOverlap = Math.max(bestOverlap, result.overlap);
   }
 
-  if (!matchedBase && bestOverlap < MIN_TOKEN_OVERLAP) return -1;
+  const matchedEpisodeTitles =
+    tmdbEpisodes?.filter(({ name }) => {
+      const episodeTitle = normalizeTitle(name);
+      if (episodeTitle.length < MIN_TOKEN_LENGTH) return false;
+      const episodeTokens = tokenize(episodeTitle);
+      return variants.some((variant) => {
+        const variantTokens = tokenize(variant);
+        const overlap = [...episodeTokens].filter((token) => variantTokens.has(token)).length;
+        return (
+          episodeTitle === variant ||
+          episodeTitle.includes(variant) ||
+          (episodeTokens.size > 0 && overlap / episodeTokens.size >= 0.75)
+        );
+      });
+    }).length ?? 0;
+  if (!matchedBase && bestOverlap < MIN_TOKEN_OVERLAP && matchedEpisodeTitles === 0) return -1;
   if (year) score += yearScore(media.startDate?.year, year);
+  if (tmdbEpisodes?.length) {
+    if (media.episodes && media.episodes === tmdbEpisodes.length) score += 12;
+    else if (media.episodes && media.episodes !== tmdbEpisodes.length) score -= 12;
+
+    const runtimes = tmdbEpisodes.flatMap((episode) =>
+      episode.runtime && episode.runtime > 0 ? [episode.runtime] : []
+    );
+    if (runtimes.length && media.duration) {
+      const averageRuntime = runtimes.reduce((sum, runtime) => sum + runtime, 0) / runtimes.length;
+      const difference = Math.abs(media.duration - averageRuntime);
+      score += difference <= 2 ? 12 : difference <= 5 ? 6 : -8;
+    }
+
+    score += Math.min(20, matchedEpisodeTitles * 10);
+  }
   return matchedBase ? score : score - 18;
+}
+
+export function isSpecialsEntry(media: AniListMedia): boolean {
+  return mediaTitles(media).some((variant) => SPECIALS_PATTERN.test(variant));
 }
 
 export function hasStrongTitleMatch(media: AniListMedia, title: string, season: number): boolean {
   const base = normalizeTitle(title);
   return mediaTitles(media).some((variant) => {
-    if (season <= 1) return variant === base || variant === `${base} ona`;
+    if (season === 0) {
+      return (
+        (variant === `${base} special` || variant === `${base} specials`) &&
+        SPECIALS_PATTERN.test(variant)
+      );
+    }
+    if (season === 1) return variant === base || variant === `${base} ona`;
     if (variant !== base && !variant.startsWith(`${base} `)) return false;
     return (
       readSeasonSignals(variant).explicit.has(season) ||

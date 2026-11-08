@@ -53,6 +53,29 @@ describe("AniList resolver", () => {
     ).resolves.toBe("109616");
   });
 
+  it("matches a specials entry to the specials season", async () => {
+    mockAniList([
+      {
+        id: 199448,
+        format: "TV",
+        title: { english: "Lord of Mysteries Specials" }
+      }
+    ]);
+    await expect(
+      resolveAniListId({ title: "Lord of Mysteries", season: 0, seasonTitle: "Specials" })
+    ).resolves.toBe("199448");
+  });
+
+  it("does not match a specials entry to the main season", () => {
+    expect(
+      hasStrongTitleMatch(
+        { id: 199448, format: "TV", title: { english: "Lord of Mysteries Specials" } },
+        "Lord of Mysteries",
+        1
+      )
+    ).toBe(false);
+  });
+
   it("matches a numeric sequel suffix to its season", async () => {
     mockAniList([{ id: 97765, title: { english: "Isekai Quartet 2" } }]);
     await expect(resolveAniListId({ title: "Isekai Quartet", season: 2 })).resolves.toBe("97765");

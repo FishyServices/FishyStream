@@ -369,7 +369,8 @@ export function createTMDBClient(request: TMDBRequest = createTMDBRequest()): TM
     const season = await seasonEpisodes(id, seasonNumber, signal);
     if (!season) return null;
     const airYear = Number(season.airDate?.slice(0, 4));
-    const episodeOffset = Math.max(0, (season.episodes[0]?.episodeNumber ?? 1) - 1);
+    const tmdbEpisodeOffset = Math.max(0, (season.episodes[0]?.episodeNumber ?? 1) - 1);
+    const episodeOffset = seasonNumber === 0 ? 0 : tmdbEpisodeOffset;
     return {
       seasonNumber,
       name: `Season ${seasonNumber}`,
@@ -380,7 +381,7 @@ export function createTMDBClient(request: TMDBRequest = createTMDBRequest()): TM
       year: Number.isFinite(airYear) && airYear > 1900 ? airYear : undefined,
       episodes: season.episodes.map((episode) => ({
         ...episode,
-        episodeNumber: episode.episodeNumber - episodeOffset
+        episodeNumber: episode.episodeNumber - tmdbEpisodeOffset
       }))
     };
   }

@@ -65,7 +65,7 @@ interface VideoPlayerProps {
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
 const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:playback:anime-season-sync-keys";
-const ANIME_SEASON_PLAYBACK_CACHE_VERSION = 5;
+const ANIME_SEASON_PLAYBACK_CACHE_VERSION = 9;
 
 function clamp(v: number) {
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
@@ -258,6 +258,24 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       (mapping) => mapping.episodeNumber === tvTarget.episode
     ) ?? false;
   const currentSeasonData = matchingAnimeSeasonData ?? clientSeasonData;
+  useEffect(() => {
+    if (!animeSeasonKey || matchingAnimeSeasonData === undefined) return;
+    console.info("[Anime playback] Loaded AniList season mapping", {
+      tmdbId: content.tmdbId,
+      title: content.title,
+      season: tvTarget.season,
+      episode: tvTarget.episode,
+      anilistId: matchingAnimeSeasonData?.anilistId,
+      episodeMappings: matchingAnimeSeasonData?.anilistEpisodeMappings
+    });
+  }, [
+    animeSeasonKey,
+    content.title,
+    content.tmdbId,
+    matchingAnimeSeasonData,
+    tvTarget.episode,
+    tvTarget.season
+  ]);
   const currentSeasonEpisodeCount = currentSeasonData?.episodeCount;
   const waitingForAnimeSeasonMetadata =
     !!animeSeasonKey &&
@@ -995,10 +1013,22 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
             resumePositionSeconds={resumePositionSeconds}
             content={content}
             tvTarget={tvTarget}
-            episodeName={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.name}
-            episodeOverview={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.overview}
-            episodeStillUrl={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.stillUrl}
-            isFillerEpisode={playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)?.fillerStatus === "filler"}
+            episodeName={
+              playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)
+                ?.name
+            }
+            episodeOverview={
+              playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)
+                ?.overview
+            }
+            episodeStillUrl={
+              playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)
+                ?.stillUrl
+            }
+            isFillerEpisode={
+              playbackSeason?.episodes.find((episode) => episode.episodeNumber === tvTarget.episode)
+                ?.fillerStatus === "filler"
+            }
             getEpisodeEmbedUrl={getEpisodeEmbedUrl}
             onDownloadRequestConsumed={() => setDownloadRequest(null)}
             onOpenEpisodePicker={() => {

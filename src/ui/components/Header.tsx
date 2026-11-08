@@ -210,10 +210,7 @@ export function Header() {
       <a className="skip-to-content" href="#main-content">
         Skip to content
       </a>
-      <aside
-        data-fishy-navigation="desktop"
-        className="app-rail flex-col px-3 py-5"
-      >
+      <aside data-fishy-navigation="desktop" className="app-rail flex-col px-3 py-5">
         <div className="mb-9 px-2 xl:px-1">
           <span className="xl:hidden">
             <Brand compact />

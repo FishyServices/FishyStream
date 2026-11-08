@@ -38,12 +38,13 @@ export function isPlaybackAuto(params: URLSearchParams, defaultProvider?: string
 
 export function readPlaybackRouteParams(params: URLSearchParams) {
   const type = params.get("type");
-  const season = Number(params.get("season"));
+  const seasonParam = params.get("season");
+  const season = seasonParam === null ? undefined : Number(seasonParam);
   const episode = Number(params.get("episode"));
   const dub = params.get("dub");
   return {
     type: type === "movie" || type === "tv" ? type : undefined,
-    season: Number.isFinite(season) && season > 0 ? season : undefined,
+    season: season !== undefined && Number.isInteger(season) && season >= 0 ? season : undefined,
     episode: Number.isFinite(episode) && episode > 0 ? episode : undefined,
     provider: getPlaybackProvider(params),
     server: params.get("server") ?? undefined,
