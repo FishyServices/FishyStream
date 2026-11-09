@@ -123,6 +123,11 @@ export function MovieCard({
   const hasProgress = content.progress !== undefined && content.progress > 0;
   const score = content.voteAverage;
   const hoverActive = hovered && !suppressHoverEffects;
+  const cardActionVisibility = hoverActive
+    ? "opacity-100"
+    : suppressHoverEffects
+      ? "opacity-0"
+      : "opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100";
 
   return (
     <>
@@ -151,9 +156,7 @@ export function MovieCard({
       >
         <div
           className={`relative aspect-2/3 overflow-hidden rounded-lg bg-card transition-[transform,box-shadow] duration-300 ${
-            hoverActive
-              ? "md:z-20 md:scale-[1.025] md:shadow-xl md:shadow-background/70 md:ring-1 md:ring-primary/50"
-              : ""
+            hoverActive ? "md:z-20 md:scale-[1.025] md:shadow-xl md:shadow-background/70" : ""
           }`}
         >
           {imgError ? (
@@ -202,9 +205,7 @@ export function MovieCard({
           )}
 
           <div
-            className={`absolute inset-0 hidden bg-linear-to-t from-background via-background/65 to-transparent md:flex flex-col justify-end p-3 transition-opacity duration-200 ${
-              hoverActive ? "opacity-100" : "opacity-0"
-            }`}
+            className={`absolute inset-0 hidden bg-linear-to-t from-background via-background/65 to-transparent md:flex flex-col justify-end p-3 transition-opacity duration-200 ${cardActionVisibility}`}
           >
             <div className="space-y-2">
               <div className="flex items-center gap-2">

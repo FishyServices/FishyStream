@@ -592,7 +592,7 @@ body:has([data-content-modal="true"]) [data-base-ui-inert][role="presentation"] 
 @media (max-width: 767px) {
   .page-stack {
     padding-top: 4.75rem;
-    padding-bottom: 5.5rem;
+    padding-bottom: max(5.5rem, calc(4rem + env(safe-area-inset-bottom)));
   }
 }
 

@@ -332,7 +332,7 @@ export function Header() {
         <SheetContent
           side="right"
           data-content-modal="true"
-          className="w-[min(22rem,calc(100vw-1rem))] border-border/70 bg-background p-4"
+          className="max-h-dvh w-[min(22rem,calc(100vw-1rem))] overflow-y-auto border-border/70 bg-background p-4"
         >
           <SheetHeader className="mb-5">
             <SheetTitle>

@@ -70,7 +70,7 @@ export function SearchCard({
       >
         <div
           className={`relative aspect-2/3 overflow-hidden rounded-lg border border-border/55 bg-card transition-all duration-300 ${
-            hovered ? "md:z-20 md:shadow-md md:ring-1 md:ring-primary/45" : "shadow-md"
+            hovered ? "md:z-20 md:shadow-md" : "shadow-md"
           }`}
         >
           {imgError ? (
@@ -92,7 +92,9 @@ export function SearchCard({
 
           <div
             className={`absolute inset-0 hidden md:flex bg-linear-to-t from-black via-black/60 to-black/10 flex-col justify-end p-3 transition-opacity duration-200 ${
-              hovered ? "opacity-100" : "opacity-0"
+              hovered
+                ? "opacity-100"
+                : "opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100"
             }`}
           >
             <div className="space-y-2">

@@ -171,7 +171,7 @@ export function SearchPage() {
                 </span>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row">
                 <Select
                   value={typeFilter}
                   onValueChange={(value) => {
@@ -180,7 +180,7 @@ export function SearchPage() {
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full rounded-lg border-border/70 bg-background/65 text-sm text-foreground sm:w-32">
+                  <SelectTrigger className="min-w-0 flex-1 rounded-lg border-border/70 bg-background/65 text-sm text-foreground sm:w-32 sm:flex-none">
                     <Film className="h-3.5 w-3.5 shrink-0" />
                     <span>{typeLabel}</span>
                   </SelectTrigger>
@@ -201,7 +201,7 @@ export function SearchPage() {
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full rounded-lg border-border/70 bg-background/65 text-sm text-foreground sm:w-36">
+                  <SelectTrigger className="min-w-0 flex-1 rounded-lg border-border/70 bg-background/65 text-sm text-foreground sm:w-36 sm:flex-none">
                     <Filter className="h-3.5 w-3.5 shrink-0" />
                     <span>{sortLabel}</span>
                   </SelectTrigger>
