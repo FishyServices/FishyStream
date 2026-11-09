@@ -46,49 +46,109 @@ function watchOrderItem(media: AniListMedia, relation?: string): AniListWatchOrd
   };
 }
 
+function isShortFormSideStory(media: AniListMedia): boolean {
+  return media.format === "ONA" && (media.duration ?? Infinity) <= 5;
+}
+
+function titleAliases(media: AniListMedia): Set<string> {
+  return new Set(
+    [media.title?.english, media.title?.romaji, media.title?.native, ...(media.synonyms ?? [])]
+      .filter((title): title is string => Boolean(title))
+      .map((title) =>
+        title
+          .normalize("NFKD")
+          .replace(/\p{Diacritic}/gu, "")
+          .toLocaleLowerCase()
+          .replace(/[^\p{L}\p{N}]+/gu, " ")
+          .trim()
+      )
+      .filter(Boolean)
+  );
+}
+
+function sameAnimeEntry(left: AniListMedia, right: AniListMedia): boolean {
+  if (left.id === right.id) return true;
+  if (left.idMal && right.idMal && left.idMal === right.idMal) return true;
+  if (left.format !== right.format) return false;
+  if (
+    left.startDate?.year &&
+    right.startDate?.year &&
+    left.startDate.year !== right.startDate.year
+  ) {
+    return false;
+  }
+  if (left.episodes && right.episodes && left.episodes !== right.episodes) return false;
+  if (left.duration && right.duration && left.duration !== right.duration) return false;
+
+  const rightAliases = titleAliases(right);
+  return [...titleAliases(left)].some((alias) => rightAliases.has(alias));
+}
+
+function dedupeAnimeEntries(items: AniListMedia[]): AniListMedia[] {
+  const unique: AniListMedia[] = [];
+  for (const item of items) {
+    const duplicateIndex = unique.findIndex((candidate) => sameAnimeEntry(candidate, item));
+    if (duplicateIndex < 0) {
+      unique.push(item);
+      continue;
+    }
+
+    const current = unique[duplicateIndex];
+    if (current && !current.title?.english && item.title?.english) unique[duplicateIndex] = item;
+  }
+  return unique;
+}
+
 export async function getAniListWatchOrder(id: string): Promise<AniListWatchOrderItem[]> {
   const root = await fetchMediaById(id);
   if (!root) return [];
-  const chain = [root];
-  const visited = new Set([root.id]);
-  const firstPrequel = (root.relations?.edges ?? []).find(
-    (edge) => edge.relationType === "PREQUEL" && edge.node?.type === "ANIME"
-  )?.node;
-  if (firstPrequel && !visited.has(firstPrequel.id)) {
-    visited.add(firstPrequel.id);
-    chain.push((await fetchMediaById(String(firstPrequel.id))) ?? firstPrequel);
-  }
-  let current = root;
+  const prequelPath = new Set<number>([root.id]);
+  const visited = new Set<number>();
+  const seriesRelation = (media: AniListMedia, relation: string) =>
+    (media.relations?.edges ?? []).find(
+      (edge) => edge.relationType === relation && edge.node?.type === "ANIME"
+    )?.node;
+  const load = async (media: AniListMedia) => (await fetchMediaById(String(media.id))) ?? media;
+
+  let first = root;
   while (true) {
-    const relations = current.relations?.edges ?? [];
-    const next = relations.find(
-      (edge) =>
-        edge.relationType === "SEQUEL" && edge.node?.type === "ANIME" && !visited.has(edge.node.id)
-    )?.node;
-    const sideStory = relations.find(
-      (edge) =>
-        edge.relationType === "SIDE_STORY" &&
-        edge.node?.type === "ANIME" &&
-        !visited.has(edge.node.id)
-    )?.node;
-    if (sideStory) {
-      visited.add(sideStory.id);
-      chain.push((await fetchMediaById(String(sideStory.id))) ?? sideStory);
-    }
-    if (!next) break;
-    visited.add(next.id);
-    current = (await fetchMediaById(String(next.id))) ?? next;
-    chain.push(current);
+    const prequel = seriesRelation(first, "PREQUEL");
+    if (!prequel || prequelPath.has(prequel.id)) break;
+    prequelPath.add(prequel.id);
+    first = await load(prequel);
   }
-  const franchiseTitle =
-    root.title?.english || root.title?.romaji || root.title?.native || undefined;
+
+  const chain: AniListMedia[] = [];
+  let current: AniListMedia | undefined = first;
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    chain.push(current);
+    const sideStory = seriesRelation(current, "SIDE_STORY");
+    if (sideStory && !visited.has(sideStory.id)) {
+      visited.add(sideStory.id);
+      chain.push(await load(sideStory));
+    }
+    const sequel = seriesRelation(current, "SEQUEL");
+    current = sequel && !visited.has(sequel.id) ? await load(sequel) : undefined;
+  }
   let seasonNumber = 0;
-  return chain.map((item, index) => {
+  const ordered = dedupeAnimeEntries(chain)
+    .filter((item) => !isShortFormSideStory(item))
+    .sort((a, b) => startDateValue(a) - startDateValue(b));
+  const franchiseRoot = ordered.find((item) => item.format === "TV" || item.format === "TV_SHORT");
+  const franchiseMedia = franchiseRoot ?? root;
+  const franchiseTitle =
+    franchiseMedia.title?.english ||
+    franchiseMedia.title?.romaji ||
+    franchiseMedia.title?.native ||
+    undefined;
+  return ordered.map((item, index) => {
     const isSeason = item.format === "TV" || item.format === "TV_SHORT";
     if (isSeason) seasonNumber += 1;
     return {
       ...watchOrderItem(item, index ? "Related" : undefined),
-      ...(isSeason ? { seasonNumber, franchiseTitle } : {})
+      franchiseTitle,
+      ...(isSeason ? { seasonNumber } : {})
     };
   });
 }

@@ -170,6 +170,7 @@ function EpisodePill({
     <div ref={episodeRef}>
       <Button
         variant="ghost"
+        data-episode-number={ep.episodeNumber}
         className={`group flex h-auto w-full items-start justify-start gap-3 rounded-xl border p-3 text-left transition-colors ${
           selected
             ? "border-primary/50 bg-primary/10 shadow-sm"
@@ -418,6 +419,8 @@ export function ContentModal({
   const [seasonSelectOpen, setSeasonSelectOpen] = useState(false);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [selectedDownloadEpisodes, setSelectedDownloadEpisodes] = useState<number[]>([]);
+  const [seasonCountOverride, setSeasonCountOverride] = useState<number | undefined>(undefined);
+  const pendingWatchOrderScrollRef = useRef(false);
 
   const bookmarkTmdbId =
     resolvedContent?.tmdbId && /^\d+$/.test(resolvedContent.tmdbId)
@@ -439,6 +442,15 @@ export function ContentModal({
     episode?: number;
     item: AniListWatchOrderItem;
   } | null>(null);
+  const knownSeasonsFromTmdb = getSeasonCount(resolvedContent);
+  const tmdbSeasonCount = getCanonicalSeasonCount(
+    resolvedContent?.tmdbId,
+    seasonCountOverride ?? knownSeasonsFromTmdb
+  );
+  const watchOrderSeasons = (watchOrder ?? []).filter(
+    (item) => item.seasonNumber !== undefined && item.episodes !== undefined
+  );
+  const totalSeasons = tmdbSeasonCount;
   const navigate = useNavigate();
   useEffect(() => {
     if (!isOpen || !resolvedContent || !isAnimeContent) return;
@@ -494,10 +506,9 @@ export function ContentModal({
   );
 
   const dbSeason = tmdbSeason ?? undefined;
+  const episodes = dbSeason?.episodes ?? [];
 
-  const knownSeasonsFromTmdb = resolvedContent ? getSeasonCount(resolvedContent) : undefined;
   const [episodeLoadError, setEpisodeLoadError] = useState<string | null>(null);
-  const [seasonCountOverride, setSeasonCountOverride] = useState<number | undefined>(undefined);
 
   const tmdbIdNum = resolvedContent?.tmdbId
     ? typeof resolvedContent.tmdbId === "number"
@@ -526,7 +537,6 @@ export function ContentModal({
     undefined
   );
 
-  const knownSeasonCount = getSeasonCount(resolvedContent);
   const hasSpecials =
     resolvedContent?.type === "tv" &&
     ("hasSpecials" in resolvedContent ? resolvedContent.hasSpecials === true : false);
@@ -652,6 +662,40 @@ export function ContentModal({
     setSelectedEpisode(ep);
   };
 
+  const handleWatchOrderItem = (item: AniListWatchOrderItem) => {
+    if (isTV && item.seasonNumber) {
+      if (item.seasonNumber <= totalSeasons) {
+        handleSeasonChange(item.seasonNumber);
+        setActiveTab("episodes");
+        return;
+      }
+      if (totalSeasons === 1) {
+        const episodeStart =
+          watchOrderSeasons
+            .filter((season) => season.seasonNumber! < item.seasonNumber!)
+            .reduce((total, season) => total + (season.episodes ?? 0), 0) + 1;
+        pendingWatchOrderScrollRef.current = true;
+        handleSeasonChange(1);
+        setSelectedEpisode(episodeStart);
+        setActiveTab("episodes");
+        return;
+      }
+    }
+    onClose();
+    navigate(`/search?q=${encodeURIComponent(item.franchiseTitle ?? item.title)}`);
+  };
+
+  useEffect(() => {
+    if (!pendingWatchOrderScrollRef.current || activeTab !== "episodes") return;
+    const frame = requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-episode-number="${selectedEpisode}"]`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+      pendingWatchOrderScrollRef.current = false;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab, selectedEpisode, tmdbSeasonLoading, episodes.length]);
+
   useEffect(() => {
     if (isOpen && episodeSelectionMode) {
       setSelectedDownloadEpisodes([]);
@@ -668,11 +712,6 @@ export function ContentModal({
   const heroImageUrl = detailContent?.backdropUrl;
 
   const isTV = contentData.type === "tv";
-  const totalSeasons = getCanonicalSeasonCount(
-    contentData.tmdbId,
-    seasonCountOverride ?? knownSeasonCount ?? knownSeasonsFromTmdb
-  );
-  const episodes = dbSeason?.episodes ?? [];
 
   const ratingLabel: string | undefined = detailContent?.rating;
 
@@ -1011,7 +1050,9 @@ export function ContentModal({
 
             {activeTab === "watchOrder" && isAnimeContent && (
               <section className="space-y-3" aria-label="Anime watch order">
-                <h3 className="text-lg font-semibold">Anime watch order</h3>
+                <h3 className="text-lg font-semibold">
+                  Anime watch order (not right all of the time)
+                </h3>
                 {watchOrderLoading ? (
                   <p className="text-sm text-muted-foreground">Finding related anime…</p>
                 ) : watchOrderError ? (
@@ -1030,17 +1071,24 @@ export function ContentModal({
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="font-semibold">
                             {index + 1}. {item.title}
-                            {item.seasonNumber && item.franchiseTitle
-                              ? ` (${item.franchiseTitle} season ${item.seasonNumber})`
-                              : ""}
                           </p>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => navigate(`/search?q=${encodeURIComponent(item.title)}`)}
+                            onClick={() => handleWatchOrderItem(item)}
                           >
-                            <ExternalLink className="mr-1.5 h-4 w-4" /> Find to watch
+                            {isTV &&
+                            item.seasonNumber &&
+                            (item.seasonNumber <= totalSeasons || totalSeasons === 1) ? (
+                              <>
+                                <Tv className="mr-1.5 h-4 w-4" /> Go to episodes
+                              </>
+                            ) : (
+                              <>
+                                <ExternalLink className="mr-1.5 h-4 w-4" /> Find to watch
+                              </>
+                            )}
                           </Button>
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">

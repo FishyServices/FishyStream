@@ -1,7 +1,7 @@
 import type { AniListWatchOrderItem } from "@fishy/providers/anime/anilist";
 import { getLocalStorageItem, setLocalStorageItem } from "./browserStorage";
 
-const STORAGE_KEY = "fishystream:catalog:anime-watch-orders";
+const STORAGE_KEY = "fishystream:catalog:anime-watch-orders:v2";
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 type CacheEntry = { cachedAt: number; items: AniListWatchOrderItem[] };
