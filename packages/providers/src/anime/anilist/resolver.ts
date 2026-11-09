@@ -20,7 +20,78 @@ const SEARCH_FIELDS = `id format startDate { year month day } title { romaji eng
 
 const SEARCH_QUERY = `query ($search: String) { Page(page: 1, perPage: 5) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) { ${SEARCH_FIELDS} } } }`;
 
-const MEDIA_QUERY = `query ($id: Int) { Media(id: $id, type: ANIME) { ${SEARCH_FIELDS} idMal type relations { edges { relationType node { ${SEARCH_FIELDS} type } } } } }`;
+const MEDIA_QUERY = `query ($id: Int) { Media(id: $id, type: ANIME) { ${SEARCH_FIELDS} idMal type relations { edges { relationType node { ${SEARCH_FIELDS} idMal type relations { edges { relationType node { ${SEARCH_FIELDS} idMal type } } } } } } } }`;
+
+export interface AniListWatchOrderItem {
+  id: string;
+  title: string;
+  format?: string;
+  episodes?: number;
+  duration?: number;
+  year?: number;
+  relation?: string;
+  seasonNumber?: number;
+  franchiseTitle?: string;
+}
+
+function watchOrderItem(media: AniListMedia, relation?: string): AniListWatchOrderItem {
+  return {
+    id: String(media.id),
+    title: media.title?.english || media.title?.romaji || media.title?.native || "Untitled",
+    format: media.format ?? undefined,
+    episodes: media.episodes ?? undefined,
+    duration: media.duration ?? undefined,
+    year: media.startDate?.year ?? undefined,
+    relation
+  };
+}
+
+export async function getAniListWatchOrder(id: string): Promise<AniListWatchOrderItem[]> {
+  const root = await fetchMediaById(id);
+  if (!root) return [];
+  const chain = [root];
+  const visited = new Set([root.id]);
+  const firstPrequel = (root.relations?.edges ?? []).find(
+    (edge) => edge.relationType === "PREQUEL" && edge.node?.type === "ANIME"
+  )?.node;
+  if (firstPrequel && !visited.has(firstPrequel.id)) {
+    visited.add(firstPrequel.id);
+    chain.push((await fetchMediaById(String(firstPrequel.id))) ?? firstPrequel);
+  }
+  let current = root;
+  while (true) {
+    const relations = current.relations?.edges ?? [];
+    const next = relations.find(
+      (edge) =>
+        edge.relationType === "SEQUEL" && edge.node?.type === "ANIME" && !visited.has(edge.node.id)
+    )?.node;
+    const sideStory = relations.find(
+      (edge) =>
+        edge.relationType === "SIDE_STORY" &&
+        edge.node?.type === "ANIME" &&
+        !visited.has(edge.node.id)
+    )?.node;
+    if (sideStory) {
+      visited.add(sideStory.id);
+      chain.push((await fetchMediaById(String(sideStory.id))) ?? sideStory);
+    }
+    if (!next) break;
+    visited.add(next.id);
+    current = (await fetchMediaById(String(next.id))) ?? next;
+    chain.push(current);
+  }
+  const franchiseTitle =
+    root.title?.english || root.title?.romaji || root.title?.native || undefined;
+  let seasonNumber = 0;
+  return chain.map((item, index) => {
+    const isSeason = item.format === "TV" || item.format === "TV_SHORT";
+    if (isSeason) seasonNumber += 1;
+    return {
+      ...watchOrderItem(item, index ? "Related" : undefined),
+      ...(isSeason ? { seasonNumber, franchiseTitle } : {})
+    };
+  });
+}
 
 interface PageResponse {
   Page?: { media?: AniListMedia[] | null } | null;

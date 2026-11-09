@@ -41,6 +41,15 @@ import {
 } from "@fishy/providers/playback";
 import { buildWatchPath } from "@/shared/navigation/watchNavigation";
 import {
+  getAniListWatchOrder,
+  resolveAniListId,
+  type AniListWatchOrderItem
+} from "@fishy/providers/anime/anilist";
+import {
+  getCachedAnimeWatchOrder,
+  setCachedAnimeWatchOrder
+} from "@/shared/storage/animeWatchOrderStorage";
+import {
   getPlaybackPlayer,
   getPlaybackProvider,
   isPlaybackAuto,
@@ -150,6 +159,12 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const [aniListMaintenanceMessage, setAniListMaintenanceMessage] = useState("");
   const [showAniListMappingPanel, setShowAniListMappingPanel] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [animeWatchOrder, setAnimeWatchOrder] = useState<AniListWatchOrderItem[]>([]);
+  const [watchOrderPrompt, setWatchOrderPrompt] = useState<AniListWatchOrderItem | null>(null);
+  const [pendingNextEpisode, setPendingNextEpisode] = useState<{
+    season: number;
+    episode: number;
+  } | null>(null);
   const [episodeDownloadPickerOpen, setEpisodeDownloadPickerOpen] = useState(false);
   const [downloadRequest, setDownloadRequest] = useState<{
     season: number;
@@ -689,10 +704,11 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     }, NEXT_EPISODE_CLICK_COOLDOWN_MS);
   };
 
-  const handleNextEpisode = async (options: { fromClick?: boolean } = {}) => {
+  const handleNextEpisode = async (
+    options: { fromClick?: boolean; skipWatchOrderPrompt?: boolean } = {}
+  ) => {
     if (options.fromClick) {
       if (nextEpisodeClickLockedRef.current) return;
-      startNextEpisodeClickCooldown();
     }
 
     if (content.type !== "tv") return;
@@ -710,6 +726,26 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     });
     if (!next) return;
 
+    if (next.season > currentSeason) {
+      const currentOrderIndex = animeWatchOrder.findIndex(
+        (item) => item.seasonNumber === currentSeason
+      );
+      const nextOrderIndex = animeWatchOrder.findIndex((item) => item.seasonNumber === next.season);
+      const suggestedItem =
+        currentOrderIndex >= 0 && nextOrderIndex > currentOrderIndex
+          ? animeWatchOrder
+              .slice(currentOrderIndex + 1, nextOrderIndex)
+              .find((item) => !item.seasonNumber)
+          : undefined;
+      if (suggestedItem && !options.skipWatchOrderPrompt) {
+        setPendingNextEpisode(next);
+        setWatchOrderPrompt(suggestedItem);
+        return;
+      }
+    }
+
+    if (options.fromClick) startNextEpisodeClickCooldown();
+
     tvTargetRef.current = next;
     setTvTarget(next);
     setPlaybackPositionSeconds(0);
@@ -719,6 +755,33 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
     goToEpisode(next);
   };
+
+  useEffect(() => {
+    if (!isAnimeProviderContent(content) || !content.title) {
+      setAnimeWatchOrder([]);
+      return;
+    }
+    const cached = getCachedAnimeWatchOrder(content.title, content.year);
+    if (cached !== null) {
+      setAnimeWatchOrder(cached);
+      return;
+    }
+    let cancelled = false;
+    void resolveAniListId({ title: content.title, season: 1, year: content.year })
+      .then((id) => (id ? getAniListWatchOrder(id) : []))
+      .then((items) => {
+        if (!cancelled) {
+          setCachedAnimeWatchOrder(content.title, content.year, items);
+          setAnimeWatchOrder(items);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAnimeWatchOrder([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [content.title, content.year, content.tmdbId]);
 
   const hasNextEpisode = (() => {
     if (content.type !== "tv") return false;
@@ -780,6 +843,51 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       </DialogContent>
     </Dialog>
   );
+  const animeWatchOrderDialog = (
+    <Dialog
+      open={watchOrderPrompt !== null}
+      onOpenChange={(open) => {
+        if (!open) {
+          setWatchOrderPrompt(null);
+          setPendingNextEpisode(null);
+        }
+      }}
+    >
+      <DialogContent className="z-modal border-border/80 bg-card text-card-foreground">
+        <DialogHeader>
+          <DialogTitle>Watch {watchOrderPrompt?.title} first?</DialogTitle>
+          <DialogDescription>
+            The anime watch order places this before the next season. You can look it up now or
+            continue to the next episode.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              const title = watchOrderPrompt?.title;
+              setWatchOrderPrompt(null);
+              setPendingNextEpisode(null);
+              if (title) navigate(`/search?q=${encodeURIComponent(title)}`);
+            }}
+          >
+            Find it to watch
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setWatchOrderPrompt(null);
+              setPendingNextEpisode(null);
+              void handleNextEpisode({ fromClick: true, skipWatchOrderPrompt: true });
+            }}
+          >
+            Continue to next season
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
   useEffect(() => {
     return () => {
       if (nextEpisodeCooldownTimeoutRef.current) {
@@ -792,6 +900,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     return (
       <>
         {aniListUnavailableDialog}
+        {animeWatchOrderDialog}
         <div className="min-h-screen bg-background flex items-center justify-center px-4">
           <div className="media-surface max-w-md rounded-xl p-8 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-destructive/15">
@@ -845,6 +954,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   return (
     <div className="h-dvh w-screen bg-background flex flex-col overflow-hidden">
       {aniListUnavailableDialog}
+      {animeWatchOrderDialog}
       {settings.devMode && animeContent && content.type === "tv" ? (
         <div className="absolute left-3 top-1/2 z-[60] -translate-y-1/2 sm:left-5">
           <Popover open={showAniListMappingPanel} onOpenChange={setShowAniListMappingPanel}>

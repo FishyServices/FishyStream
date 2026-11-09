@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Play,
   Plus,
@@ -15,12 +15,16 @@ import {
   ExternalLink,
   AlertTriangle,
   Calendar,
-  Info
+  Info,
+  ListOrdered
 } from "lucide-react";
 import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
   Select,
   SelectContent,
@@ -52,6 +56,15 @@ import type { ContentDetail, ContentId, ContentType } from "@content/contentMeta
 import { fetchDownloads, type DownloadItem } from "@/shared/downloads";
 import { useAppSettings } from "@/features/settings/useAppSettings";
 import { contentDetailFromTmdb } from "@/features/catalog/model/contentDetails";
+import {
+  getAniListWatchOrder,
+  resolveAniListId,
+  type AniListWatchOrderItem
+} from "@fishy/providers/anime/anilist";
+import {
+  getCachedAnimeWatchOrder,
+  setCachedAnimeWatchOrder
+} from "@/shared/storage/animeWatchOrderStorage";
 
 interface WatchHistoryFields {
   progress?: number;
@@ -356,7 +369,7 @@ export function ContentModal({
   onDownloadEpisodes
 }: ContentModalProps) {
   const [activeTab, setActiveTab] = useState<
-    "episodes" | "ratings" | "cast" | "videos" | "related" | "downloads" | "misc"
+    "episodes" | "ratings" | "cast" | "videos" | "related" | "downloads" | "misc" | "watchOrder"
   >(initialTab ?? "episodes");
   const { settings } = useAppSettings();
 
@@ -419,6 +432,44 @@ export function ContentModal({
   const isAnimeContent =
     detailContent?.originalLanguage === "ja" ||
     (resolvedContent?.genre ?? []).some((genre) => genre.toLowerCase() === "animation");
+  const [watchOrder, setWatchOrder] = useState<AniListWatchOrderItem[] | null>(null);
+  const [watchOrderLoading, setWatchOrderLoading] = useState(false);
+  const [watchOrderError, setWatchOrderError] = useState(false);
+  const [watchOrderPrompt, setWatchOrderPrompt] = useState<{
+    episode?: number;
+    item: AniListWatchOrderItem;
+  } | null>(null);
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!isOpen || !resolvedContent || !isAnimeContent) return;
+    let cancelled = false;
+    setWatchOrderError(false);
+    const cached = getCachedAnimeWatchOrder(resolvedContent.title, resolvedContent.year);
+    if (cached !== null) {
+      setWatchOrder(cached);
+      setWatchOrderLoading(false);
+      return;
+    }
+    setWatchOrderLoading(true);
+    setWatchOrder(null);
+    void resolveAniListId({ title: resolvedContent.title, season: 1, year: resolvedContent.year })
+      .then((id) => (id ? getAniListWatchOrder(id) : []))
+      .then((items) => {
+        if (!cancelled) {
+          setCachedAnimeWatchOrder(resolvedContent.title, resolvedContent.year, items);
+          setWatchOrder(items);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setWatchOrderError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setWatchOrderLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAnimeContent, isOpen, resolvedContent?.title, resolvedContent?.year]);
   const {
     season: tmdbSeason,
     isLoading: tmdbSeasonLoading,
@@ -644,7 +695,22 @@ export function ContentModal({
     }
   };
 
-  const handlePlay = (ep?: number) => {
+  const handlePlay = (ep?: number, skipWatchOrderPrompt = false) => {
+    const currentSeason = contentData.seasonNumber ?? 1;
+    const currentSeasonIndex =
+      watchOrder?.findIndex((item) => item.seasonNumber === currentSeason) ?? -1;
+    const targetSeasonIndex =
+      watchOrder?.findIndex((item) => item.seasonNumber === selectedSeason) ?? -1;
+    const nextWatchItem =
+      currentSeasonIndex >= 0 && targetSeasonIndex > currentSeasonIndex
+        ? watchOrder
+            ?.slice(currentSeasonIndex + 1, targetSeasonIndex)
+            .find((item) => !item.seasonNumber)
+        : undefined;
+    if (isAnimeContent && isTV && nextWatchItem && !skipWatchOrderPrompt) {
+      setWatchOrderPrompt({ episode: ep, item: nextWatchItem });
+      return;
+    }
     const contentId = contentData.tmdbId ?? contentData.imdbId;
     if (contentId) {
       onClose();
@@ -828,6 +894,19 @@ export function ContentModal({
                       Episodes
                     </Button>
                   )}
+                  {isAnimeContent && (
+                    <Button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === "watchOrder"}
+                      value="watchOrder"
+                      onClick={() => setActiveTab("watchOrder")}
+                      variant="ghost"
+                      className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${activeTab === "watchOrder" ? "border-b-primary text-foreground" : "border-transparent"}`}
+                    >
+                      <ListOrdered className="h-4 w-4" aria-hidden="true" /> Watch order
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     role="tab"
@@ -929,6 +1008,57 @@ export function ContentModal({
                 </div>
               </div>
             </div>
+
+            {activeTab === "watchOrder" && isAnimeContent && (
+              <section className="space-y-3" aria-label="Anime watch order">
+                <h3 className="text-lg font-semibold">Anime watch order</h3>
+                {watchOrderLoading ? (
+                  <p className="text-sm text-muted-foreground">Finding related anime…</p>
+                ) : watchOrderError ? (
+                  <p className="text-sm text-muted-foreground">
+                    AniList watch order is unavailable right now.
+                  </p>
+                ) : !watchOrder?.length ? (
+                  <p className="text-sm text-muted-foreground">No watch order found.</p>
+                ) : (
+                  <ol className="space-y-3">
+                    {watchOrder.map((item, index) => (
+                      <li
+                        key={item.id}
+                        className="rounded-xl border border-border/70 bg-muted/35 p-4"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-semibold">
+                            {index + 1}. {item.title}
+                            {item.seasonNumber && item.franchiseTitle
+                              ? ` (${item.franchiseTitle} season ${item.seasonNumber})`
+                              : ""}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/search?q=${encodeURIComponent(item.title)}`)}
+                          >
+                            <ExternalLink className="mr-1.5 h-4 w-4" /> Find to watch
+                          </Button>
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {[
+                            item.year,
+                            item.format,
+                            item.episodes ? `${item.episodes} episodes` : undefined,
+                            item.duration ? `${item.duration} min per episode` : undefined
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+            )}
 
             {isTV && activeTab === "episodes" && (totalSeasons > 1 || hasSpecials) && (
               <div className="mb-4 flex items-center justify-between gap-3">
@@ -1304,6 +1434,46 @@ export function ContentModal({
           </div>
         </div>
       </DialogContent>
+
+      <Dialog
+        open={watchOrderPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) setWatchOrderPrompt(null);
+        }}
+      >
+        <DialogContent className="z-modal border-border/80 bg-card text-card-foreground">
+          <DialogHeader>
+            <DialogTitle>Watch {watchOrderPrompt?.item.title} first?</DialogTitle>
+            <DialogDescription>
+              The watch order places this before season {selectedSeason}. You can look it up now or
+              continue to the season.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const title = watchOrderPrompt?.item.title;
+                setWatchOrderPrompt(null);
+                if (title) navigate(`/search?q=${encodeURIComponent(title)}`);
+              }}
+            >
+              Find it to watch
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                const episode = watchOrderPrompt?.episode;
+                setWatchOrderPrompt(null);
+                handlePlay(episode, true);
+              }}
+            >
+              Continue to season {selectedSeason}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {relatedModalItem && relatedSyncing && (
         <Dialog
