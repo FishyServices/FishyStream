@@ -6,7 +6,7 @@ import {
   type BookmarkSnapshot
 } from "@/features/library/useBookmark";
 import { ContentModal } from "./ContentModal";
-import { Button, toast } from "@fishy/ui";
+import { Badge, Button, toast } from "@fishy/ui";
 import type { PlayHandler } from "@/shared/navigation/watchNavigation";
 import { makeContentId, type ContentId, type ContentType } from "@content/contentMetadata";
 
@@ -175,17 +175,20 @@ export function MovieCard({
 
           <div className="absolute top-0 left-0 right-0 flex items-start justify-between p-2">
             {content.new && !hoverActive && (
-              <span className="rounded-md bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground shadow-sm">
+              <Badge className="h-7 rounded-md bg-primary px-2.5 text-xs font-bold text-primary-foreground shadow-sm">
                 NEW
-              </span>
+              </Badge>
             )}
             {content.type === "tv" &&
               content.seasonNumber &&
               content.episodeNumber &&
               !hoverActive && (
-                <span className="ml-auto rounded-md bg-background/80 px-1.5 py-0.5 text-[11px] font-bold text-foreground ">
+                <Badge
+                  variant="secondary"
+                  className="ml-auto h-7 rounded-md bg-background/90 px-2.5 text-xs font-bold text-foreground shadow-sm"
+                >
                   S{content.seasonNumber}·E{content.episodeNumber}
-                </span>
+                </Badge>
               )}
           </div>
 

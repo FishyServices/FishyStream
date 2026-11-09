@@ -14,6 +14,7 @@ import {
   TabsList,
   TabsTrigger,
   DropdownMenu,
+  DropdownMenuGroup,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -99,13 +100,15 @@ export function RecommendationsSection({
         {folderScope.folder ?? "All bookmark items"}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64 rounded-lg border border-border/70 bg-popover p-1 shadow-sm">
-        <DropdownMenuLabel className="px-2 py-2 text-sm font-medium text-foreground">
-          Recommendation sources
-        </DropdownMenuLabel>
-        <DropdownMenuItem className="gap-2" onClick={() => setFolderScope({ folder: null })}>
-          {folderScope.folder === null ? <Check className="h-4 w-4" /> : <span className="w-4" />}
-          Use all bookmark items
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="px-2 py-2 text-sm font-medium text-foreground">
+            Recommendation sources
+          </DropdownMenuLabel>
+          <DropdownMenuItem className="gap-2" onClick={() => setFolderScope({ folder: null })}>
+            {folderScope.folder === null ? <Check className="h-4 w-4" /> : <span className="w-4" />}
+            Use all bookmark items
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator className="my-1 bg-border/65" />
         {folderOptions.map((folder) => {
           const selected = folderScope.folder === folder;

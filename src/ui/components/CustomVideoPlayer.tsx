@@ -7,16 +7,7 @@ import artplayerPluginAnime4k, {
 import Hls from "hls.js";
 import { useNavigate } from "react-router-dom";
 import { Download, Info, Mic2, MoreHorizontal } from "lucide-react";
-import {
-  Badge,
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverPortal,
-  PopoverPositioner,
-  PopoverTrigger,
-  Separator
-} from "@fishy/ui";
+import { Badge, Button, Popover, PopoverContent, PopoverTrigger, Separator } from "@fishy/ui";
 import {
   ProviderSourceSelect,
   type ProviderIdType,
@@ -1284,107 +1275,108 @@ export function CustomVideoPlayer({
               </Button>
             }
           />
-          <PopoverPortal>
-            <PopoverPositioner side="bottom" align="end" sideOffset={8}>
-              <PopoverContent className="flex max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] flex-col gap-4 overflow-y-auto rounded-2xl bg-neutral-950/95 p-4 text-white shadow-2xl ring-1 ring-white/10 backdrop-blur-2xl">
-                <p className="font-display text-sm font-medium">Player actions</p>
-                {showDubToggle && (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-[13px]">Language</p>
-                    <div className="flex rounded-xl bg-white/5 p-0.5">
-                      <Button
-                        variant={!isDub ? "default" : "ghost"}
-                        size="sm"
-                        className="flex-1 gap-1.5"
-                        onClick={() => handleDubToggle(false)}
-                      >
-                        <Mic2 className="h-3.5 w-3.5" />
-                        Sub
-                      </Button>
-                      <Button
-                        variant={isDub ? "default" : "ghost"}
-                        size="sm"
-                        className="flex-1 gap-1.5"
-                        onClick={() => handleDubToggle(true)}
-                      >
-                        <Mic2 className="h-3.5 w-3.5" />
-                        Dub
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                <div className="flex flex-col gap-2">
-                  <p className="text-[13px]">Source</p>
-                  <ProviderSourceSelect
-                    groupedSources={groupedSources}
-                    selectedSource={selectedSource}
-                    useCustomPlayer
-                    autoSelected={autoProviderEnabled}
-                    onSelect={(url, mode, providerParams) => {
-                      onSelectProvider(url, mode, providerParams);
-                      setShowSettings(false);
-                    }}
-                    onAutoSelect={() => {
-                      onAutoSelectProvider();
-                      setShowSettings(false);
-                    }}
-                    providerIdType={providerIdType}
-                    onProviderIdTypeChange={onProviderIdTypeChange}
-                    variant="panel"
-                  />
+          <PopoverContent
+            side="bottom"
+            align="end"
+            sideOffset={8}
+            className="flex max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] flex-col gap-4 overflow-y-auto rounded-2xl bg-neutral-950/95 p-4 text-white shadow-2xl ring-1 ring-white/10 backdrop-blur-2xl"
+          >
+            <p className="font-display text-sm font-medium">Player actions</p>
+            {showDubToggle && (
+              <div className="flex flex-col gap-2">
+                <p className="text-[13px]">Language</p>
+                <div className="flex rounded-xl bg-white/5 p-0.5">
+                  <Button
+                    variant={!isDub ? "default" : "ghost"}
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                    onClick={() => handleDubToggle(false)}
+                  >
+                    <Mic2 className="h-3.5 w-3.5" />
+                    Sub
+                  </Button>
+                  <Button
+                    variant={isDub ? "default" : "ghost"}
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                    onClick={() => handleDubToggle(true)}
+                  >
+                    <Mic2 className="h-3.5 w-3.5" />
+                    Dub
+                  </Button>
                 </div>
-                {content.type === "movie" && (
-                  <>
-                    <Separator className="bg-white/10" />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="justify-start gap-2"
-                      disabled={!downloadUrl}
-                      onClick={() => handleDownload()}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {downloadState.status === "downloading"
-                        ? `Pause download${downloadProgress === null ? "" : ` · ${downloadProgress}%`}`
-                        : downloadState.status === "paused"
-                          ? "Resume download"
-                          : "Download movie"}
-                    </Button>
-                  </>
-                )}
-                {content.type === "tv" && getEpisodeEmbedUrl && (
-                  <>
-                    <Separator className="bg-white/10" />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={batchDownloadState.status === "downloading"}
-                      className="justify-start gap-2"
-                      onClick={onOpenEpisodePicker}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {batchDownloadProgress === null
-                        ? "Download episodes"
-                        : `Downloading episodes · ${batchDownloadProgress}%`}
-                    </Button>
-                  </>
-                )}
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <p className="text-[13px]">Source</p>
+              <ProviderSourceSelect
+                groupedSources={groupedSources}
+                selectedSource={selectedSource}
+                useCustomPlayer
+                autoSelected={autoProviderEnabled}
+                onSelect={(url, mode, providerParams) => {
+                  onSelectProvider(url, mode, providerParams);
+                  setShowSettings(false);
+                }}
+                onAutoSelect={() => {
+                  onAutoSelectProvider();
+                  setShowSettings(false);
+                }}
+                providerIdType={providerIdType}
+                onProviderIdTypeChange={onProviderIdTypeChange}
+                variant="panel"
+              />
+            </div>
+            {content.type === "movie" && (
+              <>
                 <Separator className="bg-white/10" />
                 <Button
                   variant="ghost"
                   size="sm"
                   className="justify-start gap-2"
-                  onClick={() => {
-                    onInfoClick();
-                    setShowSettings(false);
-                  }}
+                  disabled={!downloadUrl}
+                  onClick={() => handleDownload()}
                 >
-                  <Info className="h-3.5 w-3.5" />
-                  Details
+                  <Download className="h-3.5 w-3.5" />
+                  {downloadState.status === "downloading"
+                    ? `Pause download${downloadProgress === null ? "" : ` · ${downloadProgress}%`}`
+                    : downloadState.status === "paused"
+                      ? "Resume download"
+                      : "Download movie"}
                 </Button>
-              </PopoverContent>
-            </PopoverPositioner>
-          </PopoverPortal>
+              </>
+            )}
+            {content.type === "tv" && getEpisodeEmbedUrl && (
+              <>
+                <Separator className="bg-white/10" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={batchDownloadState.status === "downloading"}
+                  className="justify-start gap-2"
+                  onClick={onOpenEpisodePicker}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {batchDownloadProgress === null
+                    ? "Download episodes"
+                    : `Downloading episodes · ${batchDownloadProgress}%`}
+                </Button>
+              </>
+            )}
+            <Separator className="bg-white/10" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start gap-2"
+              onClick={() => {
+                onInfoClick();
+                setShowSettings(false);
+              }}
+            >
+              <Info className="h-3.5 w-3.5" />
+              Details
+            </Button>
+          </PopoverContent>
         </Popover>
       </div>
       {mediaError && (

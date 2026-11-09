@@ -26,7 +26,8 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
+  Badge
 } from "@fishy/ui";
 import {
   useIsInBookmark,
@@ -181,14 +182,20 @@ function EpisodePill({
               E{ep.displayEpisodeNumber ?? ep.episodeNumber}
             </span>
             {ep.fillerStatus === "filler" && (
-              <span className="rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] font-bold text-warning">
+              <Badge
+                variant="outline"
+                className="h-6 rounded-md border-warning/40 bg-warning/10 px-2 text-xs font-semibold text-warning"
+              >
                 Filler
-              </span>
+              </Badge>
             )}
             {selected && (
-              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] font-bold text-primary">
+              <Badge
+                variant="secondary"
+                className="h-6 rounded-md bg-primary/15 px-2 text-xs font-semibold text-primary"
+              >
                 {selectionMode ? "Selected" : "Now selected"}
-              </span>
+              </Badge>
             )}
           </div>
           <p className="line-clamp-1 text-sm font-medium text-foreground">{ep.name}</p>
@@ -395,6 +402,7 @@ export function ContentModal({
 
   const detailContent = hasFullContent(resolvedContent) ? resolvedContent : null;
   const [selectedSeason, setSelectedSeason] = useState(1);
+  const [seasonSelectOpen, setSeasonSelectOpen] = useState(false);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [selectedDownloadEpisodes, setSelectedDownloadEpisodes] = useState<number[]>([]);
 
@@ -661,7 +669,7 @@ export function ContentModal({
       <DialogContent
         data-content-modal="true"
         data-fishy-detail="content"
-        className="z-modal flex h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom))] max-h-none w-full max-w-4xl flex-col overflow-hidden rounded-none border-0 bg-card p-0 text-card-foreground shadow-md sm:h-auto sm:max-h-[min(96dvh,70rem)] sm:w-[calc(100%-1rem)] sm:rounded-xl sm:border sm:bg-card/95 [&>button]:right-4 [&>button]:top-[max(1rem,env(safe-area-inset-top))] [&>button]:z-20 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button:hover]:bg-accent"
+        className="z-modal flex h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom))] max-h-none w-full flex-col overflow-hidden rounded-none border-0 bg-card p-0 text-card-foreground shadow-md sm:h-auto sm:max-h-[min(96dvh,70rem)] sm:w-[min(56rem,calc(100vw-2rem))] sm:!max-w-none sm:rounded-xl sm:border sm:bg-card/95 [&>button]:right-4 [&>button]:top-[max(1rem,env(safe-area-inset-top))] [&>button]:z-20 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:border [&>button]:border-border/80 [&>button]:bg-background/80 [&>button:hover]:bg-accent"
       >
         {" "}
         <DialogTitle className="sr-only">{contentData.title}</DialogTitle>
@@ -699,6 +707,7 @@ export function ContentModal({
             </h2>
             <div className="flex items-center gap-3">
               <Button
+                size="lg"
                 className="rounded-xl bg-primary font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
                 onClick={() => handlePlay()}
               >
@@ -746,11 +755,12 @@ export function ContentModal({
                 </span>
               )}
               {ratingLabel && (
-                <span
-                  className={`rounded border border-current px-2 py-0.5 text-xs font-semibold rating-${ratingLabel}`}
+                <Badge
+                  variant="outline"
+                  className={`h-7 rounded-md border-current px-2.5 text-xs font-semibold rating-${ratingLabel}`}
                 >
                   {ratingLabel}
-                </span>
+                </Badge>
               )}
               <span className="flex items-center gap-1 text-muted-foreground">
                 {isTV ? <Tv className="h-3.5 w-3.5" /> : <Film className="h-3.5 w-3.5" />}
@@ -767,12 +777,13 @@ export function ContentModal({
             {(contentData.genre?.length ?? 0) > 0 && (
               <div className="flex flex-wrap gap-2">
                 {(contentData.genre ?? []).map((g) => (
-                  <span
+                  <Badge
+                    variant="secondary"
                     key={g}
-                    className="rounded-full border border-border/70 bg-muted/45 px-3 py-1 text-xs text-muted-foreground"
+                    className="h-7 rounded-md border-border/70 bg-muted/45 px-3 text-xs font-medium text-muted-foreground"
                   >
                     {g}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             )}
@@ -809,7 +820,7 @@ export function ContentModal({
                       variant="ghost"
                       className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
                         activeTab === "episodes"
-                          ? "border-primary text-foreground"
+                          ? "border-b-primary text-foreground"
                           : "border-transparent"
                       }`}
                     >
@@ -825,7 +836,9 @@ export function ContentModal({
                     onClick={() => setActiveTab("cast")}
                     variant="ghost"
                     className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
-                      activeTab === "cast" ? "border-primary text-foreground" : "border-transparent"
+                      activeTab === "cast"
+                        ? "border-b-primary text-foreground"
+                        : "border-transparent"
                     }`}
                   >
                     <User className="h-4 w-4" aria-hidden="true" />
@@ -840,7 +853,7 @@ export function ContentModal({
                     variant="ghost"
                     className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
                       activeTab === "videos"
-                        ? "border-primary text-foreground"
+                        ? "border-b-primary text-foreground"
                         : "border-transparent"
                     }`}
                   >
@@ -856,7 +869,7 @@ export function ContentModal({
                     variant="ghost"
                     className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
                       activeTab === "related"
-                        ? "border-primary text-foreground"
+                        ? "border-b-primary text-foreground"
                         : "border-transparent"
                     }`}
                   >
@@ -873,7 +886,7 @@ export function ContentModal({
                       variant="ghost"
                       className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
                         activeTab === "ratings"
-                          ? "border-primary text-foreground"
+                          ? "border-b-primary text-foreground"
                           : "border-transparent"
                       }`}
                     >
@@ -890,7 +903,7 @@ export function ContentModal({
                     variant="ghost"
                     className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
                       activeTab === "downloads"
-                        ? "border-primary text-foreground"
+                        ? "border-b-primary text-foreground"
                         : "border-transparent"
                     }`}
                   >
@@ -905,7 +918,9 @@ export function ContentModal({
                     onClick={() => setActiveTab("misc")}
                     variant="ghost"
                     className={`h-11 gap-1.5 rounded-none border-b-2 px-1 text-sm text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground ${
-                      activeTab === "misc" ? "border-primary text-foreground" : "border-transparent"
+                      activeTab === "misc"
+                        ? "border-b-primary text-foreground"
+                        : "border-transparent"
                     }`}
                   >
                     <Info className="h-4 w-4" aria-hidden="true" />
@@ -918,11 +933,15 @@ export function ContentModal({
             {isTV && activeTab === "episodes" && (totalSeasons > 1 || hasSpecials) && (
               <div className="mb-4 flex items-center justify-between gap-3">
                 <Select
+                  modal={false}
                   value={String(selectedSeason)}
+                  open={seasonSelectOpen}
+                  onOpenChange={setSeasonSelectOpen}
                   onValueChange={(value) => {
                     const season = Number(value);
                     handleSeasonChange(season);
                     setEpisodeLoadError(null);
+                    setSeasonSelectOpen(false);
                   }}
                 >
                   <SelectTrigger className="w-48 rounded-xl border-border/80 bg-background text-foreground">
@@ -1197,6 +1216,7 @@ export function ContentModal({
                         </div>
                         <div className="w-45 shrink-0">
                           <Select
+                            modal={false}
                             onValueChange={(val) => {
                               if (val) window.open(val as string, "_blank", "noopener,noreferrer");
                             }}

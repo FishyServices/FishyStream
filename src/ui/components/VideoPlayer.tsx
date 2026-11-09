@@ -17,8 +17,6 @@ import {
   Button,
   Popover,
   PopoverContent,
-  PopoverPortal,
-  PopoverPositioner,
   PopoverTrigger,
   Dialog,
   DialogContent,
@@ -864,39 +862,40 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
                 </Button>
               }
             />
-            <PopoverPortal>
-              <PopoverPositioner side="right" align="center" sideOffset={8}>
-                <PopoverContent className="w-72 rounded-xl border-border/70 bg-card/95 p-4 shadow-xl">
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">AniList mappings</p>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        Clear cached AniList IDs for {content.title}. This action is limited to once
-                        every 12 hours.
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full rounded-lg"
-                      disabled={!isAuthenticated || clearingAniListMappings}
-                      onClick={clearCurrentAnimeMappings}
-                      title={isAuthenticated ? undefined : "Sign in to clear mappings"}
-                    >
-                      {clearingAniListMappings ? "Clearing…" : "Clear this anime's mappings"}
-                    </Button>
-                    {!isAuthenticated ? (
-                      <p className="text-xs text-muted-foreground">Sign in to use this tool.</p>
-                    ) : null}
-                    {aniListMaintenanceMessage ? (
-                      <p className="text-xs text-muted-foreground" role="status">
-                        {aniListMaintenanceMessage}
-                      </p>
-                    ) : null}
-                  </div>
-                </PopoverContent>
-              </PopoverPositioner>
-            </PopoverPortal>
+            <PopoverContent
+              side="right"
+              align="center"
+              sideOffset={8}
+              className="w-72 rounded-xl border-border/70 bg-card/95 p-4 shadow-xl"
+            >
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">AniList mappings</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Clear cached AniList IDs for {content.title}. This action is limited to once
+                    every 12 hours.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full rounded-lg"
+                  disabled={!isAuthenticated || clearingAniListMappings}
+                  onClick={clearCurrentAnimeMappings}
+                  title={isAuthenticated ? undefined : "Sign in to clear mappings"}
+                >
+                  {clearingAniListMappings ? "Clearing…" : "Clear this anime's mappings"}
+                </Button>
+                {!isAuthenticated ? (
+                  <p className="text-xs text-muted-foreground">Sign in to use this tool.</p>
+                ) : null}
+                {aniListMaintenanceMessage ? (
+                  <p className="text-xs text-muted-foreground" role="status">
+                    {aniListMaintenanceMessage}
+                  </p>
+                ) : null}
+              </div>
+            </PopoverContent>
           </Popover>
         </div>
       ) : null}

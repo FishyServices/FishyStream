@@ -54,11 +54,9 @@ function FeaturedDiscoverCarousel({
               Browse movies, shows, and anime in one place.
             </p>
           </div>
-          <Button asChild className="w-fit rounded-lg">
-            <Link to="/search">
-              <Search className="mr-2 h-4 w-4" />
-              Search titles
-            </Link>
+          <Button render={<Link to="/search" />} className="w-fit rounded-lg">
+            <Search className="mr-2 h-4 w-4" />
+            Search titles
           </Button>
         </div>
       </section>
@@ -305,11 +303,9 @@ export function DiscoverContentMode({ onPlay }: { onPlay: PlayHandler }) {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" asChild className="rounded-lg">
-            <Link to="/search">
-              <Search className="mr-2 h-4 w-4" />
-              Search
-            </Link>
+          <Button variant="outline" render={<Link to="/search" />} className="rounded-lg">
+            <Search className="mr-2 h-4 w-4" />
+            Search
           </Button>
         </div>
       </div>

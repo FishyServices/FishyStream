@@ -10,7 +10,7 @@ import {
   ChevronRight,
   Video
 } from "lucide-react";
-import { Button } from "@fishy/ui";
+import { Badge, Button } from "@fishy/ui";
 import { ContentModal } from "./ContentModal";
 import {
   useIsInBookmark,
@@ -208,11 +208,12 @@ export function Hero({
           )}
 
           <div className="flex flex-wrap items-center gap-3">
-            <span
-              className={`rounded border border-current px-2 py-0.5 text-xs font-bold rating-${activeContent.rating}`}
+            <Badge
+              variant="outline"
+              className={`h-7 rounded-md border-current px-2.5 text-xs font-bold rating-${activeContent.rating}`}
             >
               {activeContent.rating}
-            </span>
+            </Badge>
             <span className="text-sm text-foreground/75">{activeContent.year}</span>
             {activeContent.duration && (
               <span className="text-sm text-foreground/75">{activeContent.duration}</span>

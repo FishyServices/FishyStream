@@ -176,7 +176,7 @@ export function WatchHistoryPage() {
                 placeholder="Search watched titles"
                 aria-label="Search watched titles"
                 autoComplete="off"
-                className="h-12 min-w-0 flex-1 rounded-lg border-0 bg-transparent px-3 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
+                className="h-12 min-w-0 flex-1 rounded-lg border-0 !bg-transparent px-3 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-0"
               />
               <Button
                 type="button"

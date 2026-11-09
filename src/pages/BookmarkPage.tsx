@@ -49,6 +49,7 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
+  Badge,
   toast,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -481,26 +482,31 @@ function FolderSection({
       onDrop={onDropSection}
     >
       <div className="flex items-center justify-between gap-3">
-        <h2>
+        <div className="flex min-w-0 items-center gap-2.5">
           <Button
             type="button"
             variant="ghost"
-            className="h-auto items-center gap-2 rounded-lg py-1 pr-2 text-left text-xl font-semibold"
+            size="icon-xs"
+            className="shrink-0 bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             onClick={onToggleCollapsed}
             aria-expanded={!isCollapsed}
+            aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${name} folder`}
           >
             {isCollapsed ? (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4" />
             )}
-            <Folder className="h-4 w-4 text-primary" />
-            {name}
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-              {items.length}
-            </span>
           </Button>
-        </h2>
+          <Folder className="h-5 w-5 shrink-0 text-primary" />
+          <h2 className="truncate text-lg font-semibold text-foreground sm:text-xl">{name}</h2>
+          <Badge
+            variant="secondary"
+            className="h-7 shrink-0 rounded-md border-border/60 bg-muted/70 px-2.5 text-xs font-semibold text-muted-foreground"
+          >
+            {items.length}
+          </Badge>
+        </div>
         {name !== "Unsorted" && (
           <div className="flex items-center gap-2">
             <Button
