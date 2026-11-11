@@ -207,9 +207,20 @@ async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> 
   const scoring = { title, season, year, episodes };
 
   let best: Scored | undefined;
+  const relationRoots: AniListMedia[] = [];
   for (const candidate of buildSearchCandidates(title, season, seasonTitle)) {
     const results = await searchMedia(candidate);
     best = pickBest(results, scoring, best);
+    if (season > 1) {
+      for (const media of results) {
+        if (
+          hasStrongTitleMatch(media, title, 1) &&
+          !relationRoots.some((root) => root.id === media.id)
+        ) {
+          relationRoots.push(media);
+        }
+      }
+    }
     if (season === 0) {
       console.info("[AniList matching] Specials search", {
         title,
@@ -230,6 +241,24 @@ async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> 
     if (season === 0) continue;
     if (best && (best.score >= MATCH_THRESHOLD || hasStrongTitleMatch(best.media, title, season))) {
       return String(best.media.id);
+    }
+  }
+
+  if (season > 1) {
+    for (const root of relationRoots) {
+      let current: AniListMedia | null = await fetchMediaById(String(root.id));
+      const visited = new Set<number>();
+      let seasonNumber = 1;
+      while (current && !visited.has(current.id)) {
+        visited.add(current.id);
+        const sequel = (current.relations?.edges ?? []).find(
+          (edge) => edge.relationType === "SEQUEL" && edge.node?.type === "ANIME"
+        )?.node;
+        if (!sequel || visited.has(sequel.id)) break;
+        current = (await fetchMediaById(String(sequel.id))) ?? sequel;
+        seasonNumber += 1;
+        if (seasonNumber === season) return String(current.id);
+      }
     }
   }
 

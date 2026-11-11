@@ -59,12 +59,22 @@ export function buildSearchCandidates(
   const isGeneric =
     !normalizedNamed || GENERIC_SEASON_TITLES.some((pattern) => pattern.test(normalizedNamed));
   const candidates = new Set<string>();
+  const franchiseTitle = base.split(/[:\-–—]/, 1)[0]?.trim();
 
   if (named && normalizedNamed !== "season") {
     candidates.add(`${base} ${named}`);
     if (!isGeneric) candidates.add(named);
   }
   candidates.add(base);
+
+  if (franchiseTitle && normalizeTitle(franchiseTitle) !== normalizeTitle(base)) {
+    candidates.add(franchiseTitle);
+    if (season > 1) {
+      const roman = Object.entries(ROMAN_SEASONS).find(([, value]) => value === season)?.[0];
+      if (roman) candidates.add(`${franchiseTitle} ${roman.toUpperCase()}`);
+      candidates.add(`${franchiseTitle} ${season}`);
+    }
+  }
 
   if (season > 1) {
     const ordinal = toOrdinal(season);
@@ -145,6 +155,7 @@ function scoreVariant(
   baseTokens: ReadonlySet<string>,
   season: number
 ): VariantScore {
+  const franchiseBase = base.split(/[:\-–—]/, 1)[0]?.trim() ?? base;
   let score = 0;
   let matchedBase = true;
 
@@ -160,13 +171,16 @@ function scoreVariant(
   const signals = readSeasonSignals(variant);
   const roman = readRomanSeason(variant, base);
   const numeric = readNumericSeason(variant, base);
+  const franchiseRoman = readRomanSeason(variant, franchiseBase);
+  const franchiseNumeric = readNumericSeason(variant, franchiseBase);
 
   const explicitMatch = signals.explicit.has(season);
   const explicitMismatch = signals.explicit.size > 0 && !explicitMatch;
-  const romanMatch = roman === season;
-  const romanMismatch = roman !== undefined && !romanMatch;
-  const numericMatch = numeric === season;
-  const numericMismatch = numeric !== undefined && !numericMatch;
+  const romanMatch = roman === season || franchiseRoman === season;
+  const romanMismatch = (roman !== undefined || franchiseRoman !== undefined) && !romanMatch;
+  const numericMatch = numeric === season || franchiseNumeric === season;
+  const numericMismatch =
+    (numeric !== undefined || franchiseNumeric !== undefined) && !numericMatch;
   const partMatch = signals.parts.has(season);
   const courMatch = signals.cours.has(season);
 
@@ -270,10 +284,13 @@ export function hasStrongTitleMatch(media: AniListMedia, title: string, season: 
     }
     if (season === 1) return variant === base || variant === `${base} ona`;
     if (variant !== base && !variant.startsWith(`${base} `)) return false;
+    const franchiseBase = base.split(/[:\-–—]/, 1)[0]?.trim() ?? base;
     return (
       readSeasonSignals(variant).explicit.has(season) ||
       readRomanSeason(variant, base) === season ||
-      readNumericSeason(variant, base) === season
+      readNumericSeason(variant, base) === season ||
+      readRomanSeason(variant, franchiseBase) === season ||
+      readNumericSeason(variant, franchiseBase) === season
     );
   });
 }
