@@ -22,6 +22,9 @@ export interface ProviderSourceSelectProps {
   selectedSource: string;
   useCustomPlayer: boolean;
   autoSelected?: boolean;
+  autoResolvedSource?: string | null;
+  onNextAutoSource?: () => void;
+  hasNextAutoSource?: boolean;
   onSelect: (
     url: string,
     mode: ProviderUiMode,
@@ -49,6 +52,9 @@ export function ProviderSourceSelect({
   selectedSource,
   useCustomPlayer,
   autoSelected = false,
+  autoResolvedSource,
+  onNextAutoSource,
+  hasNextAutoSource = false,
   onSelect,
   onAutoSelect,
   triggerLabel,
@@ -199,6 +205,20 @@ export function ProviderSourceSelect({
                 {autoSelected ? <Check className="h-3.5 w-3.5" /> : null}
               </Button>
             ) : null}
+            {activeTab === "custom" && autoSelected && onNextAutoSource ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-10 min-h-10 w-full justify-start rounded-none px-3 text-sm"
+                disabled={!hasNextAutoSource}
+                onClick={() => {
+                  onNextAutoSource();
+                  setOpen(false);
+                }}
+              >
+                Next working provider
+              </Button>
+            ) : null}
             {activeGroups.length === 0 ? (
               <p
                 className={
@@ -232,11 +252,13 @@ export function ProviderSourceSelect({
                   </p>
                   {group.providers.map(({ provider, sources }) => {
                     const selectedProviderSource = sources.find(
-                      (source) => source.url === selectedSource
+                      (source) =>
+                        autoSelected
+                          ? Boolean(autoResolvedSource) && source.url === autoResolvedSource
+                          : source.url === selectedSource
                     );
                     const displayedSource = selectedProviderSource ?? sources[0];
                     const isSelected =
-                      !autoSelected &&
                       selectedProviderSource !== undefined &&
                       activeTab === (useCustomPlayer ? "custom" : "embedded");
 

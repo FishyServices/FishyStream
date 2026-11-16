@@ -304,6 +304,7 @@ export function CustomVideoPlayer({
   const [anime4kSupported, setAnime4kSupported] = useState<boolean | null>(null);
   const [scrapeSelection, setScrapeSelection] = useState<ScrapeSelection | null>(null);
   const [pendingSourceName, setPendingSourceName] = useState<string | null>(null);
+  const [autoResolvedUrl, setAutoResolvedUrl] = useState<string | null>(null);
   const sourcePageCacheRef = useRef<{
     embedUrl: string;
     response: ScrapeResult;
@@ -336,6 +337,51 @@ export function CustomVideoPlayer({
 
   const prepareDownloadRef = useRef(prepareDownload);
   const resetDownloadRef = useRef(resetDownload);
+
+  const getNextAutoProviderUrls = () => {
+    const currentProviderKey = groupedSources
+      .flatMap((group) => group.providers)
+      .find(({ sources }) => sources.some((source) => source.url === autoResolvedUrl))
+      ?.provider.key;
+    return autoSourceUrls.filter((candidate) => {
+      if (autoAttemptedUrlsRef.current.has(candidate)) return false;
+      const providerKey = groupedSources
+        .flatMap((group) => group.providers)
+        .find(({ sources }) => sources.some((source) => source.url === candidate))?.provider.key;
+      return providerKey !== currentProviderKey;
+    });
+  };
+
+  const tryNextAutoProvider = async () => {
+    const nextUrls = getNextAutoProviderUrls();
+    if (!nextUrls.length) {
+      setMediaError("No other working providers are available.");
+      return;
+    }
+    setMediaError(null);
+    setPendingSourceName("next working provider");
+    try {
+      const result = await scraper.scrapeFirstWorking(nextUrls);
+      if (!result.source || !result.resolvedUrl) throw new Error("No next source worked.");
+      autoAttemptedUrlsRef.current.add(result.resolvedUrl);
+      setAutoResolvedUrl(result.resolvedUrl);
+      sourcePageCacheRef.current = {
+        embedUrl: `auto:${autoSourceUrls.join("|")}`,
+        response: result,
+        expiresAt: Date.now() + SCRAPER_PAGE_CACHE_TTL_MS
+      };
+      setScrapeSelection({
+        embedUrl: result.resolvedUrl,
+        source: result.source,
+        resumePosition: playerRef.current?.currentTime ?? 0
+      });
+      onAutoSourceResolved(result.resolvedUrl);
+    } catch (error) {
+      setMediaError(error instanceof Error ? error.message : "No next source worked.");
+    } finally {
+      setPendingSourceName(null);
+    }
+  };
 
   useEffect(() => {
     prepareDownloadRef.current = prepareDownload;
@@ -482,7 +528,10 @@ export function CustomVideoPlayer({
           };
         }
         scrapeTarget = scrapeResponse.resolvedUrl ?? embedUrl;
-        if (autoProviderEnabled) autoAttemptedUrlsRef.current.add(scrapeTarget);
+        if (autoProviderEnabled) {
+          autoAttemptedUrlsRef.current.add(scrapeTarget);
+          setAutoResolvedUrl(scrapeTarget);
+        }
         const selectedScrapeSource =
           scrapeSelection?.embedUrl === scrapeTarget ? scrapeSelection.source : undefined;
         const initialScrapeSource = selectedScrapeSource ?? scrapeResponse.source;
@@ -1057,6 +1106,7 @@ export function CustomVideoPlayer({
                   if (!result.source || !result.resolvedUrl)
                     throw new Error("No next source worked.");
                   autoAttemptedUrlsRef.current.add(result.resolvedUrl);
+                  setAutoResolvedUrl(result.resolvedUrl);
                   sourcePageCacheRef.current = {
                     embedUrl: `auto:${autoSourceUrls.join("|")}`,
                     response: result,
@@ -1314,6 +1364,9 @@ export function CustomVideoPlayer({
                 selectedSource={selectedSource}
                 useCustomPlayer
                 autoSelected={autoProviderEnabled}
+                autoResolvedSource={autoResolvedUrl}
+                onNextAutoSource={() => void tryNextAutoProvider()}
+                hasNextAutoSource={getNextAutoProviderUrls().length > 0}
                 onSelect={(url, mode, providerParams) => {
                   onSelectProvider(url, mode, providerParams);
                   setShowSettings(false);
