@@ -34,10 +34,19 @@ export interface AniListWatchOrderItem {
   franchiseTitle?: string;
 }
 
-function watchOrderItem(media: AniListMedia, relation?: string): AniListWatchOrderItem {
+function watchOrderItem(
+  media: AniListMedia,
+  titleLanguage: "english" | "romaji" | "native",
+  relation?: string
+): AniListWatchOrderItem {
   return {
     id: String(media.id),
-    title: media.title?.english || media.title?.romaji || media.title?.native || "Untitled",
+    title:
+      media.title?.[titleLanguage] ||
+      media.title?.english ||
+      media.title?.romaji ||
+      media.title?.native ||
+      "Untitled",
     format: media.format ?? undefined,
     episodes: media.episodes ?? undefined,
     duration: media.duration ?? undefined,
@@ -132,21 +141,24 @@ export async function getAniListWatchOrder(id: string): Promise<AniListWatchOrde
     current = sequel && !visited.has(sequel.id) ? await load(sequel) : undefined;
   }
   let seasonNumber = 0;
-  const ordered = dedupeAnimeEntries(chain)
-    .filter((item) => !isShortFormSideStory(item))
-    .sort((a, b) => startDateValue(a) - startDateValue(b));
+  const ordered = dedupeAnimeEntries(chain).filter((item) => !isShortFormSideStory(item));
   const franchiseRoot = ordered.find((item) => item.format === "TV" || item.format === "TV_SHORT");
   const franchiseMedia = franchiseRoot ?? root;
+  const titleLanguage = franchiseMedia.title?.english
+    ? "english"
+    : franchiseMedia.title?.romaji
+      ? "romaji"
+      : "native";
   const franchiseTitle =
     franchiseMedia.title?.english ||
     franchiseMedia.title?.romaji ||
     franchiseMedia.title?.native ||
     undefined;
   return ordered.map((item, index) => {
-    const isSeason = item.format === "TV" || item.format === "TV_SHORT";
+    const isSeason = item.format === "TV" || item.format === "TV_SHORT" || item.format === "ONA";
     if (isSeason) seasonNumber += 1;
     return {
-      ...watchOrderItem(item, index ? "Related" : undefined),
+      ...watchOrderItem(item, titleLanguage, index ? "Related" : undefined),
       franchiseTitle,
       ...(isSeason ? { seasonNumber } : {})
     };

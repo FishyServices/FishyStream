@@ -1070,7 +1070,10 @@ export function ContentModal({
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="font-semibold">
-                            {index + 1}. {item.title}
+                            {index + 1}.{" "}
+                            {item.seasonNumber
+                              ? `${resolvedContent?.title ?? item.title} — Season ${item.seasonNumber}`
+                              : item.title}
                           </p>
                           <Button
                             type="button"
