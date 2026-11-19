@@ -173,12 +173,13 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const animeSeasonKey =
     animeContent && content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
   const animeSeasonSyncAttemptedRef = useRef(new Set<string>());
+  const animeMappingsClearedRef = useRef(new Set<string>());
 
   const clearCurrentAnimeMappings = async () => {
     if (!isAuthenticated || !animeContent || content.type !== "tv") return;
     if (
       !window.confirm(
-        `Clear cached AniList season mappings for ${content.title}? They will be resolved again when you continue playback.`
+        `Clear cached AniList season mappings for ${content.title}? Automatic remapping will stay paused until you leave this playback session.`
       )
     ) {
       return;
@@ -187,10 +188,11 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     setAniListMaintenanceMessage("");
     try {
       const deleted = await clearAniListSeasonMappings({ contentId: content._id });
-      if (animeSeasonKey) animeSeasonSyncAttemptedRef.current.delete(animeSeasonKey);
-      if (animeSeasonKey) animeSeasonFailedRef.current.delete(animeSeasonKey);
+      animeMappingsClearedRef.current.add(content._id);
       setAnimeSeasonReloadKey((value) => value + 1);
-      setAniListMaintenanceMessage(`Cleared ${deleted} episode mappings for ${content.title}.`);
+      setAniListMaintenanceMessage(
+        `Cleared ${deleted} episode mappings for ${content.title}. Automatic remapping is paused for this playback session.`
+      );
     } catch (error) {
       setAniListMaintenanceMessage(
         error instanceof Error ? error.message : "Could not clear this anime's mappings."
@@ -261,6 +263,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const currentSeasonEpisodeCount = currentSeasonData?.episodeCount;
   const waitingForAnimeSeasonMetadata =
     !!animeSeasonKey &&
+    !animeMappingsClearedRef.current.has(content._id) &&
     !animeSeasonFailedRef.current.has(animeSeasonKey) &&
     (matchingAnimeSeasonData === undefined ||
       !hasCurrentAnimeEpisodeMapping ||
@@ -332,6 +335,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
 
   useEffect(() => {
     if (!animeSeasonKey || !content.tmdbId || hasPendingInitialTvTarget) return;
+    if (animeMappingsClearedRef.current.has(content._id)) return;
     if (animeSeasonData === undefined || hasCurrentAnimeEpisodeMapping) return;
     if (animeSeasonSyncingRef.current.has(animeSeasonKey)) return;
     if (animeSeasonSyncAttemptedRef.current.has(animeSeasonKey)) return;
@@ -920,8 +924,8 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
                 <div>
                   <p className="text-sm font-semibold text-foreground">AniList mappings</p>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    Clear cached AniList IDs for {content.title}. This action is limited to once
-                    every 12 hours.
+                    Clear cached AniList IDs for {content.title}. Automatic remapping stays paused
+                    for this playback session. This action is limited to once every 12 hours.
                   </p>
                 </div>
                 <Button

@@ -106,6 +106,7 @@ export async function buildAniListEpisodeMappings(
     episodes.map(async ({ episodeNumber }): Promise<AniListEpisodeMapping | null> => {
       const address = await resolveAniListEpisodeAddress({
         ...seasonQuery,
+        mediaType: "tv",
         anilistId,
         episode: episodeNumber + episodeOffset
       });

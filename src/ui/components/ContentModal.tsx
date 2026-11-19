@@ -464,7 +464,12 @@ export function ContentModal({
     }
     setWatchOrderLoading(true);
     setWatchOrder(null);
-    void resolveAniListId({ title: resolvedContent.title, season: 1, year: resolvedContent.year })
+    void resolveAniListId({
+      title: resolvedContent.title,
+      mediaType: resolvedContent.type,
+      season: 1,
+      year: resolvedContent.year
+    })
       .then((id) => (id ? getAniListWatchOrder(id) : []))
       .then((items) => {
         if (!cancelled) {

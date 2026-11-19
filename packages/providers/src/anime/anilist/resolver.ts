@@ -221,22 +221,29 @@ export function getAniListMediaById(id: string): Promise<AniListMedia | null> {
 function pickBest(
   pool: Iterable<AniListMedia>,
   query: Required<Pick<AniListSeasonQuery, "title" | "season">> &
-    Pick<AniListSeasonQuery, "year" | "episodes">,
+    Pick<AniListSeasonQuery, "year" | "episodes" | "mediaType">,
   current?: Scored
 ): Scored | undefined {
   let best = current;
   for (const media of pool) {
     if (query.season === 0 && !isSpecialsEntry(media)) continue;
+    if (query.mediaType && !matchesMediaType(media, query.mediaType)) continue;
     const score = scoreMedia(media, query.title, query.season, query.year, query.episodes);
     if (!best || score > best.score) best = { media, score };
   }
   return best;
 }
 
+function matchesMediaType(media: AniListMedia, mediaType: "movie" | "tv"): boolean {
+  return mediaType === "movie"
+    ? media.format === "MOVIE"
+    : SERIES_FORMATS.has(media.format ?? "");
+}
+
 async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> {
   const { title, season, seasonTitle, year, episodes } = query;
   if (!title) return null;
-  const scoring = { title, season, year, episodes };
+  const scoring = { title, mediaType: query.mediaType, season, year, episodes };
 
   let best: Scored | undefined;
   const relationRoots: AniListMedia[] = [];
@@ -245,9 +252,10 @@ async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> 
   for (const [index, candidate] of candidates.entries()) {
     const results = candidateResults[index] ?? [];
     best = pickBest(results, scoring, best);
-    if (season > 1) {
+    if (season > 1 && query.mediaType !== "movie") {
       for (const media of results) {
         if (
+          matchesMediaType(media, "tv") &&
           hasStrongTitleMatch(media, title, 1) &&
           !relationRoots.some((root) => root.id === media.id)
         ) {
@@ -331,9 +339,10 @@ async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> 
 
 const resolveAniListIdCached = memoizeAsync(
   loadAniListId,
-  ({ title, season, seasonTitle, year, episodes }) =>
+  ({ title, mediaType, season, seasonTitle, year, episodes }) =>
     JSON.stringify([
       title?.trim().toLocaleLowerCase(),
+      mediaType,
       season,
       seasonTitle?.trim().toLocaleLowerCase(),
       year,
@@ -406,24 +415,18 @@ async function loadAniListEpisodeAddress(
   if (!anilistId) return null;
 
   const media = await fetchMediaById(anilistId);
+  if (query.mediaType && (!media || !matchesMediaType(media, query.mediaType))) return null;
   const address = media ? await walkSequels(media, episode, new Set()) : { anilistId, episode };
-  console.info("[AniList matching] Episode address", {
-    requestedId: anilistId,
-    resolvedId: address.anilistId,
-    episode,
-    season: query.season,
-    title: query.title,
-    mediaTitle: media?.title
-  });
   return address;
 }
 
 const resolveAniListEpisodeAddressCached = memoizeAsync(
   loadAniListEpisodeAddress,
-  ({ anilistId, title, season, seasonTitle, year, episode }) =>
+  ({ anilistId, title, mediaType, season, seasonTitle, year, episode }) =>
     JSON.stringify([
       anilistId,
       title?.trim().toLocaleLowerCase(),
+      mediaType,
       season,
       seasonTitle?.trim().toLocaleLowerCase(),
       year,

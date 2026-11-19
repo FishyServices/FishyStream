@@ -130,7 +130,14 @@ export function createSourceBuilder(
       animeAddress =
         anilistId && providerIdType !== "mal"
           ? { anilistId, episode: 1 }
-          : await lookupAddress({ anilistId, title, season: 1, year, episode: 1 });
+          : await lookupAddress({
+              anilistId,
+              title,
+              mediaType: "movie",
+              season: 1,
+              year,
+              episode: 1
+            });
     }
 
     const sources = STREAM_PROVIDERS.flatMap((provider) => {
@@ -198,6 +205,7 @@ export function createSourceBuilder(
       return lookupAddress({
         anilistId: stored?.anilistId ?? anilistId,
         title,
+        mediaType: "tv",
         season: target.season,
         seasonTitle,
         year,

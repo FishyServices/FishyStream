@@ -33,6 +33,7 @@ const loadFillerWindow = memoizeAsync(
     const address = await resolveAniListEpisodeAddress({
       anilistId: lookup.anilistId,
       title: lookup.title,
+      mediaType: "tv",
       season: lookup.season,
       year: lookup.year,
       episode: 1

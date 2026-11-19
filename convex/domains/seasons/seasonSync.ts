@@ -73,15 +73,12 @@ export const syncAnimeSeasonPlaybackMeta = action({
       canonicalSeason: payload.seasonNumber,
       aniListEpisodeOffset: payload.episodeOffset,
       seasonName: payload.name,
-      episodes: payload.episodes.map(({ episodeNumber, name, runtime }) => ({
-        episodeNumber,
-        name,
-        runtime
-      }))
+      episodeCount: payload.episodes.length
     });
 
     const episodes = payload.episodes.map((episode) => ({
       ...episode,
+      overview: episode.overview ?? undefined,
       runtime: episode.runtime ?? undefined
     }));
     let anilistId: string | null;
@@ -90,6 +87,7 @@ export const syncAnimeSeasonPlaybackMeta = action({
     try {
       anilistId = await resolveSeasonAniListId({
         title: args.title,
+        mediaType: "tv",
         season: payload.seasonNumber,
         seasonTitle: payload.name,
         year: payload.year,
@@ -104,6 +102,7 @@ export const syncAnimeSeasonPlaybackMeta = action({
       if (!anilistId && payload.seasonNumber > 1) {
         anilistId = await resolveSeasonAniListId({
           title: args.title,
+          mediaType: "tv",
           season: 1,
           year: payload.year ? payload.year - 1 : undefined,
           episodes: episodes.map(({ name, runtime }) => ({ name, runtime }))
@@ -125,7 +124,7 @@ export const syncAnimeSeasonPlaybackMeta = action({
       console.info("[Anime season sync] AniList episode mappings", {
         season: payload.seasonNumber,
         anilistId,
-        mappings
+        mappingCount: mappings?.length ?? 0
       });
     } catch (error) {
       if (isAniListError(error)) {
@@ -139,8 +138,8 @@ export const syncAnimeSeasonPlaybackMeta = action({
       tmdbId: args.tmdbId,
       seasonNumber: payload.seasonNumber,
       name: payload.name,
-      overview: payload.overview,
-      airDate: payload.airDate,
+      overview: payload.overview ?? undefined,
+      airDate: payload.airDate ?? undefined,
       episodeCount: payload.episodeCount,
       anilistId: anilistId ?? undefined,
       anilistEpisodeMappings: mappings,
@@ -151,7 +150,7 @@ export const syncAnimeSeasonPlaybackMeta = action({
     return {
       seasonNumber: payload.seasonNumber,
       name: payload.name,
-      airDate: payload.airDate,
+      airDate: payload.airDate ?? undefined,
       episodeCount: payload.episodeCount,
       anilistId: anilistId ?? undefined,
       anilistEpisodeMappingCount: mappings?.length,

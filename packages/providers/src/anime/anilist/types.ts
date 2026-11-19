@@ -33,6 +33,7 @@ export interface AniListEpisodeAddress {
 
 export interface AniListSeasonQuery {
   title?: string;
+  mediaType?: "movie" | "tv";
   season: number;
   seasonTitle?: string;
   year?: number;
