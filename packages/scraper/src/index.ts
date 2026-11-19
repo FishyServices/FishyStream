@@ -13,8 +13,18 @@ const app = new Hono<{ Bindings: ScrapeBindings }>();
 
 app.use("/*", cors());
 
-function proxiedTracks(tracks: unknown, base: string): unknown {
+function proxiedTracks(
+  tracks: unknown,
+  base: string,
+  stream: Awaited<ReturnType<typeof resolveWithProviders>>
+): unknown {
   if (!Array.isArray(tracks)) return tracks ?? null;
+  const streamHeaders = { ...(stream?.headers ?? {}) };
+  if (!streamHeaders.Referer && !streamHeaders.referer && stream?.url) {
+    try {
+      streamHeaders.Referer = `${new URL(stream.url).origin}/`;
+    } catch {}
+  }
   return tracks.map((track) => {
     if (typeof track !== "object" || track === null || !("file" in track)) return track;
     const file = track.file;
@@ -24,6 +34,13 @@ function proxiedTracks(tracks: unknown, base: string): unknown {
       if (url.protocol !== "https:" || url.port || url.username || url.password) return track;
       const proxyUrl = new URL(`${base}/api/subtitle-proxy`);
       proxyUrl.searchParams.set("url", url.href);
+      const trackHeaders =
+        "headers" in track && typeof track.headers === "object" && track.headers !== null
+          ? (track.headers as Record<string, string>)
+          : {};
+      const headers = { ...streamHeaders, ...trackHeaders };
+      if (Object.keys(headers).length > 0)
+        proxyUrl.searchParams.set("headers", JSON.stringify(headers));
       return { ...track, file: proxyUrl.href };
     } catch {
       return track;
@@ -43,7 +60,7 @@ function proxiedStream(
     sourceKey: stream.sourceKey,
     streamUrl: `${base}${endpoint}?url=${encodeURIComponent(stream.url)}&headers=${encodeURIComponent(JSON.stringify(stream.headers))}`,
     mediaType: stream.mediaType,
-    tracks: proxiedTracks(stream.tracks, base),
+    tracks: proxiedTracks(stream.tracks, base, stream),
     intro: stream.intro ?? null,
     outro: stream.outro ?? null
   };
