@@ -13,6 +13,7 @@ export interface FillerEpisode {
 export interface FillerLookup {
   title: string;
   season: number;
+  anilistId?: string;
   year?: number;
   centerEpisode?: number;
   windowSize?: number;
@@ -30,6 +31,7 @@ const tenrai = createTenraiClient();
 const loadFillerWindow = memoizeAsync(
   async (lookup: FillerLookup, window: FillerWindow): Promise<FillerEpisode[] | null> => {
     const address = await resolveAniListEpisodeAddress({
+      anilistId: lookup.anilistId,
       title: lookup.title,
       season: lookup.season,
       year: lookup.year,
@@ -46,7 +48,7 @@ const loadFillerWindow = memoizeAsync(
       .filter(({ episodeNumber }) => episodeNumber >= window.start && episodeNumber <= window.end);
   },
   (lookup, window) =>
-    `${lookup.title}:${lookup.season}:${lookup.year ?? ""}:${window.start}:${window.end}`
+    `${lookup.anilistId ?? ""}:${lookup.title}:${lookup.season}:${lookup.year ?? ""}:${window.start}:${window.end}`
 );
 
 export function fetchAnimeFillerEpisodes(lookup: FillerLookup): Promise<FillerEpisode[] | null> {

@@ -63,11 +63,6 @@ function FeaturedDiscoverCarousel({
     );
   }
 
-  const move = (direction: -1 | 1) => {
-    setImageFailed(false);
-    setIndex((current) => (current + direction + items.length) % items.length);
-  };
-
   const playActive = () => {
     if (!active.tmdbId) return;
     onPlay(

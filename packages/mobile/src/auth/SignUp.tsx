@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth, useSignUp } from "@clerk/react";
 import { Link, useNavigate } from "react-router-dom";
-import { AlertCircle, Loader2, Mail, Lock, ShieldCheck } from "lucide-react";
+import { Loader2, Mail, Lock, ShieldCheck } from "lucide-react";
 import { Button, Input, Label } from "@fishy/ui";
 
 function getClerkErrorMessage(error: unknown) {

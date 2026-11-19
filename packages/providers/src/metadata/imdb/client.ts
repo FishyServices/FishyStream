@@ -4,7 +4,6 @@ import { formatDuration } from "../helpers.js";
 import type {
   Episode,
   EpisodePage,
-  MetadataClient,
   Rating,
   Title,
   TitleReference

@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Artplayer, { type Option, type Setting, type SettingOption } from "artplayer";
 import artplayerPluginAnime4k, {
-  type ActiveMode,
-  type Anime4kPlugin
+  type ActiveMode
 } from "artplayer-plugin-anime4k";
 import Hls from "hls.js";
 import { useNavigate } from "react-router-dom";
@@ -283,7 +282,6 @@ export function CustomVideoPlayer({
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
-  const anime4kPluginRef = useRef<Anime4kPlugin | null>(null);
   const volumeBoostRef = useRef(readPlayerVolumeBoost());
   const subtitlePreferencesRef = useRef(readSubtitlePreferences());
   const onPlaybackEventRef = useRef(onPlaybackEvent);
@@ -295,9 +293,7 @@ export function CustomVideoPlayer({
   const introDbLookupKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [skipTimes, setSkipTimes] = useState<{ intro?: SkipSegment; outro?: SkipSegment }>({});
   const [showSettings, setShowSettings] = useState(false);
   const [anime4kActiveMode, setAnime4kActiveMode] = useState<ActiveMode>("off");
@@ -481,7 +477,6 @@ export function CustomVideoPlayer({
       audioContextRef.current = null;
       playerRef.current?.destroy(false);
       playerRef.current = null;
-      anime4kPluginRef.current = null;
       setAnime4kActiveMode("off");
       setAnime4kSupported(null);
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -780,24 +775,6 @@ export function CustomVideoPlayer({
             return `${Math.round(volumeBoostRef.current * 100)}%`;
           }
         };
-        const anime4kCompareSetting: Setting = {
-          name: "anime4k-compare",
-          html: "Anime4K comparison",
-          onSelect(this: Artplayer, item: SettingOption) {
-            const plugin = anime4kPluginRef.current;
-            if (!plugin?.supported) {
-              this.notice.show = "Anime4K is not available in this browser.";
-              return "Unavailable";
-            }
-            const enabled = item.name === "anime4k-compare-on";
-            plugin.setCompare(enabled);
-            return enabled ? "Split view" : "Off";
-          },
-          selector: [
-            { name: "anime4k-compare-off", html: "Off", default: true },
-            { name: "anime4k-compare-on", html: "Original / Anime4K split" }
-          ]
-        };
         const anime4kFactory = artplayerPluginAnime4k({
           mode: "auto",
           syncAudio: false,
@@ -813,7 +790,6 @@ export function CustomVideoPlayer({
         });
         const anime4kPlugin = (player: Artplayer) => {
           const plugin = anime4kFactory(player);
-          anime4kPluginRef.current = plugin;
           void plugin.ready.then((supported) => {
             if (playerRef.current !== player) return;
             setAnime4kSupported(supported);
@@ -1048,7 +1024,6 @@ export function CustomVideoPlayer({
               ? scrapeSelection.resumePosition
               : getResumePosition(embedUrl, resumePositionSeconds);
           if (resume > 0 && resume < player.duration) player.seek = resume;
-          setDuration(player.duration);
           void player.play().catch(() => {});
         });
         player.on("play", () => {
@@ -1056,7 +1031,6 @@ export function CustomVideoPlayer({
           if (endScreen) endScreen.style.display = "none";
           initAudioBoost();
           if (audioContextRef.current?.state === "suspended") void audioContextRef.current.resume();
-          setIsPlaying(true);
           report("play");
         });
         player.on("pause", () => {
@@ -1072,17 +1046,14 @@ export function CustomVideoPlayer({
               { duration: 240, easing: "ease-out" }
             );
           }
-          setIsPlaying(false);
           report("pause");
         });
         player.on("video:ended", () => {
           report("ended");
         });
         player.on("video:seeked", () => report("seeked"));
-        player.on("video:durationchange", () => setDuration(player.duration));
         player.on("video:timeupdate", () => {
           setCurrentTime(player.currentTime);
-          setDuration(player.duration);
           report("timeupdate");
         });
         player.on("error", (error) => {

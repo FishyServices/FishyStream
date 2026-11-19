@@ -1,5 +1,4 @@
 import { ClerkFailed, ClerkLoaded, ClerkLoading, SignIn } from "@clerk/react";
-import { Link } from "react-router-dom";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 import { NativeSignInCard } from "@fishy/mobile/auth/SignIn";

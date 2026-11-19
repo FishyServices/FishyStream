@@ -18,8 +18,6 @@ const SERIES_FORMATS: ReadonlySet<string> = new Set(["TV", "TV_SHORT", "ONA"]);
 
 const SEARCH_FIELDS = `id format startDate { year month day } title { romaji english native } synonyms episodes duration`;
 
-const SEARCH_QUERY = `query ($search: String) { Page(page: 1, perPage: 5) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) { ${SEARCH_FIELDS} } } }`;
-
 const MEDIA_QUERY = `query ($id: Int) { Media(id: $id, type: ANIME) { ${SEARCH_FIELDS} idMal type relations { edges { relationType node { ${SEARCH_FIELDS} idMal type relations { edges { relationType node { ${SEARCH_FIELDS} idMal type } } } } } } } }`;
 
 export interface AniListWatchOrderItem {
@@ -165,19 +163,41 @@ export async function getAniListWatchOrder(id: string): Promise<AniListWatchOrde
   });
 }
 
-interface PageResponse {
-  Page?: { media?: AniListMedia[] | null } | null;
+interface SearchPage {
+  media?: AniListMedia[] | null;
 }
+
+type SearchBatchResponse = Record<string, SearchPage | null | undefined>;
 
 interface Scored {
   media: AniListMedia;
   score: number;
 }
 
-async function searchMedia(search: string): Promise<AniListMedia[]> {
-  if (!search) return [];
-  const data = await queryAniList<PageResponse>(SEARCH_QUERY, { search });
-  return data.Page?.media ?? [];
+const loadMediaSearchBatch = memoizeAsync(
+  async (searches: string[]): Promise<AniListMedia[][]> => {
+    if (searches.length === 0) return [];
+    const variables = Object.fromEntries(
+      searches.map((search, index) => [`search${index}`, search])
+    );
+    const fields = searches.map((_, index) => `$search${index}: String`).join(", ");
+    const pages = searches
+      .map(
+        (_, index) =>
+          `result${index}: Page(page: 1, perPage: 5) { media(search: $search${index}, type: ANIME, sort: SEARCH_MATCH) { ${SEARCH_FIELDS} } }`
+      )
+      .join(" ");
+    const data = await queryAniList<SearchBatchResponse>(
+      `query (${fields}) { ${pages} }`,
+      variables
+    );
+    return searches.map((_, index) => data[`result${index}`]?.media ?? []);
+  },
+  (searches) => JSON.stringify(searches)
+);
+
+function searchMediaBatch(searches: string[]): Promise<AniListMedia[][]> {
+  return loadMediaSearchBatch(searches.filter(Boolean));
 }
 
 const loadMediaById = memoizeAsync(
@@ -220,8 +240,10 @@ async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> 
 
   let best: Scored | undefined;
   const relationRoots: AniListMedia[] = [];
-  for (const candidate of buildSearchCandidates(title, season, seasonTitle)) {
-    const results = await searchMedia(candidate);
+  const candidates = buildSearchCandidates(title, season, seasonTitle);
+  const candidateResults = await searchMediaBatch(candidates);
+  for (const [index, candidate] of candidates.entries()) {
+    const results = candidateResults[index] ?? [];
     best = pickBest(results, scoring, best);
     if (season > 1) {
       for (const media of results) {
@@ -275,8 +297,10 @@ async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> 
   }
 
   if (season === 0 && episodes?.length) {
-    for (const { name } of episodes) {
-      const results = await searchMedia(name);
+    const episodeTitles = episodes.map(({ name }) => name);
+    const episodeResults = await searchMediaBatch(episodeTitles);
+    for (const [index, name] of episodeTitles.entries()) {
+      const results = episodeResults[index] ?? [];
       best = pickBest(results, scoring, best);
       console.info("[AniList matching] Specials episode search", {
         episodeTitle: name,

@@ -40,15 +40,8 @@ import {
   shouldWaitForAnimeSeasonMetadata
 } from "@fishy/providers/playback";
 import { buildWatchPath } from "@/shared/navigation/watchNavigation";
-import {
-  getAniListWatchOrder,
-  resolveAniListId,
-  type AniListWatchOrderItem
-} from "@fishy/providers/anime/anilist";
-import {
-  getCachedAnimeWatchOrder,
-  setCachedAnimeWatchOrder
-} from "@/shared/storage/animeWatchOrderStorage";
+import type { AniListWatchOrderItem } from "@fishy/providers/anime/anilist";
+import { getCachedAnimeWatchOrder } from "@/shared/storage/animeWatchOrderStorage";
 import {
   getPlaybackPlayer,
   getPlaybackProvider,
@@ -58,7 +51,6 @@ import {
   setPlaybackProviderParams
 } from "@/features/playback/model/playbackUrl";
 import type { ContentPlayback } from "@content/contentMetadata";
-import { getSessionStorageItem, setSessionStorageItem } from "@/shared/storage/browserStorage";
 import {
   usePlaybackSession,
   type PlaybackSeasonMeta
@@ -71,40 +63,10 @@ interface VideoPlayerProps {
 }
 
 const NEXT_EPISODE_CLICK_COOLDOWN_MS = 5000;
-const ANIME_SEASON_SYNC_SESSION_KEY = "fishystream:playback:anime-season-sync-keys";
 const ANIME_SEASON_PLAYBACK_CACHE_VERSION = 9;
 
 function clamp(v: number) {
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
-}
-
-function readSessionAnimeSeasonSyncKeys() {
-  try {
-    const raw = getSessionStorageItem(ANIME_SEASON_SYNC_SESSION_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed)
-      ? parsed.filter((key): key is string => typeof key === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function rememberSessionAnimeSeasonSyncKey(key: string) {
-  try {
-    const keys = readSessionAnimeSeasonSyncKeys();
-    if (keys.includes(key)) return;
-    setSessionStorageItem(ANIME_SEASON_SYNC_SESSION_KEY, JSON.stringify([...keys, key]));
-  } catch {}
-}
-
-function forgetSessionAnimeSeasonSyncKey(key: string) {
-  try {
-    setSessionStorageItem(
-      ANIME_SEASON_SYNC_SESSION_KEY,
-      JSON.stringify(readSessionAnimeSeasonSyncKeys().filter((entry) => entry !== key))
-    );
-  } catch {}
 }
 
 function safeSeason(v: number | null | undefined) {
@@ -161,10 +123,6 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [animeWatchOrder, setAnimeWatchOrder] = useState<AniListWatchOrderItem[]>([]);
   const [watchOrderPrompt, setWatchOrderPrompt] = useState<AniListWatchOrderItem | null>(null);
-  const [pendingNextEpisode, setPendingNextEpisode] = useState<{
-    season: number;
-    episode: number;
-  } | null>(null);
   const [episodeDownloadPickerOpen, setEpisodeDownloadPickerOpen] = useState(false);
   const [downloadRequest, setDownloadRequest] = useState<{
     season: number;
@@ -201,11 +159,6 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     animeContent,
     false
   );
-  useEffect(() => {
-    if (animeContent && settings.showFillerEpisodes && content.type === "tv") {
-      loadFillerAround(tvTarget.episode);
-    }
-  }, [animeContent, content.type, loadFillerAround, settings.showFillerEpisodes, tvTarget.episode]);
   const clientSeasonData: PlaybackSeasonMeta | null =
     content.type === "tv" && playbackSeason
       ? ({
@@ -219,7 +172,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       : null;
   const animeSeasonKey =
     animeContent && content.type === "tv" ? `${content._id}:${tvTarget.season}` : null;
-  const animeSeasonSyncAttemptKey = animeSeasonKey ? `${animeSeasonKey}:${tvTarget.episode}` : null;
+  const animeSeasonSyncAttemptedRef = useRef(new Set<string>());
 
   const clearCurrentAnimeMappings = async () => {
     if (!isAuthenticated || !animeContent || content.type !== "tv") return;
@@ -234,7 +187,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     setAniListMaintenanceMessage("");
     try {
       const deleted = await clearAniListSeasonMappings({ contentId: content._id });
-      if (animeSeasonSyncAttemptKey) forgetSessionAnimeSeasonSyncKey(animeSeasonSyncAttemptKey);
+      if (animeSeasonKey) animeSeasonSyncAttemptedRef.current.delete(animeSeasonKey);
       if (animeSeasonKey) animeSeasonFailedRef.current.delete(animeSeasonKey);
       setAnimeSeasonReloadKey((value) => value + 1);
       setAniListMaintenanceMessage(`Cleared ${deleted} episode mappings for ${content.title}.`);
@@ -272,6 +225,22 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     ) ?? false;
   const currentSeasonData = matchingAnimeSeasonData ?? clientSeasonData;
   useEffect(() => {
+    if (!animeContent || !settings.showFillerEpisodes || content.type !== "tv") return;
+    const anilistId =
+      currentSeasonData?.anilistId ?? (tvTarget.season === 1 ? content.anilistId : undefined);
+    if (!anilistId) return;
+    loadFillerAround(tvTarget.episode, anilistId);
+  }, [
+    animeContent,
+    content.anilistId,
+    content.type,
+    currentSeasonData?.anilistId,
+    loadFillerAround,
+    settings.showFillerEpisodes,
+    tvTarget.episode,
+    tvTarget.season
+  ]);
+  useEffect(() => {
     if (!animeSeasonKey || matchingAnimeSeasonData === undefined) return;
     console.info("[Anime playback] Loaded AniList season mapping", {
       tmdbId: content.tmdbId,
@@ -301,9 +270,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
         seasonNumber: tvTarget.season,
         currentSeasonData: matchingAnimeSeasonData
       }) ||
-      animeSeasonSyncingRef.current.has(animeSeasonKey) ||
-      (matchingAnimeSeasonData === null &&
-        !readSessionAnimeSeasonSyncKeys().includes(animeSeasonSyncAttemptKey ?? "")));
+      animeSeasonSyncingRef.current.has(animeSeasonKey));
 
   useEffect(() => {
     if (
@@ -367,12 +334,9 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     if (!animeSeasonKey || !content.tmdbId || hasPendingInitialTvTarget) return;
     if (animeSeasonData === undefined || hasCurrentAnimeEpisodeMapping) return;
     if (animeSeasonSyncingRef.current.has(animeSeasonKey)) return;
-    if (
-      animeSeasonSyncAttemptKey &&
-      readSessionAnimeSeasonSyncKeys().includes(animeSeasonSyncAttemptKey)
-    )
-      return;
+    if (animeSeasonSyncAttemptedRef.current.has(animeSeasonKey)) return;
 
+    animeSeasonSyncAttemptedRef.current.add(animeSeasonKey);
     animeSeasonSyncingRef.current.add(animeSeasonKey);
     void syncAnimeSeasonPlaybackMeta({
       contentId: content._id,
@@ -390,9 +354,6 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
           setAnimeSeasonReloadKey((value) => value + 1);
           return;
         }
-        if (animeSeasonSyncAttemptKey) {
-          rememberSessionAnimeSeasonSyncKey(animeSeasonSyncAttemptKey);
-        }
         if (!result) {
           animeSeasonFailedRef.current.add(animeSeasonKey);
         }
@@ -408,7 +369,6 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
   }, [
     animeSeasonData,
     animeSeasonKey,
-    animeSeasonSyncAttemptKey,
     content._id,
     content.tmdbId,
     content.title,
@@ -738,7 +698,6 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
               .find((item) => !item.seasonNumber)
           : undefined;
       if (suggestedItem && !options.skipWatchOrderPrompt) {
-        setPendingNextEpisode(next);
         setWatchOrderPrompt(suggestedItem);
         return;
       }
@@ -762,25 +721,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       return;
     }
     const cached = getCachedAnimeWatchOrder(content.title, content.year);
-    if (cached !== null) {
-      setAnimeWatchOrder(cached);
-      return;
-    }
-    let cancelled = false;
-    void resolveAniListId({ title: content.title, season: 1, year: content.year })
-      .then((id) => (id ? getAniListWatchOrder(id) : []))
-      .then((items) => {
-        if (!cancelled) {
-          setCachedAnimeWatchOrder(content.title, content.year, items);
-          setAnimeWatchOrder(items);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setAnimeWatchOrder([]);
-      });
-    return () => {
-      cancelled = true;
-    };
+    setAnimeWatchOrder(cached ?? []);
   }, [content.title, content.year, content.tmdbId]);
 
   const hasNextEpisode = (() => {
@@ -849,7 +790,6 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
       onOpenChange={(open) => {
         if (!open) {
           setWatchOrderPrompt(null);
-          setPendingNextEpisode(null);
         }
       }}
     >
@@ -868,7 +808,6 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
             onClick={() => {
               const title = watchOrderPrompt?.title;
               setWatchOrderPrompt(null);
-              setPendingNextEpisode(null);
               if (title) navigate(`/search?q=${encodeURIComponent(title)}`);
             }}
           >
@@ -878,7 +817,6 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
             type="button"
             onClick={() => {
               setWatchOrderPrompt(null);
-              setPendingNextEpisode(null);
               void handleNextEpisode({ fromClick: true, skipWatchOrderPrompt: true });
             }}
           >

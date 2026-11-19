@@ -5,9 +5,7 @@ import { queryAniList } from "../anilist/request.js";
 import { createJikanClient } from "./client.js";
 import type {
   AnimeCatalogItem,
-  AnimeCatalogResult,
-  AnimeMediaFilter,
-  AnimeSort
+  AnimeCatalogResult
 } from "../anilist/catalog.js";
 
 const JIKAN_GENRES: Readonly<Record<string, number>> = {

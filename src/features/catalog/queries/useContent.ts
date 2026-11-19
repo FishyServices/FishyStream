@@ -1337,11 +1337,11 @@ export function useSeasonEpisodes(
     setFillerLoading(false);
   }, [animeTitle, animeYear, seasonNumber, tmdbId]);
   const loadFillerAround = useCallback(
-    (episodeNumber: number) => {
+    (episodeNumber: number, anilistId?: string) => {
       if (!enabled || !isAnime || !animeTitle || seasonNumber < 1) return;
       const windowSize = 20;
       const windowStart = Math.floor((episodeNumber - 1) / windowSize) * windowSize + 1;
-      const windowKey = `${tmdbId}:${seasonNumber}:${windowStart}`;
+      const windowKey = `${tmdbId}:${seasonNumber}:${windowStart}:${anilistId ?? ""}`;
       if (fillerWindows.current.has(windowKey) || fillerRequests.current.has(windowKey)) return;
 
       fillerRequests.current.add(windowKey);
@@ -1350,6 +1350,7 @@ export function useSeasonEpisodes(
       void fetchAnimeFillerEpisodes({
         title: animeTitle,
         season: seasonNumber,
+        anilistId,
         year: animeYear,
         centerEpisode: episodeNumber,
         windowSize,
