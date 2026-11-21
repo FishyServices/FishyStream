@@ -32,10 +32,13 @@ interface VariantScore {
 }
 
 export function normalizeTitle(value?: string | null): string {
-  return (value ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+  const title = value ?? "";
+
+  const withoutAccents = title.normalize("NFKD").replace(/\p{Diacritic}/gu, "");
+
+  const wordsOnly = withoutAccents.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
+
+  return wordsOnly.trim();
 }
 
 function tokenize(text: string): Set<string> {

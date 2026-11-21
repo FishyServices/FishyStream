@@ -235,9 +235,7 @@ function pickBest(
 }
 
 function matchesMediaType(media: AniListMedia, mediaType: "movie" | "tv"): boolean {
-  return mediaType === "movie"
-    ? media.format === "MOVIE"
-    : SERIES_FORMATS.has(media.format ?? "");
+  return mediaType === "movie" ? media.format === "MOVIE" : SERIES_FORMATS.has(media.format ?? "");
 }
 
 async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> {
@@ -283,6 +281,30 @@ async function loadAniListId(query: AniListSeasonQuery): Promise<string | null> 
     if (season === 0) continue;
     if (best && (best.score >= MATCH_THRESHOLD || hasStrongTitleMatch(best.media, title, season))) {
       return String(best.media.id);
+    }
+  }
+
+  const leadingWords = title.trim().split(/\s+/).slice(0, 3).join(" ");
+  if (leadingWords !== title.trim()) {
+    const [fallbackResults = []] = await searchMediaBatch([leadingWords]);
+    best = pickBest(fallbackResults, scoring, best);
+    if (
+      season > 0 &&
+      best &&
+      (best.score >= MATCH_THRESHOLD || hasStrongTitleMatch(best.media, title, season))
+    ) {
+      return String(best.media.id);
+    }
+    if (season > 1 && query.mediaType !== "movie") {
+      for (const media of fallbackResults) {
+        if (
+          matchesMediaType(media, "tv") &&
+          hasStrongTitleMatch(media, title, 1) &&
+          !relationRoots.some((root) => root.id === media.id)
+        ) {
+          relationRoots.push(media);
+        }
+      }
     }
   }
 
