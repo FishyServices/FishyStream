@@ -36,7 +36,11 @@ export function normalizeTitle(value?: string | null): string {
 
   const withoutAccents = title.normalize("NFKD").replace(/\p{Diacritic}/gu, "");
 
-  const wordsOnly = withoutAccents.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
+  const wordsOnly = withoutAccents
+    .toLowerCase()
+    .replace(/([\p{L}])([\p{N}])/gu, "$1 $2")
+    .replace(/([\p{N}])([\p{L}])/gu, "$1 $2")
+    .replace(/[^\p{L}\p{N}]+/gu, " ");
 
   return wordsOnly.trim();
 }

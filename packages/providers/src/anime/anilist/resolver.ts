@@ -228,6 +228,8 @@ function pickBest(
   for (const media of pool) {
     if (query.season === 0 && !isSpecialsEntry(media)) continue;
     if (query.mediaType && !matchesMediaType(media, query.mediaType)) continue;
+    const mediaYear = media.startDate?.year;
+    if (query.year && mediaYear && Math.abs(mediaYear - query.year) > 2) continue;
     const score = scoreMedia(media, query.title, query.season, query.year, query.episodes);
     if (!best || score > best.score) best = { media, score };
   }
