@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Artplayer, { type Option, type Setting, type SettingOption } from "artplayer";
-import artplayerPluginAnime4k, {
-  type ActiveMode
-} from "artplayer-plugin-anime4k";
+import artplayerPluginAnime4k, { type ActiveMode } from "artplayer-plugin-anime4k";
 import Hls from "hls.js";
 import { useNavigate } from "react-router-dom";
 import { Download, Info, Mic2, MoreHorizontal } from "lucide-react";
@@ -28,6 +26,8 @@ import { useVideoDownloads } from "@/ui/components/custom-video-player/downloads
 import {
   readPlayerVolumeBoost,
   savePlayerVolumeBoost,
+  readAudioTrack,
+  saveAudioTrack,
   readSubtitlePreferences,
   readSubtitleOffset,
   readSubtitleTrack,
@@ -95,6 +95,19 @@ const scraper = createScraperClient({
   baseUrl: import.meta.env.DEV ? "http://localhost:4000" : window.location.origin
 });
 const SCRAPER_PAGE_CACHE_TTL_MS = 30_000;
+
+function audioTrackKey(track: Hls["audioTracks"][number]): string {
+  return `${track.lang ?? ""}|${track.name ?? ""}`;
+}
+
+function defaultAudioTrackIndex(tracks: Hls["audioTracks"]): number {
+  const english = tracks.findIndex(
+    (track) => track.lang?.toLowerCase().startsWith("en") || /english/i.test(track.name ?? "")
+  );
+  if (english >= 0) return english;
+  const markedDefault = tracks.findIndex((track) => track.default);
+  return markedDefault >= 0 ? markedDefault : -1;
+}
 
 function getProviderSubtitleUrl(url: string): string {
   try {
@@ -768,7 +781,7 @@ export function CustomVideoPlayer({
         const volumeBoostSetting: Setting = {
           name: "volume-boost",
           html: "Volume boost",
-          range: [volumeBoostRef.current, 0, 3, 0.05],
+          range: [volumeBoostRef.current, 1, 3, 0.05],
           onChange(this: Artplayer, item: SettingOption) {
             const value = item.$range?.valueAsNumber ?? volumeBoostRef.current;
             handleVolumeBoostChange(value);
@@ -841,6 +854,29 @@ export function CustomVideoPlayer({
                 }))
               }
             : undefined;
+        const audioSetting: Setting = {
+          name: "audio-track",
+          html: "Audio",
+          onSelect(this: Artplayer, item: SettingOption) {
+            const hls = hlsRef.current;
+            if (!hls) return item.html;
+            if (item.name === "audio-auto") {
+              saveAudioTrack("auto");
+              hls.audioTrack = defaultAudioTrackIndex(hls.audioTracks);
+              return "Auto";
+            }
+            const index = Number(item.name.slice("audio-track-".length));
+            if (Number.isInteger(index) && hls.audioTracks[index]) {
+              saveAudioTrack(audioTrackKey(hls.audioTracks[index]!));
+              hls.audioTrack = index;
+              return (
+                hls.audioTracks[index]!.name || hls.audioTracks[index]!.lang || `Track ${index + 1}`
+              );
+            }
+            return "Auto";
+          },
+          selector: [{ name: "audio-auto", html: "Auto (English preferred)", default: true }]
+        };
         const episodeLabel =
           content.type === "tv"
             ? `Season ${tvTarget.season} · Episode ${tvTarget.episode}${episodeName ? ` · ${episodeName}` : ""}`
@@ -927,6 +963,7 @@ export function CustomVideoPlayer({
           settings: [
             subtitleSetting,
             volumeBoostSetting,
+            ...(mediaType === "hls" ? [audioSetting] : []),
             ...(streamSetting ? [streamSetting] : [])
           ],
           layers: playerLayers,
@@ -964,6 +1001,33 @@ export function CustomVideoPlayer({
               if (Hls.isSupported()) {
                 const hls = new Hls();
                 hlsRef.current = hls;
+                hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+                  const tracks = hls.audioTracks;
+                  if (tracks.length === 0) return;
+                  const savedTrack = readAudioTrack();
+                  const savedIndex = tracks.findIndex(
+                    (track) => audioTrackKey(track) === savedTrack
+                  );
+                  const isAuto = savedTrack === "auto" || savedIndex < 0;
+                  const selectedIndex = isAuto ? defaultAudioTrackIndex(tracks) : savedIndex;
+                  if (savedTrack !== "auto" && savedIndex < 0) saveAudioTrack("auto");
+                  hls.audioTrack = selectedIndex;
+                  playerRef.current?.setting.update({
+                    name: "audio-track",
+                    selector: [
+                      {
+                        name: "audio-auto",
+                        html: "Auto (English preferred)",
+                        default: isAuto
+                      },
+                      ...tracks.map((track, index) => ({
+                        name: `audio-track-${index}`,
+                        html: track.name || track.lang || `Track ${index + 1}`,
+                        default: selectedIndex === index && !isAuto
+                      }))
+                    ]
+                  });
+                });
                 hls.loadSource(sourceUrl);
                 hls.attachMedia(video);
               } else video.src = sourceUrl;

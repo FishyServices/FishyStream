@@ -1,7 +1,7 @@
 import { getLocalStorageItem, setLocalStorageItem } from "./browserStorage";
 
 const PLAYER_PREFERENCES_KEY = "fishystream:player:preferences";
-const MIN_VOLUME_BOOST = 0;
+const MIN_VOLUME_BOOST = 1;
 const MAX_VOLUME_BOOST = 3;
 
 export interface SubtitlePreferences {
@@ -17,6 +17,7 @@ interface PlayerPreferences {
   subtitle: SubtitlePreferences;
   subtitleTrack: string | null;
   subtitleOffset: number;
+  audioTrack: string;
 }
 
 const DEFAULT_SUBTITLE_PREFERENCES: SubtitlePreferences = {
@@ -31,7 +32,8 @@ const DEFAULT_PREFERENCES: PlayerPreferences = {
   volumeBoost: MIN_VOLUME_BOOST,
   subtitle: DEFAULT_SUBTITLE_PREFERENCES,
   subtitleTrack: null,
-  subtitleOffset: 0
+  subtitleOffset: 0,
+  audioTrack: "auto"
 };
 
 function readPreferences(): PlayerPreferences {
@@ -56,7 +58,8 @@ function readPreferences(): PlayerPreferences {
         typeof preferences.subtitleOffset === "number" &&
         Number.isFinite(preferences.subtitleOffset)
           ? Math.min(5, Math.max(-5, preferences.subtitleOffset))
-          : 0
+          : 0,
+      audioTrack: typeof preferences.audioTrack === "string" ? preferences.audioTrack : "auto"
     };
   } catch {
     return DEFAULT_PREFERENCES;
@@ -126,4 +129,12 @@ export function savePlayerVolumeBoost(volumeBoost: number): void {
   updatePreferences({
     volumeBoost: Math.min(MAX_VOLUME_BOOST, Math.max(MIN_VOLUME_BOOST, volumeBoost))
   });
+}
+
+export function readAudioTrack(): string {
+  return readPreferences().audioTrack;
+}
+
+export function saveAudioTrack(audioTrack: string): void {
+  updatePreferences({ audioTrack });
 }
