@@ -22,7 +22,7 @@ cd FishyStream
 
 Environment
 
-1. Copy the env.example file into `.env`:
+1. Copy `.env.example` to `.env`:
 
 2. Edit `.env` and set the following values (examples shown):
 
@@ -35,6 +35,16 @@ Where to get values
 
 - Convex: open your Convex project dashboard then go to settings and it will be under "Cloud URL" and "HTTP Actions URL"
 - Clerk: in the Clerk dashboard, copy the **Publishable key** from your application, and use your Clerk issuer domain (shown in the dashboard).
+- AniList: create an app in [AniList Developer Settings](https://anilist.co/settings/developer). Put its **ID** in `VITE_ANILIST_CLIENT_ID` and set its Redirect URL to `{your url}/settings`.
+- MyAnimeList: create an app in [MyAnimeList API Configuration](https://myanimelist.net/apiconfig). Put its **Client ID** in `VITE_MAL_CLIENT_ID` and set its Redirect URL to `{your url}/settings`.
+- Progress sync: generate a key in PowerShell:
+
+  ```powershell
+  node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+  ```
+
+  Add the output as `ANIME_ACCOUNT_ENCRYPTION_KEY` under **Convex Dashboard → Settings → Environment Variables**. Keep the same key; changing it prevents FishyStream from decrypting linked account credentials.
+
 - Anime release dates: create an application in your AnimeSchedule account, then configure `ANIMESCHEDULE_API_TOKEN`
 - AniDub's anonymous API quota is 100 lookups per day per server IP. Configure the optional `ANIDUB_API_KEY` as a Cloudflare Pages secret to raise the quota.
 

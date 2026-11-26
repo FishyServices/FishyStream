@@ -7,7 +7,7 @@ import {
   useCallback,
   type ReactNode
 } from "react";
-import { useMutation, useConvex } from "convex/react";
+import { useAction, useMutation, useConvex, useQuery } from "convex/react";
 import { useUser } from "@clerk/react";
 import { api } from "../../../convex/_generated/api";
 import type { ContentId } from "@content/contentMetadata";
@@ -216,10 +216,16 @@ export function useUpdateProgress() {
   const { user } = useUser();
   const ctx = useContext(Ctx);
   const dbSync = useMutation(api.domains.progress.watchProgress.saveWatchProgress);
+  const animeAccounts = useQuery(
+    api.domains.accounts.animeAccounts.list,
+    user ? {} : "skip"
+  );
+  const syncAnimeProgress = useAction(api.domains.accounts.animeAccounts.syncOne);
 
   const storeRef = useRef<Map<string, StoredProgress>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncingRef = useRef(false);
+  const animeSyncStartedAtRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     storeRef.current = new Map(readStore().map((entry) => [entry.contentId, entry]));
@@ -273,6 +279,16 @@ export function useUpdateProgress() {
         });
         saved = true;
 
+        for (const account of animeAccounts ?? []) {
+          if (!account.syncEnabled) continue;
+          const lastSyncAt = animeSyncStartedAtRef.current[account.provider] ?? 0;
+          if (Date.now() - lastSyncAt < WATCH_PROGRESS_SYNC_INTERVAL_MS) continue;
+          animeSyncStartedAtRef.current[account.provider] = Date.now();
+          void syncAnimeProgress({ provider: account.provider, contentId: dirtyEntry.contentId }).catch(() => {
+            animeSyncStartedAtRef.current[account.provider] = 0;
+          });
+        }
+
         const current = storeRef.current.get(dirtyEntry.contentId);
         if (current && current.clientUpdatedAt <= dirtyEntry.clientUpdatedAt) {
           storeRef.current.set(dirtyEntry.contentId, {
@@ -319,7 +335,7 @@ export function useUpdateProgress() {
         }
       }
     },
-    [dbSync, persistCurrentStore, user]
+    [animeAccounts, dbSync, persistCurrentStore, syncAnimeProgress, user]
   );
 
   const scheduleFlush = useCallback(

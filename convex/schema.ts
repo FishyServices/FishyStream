@@ -94,5 +94,15 @@ export default defineSchema({
     identity: v.string(),
     action: v.string(),
     lastUsedAt: v.number()
-  }).index("by_identity_action", ["identity", "action"])
+  }).index("by_identity_action", ["identity", "action"]),
+
+  animeAccounts: defineTable({
+    clerkUserId: v.string(),
+    provider: v.union(v.literal("anilist"), v.literal("myanimelist")),
+    externalUserId: v.string(),
+    username: v.string(),
+    encryptedCredential: v.optional(v.string()),
+    syncEnabled: v.optional(v.boolean()),
+    connectedAt: v.number()
+  }).index("by_clerk_provider", ["clerkUserId", "provider"])
 });

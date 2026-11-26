@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/ui/components/Header";
 import { PageHeader } from "@/ui/components/UXPrimitives";
 import { useAppSettings } from "@/features/settings/useAppSettings";
@@ -36,6 +36,10 @@ import {
   ThemeSwitcher
 } from "@fishy/ui";
 import { Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { useMutation, useQuery, useAction } from "convex/react";
+import { useUser } from "@clerk/react";
+import { api } from "../../convex/_generated/api";
 import {
   ArrowUpRight,
   Bug,
@@ -48,6 +52,15 @@ import {
   ShieldAlert,
   Tv2
 } from "lucide-react";
+import { toast } from "@fishy/ui";
+
+const ANILIST_CLIENT_ID = import.meta.env.VITE_ANILIST_CLIENT_ID as string | undefined;
+const MAL_CLIENT_ID = import.meta.env.VITE_MAL_CLIENT_ID as string | undefined;
+
+function randomVerifier() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 
 function SettingRow({
   label,
@@ -203,6 +216,87 @@ function ProviderPicker({
 
 export function SettingsPage() {
   const { settings, updateSetting, resetSettings } = useAppSettings();
+  const { isSignedIn } = useUser();
+  const accounts = useQuery(api.domains.accounts.animeAccounts.list, isSignedIn ? {} : "skip");
+  const removeAccount = useMutation(api.domains.accounts.animeAccounts.remove);
+  const setSyncEnabled = useMutation(api.domains.accounts.animeAccounts.setSyncEnabled);
+  const finishAniListConnection = useAction(api.domains.accounts.animeAccounts.finishAniListConnection);
+  const finishMyAnimeListConnection = useAction(
+    api.domains.accounts.animeAccounts.finishMyAnimeListConnection
+  );
+  const syncAll = useAction(api.domains.accounts.animeAccounts.syncAll);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [connecting, setConnecting] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState<string | null>(null);
+
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = hash.get("access_token");
+    if (!accessToken) return;
+    const expectedState = sessionStorage.getItem("anilist_oauth_state");
+    const receivedState = hash.get("state");
+    sessionStorage.removeItem("anilist_oauth_state");
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    if (!expectedState || receivedState !== expectedState) {
+      toast.error("AniList connection could not be verified");
+      return;
+    }
+    setConnecting("anilist");
+    void finishAniListConnection({ accessToken })
+      .then(({ username }) => toast.success(`Connected AniList as ${username}`))
+      .catch(() => toast.error("Could not connect to AniList"))
+      .finally(() => setConnecting(null));
+  }, [finishAniListConnection]);
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (!code || searchParams.get("state") !== sessionStorage.getItem("mal_oauth_state")) return;
+    const verifier = sessionStorage.getItem("mal_oauth_verifier");
+    sessionStorage.removeItem("mal_oauth_state");
+    sessionStorage.removeItem("mal_oauth_verifier");
+    setSearchParams({}, { replace: true });
+    if (!verifier || !MAL_CLIENT_ID) return;
+    setConnecting("myanimelist");
+    void finishMyAnimeListConnection({
+      code,
+      codeVerifier: verifier,
+      clientId: MAL_CLIENT_ID,
+      redirectUri: `${window.location.origin}/settings`
+    })
+      .then(({ username }) => toast.success(`Connected MyAnimeList as ${username}`))
+      .catch(() => toast.error("Could not connect to MyAnimeList"))
+      .finally(() => setConnecting(null));
+  }, [finishMyAnimeListConnection, searchParams, setSearchParams]);
+
+  const connectAniList = () => {
+    if (!ANILIST_CLIENT_ID) return;
+    const state = randomVerifier();
+    sessionStorage.setItem("anilist_oauth_state", state);
+    const authorize = new URL("https://anilist.co/api/v2/oauth/authorize");
+    authorize.searchParams.set("client_id", ANILIST_CLIENT_ID);
+    authorize.searchParams.set("response_type", "token");
+    authorize.searchParams.set("state", state);
+    window.location.assign(authorize.toString());
+  };
+
+  const connectMyAnimeList = () => {
+    if (!MAL_CLIENT_ID) return;
+    const state = randomVerifier();
+    const verifier = randomVerifier();
+    sessionStorage.setItem("mal_oauth_state", state);
+    sessionStorage.setItem("mal_oauth_verifier", verifier);
+    const authorize = new URL("https://myanimelist.net/v1/oauth2/authorize");
+    authorize.searchParams.set("response_type", "code");
+    authorize.searchParams.set("client_id", MAL_CLIENT_ID);
+    authorize.searchParams.set("redirect_uri", `${window.location.origin}/settings`);
+    authorize.searchParams.set("code_challenge", verifier);
+    authorize.searchParams.set("code_challenge_method", "plain");
+    authorize.searchParams.set("state", state);
+    window.location.assign(authorize.toString());
+  };
+
+  const linked = (provider: "anilist" | "myanimelist") =>
+    accounts?.find((account) => account.provider === provider);
 
   return (
     <div data-fishy-page="settings" className="app-canvas min-h-screen text-foreground">
@@ -226,6 +320,82 @@ export function SettingsPage() {
         />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
+          <SettingsSection icon={<Tv2 className="h-4 w-4" />} title="Anime accounts">
+            <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+              Link your accounts to your FishyStream profile. Account links are private and can be removed here.
+            </p>
+            {([
+              { provider: "anilist" as const, label: "AniList", configured: Boolean(ANILIST_CLIENT_ID), connect: connectAniList },
+              { provider: "myanimelist" as const, label: "MyAnimeList", configured: Boolean(MAL_CLIENT_ID), connect: connectMyAnimeList }
+            ]).map(({ provider, label, configured, connect }) => {
+              const account = linked(provider);
+              return (
+                <div key={provider} className="border-t border-border/60 py-4 first:border-t-0 first:pt-0">
+                  <SettingRow
+                    label={label}
+                    description={account ? `Connected as ${account.username}` : configured ? "Connect your account" : "OAuth client is not configured"}
+                    control={
+                      <Button
+                        type="button"
+                        variant={account ? "outline" : "default"}
+                        className="w-full rounded-xl"
+                        disabled={!isSignedIn || !configured || accounts === undefined || connecting !== null}
+                        onClick={() => account
+                          ? void removeAccount({ provider }).then(() => toast.success(`${label} disconnected`))
+                          : connect()}
+                      >
+                        {connecting === provider ? "Connecting…" : account ? "Disconnect" : "Connect"}
+                      </Button>
+                    }
+                  />
+                  {account ? (
+                    <>
+                      <SettingRow
+                        label="Sync progress"
+                        description="Two-way sync for matching anime in your watch history. The higher episode count wins."
+                        control={
+                          <ToggleSettingControl
+                            id={`${provider}-progress-sync`}
+                            checked={account.syncEnabled}
+                            onCheckedChange={(enabled) =>
+                              void setSyncEnabled({ provider, enabled }).catch(() =>
+                                toast.error(`Could not update ${label} sync setting`)
+                              )
+                            }
+                          />
+                        }
+                      />
+                      <div className="flex justify-end border-t border-border/60 pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-xl"
+                          disabled={syncing !== null}
+                          onClick={() => {
+                            setSyncing(provider);
+                            void syncAll({ provider })
+                              .then(({ synced, changed }) =>
+                                toast.success(`${label}: synced ${synced} items (${changed} updated here)`)
+                              )
+                              .catch((error) =>
+                                toast.error(error instanceof Error ? error.message : `${label} sync failed`)
+                              )
+                              .finally(() => setSyncing(null));
+                          }}
+                        >
+                          {syncing === provider ? "Syncing…" : "Sync all items"}
+                        </Button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              );
+            })}
+            {!isSignedIn ? (
+              <p className="border-t border-border/60 pt-4 text-xs text-muted-foreground">Sign in to connect anime accounts.</p>
+            ) : null}
+          </SettingsSection>
+
           <SettingsSection icon={<Palette className="h-4 w-4" />} title="Appearance">
             <SettingRow
               label="Theme"

@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as domains_accounts_animeAccounts from "../domains/accounts/animeAccounts.js";
+import type * as domains_accounts_credentialCrypto from "../domains/accounts/credentialCrypto.js";
 import type * as domains_bookmark_bookmark from "../domains/bookmark/bookmark.js";
 import type * as domains_history_mediaStateModel from "../domains/history/mediaStateModel.js";
 import type * as domains_history_watchHistory from "../domains/history/watchHistory.js";
@@ -23,6 +25,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "domains/accounts/animeAccounts": typeof domains_accounts_animeAccounts;
+  "domains/accounts/credentialCrypto": typeof domains_accounts_credentialCrypto;
   "domains/bookmark/bookmark": typeof domains_bookmark_bookmark;
   "domains/history/mediaStateModel": typeof domains_history_mediaStateModel;
   "domains/history/watchHistory": typeof domains_history_watchHistory;
