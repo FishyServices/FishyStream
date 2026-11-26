@@ -220,7 +220,9 @@ export function SettingsPage() {
   const accounts = useQuery(api.domains.accounts.animeAccounts.list, isSignedIn ? {} : "skip");
   const removeAccount = useMutation(api.domains.accounts.animeAccounts.remove);
   const setSyncEnabled = useMutation(api.domains.accounts.animeAccounts.setSyncEnabled);
-  const finishAniListConnection = useAction(api.domains.accounts.animeAccounts.finishAniListConnection);
+  const finishAniListConnection = useAction(
+    api.domains.accounts.animeAccounts.finishAniListConnection
+  );
   const finishMyAnimeListConnection = useAction(
     api.domains.accounts.animeAccounts.finishMyAnimeListConnection
   );
@@ -244,7 +246,9 @@ export function SettingsPage() {
     setConnecting("anilist");
     void finishAniListConnection({ accessToken })
       .then(({ username }) => toast.success(`Connected AniList as ${username}`))
-      .catch(() => toast.error("Could not connect to AniList"))
+      .catch((error) =>
+        toast.error(error instanceof Error ? error.message : "Could not connect to AniList")
+      )
       .finally(() => setConnecting(null));
   }, [finishAniListConnection]);
 
@@ -264,7 +268,9 @@ export function SettingsPage() {
       redirectUri: `${window.location.origin}/settings`
     })
       .then(({ username }) => toast.success(`Connected MyAnimeList as ${username}`))
-      .catch(() => toast.error("Could not connect to MyAnimeList"))
+      .catch((error) =>
+        toast.error(error instanceof Error ? error.message : "Could not connect to MyAnimeList")
+      )
       .finally(() => setConnecting(null));
   }, [finishMyAnimeListConnection, searchParams, setSearchParams]);
 
@@ -322,29 +328,62 @@ export function SettingsPage() {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
           <SettingsSection icon={<Tv2 className="h-4 w-4" />} title="Anime accounts">
             <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-              Link your accounts to your FishyStream profile. Account links are private and can be removed here.
+              Link your accounts to your FishyStream profile. Account links are private and can be
+              removed here.
             </p>
-            {([
-              { provider: "anilist" as const, label: "AniList", configured: Boolean(ANILIST_CLIENT_ID), connect: connectAniList },
-              { provider: "myanimelist" as const, label: "MyAnimeList", configured: Boolean(MAL_CLIENT_ID), connect: connectMyAnimeList }
-            ]).map(({ provider, label, configured, connect }) => {
+            {[
+              {
+                provider: "anilist" as const,
+                label: "AniList",
+                configured: Boolean(ANILIST_CLIENT_ID),
+                connect: connectAniList
+              },
+              {
+                provider: "myanimelist" as const,
+                label: "MyAnimeList",
+                configured: Boolean(MAL_CLIENT_ID),
+                connect: connectMyAnimeList
+              }
+            ].map(({ provider, label, configured, connect }) => {
               const account = linked(provider);
               return (
-                <div key={provider} className="border-t border-border/60 py-4 first:border-t-0 first:pt-0">
+                <div
+                  key={provider}
+                  className="border-t border-border/60 py-4 first:border-t-0 first:pt-0"
+                >
                   <SettingRow
                     label={label}
-                    description={account ? `Connected as ${account.username}` : configured ? "Connect your account" : "OAuth client is not configured"}
+                    description={
+                      account
+                        ? `Connected as ${account.username}`
+                        : configured
+                          ? "Connect your account"
+                          : "OAuth client is not configured"
+                    }
                     control={
                       <Button
                         type="button"
                         variant={account ? "outline" : "default"}
                         className="w-full rounded-xl"
-                        disabled={!isSignedIn || !configured || accounts === undefined || connecting !== null}
-                        onClick={() => account
-                          ? void removeAccount({ provider }).then(() => toast.success(`${label} disconnected`))
-                          : connect()}
+                        disabled={
+                          !isSignedIn ||
+                          !configured ||
+                          accounts === undefined ||
+                          connecting !== null
+                        }
+                        onClick={() =>
+                          account
+                            ? void removeAccount({ provider }).then(() =>
+                                toast.success(`${label} disconnected`)
+                              )
+                            : connect()
+                        }
                       >
-                        {connecting === provider ? "Connecting…" : account ? "Disconnect" : "Connect"}
+                        {connecting === provider
+                          ? "Connecting…"
+                          : account
+                            ? "Disconnect"
+                            : "Connect"}
                       </Button>
                     }
                   />
@@ -374,11 +413,15 @@ export function SettingsPage() {
                           onClick={() => {
                             setSyncing(provider);
                             void syncAll({ provider })
-                              .then(({ synced, changed }) =>
-                                toast.success(`${label}: synced ${synced} items (${changed} updated here)`)
+                              .then(({ synced, changed, skipped }) =>
+                                toast.success(
+                                  `${label}: synced ${synced} items, updated ${changed} here, skipped ${skipped} unmatched`
+                                )
                               )
                               .catch((error) =>
-                                toast.error(error instanceof Error ? error.message : `${label} sync failed`)
+                                toast.error(
+                                  error instanceof Error ? error.message : `${label} sync failed`
+                                )
                               )
                               .finally(() => setSyncing(null));
                           }}
@@ -392,7 +435,9 @@ export function SettingsPage() {
               );
             })}
             {!isSignedIn ? (
-              <p className="border-t border-border/60 pt-4 text-xs text-muted-foreground">Sign in to connect anime accounts.</p>
+              <p className="border-t border-border/60 pt-4 text-xs text-muted-foreground">
+                Sign in to connect anime accounts.
+              </p>
             ) : null}
           </SettingsSection>
 

@@ -37,6 +37,7 @@ Where to get values
 - Clerk: in the Clerk dashboard, copy the **Publishable key** from your application, and use your Clerk issuer domain (shown in the dashboard).
 - AniList: create an app in [AniList Developer Settings](https://anilist.co/settings/developer). Put its **ID** in `VITE_ANILIST_CLIENT_ID` and set its Redirect URL to `{your url}/settings`.
 - MyAnimeList: create an app in [MyAnimeList API Configuration](https://myanimelist.net/apiconfig). Put its **Client ID** in `VITE_MAL_CLIENT_ID` and set its Redirect URL to `{your url}/settings`.
+- MyAnimeList Web apps also have a client secret. If your app type is **Web**, add `MAL_CLIENT_SECRET` in **Convex Dashboard → Settings → Environment Variables**. Public apps without a secret can leave it unset.
 - Progress sync: generate a key in PowerShell:
 
   ```powershell

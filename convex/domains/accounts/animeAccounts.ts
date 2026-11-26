@@ -8,6 +8,20 @@ import { decryptCredential, encryptCredential } from "./credentialCrypto";
 
 const provider = v.union(v.literal("anilist"), v.literal("myanimelist"));
 type Provider = "anilist" | "myanimelist";
+const MAL_CLIENT_SECRET = process.env.MAL_CLIENT_SECRET;
+
+function errorDetail(body: string) {
+  try {
+    const parsed = JSON.parse(body) as {
+      message?: string;
+      error?: string;
+      error_description?: string;
+    };
+    return parsed.error_description ?? parsed.message ?? parsed.error ?? body;
+  } catch {
+    return body;
+  }
+}
 
 export const list = viewerQuery({
   args: {},
@@ -16,14 +30,16 @@ export const list = viewerQuery({
       .query("animeAccounts")
       .withIndex("by_clerk_provider", (q) => q.eq("clerkUserId", ctx.viewerId))
       .collect();
-    return accounts.map(({ _id, provider, externalUserId, username, syncEnabled, connectedAt }) => ({
-      _id,
-      provider,
-      externalUserId,
-      username,
-      syncEnabled: syncEnabled ?? false,
-      connectedAt
-    }));
+    return accounts.map(
+      ({ _id, provider, externalUserId, username, syncEnabled, connectedAt }) => ({
+        _id,
+        provider,
+        externalUserId,
+        username,
+        syncEnabled: syncEnabled ?? false,
+        connectedAt
+      })
+    );
   }
 });
 
@@ -96,13 +112,17 @@ export const finishMyAnimeListConnection = action({
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         client_id: args.clientId,
+        ...(MAL_CLIENT_SECRET ? { client_secret: MAL_CLIENT_SECRET } : {}),
         code: args.code,
         code_verifier: args.codeVerifier,
         grant_type: "authorization_code",
         redirect_uri: args.redirectUri
       })
     });
-    if (!tokenResponse.ok) throw new Error("MyAnimeList authorization could not be completed");
+    if (!tokenResponse.ok) {
+      const detail = errorDetail((await tokenResponse.text()).slice(0, 400));
+      throw new Error(`MyAnimeList authorization failed (${tokenResponse.status}): ${detail}`);
+    }
     const token = (await tokenResponse.json()) as MalToken;
     if (!token.access_token || !token.refresh_token)
       throw new Error("MyAnimeList did not return usable credentials");
@@ -137,7 +157,7 @@ type MalToken = {
 
 export const syncAll = action({
   args: { provider },
-  handler: async (ctx, args): Promise<{ synced: number; changed: number }> => {
+  handler: async (ctx, args): Promise<{ synced: number; changed: number; skipped: number }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Sign in before syncing anime progress");
     const account = await ctx.runQuery(internal.domains.accounts.animeAccounts.getForViewer, {
@@ -160,7 +180,11 @@ export const syncAll = action({
         updates: matched.localUpdates
       });
     }
-    return { synced: matched.synced, changed: matched.localUpdates.length };
+    return {
+      synced: matched.synced,
+      changed: matched.localUpdates.length,
+      skipped: matched.skipped
+    };
   }
 });
 
@@ -211,7 +235,73 @@ type LocalUpdate = {
   completed: boolean;
 };
 
-async function syncProvider(provider: Provider, encryptedCredential: string, rows: LocalProgress[]) {
+const delay = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+function isAniListRateLimit(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return (
+    ("status" in error && error.status === 429) || /\b429\b|too many requests/i.test(error.message)
+  );
+}
+
+async function resolveAniListIdWithRetry(args: { title: string; season: number; mediaType: "tv" }) {
+  try {
+    return await resolveAniListId(args);
+  } catch (error) {
+    if (!isAniListRateLimit(error)) throw error;
+    await delay(60_000);
+    return resolveAniListId(args);
+  }
+}
+
+async function getAniListMediaWithRetry(id: string) {
+  try {
+    return await getAniListMediaById(id);
+  } catch (error) {
+    if (!isAniListRateLimit(error)) throw error;
+    await delay(60_000);
+    return getAniListMediaById(id);
+  }
+}
+
+async function aniListGraphql<T>(
+  token: string,
+  query: string,
+  variables?: Record<string, unknown>
+) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch("https://graphql.anilist.co", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ query, variables })
+    });
+    const payload = (await response.json()) as {
+      data?: T;
+      errors?: Array<{ message?: string; status?: number }>;
+    };
+    const rateLimited =
+      response.status === 429 || payload.errors?.some((error) => error.status === 429);
+    if (rateLimited && attempt === 0) {
+      const retryAfter = Number(response.headers.get("Retry-After"));
+      await delay(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 60_000);
+      continue;
+    }
+    if (!response.ok || payload.errors?.length) {
+      throw new Error(
+        payload.errors?.[0]?.message ?? `AniList request failed (${response.status})`
+      );
+    }
+    if (!payload.data) throw new Error("AniList returned no data");
+    return payload.data;
+  }
+  throw new Error("AniList rate limit remained active after retrying");
+}
+
+async function syncProvider(
+  provider: Provider,
+  encryptedCredential: string,
+  rows: LocalProgress[]
+) {
   const credentials = await decryptCredential<Record<string, string | number>>(encryptedCredential);
   let aniListToken = String(credentials.accessToken ?? "");
   let malToken = String(credentials.accessToken ?? "");
@@ -224,6 +314,7 @@ async function syncProvider(provider: Provider, encryptedCredential: string, row
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           client_id: String(credentials.clientId),
+          ...(MAL_CLIENT_SECRET ? { client_secret: MAL_CLIENT_SECRET } : {}),
           grant_type: "refresh_token",
           refresh_token: String(credentials.refreshToken)
         })
@@ -242,92 +333,116 @@ async function syncProvider(provider: Provider, encryptedCredential: string, row
 
   const localUpdates: LocalUpdate[] = [];
   let synced = 0;
+  let skipped = 0;
   const externalItems =
     provider === "anilist"
       ? await loadAniListEntries(aniListToken)
       : await loadMalEntries(malToken);
   for (const row of rows) {
-    if (!row.title.trim()) continue;
-    const animeId = await resolveAniListId({
-      title: row.title,
-      season: row.seasonNumber ?? 1,
-      mediaType: "tv"
-    }).catch(() => null);
-    if (!animeId) continue;
-    const media = await getAniListMediaById(animeId).catch(() => null);
-    if (!media) continue;
+    if (!row.title.trim()) {
+      skipped += 1;
+      continue;
+    }
+    let animeId: string | null;
+    let media;
+    try {
+      animeId = await resolveAniListIdWithRetry({
+        title: row.title,
+        season: row.seasonNumber ?? 1,
+        mediaType: "tv"
+      });
+      if (!animeId) {
+        skipped += 1;
+        continue;
+      }
+      media = await getAniListMediaWithRetry(animeId);
+    } catch {
+      skipped += 1;
+      continue;
+    }
+    if (!media) {
+      skipped += 1;
+      continue;
+    }
     const targetId = provider === "anilist" ? String(media.id) : String(media.idMal ?? "");
-    if (!targetId) continue;
+    if (!targetId) {
+      skipped += 1;
+      continue;
+    }
     const item = externalItems.get(targetId);
     const localEpisode = row.episodeNumber ?? 0;
     const externalEpisode = item?.progress ?? 0;
     const maxEpisode = Math.max(localEpisode, externalEpisode);
-    const completed = Boolean(item?.completed) || (media.episodes != null && maxEpisode >= media.episodes);
+    const completed =
+      Boolean(item?.completed) || (media.episodes != null && maxEpisode >= media.episodes);
     if (provider === "anilist") {
-      const result = await fetch("https://graphql.anilist.co", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${aniListToken}` },
-        body: JSON.stringify({
-          query: "mutation ($mediaId: Int!, $progress: Int!, $status: MediaListStatus) { SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status) { id } }",
-          variables: {
+      try {
+        await aniListGraphql(
+          aniListToken,
+          "mutation ($mediaId: Int!, $progress: Int!, $status: MediaListStatus) { SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status) { id } }",
+          {
             mediaId: media.id,
             progress: maxEpisode,
             status: completed ? "COMPLETED" : maxEpisode ? "CURRENT" : undefined
           }
-        })
-      });
-      if (!result.ok) continue;
+        );
+      } catch {
+        skipped += 1;
+        continue;
+      }
     } else {
-      const response = await fetch(`https://api.myanimelist.net/v2/anime/${targetId}/my_list_status`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${malToken}`,
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: new URLSearchParams({
-          num_watched_episodes: String(maxEpisode),
-          ...(completed ? { status: "completed" } : maxEpisode ? { status: "watching" } : {})
-        })
-      });
-      if (!response.ok) continue;
+      const response = await fetch(
+        `https://api.myanimelist.net/v2/anime/${targetId}/my_list_status`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${malToken}`,
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          body: new URLSearchParams({
+            num_watched_episodes: String(maxEpisode),
+            ...(completed ? { status: "completed" } : maxEpisode ? { status: "watching" } : {})
+          })
+        }
+      );
+      if (!response.ok) {
+        skipped += 1;
+        continue;
+      }
     }
     synced += 1;
-    if (maxEpisode > localEpisode) localUpdates.push({ id: row._id, episodeNumber: maxEpisode, completed });
+    if (maxEpisode > localEpisode)
+      localUpdates.push({ id: row._id, episodeNumber: maxEpisode, completed });
   }
-  return { synced, localUpdates, credential: newCredential };
+  return { synced, skipped, localUpdates, credential: newCredential };
 }
 
 async function loadAniListEntries(token: string) {
-  const response = await fetch("https://graphql.anilist.co", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      query: "query { Viewer { id } }"
-    })
-  });
-  if (!response.ok) throw new Error("Could not read AniList progress");
-  const result = (await response.json()) as {
-    data?: { Viewer?: { id?: number }; MediaListCollection?: { lists?: Array<{ entries?: Array<{ progress?: number; status?: string; media?: { id?: number } }> }> } };
-  };
-  const userId = result.data?.Viewer?.id;
+  const profile = await aniListGraphql<{ Viewer?: { id?: number } }>(
+    token,
+    "query { Viewer { id } }"
+  );
+  const userId = profile.Viewer?.id;
   if (userId == null) throw new Error("Could not identify the AniList account");
-  const listResponse = await fetch("https://graphql.anilist.co", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      query: "query ($userId: Int!) { MediaListCollection(userId: $userId, type: ANIME) { lists { entries { progress status media { id } } } } }",
-      variables: { userId }
-    })
-  });
-  if (!listResponse.ok) throw new Error("Could not read AniList progress");
-  const listResult = (await listResponse.json()) as typeof result;
+  const listResult = await aniListGraphql<{
+    MediaListCollection?: {
+      lists?: Array<{
+        entries?: Array<{ progress?: number; status?: string; media?: { id?: number } }>;
+      }>;
+    };
+  }>(
+    token,
+    "query ($userId: Int!) { MediaListCollection(userId: $userId, type: ANIME) { lists { entries { progress status media { id } } } } }",
+    { userId }
+  );
   const items = new Map<string, { progress: number; completed: boolean }>();
-  for (const list of listResult.data?.MediaListCollection?.lists ?? []) {
+  for (const list of listResult.MediaListCollection?.lists ?? []) {
     for (const entry of list.entries ?? []) {
-      if (entry.media?.id != null) items.set(String(entry.media.id), {
-        progress: entry.progress ?? 0,
-        completed: entry.status === "COMPLETED"
-      });
+      if (entry.media?.id != null)
+        items.set(String(entry.media.id), {
+          progress: entry.progress ?? 0,
+          completed: entry.status === "COMPLETED"
+        });
     }
   }
   return items;
@@ -335,19 +450,24 @@ async function loadAniListEntries(token: string) {
 
 async function loadMalEntries(token: string) {
   const items = new Map<string, { progress: number; completed: boolean }>();
-  let next: string | null = "https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=1000";
+  let next: string | null =
+    "https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=1000";
   while (next) {
     const response: Response = await fetch(next, { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) throw new Error("Could not read MyAnimeList progress");
     const result = (await response.json()) as {
-      data?: Array<{ node?: { id?: number }; list_status?: { status?: string; num_episodes_watched?: number } }>;
+      data?: Array<{
+        node?: { id?: number };
+        list_status?: { status?: string; num_episodes_watched?: number };
+      }>;
       paging?: { next?: string };
     };
     for (const entry of result.data ?? []) {
-      if (entry.node?.id != null) items.set(String(entry.node.id), {
-        progress: entry.list_status?.num_episodes_watched ?? 0,
-        completed: entry.list_status?.status === "completed"
-      });
+      if (entry.node?.id != null)
+        items.set(String(entry.node.id), {
+          progress: entry.list_status?.num_episodes_watched ?? 0,
+          completed: entry.list_status?.status === "completed"
+        });
     }
     next = result.paging?.next ?? null;
   }
@@ -370,7 +490,9 @@ export const progressForViewer = internalQuery({
   handler: async (ctx, args) =>
     ctx.db
       .query("mediaState")
-      .withIndex("by_clerk_watched_at", (q) => q.eq("clerkUserId", args.clerkUserId).gt("watchedAt", 0))
+      .withIndex("by_clerk_watched_at", (q) =>
+        q.eq("clerkUserId", args.clerkUserId).gt("watchedAt", 0)
+      )
       .collect()
 });
 
@@ -400,7 +522,11 @@ export const saveForViewer = internalMutation({
         q.eq("clerkUserId", args.clerkUserId).eq("provider", args.provider)
       )
       .unique();
-    const record = { ...args, connectedAt: Date.now(), syncEnabled: existing?.syncEnabled ?? false };
+    const record = {
+      ...args,
+      connectedAt: Date.now(),
+      syncEnabled: existing?.syncEnabled ?? false
+    };
     if (existing) await ctx.db.patch(existing._id, record);
     else await ctx.db.insert("animeAccounts", record);
   }
@@ -408,11 +534,16 @@ export const saveForViewer = internalMutation({
 
 export const updateCredential = internalMutation({
   args: { accountId: v.id("animeAccounts"), encryptedCredential: v.string() },
-  handler: (ctx, args) => ctx.db.patch(args.accountId, { encryptedCredential: args.encryptedCredential })
+  handler: (ctx, args) =>
+    ctx.db.patch(args.accountId, { encryptedCredential: args.encryptedCredential })
 });
 
 export const applyProgressUpdates = internalMutation({
-  args: { updates: v.array(v.object({ id: v.id("mediaState"), episodeNumber: v.number(), completed: v.boolean() })) },
+  args: {
+    updates: v.array(
+      v.object({ id: v.id("mediaState"), episodeNumber: v.number(), completed: v.boolean() })
+    )
+  },
   handler: async (ctx, { updates }) => {
     for (const update of updates) {
       const row = await ctx.db.get(update.id);
