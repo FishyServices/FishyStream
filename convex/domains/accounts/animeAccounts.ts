@@ -155,39 +155,6 @@ type MalToken = {
   expires_in?: number;
 };
 
-export const syncAll = action({
-  args: { provider },
-  handler: async (ctx, args): Promise<{ synced: number; changed: number; skipped: number }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Sign in before syncing anime progress");
-    const account = await ctx.runQuery(internal.domains.accounts.animeAccounts.getForViewer, {
-      clerkUserId: identity.subject,
-      provider: args.provider
-    });
-    if (!account?.encryptedCredential) throw new Error("Reconnect this account before syncing");
-    const rows = await ctx.runQuery(internal.domains.accounts.animeAccounts.progressForViewer, {
-      clerkUserId: identity.subject
-    });
-    const matched = await syncProvider(args.provider, account.encryptedCredential, rows);
-    if (matched.credential) {
-      await ctx.runMutation(internal.domains.accounts.animeAccounts.updateCredential, {
-        accountId: account._id,
-        encryptedCredential: matched.credential
-      });
-    }
-    if (matched.localUpdates.length) {
-      await ctx.runMutation(internal.domains.accounts.animeAccounts.applyProgressUpdates, {
-        updates: matched.localUpdates
-      });
-    }
-    return {
-      synced: matched.synced,
-      changed: matched.localUpdates.length,
-      skipped: matched.skipped
-    };
-  }
-});
-
 export const syncOne = action({
   args: { provider, contentId: v.string() },
   handler: async (ctx, args): Promise<{ synced: number }> => {
@@ -210,29 +177,17 @@ export const syncOne = action({
         encryptedCredential: matched.credential
       });
     }
-    if (matched.localUpdates.length) {
-      await ctx.runMutation(internal.domains.accounts.animeAccounts.applyProgressUpdates, {
-        updates: matched.localUpdates
-      });
-    }
     return { synced: matched.synced };
   }
 });
 
 type LocalProgress = {
-  _id: Id<"mediaState">;
   title: string;
   seasonNumber?: number;
   episodeNumber?: number;
   positionSeconds?: number;
   durationSeconds?: number;
   watchedAt?: number;
-};
-
-type LocalUpdate = {
-  id: Id<"mediaState">;
-  episodeNumber: number;
-  completed: boolean;
 };
 
 const delay = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -331,13 +286,8 @@ async function syncProvider(
     }
   }
 
-  const localUpdates: LocalUpdate[] = [];
   let synced = 0;
   let skipped = 0;
-  const externalItems =
-    provider === "anilist"
-      ? await loadAniListEntries(aniListToken)
-      : await loadMalEntries(malToken);
   for (const row of rows) {
     if (!row.title.trim()) {
       skipped += 1;
@@ -369,12 +319,11 @@ async function syncProvider(
       skipped += 1;
       continue;
     }
-    const item = externalItems.get(targetId);
     const localEpisode = row.episodeNumber ?? 0;
-    const externalEpisode = item?.progress ?? 0;
-    const maxEpisode = Math.max(localEpisode, externalEpisode);
     const completed =
-      Boolean(item?.completed) || (media.episodes != null && maxEpisode >= media.episodes);
+      row.durationSeconds != null && row.positionSeconds != null && row.durationSeconds > 0
+        ? row.positionSeconds / row.durationSeconds >= 0.95
+        : false;
     if (provider === "anilist") {
       try {
         await aniListGraphql(
@@ -382,8 +331,8 @@ async function syncProvider(
           "mutation ($mediaId: Int!, $progress: Int!, $status: MediaListStatus) { SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status) { id } }",
           {
             mediaId: media.id,
-            progress: maxEpisode,
-            status: completed ? "COMPLETED" : maxEpisode ? "CURRENT" : undefined
+            progress: localEpisode,
+            status: completed ? "COMPLETED" : "CURRENT"
           }
         );
       } catch {
@@ -400,8 +349,8 @@ async function syncProvider(
             "Content-Type": "application/x-www-form-urlencoded"
           },
           body: new URLSearchParams({
-            num_watched_episodes: String(maxEpisode),
-            ...(completed ? { status: "completed" } : maxEpisode ? { status: "watching" } : {})
+            num_watched_episodes: String(localEpisode),
+            status: completed ? "completed" : "watching"
           })
         }
       );
@@ -411,67 +360,8 @@ async function syncProvider(
       }
     }
     synced += 1;
-    if (maxEpisode > localEpisode)
-      localUpdates.push({ id: row._id, episodeNumber: maxEpisode, completed });
   }
-  return { synced, skipped, localUpdates, credential: newCredential };
-}
-
-async function loadAniListEntries(token: string) {
-  const profile = await aniListGraphql<{ Viewer?: { id?: number } }>(
-    token,
-    "query { Viewer { id } }"
-  );
-  const userId = profile.Viewer?.id;
-  if (userId == null) throw new Error("Could not identify the AniList account");
-  const listResult = await aniListGraphql<{
-    MediaListCollection?: {
-      lists?: Array<{
-        entries?: Array<{ progress?: number; status?: string; media?: { id?: number } }>;
-      }>;
-    };
-  }>(
-    token,
-    "query ($userId: Int!) { MediaListCollection(userId: $userId, type: ANIME) { lists { entries { progress status media { id } } } } }",
-    { userId }
-  );
-  const items = new Map<string, { progress: number; completed: boolean }>();
-  for (const list of listResult.MediaListCollection?.lists ?? []) {
-    for (const entry of list.entries ?? []) {
-      if (entry.media?.id != null)
-        items.set(String(entry.media.id), {
-          progress: entry.progress ?? 0,
-          completed: entry.status === "COMPLETED"
-        });
-    }
-  }
-  return items;
-}
-
-async function loadMalEntries(token: string) {
-  const items = new Map<string, { progress: number; completed: boolean }>();
-  let next: string | null =
-    "https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=1000";
-  while (next) {
-    const response: Response = await fetch(next, { headers: { Authorization: `Bearer ${token}` } });
-    if (!response.ok) throw new Error("Could not read MyAnimeList progress");
-    const result = (await response.json()) as {
-      data?: Array<{
-        node?: { id?: number };
-        list_status?: { status?: string; num_episodes_watched?: number };
-      }>;
-      paging?: { next?: string };
-    };
-    for (const entry of result.data ?? []) {
-      if (entry.node?.id != null)
-        items.set(String(entry.node.id), {
-          progress: entry.list_status?.num_episodes_watched ?? 0,
-          completed: entry.list_status?.status === "completed"
-        });
-    }
-    next = result.paging?.next ?? null;
-  }
-  return items;
+  return { synced, skipped, credential: newCredential };
 }
 
 export const getForViewer = internalQuery({
@@ -483,17 +373,6 @@ export const getForViewer = internalQuery({
         q.eq("clerkUserId", args.clerkUserId).eq("provider", args.provider)
       )
       .unique()
-});
-
-export const progressForViewer = internalQuery({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, args) =>
-    ctx.db
-      .query("mediaState")
-      .withIndex("by_clerk_watched_at", (q) =>
-        q.eq("clerkUserId", args.clerkUserId).gt("watchedAt", 0)
-      )
-      .collect()
 });
 
 export const progressEntryForViewer = internalQuery({
@@ -536,24 +415,4 @@ export const updateCredential = internalMutation({
   args: { accountId: v.id("animeAccounts"), encryptedCredential: v.string() },
   handler: (ctx, args) =>
     ctx.db.patch(args.accountId, { encryptedCredential: args.encryptedCredential })
-});
-
-export const applyProgressUpdates = internalMutation({
-  args: {
-    updates: v.array(
-      v.object({ id: v.id("mediaState"), episodeNumber: v.number(), completed: v.boolean() })
-    )
-  },
-  handler: async (ctx, { updates }) => {
-    for (const update of updates) {
-      const row = await ctx.db.get(update.id);
-      if (!row) continue;
-      await ctx.db.patch(update.id, {
-        episodeNumber: update.episodeNumber,
-        positionSeconds: update.completed ? (row.durationSeconds ?? 1) : 0,
-        durationSeconds: row.durationSeconds ?? 1,
-        watchedAt: Date.now()
-      });
-    }
-  }
 });

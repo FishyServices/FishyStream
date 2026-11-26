@@ -226,10 +226,8 @@ export function SettingsPage() {
   const finishMyAnimeListConnection = useAction(
     api.domains.accounts.animeAccounts.finishMyAnimeListConnection
   );
-  const syncAll = useAction(api.domains.accounts.animeAccounts.syncAll);
   const [searchParams, setSearchParams] = useSearchParams();
   const [connecting, setConnecting] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState<string | null>(null);
 
   useEffect(() => {
     const hash = new URLSearchParams(window.location.hash.slice(1));
@@ -390,8 +388,8 @@ export function SettingsPage() {
                   {account ? (
                     <>
                       <SettingRow
-                        label="Sync progress"
-                        description="Two-way sync for matching anime in your watch history. The higher episode count wins."
+                        label={`Sync FishyStream progress to ${label}`}
+                        description="When enabled, watching anime here sends episode progress to this account. Progress is never imported from the tracking account."
                         control={
                           <ToggleSettingControl
                             id={`${provider}-progress-sync`}
@@ -404,31 +402,6 @@ export function SettingsPage() {
                           />
                         }
                       />
-                      <div className="flex justify-end border-t border-border/60 pt-4">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="rounded-xl"
-                          disabled={syncing !== null}
-                          onClick={() => {
-                            setSyncing(provider);
-                            void syncAll({ provider })
-                              .then(({ synced, changed, skipped }) =>
-                                toast.success(
-                                  `${label}: synced ${synced} items, updated ${changed} here, skipped ${skipped} unmatched`
-                                )
-                              )
-                              .catch((error) =>
-                                toast.error(
-                                  error instanceof Error ? error.message : `${label} sync failed`
-                                )
-                              )
-                              .finally(() => setSyncing(null));
-                          }}
-                        >
-                          {syncing === provider ? "Syncing…" : "Sync all items"}
-                        </Button>
-                      </div>
                     </>
                   ) : null}
                 </div>
