@@ -384,10 +384,16 @@ export const setBookmarkFolderForEntries = viewerMutation({
     const uniqueIds = Array.from(new Set(contentIds));
     const rows = await Promise.all(uniqueIds.map((id) => locateEntry(ctx, clerkUserId, id)));
     const validRows = rows.filter((row): row is NonNullable<typeof row> => row !== null);
-    await Promise.all(validRows.map((row) => ctx.db.patch(row._id, { folder: normalized })));
+    const movedRows = validRows.filter((row) => row.folder !== normalized);
+    const movedAt = Date.now();
+    await Promise.all(
+      movedRows.map((row, index) =>
+        ctx.db.patch(row._id, { folder: normalized, addedAt: movedAt + index })
+      )
+    );
 
     const fromCounts = new Map<string | undefined, number>();
-    for (const row of validRows) fromCounts.set(row.folder, (fromCounts.get(row.folder) ?? 0) + 1);
+    for (const row of movedRows) fromCounts.set(row.folder, (fromCounts.get(row.folder) ?? 0) + 1);
     for (const [fromFolder, count] of fromCounts) {
       await moveFolderCounts(ctx, clerkUserId, fromFolder, normalized, count);
     }
@@ -445,7 +451,8 @@ export const setBookmarkFolder = viewerMutation({
     const entry = await locateEntry(ctx, clerkUserId, contentId);
     if (!entry) throw new Error("Bookmark item not found");
     const normalized = folder ? normalizeFolderName(folder) : undefined;
-    await ctx.db.patch(entry._id, { folder: normalized });
+    if (entry.folder === normalized) return;
+    await ctx.db.patch(entry._id, { folder: normalized, addedAt: Date.now() });
     await moveFolderCounts(ctx, clerkUserId, entry.folder, normalized, 1);
   }
 });

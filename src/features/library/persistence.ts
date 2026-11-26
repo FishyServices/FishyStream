@@ -11,8 +11,11 @@ export const guestBookmarkPersistence = {
     const snapshots = getBookmarkSnapshots();
     const snapshot = snapshots[contentId];
     if (!snapshot) return;
+    if (snapshot.bookmarkFolder === folder) return;
     snapshots[contentId] = { ...snapshot, bookmarkFolder: folder };
     setBookmarkSnapshots(snapshots);
+    const ids = getBookmarkIds();
+    setBookmarkIds([...ids.filter((id) => id !== contentId), contentId]);
   },
   removeMany(contentIds: readonly ContentId[]): void {
     const removed = new Set(contentIds);
@@ -24,11 +27,19 @@ export const guestBookmarkPersistence = {
   setFolderMany(contentIds: readonly ContentId[], folder?: string): void {
     const requested = new Set(contentIds);
     const snapshots = getBookmarkSnapshots();
+    const moved: ContentId[] = [];
     for (const contentId of requested) {
       const snapshot = snapshots[contentId];
-      if (snapshot) snapshots[contentId] = { ...snapshot, bookmarkFolder: folder };
+      if (snapshot && snapshot.bookmarkFolder !== folder) {
+        snapshots[contentId] = { ...snapshot, bookmarkFolder: folder };
+        moved.push(contentId);
+      }
     }
     setBookmarkSnapshots(snapshots);
+    if (moved.length > 0) {
+      const ids = getBookmarkIds();
+      setBookmarkIds([...ids.filter((id) => !requested.has(id)), ...moved]);
+    }
   }
 };
 
