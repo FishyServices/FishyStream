@@ -127,7 +127,10 @@ export const finishMyAnimeListConnection = action({
     if (!token.access_token || !token.refresh_token)
       throw new Error("MyAnimeList did not return usable credentials");
     const profileResponse = await fetch("https://api.myanimelist.net/v2/users/@me", {
-      headers: { Authorization: `Bearer ${token.access_token}` }
+      headers: {
+        Authorization: `Bearer ${token.access_token}`,
+        "X-MAL-CLIENT-ID": args.clientId
+      }
     });
     if (!profileResponse.ok) throw new Error("Could not read your MyAnimeList profile");
     const profile = (await profileResponse.json()) as { id?: number; name?: string };
@@ -157,7 +160,7 @@ type MalToken = {
 
 export const syncOne = action({
   args: { provider, contentId: v.string() },
-  handler: async (ctx, args): Promise<{ synced: number }> => {
+  handler: async (ctx, args): Promise<{ synced: number; skipped: number }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Sign in before syncing anime progress");
     const account = await ctx.runQuery(internal.domains.accounts.animeAccounts.getForViewer, {
@@ -169,7 +172,7 @@ export const syncOne = action({
       clerkUserId: identity.subject,
       contentId: args.contentId
     });
-    if (!row) return { synced: 0 };
+    if (!row) return { synced: 0, skipped: 1 };
     const matched = await syncProvider(args.provider, account.encryptedCredential, [row]);
     if (matched.credential) {
       await ctx.runMutation(internal.domains.accounts.animeAccounts.updateCredential, {
@@ -177,7 +180,7 @@ export const syncOne = action({
         encryptedCredential: matched.credential
       });
     }
-    return { synced: matched.synced };
+    return { synced: matched.synced, skipped: matched.skipped };
   }
 });
 
@@ -320,10 +323,7 @@ async function syncProvider(
       continue;
     }
     const localEpisode = row.episodeNumber ?? 0;
-    const completed =
-      row.durationSeconds != null && row.positionSeconds != null && row.durationSeconds > 0
-        ? row.positionSeconds / row.durationSeconds >= 0.95
-        : false;
+    const completed = media.episodes != null && localEpisode >= media.episodes;
     if (provider === "anilist") {
       try {
         await aniListGraphql(
@@ -346,6 +346,7 @@ async function syncProvider(
           method: "PATCH",
           headers: {
             Authorization: `Bearer ${malToken}`,
+            "X-MAL-CLIENT-ID": String(credentials.clientId),
             "Content-Type": "application/x-www-form-urlencoded"
           },
           body: new URLSearchParams({
@@ -355,8 +356,8 @@ async function syncProvider(
         }
       );
       if (!response.ok) {
-        skipped += 1;
-        continue;
+        const detail = errorDetail((await response.text()).slice(0, 400));
+        throw new Error(`MyAnimeList progress update failed (${response.status}): ${detail}`);
       }
     }
     synced += 1;

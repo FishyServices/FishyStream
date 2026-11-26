@@ -285,9 +285,21 @@ export function useUpdateProgress() {
           void syncAnimeProgress({
             provider: account.provider,
             contentId: dirtyEntry.contentId
-          }).catch(() => {
-            animeSyncStartedAtRef.current[syncKey] = 0;
-          });
+          })
+            .then(({ synced, skipped }) => {
+              if (synced === 0 && skipped > 0) {
+                console.info(
+                  `[Anime progress sync] ${account.provider}: no matching anime was found`
+                );
+              }
+            })
+            .catch((error) => {
+              animeSyncStartedAtRef.current[syncKey] = 0;
+              console.warn(
+                `[Anime progress sync] ${account.provider} failed:`,
+                error instanceof Error ? error.message : error
+              );
+            });
         }
 
         const current = storeRef.current.get(dirtyEntry.contentId);
