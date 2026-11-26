@@ -608,7 +608,7 @@ export function VideoPlayer({ content, initialSeason, initialEpisode }: VideoPla
     });
 
     setSearchParams(nextParams, { replace: true });
-    await session.setSourceByUrl(nextUrl, nextParams, providerParams);
+    await session.setSourceByUrl(nextUrl, nextParams, providerParams, playbackPositionSeconds);
   };
 
   const autoProviderSources = useMemo(

@@ -84,7 +84,8 @@ export interface PlaybackSession {
   setSourceByUrl(
     url: string,
     params?: URLSearchParams,
-    providerParams?: Record<string, boolean | string | number>
+    providerParams?: Record<string, boolean | string | number>,
+    resumePositionOverride?: number
   ): Promise<void>;
   setDub(enabled: boolean): void;
   providerIdType: ProviderIdType;
@@ -552,7 +553,8 @@ export function usePlaybackSession({
     async (
       nextUrl: string,
       params?: URLSearchParams,
-      providerParams?: Record<string, boolean | string | number>
+      providerParams?: Record<string, boolean | string | number>,
+      resumePositionOverride?: number
     ) => {
       const nextSource = sources.find((source) => source.url === nextUrl);
       if (!nextSource) return;
@@ -569,12 +571,15 @@ export function usePlaybackSession({
       });
       navigate({ search: nextSearchParams.toString() }, { replace: true });
       setResumePositionSeconds(
-        pickResumePositionSeconds(
-          content,
-          watchState,
-          lastSyncedPositionRef.current,
-          targetRef.current.season,
-          targetRef.current.episode
+        Math.max(
+          pickResumePositionSeconds(
+            content,
+            watchState,
+            lastSyncedPositionRef.current,
+            targetRef.current.season,
+            targetRef.current.episode
+          ),
+          Number.isFinite(resumePositionOverride) ? Math.floor(resumePositionOverride ?? 0) : 0
         )
       );
       setSelectedSourceUrl(nextUrl);
