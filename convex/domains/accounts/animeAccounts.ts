@@ -4,6 +4,7 @@ import type { Id } from "../../_generated/dataModel";
 import { action, internalMutation, internalQuery } from "../../_generated/server";
 import { viewerMutation, viewerQuery } from "../../lib/auth";
 import { getAniListMediaById, resolveAniListId } from "@fishy/providers/anime/anilist";
+import { parseContentId } from "@content/contentMetadata";
 import { decryptCredential, encryptCredential } from "./credentialCrypto";
 
 const provider = v.union(v.literal("anilist"), v.literal("myanimelist"));
@@ -185,6 +186,7 @@ export const syncOne = action({
 });
 
 type LocalProgress = {
+  contentId: string;
   title: string;
   seasonNumber?: number;
   episodeNumber?: number;
@@ -202,7 +204,11 @@ function isAniListRateLimit(error: unknown) {
   );
 }
 
-async function resolveAniListIdWithRetry(args: { title: string; season: number; mediaType: "tv" }) {
+async function resolveAniListIdWithRetry(args: {
+  title: string;
+  season: number;
+  mediaType: "movie" | "tv";
+}) {
   try {
     return await resolveAniListId(args);
   } catch (error) {
@@ -296,13 +302,25 @@ async function syncProvider(
       skipped += 1;
       continue;
     }
+    const contentType = parseContentId(row.contentId)?.type;
+    if (!contentType) {
+      skipped += 1;
+      continue;
+    }
+    const movieCompleted =
+      contentType === "movie" &&
+      row.positionSeconds != null &&
+      row.durationSeconds != null &&
+      row.durationSeconds > 0 &&
+      row.positionSeconds / row.durationSeconds >= 0.95;
+    if (contentType === "movie" && !movieCompleted) continue;
     let animeId: string | null;
     let media;
     try {
       animeId = await resolveAniListIdWithRetry({
         title: row.title,
         season: row.seasonNumber ?? 1,
-        mediaType: "tv"
+        mediaType: contentType
       });
       if (!animeId) {
         skipped += 1;
@@ -322,8 +340,9 @@ async function syncProvider(
       skipped += 1;
       continue;
     }
-    const localEpisode = row.episodeNumber ?? 0;
-    const completed = media.episodes != null && localEpisode >= media.episodes;
+    const localEpisode = contentType === "movie" ? 1 : (row.episodeNumber ?? 0);
+    if (localEpisode === 0) continue;
+    const completed = movieCompleted || (media.episodes != null && localEpisode >= media.episodes);
     if (provider === "anilist") {
       try {
         await aniListGraphql(

@@ -287,10 +287,13 @@ export function useUpdateProgress() {
             contentId: dirtyEntry.contentId
           })
             .then(({ synced, skipped }) => {
-              if (synced === 0 && skipped > 0) {
-                console.info(
-                  `[Anime progress sync] ${account.provider}: no matching anime was found`
-                );
+              if (synced === 0) {
+                animeSyncStartedAtRef.current[syncKey] = 0;
+                if (skipped > 0) {
+                  console.info(
+                    `[Anime progress sync] ${account.provider}: no matching anime was found`
+                  );
+                }
               }
             })
             .catch((error) => {
