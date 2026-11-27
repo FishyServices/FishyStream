@@ -442,6 +442,10 @@ export function ContentModal({
     episode?: number;
     item: AniListWatchOrderItem;
   } | null>(null);
+  const [pendingSpecialWatchOrder, setPendingSpecialWatchOrder] = useState<{
+    title: string;
+    searchTitle: string;
+  } | null>(null);
   const knownSeasonsFromTmdb = getSeasonCount(resolvedContent);
   const tmdbSeasonCount = getCanonicalSeasonCount(
     resolvedContent?.tmdbId,
@@ -489,6 +493,7 @@ export function ContentModal({
   }, [isAnimeContent, isOpen, resolvedContent?.title, resolvedContent?.year]);
   const {
     season: tmdbSeason,
+    loadedSeasonNumber: loadedTmdbSeasonNumber,
     isLoading: tmdbSeasonLoading,
     loadFillerAround
   } = useSeasonEpisodes(
@@ -667,7 +672,54 @@ export function ContentModal({
     setSelectedEpisode(ep);
   };
 
+  useEffect(() => {
+    if (
+      !pendingSpecialWatchOrder ||
+      selectedSeason !== 0 ||
+      tmdbSeasonLoading ||
+      loadedTmdbSeasonNumber !== 0
+    )
+      return;
+    const normalize = (value: string) =>
+      value
+        .toLocaleLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
+        .trim();
+    const titleCandidates = [
+      pendingSpecialWatchOrder.title,
+      ...pendingSpecialWatchOrder.title.split(/\s*:\s*/)
+    ]
+      .map(normalize)
+      .filter(Boolean);
+    const match = episodes.find((episode) => titleCandidates.includes(normalize(episode.name)));
+    setPendingSpecialWatchOrder(null);
+    if (match) {
+      setSelectedEpisode(match.episodeNumber);
+    } else {
+      onClose();
+      navigate(`/search?q=${encodeURIComponent(pendingSpecialWatchOrder.searchTitle)}`);
+    }
+  }, [
+    episodes,
+    loadedTmdbSeasonNumber,
+    navigate,
+    onClose,
+    pendingSpecialWatchOrder,
+    selectedSeason,
+    tmdbSeasonLoading
+  ]);
+
   const handleWatchOrderItem = (item: AniListWatchOrderItem) => {
+    if (isTV && hasSpecials && !item.seasonNumber) {
+      pendingWatchOrderScrollRef.current = true;
+      setPendingSpecialWatchOrder({
+        title: item.title,
+        searchTitle: item.title
+      });
+      handleSeasonChange(0);
+      setActiveTab("episodes");
+      return;
+    }
     if (isTV && item.seasonNumber) {
       if (item.seasonNumber <= totalSeasons) {
         handleSeasonChange(item.seasonNumber);

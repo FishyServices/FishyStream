@@ -1214,6 +1214,7 @@ export function useContentDetail(
 }
 
 type Season = {
+  seasonNumber: number;
   overview?: string;
   episodes: Array<{
     episodeNumber: number;
@@ -1237,6 +1238,7 @@ export function useSeasonEpisodes(
   loadImdbRatings = true
 ) {
   const [season, setSeason] = useState<Season | null | undefined>(undefined);
+  const [loadedSeasonNumber, setLoadedSeasonNumber] = useState<number | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [fillerLoading, setFillerLoading] = useState(false);
   const fillerWindows = useRef(new Set<string>());
@@ -1245,6 +1247,7 @@ export function useSeasonEpisodes(
   useEffect(() => {
     if (!enabled || !tmdbId) {
       setSeason(undefined);
+      setLoadedSeasonNumber(undefined);
       setIsLoading(false);
       return;
     }
@@ -1252,10 +1255,12 @@ export function useSeasonEpisodes(
     const cacheKey = `season:${tmdbId}:${seasonNumber}`;
     if (queryCache.has(cacheKey)) {
       setSeason(queryCache.get(cacheKey) as Season | null);
+      setLoadedSeasonNumber(seasonNumber);
       setIsLoading(false);
       return () => controller.abort();
     }
     setSeason(undefined);
+    setLoadedSeasonNumber(undefined);
     setIsLoading(true);
     ratings.current.clear();
     if (imdbId && loadImdbRatings) {
@@ -1273,6 +1278,7 @@ export function useSeasonEpisodes(
           if (value?.episodes.length) {
             const firstEpisodeNumber = value.episodes[0]?.episodeNumber ?? 1;
             const next = {
+              seasonNumber,
               overview: value.overview,
               episodes: value.episodes.map((episode) => ({
                 ...episode,
@@ -1310,6 +1316,7 @@ export function useSeasonEpisodes(
               : null;
           const episodeOffset = previousSeason?.episodes.length ?? 0;
           const next = {
+            seasonNumber,
             overview: imdbSeason.overview,
             episodes: imdbSeason.episodes.map((episode) => ({
               ...episode,
@@ -1327,7 +1334,10 @@ export function useSeasonEpisodes(
         if (!controller.signal.aborted) setSeason(null);
       })
       .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
+        if (!controller.signal.aborted) {
+          setLoadedSeasonNumber(seasonNumber);
+          setIsLoading(false);
+        }
       });
     return () => controller.abort();
   }, [enabled, imdbId, loadImdbRatings, seasonNumber, tmdbId]);
@@ -1443,6 +1453,7 @@ export function useSeasonEpisodes(
   }, [enabled, imdbId, loadImdbRatings, seasonNumber]);
   return {
     season,
+    loadedSeasonNumber,
     isLoading,
     fillerLoading,
     loadFillerAround
